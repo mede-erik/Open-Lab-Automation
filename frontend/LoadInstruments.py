@@ -7,7 +7,7 @@ class LoadInstruments:
     """
     def __init__(self):
         """Inizializza la lista strumenti vuota."""
-        self.instruments = []
+        self.instruments = {}
 
     def load_instruments(self, file_path):
         """
@@ -17,8 +17,13 @@ class LoadInstruments:
         """
         try:
             with open(file_path, 'r') as f:
-                self.instruments = json.load(f)
-                self.instruments = self.instruments['instrument_library']
+                data = json.load(f)
+                # Normalizza a dizionario con chiave 'instrument_library'
+                if isinstance(data, dict) and 'instrument_library' in data:
+                    self.instruments = data['instrument_library']
+                else:
+                    # fallback: accetta direttamente la struttura dizionario attesa
+                    self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
             print(f"File not found: {file_path}")
         except json.JSONDecodeError:
@@ -31,8 +36,7 @@ class LoadInstruments:
             list: Lista delle serie di alimentatori.
         """
         # Cerca strumenti di tipo 'power_supply' e raccoglie le loro serie
-        power_supplies_series = self.instruments.get('power_supplies_series', None)
-
+        power_supplies_series = self.instruments.get('power_supplies_series', [])
         return power_supplies_series
     
     def get_dataloggers_series(self):
@@ -42,8 +46,7 @@ class LoadInstruments:
             list: Lista delle serie di datalogger.
         """
         # Cerca strumenti di tipo 'datalogger' e raccoglie le loro serie
-        dataloggers_series = self.instruments.get('dataloggers_series', None)
-
+        dataloggers_series = self.instruments.get('dataloggers_series', [])
         return dataloggers_series
 
     def get_powersupply_list_id(self):
@@ -190,19 +193,7 @@ class LoadInstruments:
                 return series['common_scpi_commands']
         return None
     
-    def get_datalogger_common_scpi(self, series_id):
-        """
-        Recupera i comandi SCPI comuni per una serie specifica di datalogger.
-        Args:
-            series_id (str): ID della serie di datalogger.
-        Returns:
-            dict: Dizionario contenente i comandi SCPI comuni per la serie specificata.
-        """
-        dataloggers = self.get_dataloggers_series()
-        for series in dataloggers:
-            if series['series_id'] == series_id:
-                return series['common_scpi_commands']
-        return None
+    # Nota: get_datalogger_common_scpi è già definito sopra; evitare duplicati
 
     def get_powersupply_capabilities(self, model_id):
         """
@@ -381,65 +372,53 @@ class LoadInstruments:
         """
         Recupera tutte le serie disponibili per un tipo di strumento specifico.
         Args:
-            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger').
+            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger', 'oscilloscope', 'electronic_load').
         Returns:
-            list: Lista delle serie disponibili per il tipo di strumento specificato.
+            list | None: Lista delle serie disponibili per il tipo di strumento specificato.
         """
-        if type_name == 'power_supply':
-            return self.get_powersupplys_series()
-        elif type_name == 'datalogger':
-            return self.get_dataloggers_series()
-        else:
+        key_by_type = {
+            'power_supply': 'power_supplies_series',
+            'datalogger': 'dataloggers_series',
+            'oscilloscope': 'oscilloscopes_series',
+            'electronic_load': 'electronic_loads_series',
+        }
+        key = key_by_type.get(type_name)
+        if not key:
             return None
+        return self.instruments.get(key)
 
     def get_models(self, type_name, series_id):
         """
         Recupera tutti i modelli per una serie e tipo specifici.
         Args:
-            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger').
+            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger', 'oscilloscope', 'electronic_load').
             series_id (str): ID della serie di strumenti.
         Returns:
-            list: Lista dei modelli disponibili per la serie e il tipo specificati.
+            list | None: Lista dei modelli disponibili per la serie e il tipo specificati.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    return series['models']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    return series['models']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                return series.get('models')
+        return None
 
     def get_model_capabilities(self, type_name, series_id, model_id):
         """
         Recupera le capabilities di un modello specifico.
         Args:
-            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger').
+            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger', 'oscilloscope', 'electronic_load').
             series_id (str): ID della serie di strumenti.
             model_id (str): ID del modello di strumenti.
         Returns:
-            dict: Dizionario contenente le capabilities del modello specificato.
+            dict | None: Dizionario contenente le capabilities del modello specificato.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['capabilities']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['capabilities']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                for model in series.get('models', []):
+                    if model.get('id') == model_id:
+                        return model.get('capabilities')
+        return None
 
     def get_model_scpi(self, type_name, series_id, model_id):
         """
@@ -451,22 +430,15 @@ class LoadInstruments:
         Returns:
             dict: Dizionario contenente i comandi SCPI del modello specificato.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return {**model['common_scpi_commands'], **model['scpi_commands']}
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return {**model['common_scpi_commands'], **model['scpi_commands']}
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                common = series.get('common_scpi_commands', {})
+                for model in series.get('models', []):
+                    if model.get('id') == model_id:
+                        specific = model.get('scpi_commands', {})
+                        return {**common, **specific}
+        return None
 
     def get_supported_connections(self, type_name, series_id, model_id):
         """
@@ -532,34 +504,34 @@ class LoadInstruments:
         Returns:
             dict: Dizionario contenente le informazioni sullo strumento trovato.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series_id and series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model_id and model['id'] == model_id:
-                            return model
-                elif not model_id:
-                    return series
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series_id and series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model_id and model['id'] == model_id:
-                            return model
-                elif not model_id:
-                    return series
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series_id and series.get('series_id') == series_id:
+                for model in series.get('models', []):
+                    if model_id and model.get('id') == model_id:
+                        return model
+                return series
+        return None
 
     def get_all_types(self):
         """
         Restituisce tutti i tipi di strumenti disponibili nella libreria.
+        Rileva i tipi in base alle chiavi presenti nel file libreria.
         Returns:
             list: Lista dei tipi di strumenti disponibili.
         """
-        return ['power_supply', 'datalogger']
+        available = []
+        mapping = [
+            ('power_supplies_series', 'power_supply'),
+            ('dataloggers_series', 'datalogger'),
+            ('oscilloscopes_series', 'oscilloscope'),
+            ('electronic_loads_series', 'electronic_load'),
+        ]
+        for key, tname in mapping:
+            series = self.instruments.get(key)
+            if isinstance(series, list) and len(series) > 0:
+                available.append(tname)
+        return available
 
     def get_series_name(self, type_name, series_id):
         """
@@ -570,18 +542,11 @@ class LoadInstruments:
         Returns:
             str: Nome leggibile della serie.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    return series['series_name']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    return series['series_name']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                return series.get('series_name')
+        return None
 
     def get_model_name(self, type_name, series_id, model_id):
         """
@@ -593,19 +558,10 @@ class LoadInstruments:
         Returns:
             str: Nome leggibile del modello.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['name']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['name']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                for model in series.get('models', []):
+                    if model.get('id') == model_id:
+                        return model.get('name')
+        return None

@@ -49,10 +49,21 @@ class MainWindow(QMainWindow):
         
         # Initialize database connection
         self.initialize_database_connection()
-        self.load_instruments = LoadInstruments()
-        lib_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Instruments_LIB', 'instruments_lib.json')
-        self.load_instruments.load_instruments(lib_path)
+        
+        # Initialize LoadInstruments with error handling
+        try:
+            self.load_instruments = LoadInstruments()
+            lib_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Instruments_LIB', 'instruments_lib.json')
+            self.load_instruments.load_instruments(lib_path)
+            self.logger.info(f"LoadInstruments initialized successfully with library: {lib_path}")
+        except Exception as e:
+            self.logger.error(f"Error initializing LoadInstruments: {str(e)}")
+            print(f"ERRORE LoadInstruments: {str(e)}")
+            self.load_instruments = None
         self.tabs = QTabWidget()
+        # Pass load_instruments to RemoteControlTab with error checking
+        if self.load_instruments is None:
+            self.logger.warning("LoadInstruments is None, creating RemoteControlTab with empty instruments")
         self.remote_tab = RemoteControlTab(self.load_instruments)
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         self.project_files_list = QListWidget()
@@ -256,7 +267,16 @@ class MainWindow(QMainWindow):
         inst_file = self.current_project_data.get('inst_file')
         if inst_file:
             inst_path = os.path.join(self.current_project_dir, inst_file)
-            self.remote_tab.load_instruments(inst_path)
+            try:
+                self.remote_tab.load_instruments(inst_path)
+                self.logger.info(f"Instruments loaded from: {inst_path}")
+            except Exception as e:
+                error_msg = f"Errore caricamento strumenti da {inst_path}: {str(e)}"
+                self.logger.error(error_msg)
+                print(f"ERRORE: {error_msg}")
+                # Show error to user
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Errore Strumenti", error_msg)
 
     def add_project_file(self):
         """
@@ -412,8 +432,45 @@ class MainWindow(QMainWindow):
             dlg.exec_()
         elif fname.endswith('.inst'):
             dlg = InstrumentConfigDialog(file_path, self.load_instruments, self)
-            dlg.exec_()
+            # Aggiorna live mentre si salva dal dialog, se il file corrisponde al progetto aperto
+            try:
+                dlg.instruments_changed.connect(self.update_remote_control_if_current_project)
+            except Exception:
+                pass
+            if dlg.exec_() == QDialog.Accepted:
+                # Ricarica gli strumenti nel RemoteControlTab se il file corrisponde al progetto attuale
+                self.update_remote_control_if_current_project(file_path)
+            elif hasattr(dlg, 'instruments_modified') and dlg.instruments_modified:
+                # Anche se il dialog è stato chiuso senza OK, se ci sono state modifiche, aggiorna
+                self.update_remote_control_if_current_project(file_path)
         # (Other types can be added in the future)
+
+    def update_remote_control_if_current_project(self, inst_file_path):
+        """
+        Aggiorna il RemoteControlTab se il file .inst modificato appartiene al progetto corrente.
+        """
+        if not self.current_project_data or not self.current_project_dir:
+            return
+            
+        # Ottieni il file .inst del progetto corrente
+        current_inst_file = self.current_project_data.get('inst_file')
+        if not current_inst_file:
+            return
+            
+        # Costruisci il path completo del file .inst del progetto corrente
+        current_inst_path = os.path.join(self.current_project_dir, current_inst_file)
+        
+        # Confronta i path normalizzati
+        if os.path.normpath(inst_file_path) == os.path.normpath(current_inst_path):
+            # Il file modificato è quello del progetto corrente, ricarica il RemoteControlTab
+            try:
+                self.remote_tab.load_instruments(inst_file_path)
+                self.logger.info(f"RemoteControlTab aggiornato dopo modifica di: {inst_file_path}")
+                print(f"INFO: RemoteControlTab aggiornato dopo modifica strumenti")
+            except Exception as e:
+                error_msg = f"Errore aggiornamento RemoteControlTab: {str(e)}"
+                self.logger.error(error_msg)
+                print(f"ERRORE: {error_msg}")
 
     def open_instrument_library_dialog(self):
         """

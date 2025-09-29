@@ -1,5 +1,6 @@
 import os
 import json
+import traceback
 try:
     import pyvisa
     PYVISA_AVAILABLE = True
@@ -7,7 +8,7 @@ except (ImportError, ValueError) as e:
     pyvisa = None
     PYVISA_AVAILABLE = False
     print(f"PyVISA non disponibile: {e}")
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QMessageBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout
 from PyQt5.QtCore import QTimer
 from LoadInstruments import LoadInstruments
 
@@ -29,7 +30,28 @@ class RemoteControlTab(QWidget):
         Sets up the layout, measurement group, and channels container.
         """
         super().__init__()
-        self.load_instruments = load_instruments
+        self.instruments_manager = load_instruments  # Rinominato per evitare conflitti
+        
+        # Initialize logger
+        try:
+            from logger import Logger
+            self.logger = Logger()
+            self.logger.info("RemoteControlTab initialization started")
+        except Exception as e:
+            print(f"Impossibile inizializzare logger: {e}")
+            self.logger = None
+            
+        if self.instruments_manager is None:
+            msg = "ATTENZIONE: RemoteControlTab inizializzato senza LoadInstruments"
+            print(msg)
+            if self.logger:
+                self.logger.error(msg)
+        else:
+            msg = f"RemoteControlTab inizializzato con LoadInstruments: {type(self.instruments_manager)}"
+            print(msg)
+            if self.logger:
+                self.logger.info(msg)
+                
         self.main_layout = QVBoxLayout()
         self.label = QLabel('Remote control of instruments')
         self.main_layout.addWidget(self.label)
@@ -69,7 +91,17 @@ class RemoteControlTab(QWidget):
         type_name = inst.get('instrument_type', '')
         series_id = inst.get('series', '')
         model_id = inst.get('model_id', inst.get('model', ''))
-        scpi_dict = self.load_instruments.get_model_scpi(type_name, series_id, model_id)
+        
+        # Check if instruments_manager is available
+        if self.instruments_manager is None:
+            scpi_dict = None
+        else:
+            try:
+                scpi_dict = self.instruments_manager.get_model_scpi(type_name, series_id, model_id)
+            except Exception as e:
+                if self.logger:
+                    self.logger.error(f"Errore get_model_scpi: {str(e)}")
+                scpi_dict = None
         if not scpi_dict:
             # Fallback standard
             if action == 'set_voltage':
@@ -116,125 +148,215 @@ class RemoteControlTab(QWidget):
         Load instruments from the specified .inst file and create corresponding UI controls.
         :param inst_file_path: Path to the .inst file to load.
         """
-        # Clear previous controls
-        for i in reversed(range(self.channels_layout.count())):
-            widget = self.channels_layout.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
-        self.current_channel_widgets.clear()
-        # Clear measurement area
-        for i in reversed(range(self.meas_layout.count())):
-            widget = self.meas_layout.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
-        self.meas_labels.clear()
-        # Close previous VISA connections
-        for inst in self.visa_connections.values():
-            try:
-                inst.close()
-            except Exception:
-                pass
-        self.visa_connections = {}
-        if not inst_file_path or not os.path.isfile(inst_file_path):
-            return
+        msg = f"load_instruments chiamato con path: {inst_file_path}"
+        print(msg)
+        if self.logger:
+            self.logger.info(msg)
+            
         try:
+            # Clear previous controls
+            for i in reversed(range(self.channels_layout.count())):
+                widget = self.channels_layout.itemAt(i).widget()
+                if widget:
+                    widget.setParent(None)
+            self.current_channel_widgets.clear()
+            # Clear measurement area
+            for i in reversed(range(self.meas_layout.count())):
+                widget = self.meas_layout.itemAt(i).widget()
+                if widget:
+                    widget.setParent(None)
+            
+            # Stop measurement timer if exists
+            if hasattr(self, 'measurement_timer'):
+                self.measurement_timer.stop()
+                
+            self.meas_labels.clear()
+            # Close previous VISA connections
+            for inst in self.visa_connections.values():
+                try:
+                    inst.close()
+                except Exception:
+                    pass
+            self.visa_connections = {}
+            if not inst_file_path or not os.path.isfile(inst_file_path):
+                return
+            
             with open(inst_file_path, 'r', encoding='utf-8') as f:
                 inst_data = json.load(f)
-        except Exception:
-            return
-        # --- First, collect all datalogger/multimeter channels for measurement area ---
-        meas_vars = []  # [(inst, ch)]
-        for inst in inst_data.get('instruments', []):
-            if inst.get('instrument_type') in ['dataloggers', 'multimeters']:
-                for ch in inst.get('channels', []):
-                    meas_vars.append((inst, ch))
-        if meas_vars:
-            for inst, ch in meas_vars:
-                var = ch.get('measured_variable', ch.get('name', ''))
-                label = QLabel(f"{inst.get('instance_name','')} - {var}: ...")
-                self.meas_layout.addWidget(label)
-                self.meas_labels[(inst.get('instance_name',''), var)] = label
-            # Add a refresh button
-            btn = QPushButton('Refresh Measurements')
-            btn.clicked.connect(lambda: self.refresh_measurements(meas_vars))
-            self.meas_layout.addWidget(btn)
-        # --- Then, for each power supply/electronic load, create a group per instrument ---
-        for inst in inst_data.get('instruments', []):
-            if inst.get('instrument_type') in ['power_supplies', 'electronic_loads']:
-                visa_addr = inst.get('visa_address', None)
-                # --- Pulsante di connessione per strumento ---
-                conn_btn = QPushButton('Collega')
-                conn_btn.setCheckable(True)
-                conn_btn.setChecked(False)
-                conn_btn.setStyleSheet('border: 2px solid gray;')
-                def try_connect(inst=inst, btn=conn_btn):
-                    if not self.rm:
-                        btn.setStyleSheet('border: 2px solid orange;')
-                        btn.setChecked(False)
-                        btn.setToolTip("VISA non disponibile")
-                        return
-                        
+            # --- First, collect all datalogger/multimeter channels for measurement area ---
+            self.meas_vars = []  # [(inst, ch)]
+            for inst in inst_data.get('instruments', []):
+                if inst.get('instrument_type') in ['dataloggers', 'multimeters']:
+                    for ch in inst.get('channels', []):
+                        if ch.get('enabled', True):  # Solo canali abilitati
+                            self.meas_vars.append((inst, ch))
+            
+            if self.meas_vars:
+                # Crea un layout a griglia per le misure
+                from PyQt5.QtWidgets import QGridLayout
+                meas_grid = QGridLayout()
+                
+                row = 0
+                col = 0
+                max_cols = 4  # Massimo 4 misure per riga
+                
+                for inst, ch in self.meas_vars:
+                    var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
+                    unit = ch.get('unit_of_measure', 'V')  # Default V se non specificato
+                    
+                    # Crea etichetta con formato: Nome_variabile = --- unità
+                    label = QLabel(f"{var_name} = --- {unit}")
+                    label.setStyleSheet("""
+                        QLabel {
+                            border: 1px solid #ccc;
+                            padding: 8px;
+                            margin: 2px;
+                            background-color: #f9f9f9;
+                            border-radius: 4px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 12px;
+                            min-width: 150px;
+                        }
+                    """)
+                    
+                    meas_grid.addWidget(label, row, col)
+                    self.meas_labels[(inst.get('instance_name',''), var_name)] = label
+                    
+                    col += 1
+                    if col >= max_cols:
+                        col = 0
+                        row += 1
+                
+                # Crea un widget contenitore per la griglia
+                meas_widget = QWidget()
+                meas_widget.setLayout(meas_grid)
+                self.meas_layout.addWidget(meas_widget)
+                
+                # Add control buttons in horizontal layout
+                control_layout = QHBoxLayout()
+                
+                refresh_btn = QPushButton('Aggiorna Misure')
+                refresh_btn.clicked.connect(self.refresh_measurements_manual)
+                control_layout.addWidget(refresh_btn)
+                
+                # Toggle per aggiornamento automatico
+                from PyQt5.QtWidgets import QCheckBox
+                self.auto_refresh_cb = QCheckBox('Aggiornamento Automatico')
+                self.auto_refresh_cb.setChecked(True)
+                self.auto_refresh_cb.toggled.connect(self.toggle_auto_refresh)
+                control_layout.addWidget(self.auto_refresh_cb)
+                
+                # Slider per intervallo di aggiornamento
+                from PyQt5.QtWidgets import QSlider, QLabel as QLabelSlider
+                from PyQt5.QtCore import Qt
+                interval_label = QLabelSlider('Intervallo (s):')
+                control_layout.addWidget(interval_label)
+                
+                self.interval_slider = QSlider(Qt.Orientation.Horizontal)
+                self.interval_slider.setRange(1, 10)  # 1-10 secondi
+                self.interval_slider.setValue(2)  # Default 2 secondi
+                self.interval_slider.valueChanged.connect(self.update_refresh_interval)
+                control_layout.addWidget(self.interval_slider)
+                
+                self.interval_value_label = QLabelSlider('2s')
+                control_layout.addWidget(self.interval_value_label)
+                
+                control_layout.addStretch()
+                
+                control_widget = QWidget()
+                control_widget.setLayout(control_layout)
+                self.meas_layout.addWidget(control_widget)
+                
+                # Setup timer per aggiornamento automatico
+                self.measurement_timer = QTimer()
+                self.measurement_timer.timeout.connect(self.refresh_measurements_auto)
+                if self.auto_refresh_cb.isChecked():
+                    self.measurement_timer.start(2000)  # Start con 2 secondi
+                    
+            # --- Then, for each power supply/electronic load, create a group per instrument ---
+            for inst in inst_data.get('instruments', []):
+                if inst.get('instrument_type') in ['power_supplies', 'electronic_loads']:
                     visa_addr = inst.get('visa_address', None)
-                    if not visa_addr:
-                        btn.setStyleSheet('border: 2px solid red;')
-                        btn.setChecked(False)
-                        return
-                    try:
-                        instr = self.rm.open_resource(visa_addr)
-                        self.visa_connections[visa_addr] = instr
-                        btn.setStyleSheet('border: 2px solid green;')
-                        btn.setChecked(True)
-                    except Exception:
-                        btn.setStyleSheet('border: 2px solid red;')
-                        btn.setChecked(False)
-                        timer = QTimer(self)
-                        timer.setSingleShot(True)
-                        timer.timeout.connect(lambda: try_connect(inst, btn))
-                        timer.start(5000)
-                conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
-                # --- Fine pulsante connessione ---
-                # Crea un groupbox per lo strumento
-                inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
-                inst_vbox = QVBoxLayout()
-                inst_vbox.addWidget(conn_btn)
-                # Per ogni canale, aggiungi i controlli
-                for ch in inst.get('channels', []):
-                    group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
-                    group.setProperty('instrument', inst)
-                    group.setProperty('channel', ch)
-                    vbox = QVBoxLayout()
-                    # Voltage set
-                    hbox_v = QHBoxLayout()
-                    hbox_v.addWidget(QLabel('Voltage (V):'))
-                    v_edit = QLineEdit()
-                    v_edit.setPlaceholderText('Set voltage')
-                    set_v_btn = QPushButton('Set')
-                    set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
-                    hbox_v.addWidget(v_edit)
-                    hbox_v.addWidget(set_v_btn)
-                    vbox.addLayout(hbox_v)
-                    # Current set
-                    hbox_c = QHBoxLayout()
-                    hbox_c.addWidget(QLabel('Current (A):'))
-                    c_edit = QLineEdit()
-                    c_edit.setPlaceholderText('Set current')
-                    set_c_btn = QPushButton('Set')
-                    set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
-                    hbox_c.addWidget(c_edit)
-                    hbox_c.addWidget(set_c_btn)
-                    vbox.addLayout(hbox_c)
-                    # Add a read actual values button
-                    read_btn = QPushButton('Read Actual Values')
-                    read_lbl = QLabel('V: ...  I: ...')
-                    read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
-                    vbox.addWidget(read_btn)
-                    vbox.addWidget(read_lbl)
-                    group.setLayout(vbox)
-                    inst_vbox.addWidget(group)
-                    self.current_channel_widgets.append(group)
-                inst_group.setLayout(inst_vbox)
-                self.channels_layout.addWidget(inst_group)
-        self.channels_layout.addStretch()
+                    # --- Pulsante di connessione per strumento ---
+                    conn_btn = QPushButton('Collega')
+                    conn_btn.setCheckable(True)
+                    conn_btn.setChecked(False)
+                    conn_btn.setStyleSheet('border: 2px solid gray;')
+                    def try_connect(inst=inst, btn=conn_btn):
+                        if not self.rm:
+                            btn.setStyleSheet('border: 2px solid orange;')
+                            btn.setChecked(False)
+                            btn.setToolTip("VISA non disponibile")
+                            return
+                            
+                        visa_addr = inst.get('visa_address', None)
+                        if not visa_addr:
+                            btn.setStyleSheet('border: 2px solid red;')
+                            btn.setChecked(False)
+                            return
+                        try:
+                            instr = self.rm.open_resource(visa_addr)
+                            self.visa_connections[visa_addr] = instr
+                            btn.setStyleSheet('border: 2px solid green;')
+                            btn.setChecked(True)
+                        except Exception:
+                            btn.setStyleSheet('border: 2px solid red;')
+                            btn.setChecked(False)
+                            timer = QTimer(self)
+                            timer.setSingleShot(True)
+                            timer.timeout.connect(lambda: try_connect(inst, btn))
+                            timer.start(5000)
+                    conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
+                    # --- Fine pulsante connessione ---
+                    # Crea un groupbox per lo strumento
+                    inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_vbox = QVBoxLayout()
+                    inst_vbox.addWidget(conn_btn)
+                    # Per ogni canale, aggiungi i controlli
+                    for ch in inst.get('channels', []):
+                        group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
+                        group.setProperty('instrument', inst)
+                        group.setProperty('channel', ch)
+                        vbox = QVBoxLayout()
+                        # Voltage set
+                        hbox_v = QHBoxLayout()
+                        hbox_v.addWidget(QLabel('Voltage (V):'))
+                        v_edit = QLineEdit()
+                        v_edit.setPlaceholderText('Set voltage')
+                        set_v_btn = QPushButton('Set')
+                        set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
+                        hbox_v.addWidget(v_edit)
+                        hbox_v.addWidget(set_v_btn)
+                        vbox.addLayout(hbox_v)
+                        # Current set
+                        hbox_c = QHBoxLayout()
+                        hbox_c.addWidget(QLabel('Current (A):'))
+                        c_edit = QLineEdit()
+                        c_edit.setPlaceholderText('Set current')
+                        set_c_btn = QPushButton('Set')
+                        set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
+                        hbox_c.addWidget(c_edit)
+                        hbox_c.addWidget(set_c_btn)
+                        vbox.addLayout(hbox_c)
+                        # Add a read actual values button
+                        read_btn = QPushButton('Read Actual Values')
+                        read_lbl = QLabel('V: ...  I: ...')
+                        read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
+                        vbox.addWidget(read_btn)
+                        vbox.addWidget(read_lbl)
+                        group.setLayout(vbox)
+                        inst_vbox.addWidget(group)
+                        self.current_channel_widgets.append(group)
+                    inst_group.setLayout(inst_vbox)
+                    self.channels_layout.addWidget(inst_group)
+            self.channels_layout.addStretch()
+            
+        except Exception as e:
+            error_msg = f"ERRORE in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
+            print(error_msg)
+            if self.logger:
+                self.logger.error(error_msg)
+            # Error already logged - no popup needed
 
     def get_visa_instrument(self, inst):
         """
@@ -256,8 +378,10 @@ class RemoteControlTab(QWidget):
             self.visa_connections[visa_addr] = instr
             return instr
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(self, 'VISA Error', f'Cannot open {visa_addr}: {e}')
+            error_msg = f'VISA Error - Cannot open {visa_addr}: {e}'
+            print(f"ERRORE: {error_msg}")
+            if self.logger:
+                self.logger.error(error_msg)
             return None
 
     def set_voltage(self, inst, ch, edit):
@@ -275,8 +399,10 @@ class RemoteControlTab(QWidget):
             cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value)
             instr.write(cmd)
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(self, 'Set Voltage', str(e))
+            error_msg = f'Set Voltage Error: {str(e)}'
+            print(f"ERRORE: {error_msg}")
+            if self.logger:
+                self.logger.error(error_msg)
 
     def set_current(self, inst, ch, edit):
         """
@@ -293,8 +419,10 @@ class RemoteControlTab(QWidget):
             cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value)
             instr.write(cmd)
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.warning(self, 'Set Current', str(e))
+            error_msg = f'Set Current Error: {str(e)}'
+            print(f"ERRORE: {error_msg}")
+            if self.logger:
+                self.logger.error(error_msg)
 
     def read_actual(self, inst, ch, label):
         """
@@ -315,21 +443,79 @@ class RemoteControlTab(QWidget):
         except Exception as e:
             label.setText(f'Error: {e}')
 
-    def refresh_measurements(self, meas_vars):
+    def refresh_measurements_manual(self):
+        """Refresh measurements manually (called by button)."""
+        self.refresh_measurements_auto()
+    
+    def refresh_measurements_auto(self):
         """
         Refresh the measurements displayed in the UI by querying the instruments.
-        :param meas_vars: List of (instrument, channel) tuples for measurement variables.
+        Nuovo formato: <Nome variabile>=<Valore> <Unità>
         """
-        for inst, ch in meas_vars:
-            visa_addr = inst.get('visa_address', None)
+        if not hasattr(self, 'meas_vars'):
+            return
+            
+        for inst, ch in self.meas_vars:
             instr = self.get_visa_instrument(inst)
-            var = ch.get('measured_variable', ch.get('name', ''))
-            label = self.meas_labels.get((inst.get('instance_name',''), var))
-            if not instr or not label:
+            var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
+            unit = ch.get('unit_of_measure', 'V')
+            attenuation = ch.get('attenuation', 1.0)  # Default nessuna attenuazione
+            
+            label = self.meas_labels.get((inst.get('instance_name',''), var_name))
+            if not label:
                 continue
+                
+            if not instr:
+                # Strumento non connesso
+                label.setText(f"{var_name} = NC {unit}")
+                label.setStyleSheet(label.styleSheet().replace('background-color: #f9f9f9', 'background-color: #ffeeee'))
+                continue
+                
             try:
                 cmd = self.get_scpi_cmd(inst, ch, 'read_measurement')
-                val = instr.query(cmd)
-                label.setText(f"{inst.get('instance_name','')} - {var}: {val.strip()}")
+                if not cmd:
+                    label.setText(f"{var_name} = N/A {unit}")
+                    continue
+                    
+                raw_val = instr.query(cmd)
+                # Pulisce il valore e applica attenuazione
+                try:
+                    numeric_val = float(raw_val.strip())
+                    final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
+                    
+                    # Formatta il valore con precisione appropriata
+                    if abs(final_val) >= 1000:
+                        formatted_val = f"{final_val:.2f}"
+                    elif abs(final_val) >= 1:
+                        formatted_val = f"{final_val:.3f}"
+                    else:
+                        formatted_val = f"{final_val:.6f}"
+                        
+                    label.setText(f"{var_name} = {formatted_val} {unit}")
+                    label.setStyleSheet(label.styleSheet().replace('background-color: #ffeeee', 'background-color: #f9f9f9'))
+                    
+                except ValueError:
+                    # Il valore non è numerico, mostra così com'è
+                    clean_val = raw_val.strip()
+                    label.setText(f"{var_name} = {clean_val} {unit}")
+                    
             except Exception as e:
-                label.setText(f"{inst.get('instance_name','')} - {var}: Error: {e}")
+                label.setText(f"{var_name} = ERR {unit}")
+                label.setStyleSheet(label.styleSheet().replace('background-color: #f9f9f9', 'background-color: #ffeeee'))
+    
+    def toggle_auto_refresh(self, enabled):
+        """Abilita/disabilita aggiornamento automatico."""
+        if not hasattr(self, 'measurement_timer'):
+            return
+            
+        if enabled:
+            interval = self.interval_slider.value() * 1000  # Converti in ms
+            self.measurement_timer.start(interval)
+        else:
+            self.measurement_timer.stop()
+    
+    def update_refresh_interval(self, value):
+        """Aggiorna l'intervallo di refresh automatico."""
+        self.interval_value_label.setText(f"{value}s")
+        if hasattr(self, 'measurement_timer') and self.measurement_timer.isActive():
+            self.measurement_timer.setInterval(value * 1000)

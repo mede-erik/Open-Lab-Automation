@@ -343,6 +343,116 @@
             "scpi_commands": {}
           }
         ]
+      },
+            {
+        "series_id": "OWON_SPE6000_Series",
+        "series_name": "OWON SPE6000 Series",
+        "models": [
+          {
+            "id": "PSU_OWON_SPE6103",
+            "name": "OWON SPE6103",
+            "manufacturer": "OWON Technology",
+            "model": "SPE6103",
+            "documentation_path": "docs/OWON/SPE6000_Series/SPE6103_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 1,
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Channel 1 (0-60V/10A)",
+                  "voltage_output": { "min": 0.0, "max": 60.0, "resolution": 3, "units": "V" },
+                  "current_output": { "min": 0.0, "max": 10.0, "resolution": 3, "units": "A" }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true,
+              "trigger_output": false
+            },
+            "scpi_commands": {
+              "set_voltage": "VOLT {value}",
+              "set_current": "CURR {value}",
+              "read_voltage": "MEAS:VOLT?",
+              "read_current": "MEAS:CURR?",
+              "output_on": "OUTP ON",
+              "output_off": "OUTP OFF"
+            }
+          }
+        ]
+      },
+      {
+        "series_id": "OWON_ODP_Series",
+        "series_name": "OWON ODP Series",
+        "models": [
+          {
+            "id": "PSU_OWON_ODP3033",
+            "name": "OWON ODP3033",
+            "manufacturer": "OWON Technology",
+            "model": "ODP3033",
+            "documentation_path": "docs/OWON/ODP_Series/ODP_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Channel 1 (30V/3A)",
+                  "voltage_output": { "min": 0.0, "max": 30.0, "resolution": 3, "units": "V" },
+                  "current_output": { "min": 0.0, "max": 3.0, "resolution": 3, "units": "A" }
+                },
+                {
+                  "channel_id": "CH2",
+                  "label": "Channel 2 (30V/3A)",
+                  "voltage_output": { "min": 0.0, "max": 30.0, "resolution": 3, "units": "V" },
+                  "current_output": { "min": 0.0, "max": 3.0, "resolution": 3, "units": "A" }
+                },
+                {
+                  "channel_id": "CH3",
+                  "label": "Channel 3 (5V/3A - Fixed/Variable)",
+                  "voltage_output": { "min": 0.0, "max": 5.0, "resolution": 3, "units": "V" },
+                  "current_output": { "min": 0.0, "max": 3.0, "resolution": 3, "units": "A" }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true,
+              "trigger_output": false
+            },
+            "scpi_commands": {
+              "select_channel": "INST:SEL CH{channel_number}",
+              "set_voltage": "VOLT {value}",
+              "set_current": "CURR {value}",
+              "read_voltage": "MEAS:VOLT?",
+              "read_current": "MEAS:CURR?",
+              "apply_voltage_all": "APP:VOLT {value1},{value2},{value3}",
+              "apply_current_all": "APP:CURR {value1},{value2},{value3}",
+              "read_voltage_all": "MEAS:VOLT:ALL?",
+              "read_current_all": "MEAS:CURR:ALL?",
+              "output_on_all": "OUTP ON",
+              "output_off_all": "OUTP OFF"
+            }
+          }
+        ]
       }
     ],
     "dataloggers_series": [
