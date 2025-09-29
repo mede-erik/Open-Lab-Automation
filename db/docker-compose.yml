@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    restart: always
+    environment:
+      POSTGRES_USER: dcdc_app
+      POSTGRES_PASSWORD: dcdc_password_secure
+      POSTGRES_DB: dcdc_measurements
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]

@@ -1,0 +1,36 @@
+# GUI Framework
+PyQt5>=5.15.0
+
+# Database connectivity
+psycopg2-binary>=2.9.0
+
+# Instrument communication
+pyvisa>=1.11.0
+pyvisa-py>=0.5.0
+
+# Scientific computing and data processing
+numpy>=1.21.0
+
+# Logging (optional, could use built-in logging)
+# Custom logger module is included in the project
+
+# Standard library modules used (no installation needed):
+# - json
+# - os
+# - uuid  
+# - datetime
+# - sys
+# - typing
+# - contextlib
+# - decimal
+
+# Development and testing (optional)
+pytest>=6.0.0
+pytest-qt>=4.0.0
+
+# Code formatting and linting (optional)
+black>=21.0.0
+flake8>=3.9.0
+
+# Documentation (optional)
+sphinx>=4.0.0

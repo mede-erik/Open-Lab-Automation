@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compila backend C",
+            "type": "shell",
+            "command": "gcc backend/backend.c -o backend/backend.exe",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Avvia frontend Python",
+            "type": "shell",
+            "command": "python frontend/main.py",
+            "group": "test",
+            "problemMatcher": []
+        }
+    ]
+}
