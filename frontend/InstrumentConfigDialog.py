@@ -83,7 +83,7 @@ class InstrumentConfigDialog(QDialog):
         # Instrument list
         self.list_widget = QListWidget()
         for inst in self.instruments:
-            name = inst.get('name', 'Strumento')
+            name = inst.get('instance_name', inst.get('name', 'Strumento'))
             self.list_widget.addItem(name)
         self.list_widget.currentRowChanged.connect(self.on_instrument_selected)
         
@@ -185,7 +185,7 @@ class InstrumentConfigDialog(QDialog):
         if current_row < 0 or current_row >= len(self.instruments):
             return
             
-        instrument_name = self.instruments[current_row].get('name', 'Strumento')
+        instrument_name = self.instruments[current_row].get('instance_name', self.instruments[current_row].get('name', 'Strumento'))
         
         # Chiedi conferma
         reply = QMessageBox.question(
@@ -238,7 +238,7 @@ class InstrumentConfigDialog(QDialog):
         self.clear_editor()
         form = QFormLayout()
         # Nome assegnato
-        name_edit = QLineEdit(inst.get('name', ''))
+        name_edit = QLineEdit(inst.get('instance_name', inst.get('name', '')))
         name_edit.textChanged.connect(lambda val: self.on_name_changed(val))
         form.addRow("Nome strumento", name_edit)
         # Address editor
@@ -246,15 +246,15 @@ class InstrumentConfigDialog(QDialog):
         addr_btn.clicked.connect(self.open_address_editor)
         form.addRow("Indirizzo", addr_btn)
         # Mostra indirizzo attuale
-        addr_label = QLabel(inst.get('address', ''))
+        addr_label = QLabel(inst.get('visa_address', inst.get('address', '')))
         form.addRow("VISA Address", addr_label)
         self.addr_label = addr_label
         # Tipo strumento
-        type_label = QLabel(inst.get('type', ''))
+        type_label = QLabel(inst.get('instrument_type', inst.get('type', '')))
         form.addRow("Tipo", type_label)
         self.editor_layout.addLayout(form)
         # Editor specifico per tipo
-        t = inst.get('type', '').lower()
+        t = inst.get('instrument_type', inst.get('type', '')).lower()
         if t in ['power_supply', 'alimentatore']:
             self.show_channel_table(inst, is_power=True)
         elif t in ['electronic_load', 'carico_elettronico']:
@@ -271,7 +271,7 @@ class InstrumentConfigDialog(QDialog):
 
     def on_name_changed(self, val):
         if self.current_instrument is not None:
-            self.current_instrument['name'] = val
+            self.current_instrument['instance_name'] = val
             self.save_instruments()
             self.list_widget.currentItem().setText(val)
 
@@ -281,8 +281,8 @@ class InstrumentConfigDialog(QDialog):
         dlg = AddressEditorDialog(self.current_instrument, self.load_instruments, self)
         if dlg.exec_() == QDialog.Accepted:
             # Aggiorna indirizzo
-            self.current_instrument['address'] = dlg.get_address()
-            self.addr_label.setText(self.current_instrument['address'])
+            self.current_instrument['visa_address'] = dlg.get_address()
+            self.addr_label.setText(self.current_instrument['visa_address'])
             self.save_instruments()
 
     def open_network_scan_dialog(self):
@@ -418,7 +418,7 @@ class InstrumentConfigDialog(QDialog):
             if item is None:
                 return
             addr = item.text()
-            self.current_instrument['address'] = addr
+            self.current_instrument['visa_address'] = addr
             if hasattr(self, 'addr_label'):
                 self.addr_label.setText(addr)
             self.save_instruments()
@@ -431,7 +431,7 @@ class InstrumentConfigDialog(QDialog):
     def show_channel_table(self, inst, is_power=False, is_multimeter=False):
         # Ricava info capabilities dal modello selezionato
         model_id = inst.get('model_id')
-        type_name = inst.get('type', '').lower()
+        type_name = inst.get('instrument_type', inst.get('type', '')).lower()
         series_id = inst.get('series', '')
         model_caps = self.load_instruments.get_model_capabilities(type_name, series_id, model_id)
         n = model_caps.get('number_of_channels', inst.get('num_channels', 0)) if model_caps else inst.get('num_channels', 0)
@@ -620,8 +620,8 @@ class InstrumentConfigDialog(QDialog):
                 or guessed_num_channels
             )
             new_inst = {
-                'type': t,
-                'name': name,
+                'instrument_type': t,
+                'instance_name': name,
                 'series': series,
                 'model': model,
                 'model_id': model_id,
