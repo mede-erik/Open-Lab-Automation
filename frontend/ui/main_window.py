@@ -784,7 +784,8 @@ class MainWindow(QMainWindow):
             dlg = EffFileDialog(file_path, self.translator, self.current_project_data, self)
             dlg.exec()
         elif fname.endswith('.was'):
-            dlg = WasFileDialog(file_path, self.translator, self)
+            # Passa i dati del progetto per recuperare i canali dell'oscilloscopio
+            dlg = WasFileDialog(file_path, self.translator, self.current_project_data, self)
             dlg.exec()
         elif fname.endswith('.inst'):
             if self.load_instruments is None:

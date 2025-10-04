@@ -102,9 +102,6 @@ class InstrumentLibraryDialog(QDialog):
             from frontend.ui.DataloggerInstrumentDialog import DataloggerInstrumentDialog
             dialog = DataloggerInstrumentDialog(self.load_instruments, self.translator, self)
         elif instrument_type == "oscilloscopes":
-            # TODO: Implementare OscilloscopeInstrumentDialog
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.information(self, self.translator.get("info", "Info"), self.translator.get("oscilloscope_dialog_dev", "Dialog per oscilloscopi in sviluppo. Usa il dialog generico per ora."))
             from frontend.ui.AddInstrumentDialog import AddInstrumentDialog
             dialog = AddInstrumentDialog(self.load_instruments, self.translator, self)
         else:

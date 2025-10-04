@@ -8,6 +8,7 @@ from frontend.ui.AddressEditorDialog import AddressEditorDialog
 from frontend.core.Translator import Translator   
 from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
 from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
+from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
 from ui.DataloggerConfigDialog import DataloggerConfigDialog
 from core.LoadInstruments import LoadInstruments
 
@@ -268,8 +269,50 @@ class InstrumentConfigDialog(QDialog):
         elif t in ['multimeter', 'multimeters', 'multimetro', 'multimetri']:
             self.show_channel_table(inst, is_power=False, is_multimeter=True)
         elif t in ['oscilloscope', 'oscilloscopes', 'oscilloscopio', 'oscilloscopi']:
-            # Solo address
-            pass
+            # Mostra pulsante per aprire il dialog di configurazione canali oscilloscopio
+            self.show_oscilloscope_config_button(inst)
+
+    def show_oscilloscope_config_button(self, inst):
+        """Mostra un pulsante per configurare i canali dell'oscilloscopio"""
+        # Info label
+        info_label = QLabel("🔧 Configura i canali dell'oscilloscopio per abilitare/disabilitare canali, assegnare nomi ai segnali e impostare le scale Volt/div.")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #f0f0f0; border-radius: 5px; }")
+        self.editor_layout.addWidget(info_label)
+        
+        # Pulsante per aprire OscilloscopeConfigDialog
+        config_btn = QPushButton("⚙️ Configura Canali Oscilloscopio")
+        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.clicked.connect(lambda: self.open_oscilloscope_config_dialog(inst))
+        self.editor_layout.addWidget(config_btn)
+        
+        # Mostra riepilogo canali configurati
+        channels = inst.get('channels', [])
+        if channels:
+            summary_label = QLabel(f"📊 Canali configurati: {len(channels)} totali")
+            enabled_count = sum(1 for ch in channels if ch.get('enabled', False))
+            summary_label.setText(f"📊 Canali configurati: {len(channels)} totali, {enabled_count} abilitati")
+            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            self.editor_layout.addWidget(summary_label)
+            
+            # Lista canali abilitati
+            if enabled_count > 0:
+                enabled_list = QLabel("Canali abilitati: " + ", ".join([
+                    f"{ch.get('channel_id', '?')} ({ch.get('name', 'N/A')})" 
+                    for ch in channels if ch.get('enabled', False)
+                ]))
+                enabled_list.setWordWrap(True)
+                enabled_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                self.editor_layout.addWidget(enabled_list)
+
+    def open_oscilloscope_config_dialog(self, inst):
+        """Apre il dialog di configurazione canali oscilloscopio"""
+        dlg = OscilloscopeConfigDialog(inst, self.translator, self)
+        if dlg.exec():
+            # Aggiorna l'interfaccia dopo la configurazione
+            self.save_instruments()
+            # Ricarica l'editor per mostrare il riepilogo aggiornato
+            self.show_instrument_editor(inst)
 
     def show_channel_table(self, inst, is_power=False, is_multimeter=False):
         """Mostra la tabella dei canali per lo strumento corrente"""

@@ -24,7 +24,36 @@
       "model": "Rigol DS1054Z",
       "model_id": "OSC_Rigol_DS1054Z",
       "num_channels": 4,
-      "channels": [],
+      "channels": [
+        {
+          "enabled": true,
+          "name": "Vd_Q1",
+          "channel_id": "CH1",
+          "volt_per_div": "10V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": true,
+          "name": "Vs_Q1",
+          "channel_id": "CH2",
+          "volt_per_div": "10V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH3",
+          "channel_id": "CH3",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH4",
+          "channel_id": "CH4",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        }
+      ],
       "visa_address": "TCPIP0::192.168.1.104::INSTR"
     }
   ]

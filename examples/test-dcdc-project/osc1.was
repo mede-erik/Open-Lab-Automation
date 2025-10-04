@@ -1,0 +1,22 @@
+{
+  "type": "oscilloscope_settings",
+  "channels": [
+    {
+      "channel_id": "CH1",
+      "name": "Vd_Q1",
+      "enabled": true,
+      "volt_per_div": "10V",
+      "probe_attenuation": 1.0
+    },
+    {
+      "channel_id": "CH2",
+      "name": "Vs_Q1",
+      "enabled": true,
+      "volt_per_div": "10V",
+      "probe_attenuation": 1.0
+    }
+  ],
+  "settings": {
+    "time_per_div": 100.0
+  }
+}

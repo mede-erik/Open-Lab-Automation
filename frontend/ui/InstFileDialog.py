@@ -6,6 +6,7 @@ from Translator import Translator
 from PowerSupplyConfigDialog import PowerSupplyConfigDialog
 from ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from DataloggerConfigDialog import DataloggerConfigDialog
+from OscilloscopeConfigDialog import OscilloscopeConfigDialog
 from PyQt6.QtWidgets import QListWidgetItem, QHBoxLayout, QWidget
 from LoadInstruments import LoadInstruments
 
@@ -304,6 +305,8 @@ class InstFileDialog(QDialog):
             dlg = ElectronicLoadConfigDialog(inst, self)
         elif inst.get('instrument_type') == 'datalogger':
             dlg = DataloggerConfigDialog(inst, self)
+        elif inst.get('instrument_type') == 'oscilloscopes':
+            dlg = OscilloscopeConfigDialog(inst, self.translator, self)
         else:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, self.translator.t('error'), self.translator.t('unknown_instrument_type') if hasattr(self.translator, 't') else 'Tipo strumento sconosciuto')

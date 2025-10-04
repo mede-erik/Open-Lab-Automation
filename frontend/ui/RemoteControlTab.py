@@ -296,12 +296,27 @@ class RemoteControlTab(QWidget):
             
             with open(inst_file_path, 'r', encoding='utf-8') as f:
                 inst_data = json.load(f)
-            # --- First, collect all datalogger/multimeter channels for measurement area ---
+            
+            # DEBUG: Stampa tutti gli strumenti caricati
+            print(f"\n=== DEBUG: Strumenti caricati da {inst_file_path} ===")
+            for idx, inst in enumerate(inst_data.get('instruments', [])):
+                print(f"  [{idx}] {inst.get('instance_name', 'N/A')} - Tipo: {inst.get('instrument_type', 'N/A')}")
+                print(f"       Canali: {len(inst.get('channels', []))}")
+                for ch_idx, ch in enumerate(inst.get('channels', [])):
+                    print(f"         [{ch_idx}] {ch.get('name', 'N/A')} - Enabled: {ch.get('enabled', False)}")
+            print("=" * 50 + "\n")
+            
+            # --- First, collect all datalogger/multimeter/oscilloscope channels for measurement area ---
             self.meas_vars = []  # [(inst, ch)]
             for inst in inst_data.get('instruments', []):
                 if inst.get('instrument_type') in ['dataloggers', 'multimeters']:
                     for ch in inst.get('channels', []):
                         if ch.get('enabled', True):  # Solo canali abilitati
+                            self.meas_vars.append((inst, ch))
+                # Aggiungi anche i canali degli oscilloscopi abilitati
+                elif inst.get('instrument_type') == 'oscilloscopes':
+                    for ch in inst.get('channels', []):
+                        if ch.get('enabled', False):  # Solo canali esplicitamente abilitati
                             self.meas_vars.append((inst, ch))
             
             if self.meas_vars:
@@ -314,8 +329,13 @@ class RemoteControlTab(QWidget):
                 max_cols = 4  # Massimo 4 misure per riga
                 
                 for inst, ch in self.meas_vars:
-                    var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
-                    unit = ch.get('unit_of_measure', 'V')  # Default V se non specificato
+                    # Per oscilloscopi, usa il nome del canale direttamente
+                    if inst.get('instrument_type') == 'oscilloscopes':
+                        var_name = ch.get('name', ch.get('channel_id', 'Unknown'))
+                        unit = 'V'  # Gli oscilloscopi misurano sempre tensioni
+                    else:
+                        var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
+                        unit = ch.get('unit_of_measure', 'V')  # Default V se non specificato
                     
                     # Crea etichetta con formato: Nome_variabile = --- unità
                     label = QLabel(f"{var_name} = --- {unit}")

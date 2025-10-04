@@ -238,3 +238,6 @@ test_*.py
 debug_*.py
 
 *_old.py
+
+*.backup
+*.bak
