@@ -11,9 +11,15 @@
         {
             "label": "Avvia frontend Python",
             "type": "shell",
-            "command": "python frontend/main.py",
+            "command": "python frontend/launcher.py",
             "group": "test",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            }
         }
     ]
 }

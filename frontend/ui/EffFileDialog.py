@@ -1,6 +1,6 @@
 import json
-from PyQt5.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel , QLineEdit, QPushButton, QTextEdit, QComboBox
-from PyQt5.QtCore import Qt 
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel , QLineEdit, QPushButton, QTextEdit, QComboBox, QMessageBox
+from PyQt6.QtCore import Qt 
 
 # =========================
 # EffFileDialog
@@ -21,7 +21,7 @@ class EffFileDialog(QDialog):
         self.file_path = file_path
         self.setWindowTitle(self.translator.t('edit_eff_file'))
         self.setModal(True)
-        import PyQt5.QtWidgets as QtW
+        import PyQt6.QtWidgets as QtW
         # Main horizontal layout: left parameters, right JSON editor
         main_layout = QtW.QHBoxLayout()
         # --- Left section: Vin Sweep parameters ---
@@ -242,7 +242,6 @@ class EffFileDialog(QDialog):
                 json.dump(data, f, indent=2)
             self.accept()
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, self.translator.t('error'), str(e))
 
 

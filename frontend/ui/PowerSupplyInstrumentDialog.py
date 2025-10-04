@@ -2,12 +2,12 @@
 
 import json
 import os
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
                              QButtonGroup, QWidget, QScrollArea, QCheckBox,
                              QMessageBox)
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 class PowerSupplyInstrumentDialog(QDialog):
     """Dialog specifico per la configurazione di alimentatori"""

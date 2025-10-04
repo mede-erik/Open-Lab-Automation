@@ -4,10 +4,5 @@
 
 - Tutte le variabili di misura che vengono misuratre dai datalogger o multimetro verrano visualizatte in un riquadro nella parte alta del pannello di controllo, visualizando <Nome varibile di misura>=<Valore> <Unita di misura>
 
-# panello configurazione strumenti
-
-- ricostruendo da zero la dialogbox che configura gli struemnti, al interno di questa dialogbox deve essere presnete una lista degli strumenti contenti nel file con il relativo nome assegnaito posta sul lato sinistro della dialogbox, sulla sinsitra sara prensente linterfaccia che permette la selezione del tipo di strumento, per ogni tipo di strumento linterfaccia dovra variare, I parametri che sarrano uguali per tutti sono nome da assegnaire allo strumento, un pulsante addres editor che aprira un ulteriore dialogbox che permettera di selezionare il tipo di conessione (LXI,USB,GPIB) relativa allo strumento selezioanto, in questa box ci sara i campi nsesserari per compilare lindirzzo, per esempio se lutente selziona lxi la dialog box dovra richiedere lindirizzo ip dello strumento e una volta inserito compilare la stringa del indirizzo, le indicazione su questa stringa sono oncluse nel libraria delgi strumenti, poi per gli alimentatori mostra una tabella con i vari canali al interno di questa tabella avremo sulle righe il canale poi una spunta per abilitare luso del canale , il nome dela varibile di controllo che dovra essere inserita nel file di del progetto sotto la voce variabili di controllo, e un valore di limitazione massima della corrente. Per il datalogger mostra una tabella con i vari canali al interno di questa tabella avremo sulle righe il canale poi una spunta per abilitare luso del canale , il nome dela varibile di misura, tipo di misura, attenuazione (valore che verra diviso al valore letto dal datalogger), unita di misura, e tempo di integrazione, per il carico elletronico linterfaccia e identica a quella del alimentatore, per il multimetro linterfaccia e uguale a quella del multimetro, per losciloscopio inserisci solo la configurazione del ip come spiegato prima. ad ogni singolo valore modificato il file deve essere aggioranto in modo da evitare perdite di dati in caso dichiusure anomale.
-
-
-ip for test: TCPIP0::192.168.1.101::inst0::INSTR DL_T004
-
+# Database:
+-ogni progetto e un database, ogni efficenza e una tabella composta da le variabili della misura (stringa) che servono al utente per riconoscere la misura, e un array annidati a secondo delle varibili di sweep (gli array sono in double)

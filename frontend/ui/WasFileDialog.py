@@ -1,6 +1,6 @@
 import json
-from PyQt5.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QMessageBox
+from PyQt6.QtCore import Qt
 
 # =========================
 # WasFileDialog
@@ -17,7 +17,7 @@ class WasFileDialog(QDialog):
         :param parent: Widget genitore.
         """
         super().__init__(parent)
-        from PyQt5.QtWidgets import QLineEdit, QFormLayout, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton
+        from PyQt6.QtWidgets import QLineEdit, QFormLayout, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton
         self.translator = translator
         self.file_path = file_path
         self.setWindowTitle(self.translator.t('edit_was_file'))
@@ -148,6 +148,5 @@ class WasFileDialog(QDialog):
                 json.dump(self.data, f, indent=2)
             self.accept()
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, self.translator.t('error'), str(e))
 

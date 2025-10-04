@@ -13,8 +13,8 @@ class Translator:
         :param default_lang: Default language code.
         """
         if lang_dir is None:
-            # Absolute path to the lang folder inside frontend
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            # Absolute path to the lang folder inside frontend (parent directory of core)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             lang_dir = os.path.join(base_dir, 'lang')
         self.lang_dir = lang_dir
         self.translations = {}

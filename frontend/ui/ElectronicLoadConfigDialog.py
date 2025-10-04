@@ -1,9 +1,9 @@
 import sys
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QDialogButtonBox, QCheckBox, QLineEdit, QLabel
-from PyQt5.QtGui import QDoubleValidator
-from PyQt5.QtCore import Qt 
-from AddressEditorDialog import AddressEditorDialog
-from Translator import Translator
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QDialogButtonBox, QCheckBox, QLineEdit, QLabel
+from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtCore import Qt 
+from frontend.ui.AddressEditorDialog import AddressEditorDialog
+from frontend.core.Translator import Translator
 import json
 
 class ElectronicLoadConfigDialog(QDialog):

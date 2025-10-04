@@ -10,9 +10,9 @@
       "channels": [
         {
           "enabled": true,
-          "name": "CH1",
+          "name": "Vaux",
           "max_current": 10.0,
-          "max_voltage": 30.0
+          "max_voltage": 10.0
         }
       ],
       "visa_address": "TCPIP0::192.168.1.100::INSTR"

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QComboBox, QGroupBox, QTextEdit)
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 class InstrumentTypeSelectionDialog(QDialog):
     """Dialog per la selezione del tipo di strumento da aggiungere"""

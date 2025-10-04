@@ -5,16 +5,17 @@ This module provides a GUI for configuring database connection parameters
 and testing connectivity.
 """
 
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QLineEdit, QSpinBox, QPushButton, QLabel, QTextEdit,
-                             QMessageBox, QGroupBox, QCheckBox, QProgressBar)
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
-from PyQt5.QtGui import QFont
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
+                             QPushButton, QLineEdit, QComboBox, QLabel, 
+                             QMessageBox, QProgressBar, QGroupBox, QSpinBox, 
+                             QCheckBox, QTextEdit)
+from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from PyQt6.QtGui import QFont
 import json
 import os
 from typing import Dict, Any
-from database import DatabaseManager
-from logger import Logger
+from core.database import DatabaseManager
+from core.logger import Logger
 
 
 class DatabaseTestThread(QThread):
@@ -129,7 +130,7 @@ class DatabaseConfigDialog(QDialog):
         conn_layout.addRow("Username:", self.username_edit)
         
         self.password_edit = QLineEdit()
-        self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
         conn_layout.addRow("Password:", self.password_edit)
         
         # SSL mode checkbox
@@ -336,10 +337,10 @@ class DatabaseConfigDialog(QDialog):
         reply = QMessageBox.question(
             self, "Initialize Schema",
             "This will create database tables and indexes.\nAre you sure you want to continue?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             try:
                 self.schema_status.append("Initializing database schema...")
                 success = self.db_manager.initialize_database()

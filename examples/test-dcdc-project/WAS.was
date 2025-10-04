@@ -1,7 +1,0 @@
-{
-  "type": "oscilloscope_settings",
-  "settings": {
-    "time_per_div": 9.999999999999999e-05,
-    "volt_per_div": 2.0
-  }
-}

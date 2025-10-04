@@ -8,9 +8,10 @@ except (ImportError, ValueError) as e:
     pyvisa = None
     PYVISA_AVAILABLE = False
     print(f"PyVISA non disponibile: {e}")
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout
-from PyQt5.QtCore import QTimer
-from LoadInstruments import LoadInstruments
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
+from PyQt6.QtCore import QTimer, Qt
+from frontend.core.LoadInstruments import LoadInstruments
+from frontend.core.errorhandler import ErrorHandler, VISAError, UIError, ErrorCode
 
 
 # =========================
@@ -32,14 +33,17 @@ class RemoteControlTab(QWidget):
         super().__init__()
         self.instruments_manager = load_instruments  # Rinominato per evitare conflitti
         
-        # Initialize logger
+        # Initialize logger and error handler
         try:
-            from logger import Logger
+            from core.logger import Logger
             self.logger = Logger()
             self.logger.info("RemoteControlTab initialization started")
         except Exception as e:
             print(f"Impossibile inizializzare logger: {e}")
             self.logger = None
+            
+        # Initialize error handler
+        self.error_handler = ErrorHandler()
             
         if self.instruments_manager is None:
             msg = "ATTENZIONE: RemoteControlTab inizializzato senza LoadInstruments"
@@ -67,21 +71,121 @@ class RemoteControlTab(QWidget):
         self.setLayout(self.main_layout)
         self.current_channel_widgets = []  # Stores references to current channel widgets
         
-        # Initialize VISA resource manager if available
+        # Initialize VISA resource manager with lazy loading to avoid segmentation fault
+        self.rm = None
+        self._visa_init_attempted = False
+        
         if PYVISA_AVAILABLE and pyvisa is not None:
-            try:
-                self.rm = pyvisa.ResourceManager('@py')  # Use pyvisa-py backend
-            except Exception as e:
-                try:
-                    self.rm = pyvisa.ResourceManager()  # Try default backend
-                except Exception as e2:
-                    print(f"Errore inizializzazione VISA: {e2}")
-                    self.rm = None
+            print("PyVISA disponibile - inizializzazione VISA rimandata al primo utilizzo")
         else:
-            self.rm = None
+            print("PyVISA non disponibile - controllo strumenti disabilitato")
         
         self.visa_connections = {}  # Stores active VISA connections
         self.meas_labels = {}  # Stores measurement labels for dataloggers
+        self.connection_timers = {}  # Stores connection retry timers
+
+    def _ensure_visa_initialized(self):
+        """
+        Inizializza il VISA resource manager solo quando necessario (lazy loading).
+        Questo evita segmentation fault durante l'avvio dell'applicazione.
+        """
+        if self._visa_init_attempted:
+            return self.rm is not None
+            
+        self._visa_init_attempted = True
+        
+        if not PYVISA_AVAILABLE or pyvisa is None:
+            print("PyVISA non disponibile")
+            return False
+            
+        try:
+            print("Inizializzazione lazy del VISA resource manager...")
+            # Prova prima con backend sicuro @py
+            try:
+                self.rm = pyvisa.ResourceManager('@py')
+                print("✓ VISA resource manager inizializzato con backend @py")
+                return True
+            except Exception as e:
+                print(f"Backend @py fallito: {e}")
+                # Fallback al backend di default
+                try:
+                    self.rm = pyvisa.ResourceManager()
+                    print("✓ VISA resource manager inizializzato con backend di default")
+                    return True
+                except Exception as e2:
+                    print(f"Backend di default fallito: {e2}")
+                    
+        except Exception as e:
+            print(f"✗ Errore inizializzazione VISA: {e}")
+            
+        self.rm = None
+        print("Controllo strumenti disabilitato - problemi con PyVISA")
+        return False
+
+    def safe_retry_connection(self, inst, btn, timer_key):
+        """
+        Metodo sicuro per ritentare la connessione che verifica se il button esiste ancora.
+        """
+        try:
+            # Verifica se il button è ancora valido
+            if btn is None or not hasattr(btn, 'setStyleSheet'):
+                # Il button è stato eliminato, rimuovi il timer
+                if timer_key in self.connection_timers:
+                    self.connection_timers[timer_key].stop()
+                    del self.connection_timers[timer_key]
+                return
+            
+            # Prova a connetterti di nuovo
+            if not self._ensure_visa_initialized():
+                btn.setStyleSheet('border: 2px solid orange;')
+                btn.setChecked(False)
+                btn.setToolTip("VISA non disponibile")
+                return
+                
+            visa_addr = inst.get('visa_address', None)
+            if not visa_addr:
+                btn.setStyleSheet('border: 2px solid red;')
+                btn.setChecked(False)
+                return
+                
+            try:
+                instr = self.rm.open_resource(visa_addr)
+                self.visa_connections[visa_addr] = instr
+                btn.setStyleSheet('border: 2px solid green;')
+                btn.setChecked(True)
+                # Connessione riuscita, rimuovi il timer
+                if timer_key in self.connection_timers:
+                    self.connection_timers[timer_key].stop()
+                    del self.connection_timers[timer_key]
+            except Exception as e:
+                btn.setStyleSheet('border: 2px solid red;')
+                btn.setChecked(False)
+                # Log error using centralized error handler (no dialog for retry attempts)
+                self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}")
+                # Mantieni il timer per riprovare
+                    
+        except Exception as e:
+            # Gestisci qualsiasi errore inaspettato, inclusi crash UI
+            try:
+                # Usa il sistema di gestione errori centralizzato
+                if "wrapped C/C++ object" in str(e) and "has been deleted" in str(e):
+                    self.error_handler.handle_ui_error(e, "retry connection timer")
+                else:
+                    self.error_handler.handle_error(e, "Unexpected error in connection retry", show_dialog=False)
+            except:
+                # Fallback se anche l'error handler fallisce
+                if self.logger:
+                    self.logger.error(f"Errore in safe_retry_connection: {e}")
+                else:
+                    print(f"Errore in safe_retry_connection: {e}")
+                    
+            # Rimuovi il timer in caso di errore grave
+            if timer_key in self.connection_timers:
+                try:
+                    self.connection_timers[timer_key].stop()
+                    del self.connection_timers[timer_key]
+                except:
+                    pass
 
     def get_scpi_cmd(self, inst, ch, action):
         """
@@ -170,6 +274,15 @@ class RemoteControlTab(QWidget):
             if hasattr(self, 'measurement_timer'):
                 self.measurement_timer.stop()
                 
+            # Clear connection timers to prevent crashes
+            for timer_key, timer in self.connection_timers.items():
+                try:
+                    timer.stop()
+                    timer.deleteLater()
+                except:
+                    pass
+            self.connection_timers.clear()
+                
             self.meas_labels.clear()
             # Close previous VISA connections
             for inst in self.visa_connections.values():
@@ -193,7 +306,7 @@ class RemoteControlTab(QWidget):
             
             if self.meas_vars:
                 # Crea un layout a griglia per le misure
-                from PyQt5.QtWidgets import QGridLayout
+                from PyQt6.QtWidgets import QGridLayout
                 meas_grid = QGridLayout()
                 
                 row = 0
@@ -240,16 +353,13 @@ class RemoteControlTab(QWidget):
                 control_layout.addWidget(refresh_btn)
                 
                 # Toggle per aggiornamento automatico
-                from PyQt5.QtWidgets import QCheckBox
                 self.auto_refresh_cb = QCheckBox('Aggiornamento Automatico')
                 self.auto_refresh_cb.setChecked(True)
                 self.auto_refresh_cb.toggled.connect(self.toggle_auto_refresh)
                 control_layout.addWidget(self.auto_refresh_cb)
                 
                 # Slider per intervallo di aggiornamento
-                from PyQt5.QtWidgets import QSlider, QLabel as QLabelSlider
-                from PyQt5.QtCore import Qt
-                interval_label = QLabelSlider('Intervallo (s):')
+                interval_label = QLabel('Intervallo (s):')
                 control_layout.addWidget(interval_label)
                 
                 self.interval_slider = QSlider(Qt.Orientation.Horizontal)
@@ -258,7 +368,7 @@ class RemoteControlTab(QWidget):
                 self.interval_slider.valueChanged.connect(self.update_refresh_interval)
                 control_layout.addWidget(self.interval_slider)
                 
-                self.interval_value_label = QLabelSlider('2s')
+                self.interval_value_label = QLabel('2s')
                 control_layout.addWidget(self.interval_value_label)
                 
                 control_layout.addStretch()
@@ -283,7 +393,7 @@ class RemoteControlTab(QWidget):
                     conn_btn.setChecked(False)
                     conn_btn.setStyleSheet('border: 2px solid gray;')
                     def try_connect(inst=inst, btn=conn_btn):
-                        if not self.rm:
+                        if not self._ensure_visa_initialized():
                             btn.setStyleSheet('border: 2px solid orange;')
                             btn.setChecked(False)
                             btn.setToolTip("VISA non disponibile")
@@ -299,12 +409,24 @@ class RemoteControlTab(QWidget):
                             self.visa_connections[visa_addr] = instr
                             btn.setStyleSheet('border: 2px solid green;')
                             btn.setChecked(True)
-                        except Exception:
+                        except Exception as e:
                             btn.setStyleSheet('border: 2px solid red;')
                             btn.setChecked(False)
+                            
+                            # Log error using centralized error handler
+                            self.error_handler.handle_visa_error(e, f"connection to {visa_addr}")
+                            
+                            # Gestione sicura del timer per evitare crash
+                            timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
+                            if timer_key in self.connection_timers:
+                                self.connection_timers[timer_key].stop()
+                                self.connection_timers[timer_key].deleteLater()
+                            
                             timer = QTimer(self)
                             timer.setSingleShot(True)
-                            timer.timeout.connect(lambda: try_connect(inst, btn))
+                            # Usa una connessione sicura che verifica se il button è ancora valido
+                            timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                            self.connection_timers[timer_key] = timer
                             timer.start(5000)
                     conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
                     # --- Fine pulsante connessione ---
@@ -365,7 +487,7 @@ class RemoteControlTab(QWidget):
         :param inst: Instrument instance data.
         :return: VISA instrument object or None if error.
         """
-        if not self.rm:
+        if not self._ensure_visa_initialized():
             return None
             
         visa_addr = inst.get('visa_address', None)
@@ -519,3 +641,41 @@ class RemoteControlTab(QWidget):
         self.interval_value_label.setText(f"{value}s")
         if hasattr(self, 'measurement_timer') and self.measurement_timer.isActive():
             self.measurement_timer.setInterval(value * 1000)
+    
+    def closeEvent(self, a0):
+        """
+        Override del metodo closeEvent per pulire tutte le risorse quando il widget viene chiuso.
+        """
+        try:
+            # Stop del timer di misurazione
+            if hasattr(self, 'measurement_timer'):
+                self.measurement_timer.stop()
+            
+            # Pulizia di tutti i timer di connessione
+            for timer_key, timer in self.connection_timers.items():
+                try:
+                    timer.stop()
+                    timer.deleteLater()
+                except:
+                    pass
+            self.connection_timers.clear()
+            
+            # Chiusura di tutte le connessioni VISA
+            for addr, instr in self.visa_connections.items():
+                try:
+                    instr.close()
+                except:
+                    pass
+            self.visa_connections.clear()
+            
+            if self.logger:
+                self.logger.info("RemoteControlTab: Risorse pulite correttamente")
+                
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Errore durante la pulizia delle risorse: {e}")
+            else:
+                print(f"Errore durante la pulizia delle risorse: {e}")
+        
+        # Chiama il metodo padre
+        super().closeEvent(a0)

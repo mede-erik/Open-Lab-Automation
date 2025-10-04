@@ -1,14 +1,15 @@
 import json
-from PyQt5.QtWidgets import (
-    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QAction, QDialogButtonBox
+from PyQt6.QtWidgets import (
+    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from AddressEditorDialog import AddressEditorDialog
-from Translator import Translator   
-from PowerSupplyConfigDialog import PowerSupplyConfigDialog
-from ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
-from DataloggerConfigDialog import DataloggerConfigDialog
-from LoadInstruments import LoadInstruments
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QAction
+from frontend.ui.AddressEditorDialog import AddressEditorDialog
+from frontend.core.Translator import Translator   
+from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
+from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
+from ui.DataloggerConfigDialog import DataloggerConfigDialog
+from core.LoadInstruments import LoadInstruments
 
 # PyVISA opzionale per discovery
 try:
@@ -22,6 +23,7 @@ except Exception:
 class InstrumentConfigDialog(QDialog):
     # Emesso ogni volta che la configurazione strumenti viene salvata
     instruments_changed = pyqtSignal(str)  # arg: percorso del file .inst
+    
     def __init__(self, inst_file_path, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurazione strumenti")
@@ -62,10 +64,10 @@ class InstrumentConfigDialog(QDialog):
 
     def init_ui(self):
         layout = QHBoxLayout(self)
-        
+
         # Left panel with list and buttons
         left_panel = QVBoxLayout()
-        
+
         # Button panel
         button_panel = QHBoxLayout()
         add_btn = QPushButton("Aggiungi strumento")
@@ -79,27 +81,27 @@ class InstrumentConfigDialog(QDialog):
         button_panel.addWidget(save_btn)
         button_panel.addWidget(discover_btn)
         left_panel.addLayout(button_panel)
-        
+
         # Instrument list
         self.list_widget = QListWidget()
         for inst in self.instruments:
             name = inst.get('instance_name', inst.get('name', 'Strumento'))
             self.list_widget.addItem(name)
         self.list_widget.currentRowChanged.connect(self.on_instrument_selected)
-        
+
         # Enable context menu for right-click
-        self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
-        
+
         left_panel.addWidget(self.list_widget, 1)
-        
+
         layout.addLayout(left_panel, 2)
-        
+
         # Editor panel
         self.editor_widget = QWidget()
         self.editor_layout = QVBoxLayout(self.editor_widget)
         layout.addWidget(self.editor_widget, 5)
-        
+
         if self.instruments:
             self.list_widget.setCurrentRow(0)
         else:
@@ -111,20 +113,20 @@ class InstrumentConfigDialog(QDialog):
         if item is None:
             return
             
-        menu = QMenu()
-        
+        menu = QMenu(self)
         # Azione duplica strumento
         duplicate_action = QAction("Duplica strumento", self)
         duplicate_action.triggered.connect(self.duplicate_instrument)
         menu.addAction(duplicate_action)
-        
+
         # Azione cancella strumento
         delete_action = QAction("Cancella strumento", self)
         delete_action.triggered.connect(self.delete_instrument)
         menu.addAction(delete_action)
-        
-        # Mostra il menu alla posizione del cursore
-        menu.exec_(self.list_widget.mapToGlobal(position))
+
+        # Mostra il menu solo se c'è almeno un elemento selezionato
+        if self.list_widget.currentItem() is not None:
+            menu.exec(self.list_widget.mapToGlobal(position))
 
     def duplicate_instrument(self):
         """Duplica lo strumento selezionato"""
@@ -192,11 +194,11 @@ class InstrumentConfigDialog(QDialog):
             self, 
             'Conferma cancellazione',
             f'Sei sicuro di voler cancellare lo strumento "{instrument_name}"?',
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        
-        if reply == QMessageBox.Yes:
+
+        if reply == QMessageBox.StandardButton.Yes:
             # Rimuovi dalla lista dati
             del self.instruments[current_row]
             
@@ -223,8 +225,10 @@ class InstrumentConfigDialog(QDialog):
     def clear_editor(self):
         while self.editor_layout.count():
             child = self.editor_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            if child is not None:
+                widget = child.widget()
+                if widget is not None:
+                    widget.deleteLater()
 
     def on_instrument_selected(self, row):
         if row < 0 or row >= len(self.instruments):
@@ -255,251 +259,324 @@ class InstrumentConfigDialog(QDialog):
         self.editor_layout.addLayout(form)
         # Editor specifico per tipo
         t = inst.get('instrument_type', inst.get('type', '')).lower()
-        if t in ['power_supply', 'alimentatore']:
+        if t in ['power_supply', 'power_supplies', 'alimentatore', 'alimentatori']:
             self.show_channel_table(inst, is_power=True)
-        elif t in ['electronic_load', 'carico_elettronico']:
+        elif t in ['electronic_load', 'electronic_loads', 'carico_elettronico', 'carichi_elettronici']:
             self.show_channel_table(inst, is_power=True)
-        elif t in ['datalogger']:
+        elif t in ['datalogger', 'dataloggers']:
             self.show_channel_table(inst, is_power=False)
-        elif t in ['multimeter', 'multimetro']:
+        elif t in ['multimeter', 'multimeters', 'multimetro', 'multimetri']:
             self.show_channel_table(inst, is_power=False, is_multimeter=True)
-        elif t in ['oscilloscope', 'oscilloscopio']:
+        elif t in ['oscilloscope', 'oscilloscopes', 'oscilloscopio', 'oscilloscopi']:
             # Solo address
             pass
-        # Spazio per pulsanti aggiuntivi se servono
-        self.editor_layout.addStretch()
+
+    def show_channel_table(self, inst, is_power=False, is_multimeter=False):
+        """Mostra la tabella dei canali per lo strumento corrente"""
+        # Ricava info capabilities dal modello selezionato
+        model_id = inst.get('model_id')
+        type_name = inst.get('instrument_type', inst.get('type', '')).lower()
+        series_id = inst.get('series', '')
+        
+        try:
+            model_caps = self.load_instruments.get_model_capabilities(type_name, series_id, model_id)
+        except Exception:
+            model_caps = None
+            
+        n = 0
+        if model_caps:
+            n = model_caps.get('number_of_channels', inst.get('num_channels', 0))
+        else:
+            n = inst.get('num_channels', 0)
+            
+        if n <= 0:
+            # Mostra messaggio informativo invece di non mostrare nulla
+            info_label = QLabel("ℹ️ Nessun canale configurato per questo strumento.\nVerifica le capabilities del modello nella libreria strumenti.")
+            info_label.setStyleSheet("QLabel { color: #888; padding: 10px; }")
+            self.editor_layout.addWidget(info_label)
+            return
+            
+        # Ottieni o crea lista canali
+        channels = inst.get('channels', [])
+        
+        # Sincronizza canali con il numero previsto
+        channel_ids = []
+        if model_caps:
+            channel_ids = model_caps.get('channel_ids', [])
+            
+        while len(channels) < n:
+            idx = len(channels)
+            ch_id = channel_ids[idx] if idx < len(channel_ids) else f'CH{idx+1}'
+            new_ch = {
+                'enabled': False,
+                'name': ch_id,
+            }
+            if is_power:
+                new_ch['max_current'] = model_caps.get('max_current', 0.0) if model_caps else 0.0
+                new_ch['max_voltage'] = model_caps.get('max_voltage', 0.0) if model_caps else 0.0
+            elif is_multimeter:
+                new_ch['meas_type'] = 'DC_V'
+                new_ch['attenuation'] = 1.0
+                new_ch['unit'] = 'V'
+                new_ch['integration_time'] = 0.0
+            else:
+                # datalogger o altro
+                new_ch['meas_type'] = 'DC_V'
+                new_ch['unit'] = 'V'
+            channels.append(new_ch)
+            
+        inst['channels'] = channels[:n]
+        
+        # Crea tabella
+        if is_power:
+            # Power supply / Electronic load
+            table = QTableWidget(n, 4)
+            table.setHorizontalHeaderLabels(["Abilita", "Nome", "Corrente max (A)", "Tensione max (V)"])
+            
+            for row, ch in enumerate(inst['channels']):
+                # Abilita
+                chk = QCheckBox()
+                chk.setChecked(ch.get('enabled', False))
+                chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
+                table.setCellWidget(row, 0, chk)
+                
+                # Nome
+                name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
+                name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
+                table.setCellWidget(row, 1, name_edit)
+                
+                # Corrente max
+                curr_edit = QLineEdit(str(ch.get('max_current', 0.0)))
+                curr_edit.textChanged.connect(lambda val, r=row: self.on_channel_current_changed(r, val))
+                table.setCellWidget(row, 2, curr_edit)
+                
+                # Tensione max
+                volt_edit = QLineEdit(str(ch.get('max_voltage', 0.0)))
+                volt_edit.textChanged.connect(lambda val, r=row: self.on_channel_voltage_changed(r, val))
+                table.setCellWidget(row, 3, volt_edit)
+                
+        elif is_multimeter:
+            # Multimetro
+            table = QTableWidget(n, 6)
+            table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Attenuazione", "Unità", "Tempo integrazione"])
+            
+            for row, ch in enumerate(inst['channels']):
+                # Abilita
+                chk = QCheckBox()
+                chk.setChecked(ch.get('enabled', False))
+                chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
+                table.setCellWidget(row, 0, chk)
+                
+                # Nome
+                name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
+                name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
+                table.setCellWidget(row, 1, name_edit)
+                
+                # Tipo misura
+                meas_combo = QComboBox()
+                meas_combo.addItems(['DC_V', 'DC_A', 'AC_V', 'AC_A', 'RES', 'FREQ'])
+                meas_combo.setCurrentText(ch.get('meas_type', 'DC_V'))
+                meas_combo.currentTextChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
+                table.setCellWidget(row, 2, meas_combo)
+                
+                # Attenuazione
+                att_edit = QLineEdit(str(ch.get('attenuation', 1.0)))
+                att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
+                table.setCellWidget(row, 3, att_edit)
+                
+                # Unità
+                unit_edit = QLineEdit(ch.get('unit', 'V'))
+                unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
+                table.setCellWidget(row, 4, unit_edit)
+                
+                # Tempo integrazione
+                tint_edit = QLineEdit(str(ch.get('integration_time', 0.0)))
+                tint_edit.textChanged.connect(lambda val, r=row: self.on_channel_integration_time_changed(r, val))
+                table.setCellWidget(row, 5, tint_edit)
+        else:
+            # Datalogger o generico
+            table = QTableWidget(n, 4)
+            table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Unità"])
+            
+            for row, ch in enumerate(inst['channels']):
+                # Abilita
+                chk = QCheckBox()
+                chk.setChecked(ch.get('enabled', False))
+                chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
+                table.setCellWidget(row, 0, chk)
+                
+                # Nome
+                name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
+                name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
+                table.setCellWidget(row, 1, name_edit)
+                
+                # Tipo misura
+                meas_combo = QComboBox()
+                meas_combo.addItems(['DC_V', 'DC_A', 'AC_V', 'AC_A', 'RES', 'FREQ', 'TEMP'])
+                meas_combo.setCurrentText(ch.get('meas_type', 'DC_V'))
+                meas_combo.currentTextChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
+                table.setCellWidget(row, 2, meas_combo)
+                
+                # Unità
+                unit_edit = QLineEdit(ch.get('unit', 'V'))
+                unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
+                table.setCellWidget(row, 3, unit_edit)
+                
+        table.resizeColumnsToContents()
+        self.editor_layout.addWidget(table)
+        self.channel_table = table
 
     def on_name_changed(self, val):
         if self.current_instrument is not None:
             self.current_instrument['instance_name'] = val
             self.save_instruments()
-            self.list_widget.currentItem().setText(val)
+            item = self.list_widget.currentItem()
+            if item is not None:
+                item.setText(val)
 
     def open_address_editor(self):
         if self.current_instrument is None:
             return
         dlg = AddressEditorDialog(self.current_instrument, self.load_instruments, self)
-        if dlg.exec_() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             # Aggiorna indirizzo
             self.current_instrument['visa_address'] = dlg.get_address()
             self.addr_label.setText(self.current_instrument['visa_address'])
             self.save_instruments()
-
     def open_network_scan_dialog(self):
         """Scansiona le risorse VISA disponibili e permette di applicare un indirizzo allo strumento selezionato."""
+        from PyQt6.QtWidgets import QApplication
         if not PYVISA_AVAILABLE or pyvisa is None:
             QMessageBox.information(self, "Scansione non disponibile", "PyVISA non è installato o il backend non è disponibile.")
             return
-        # Dialog semplice con tabella risultati
+        
         dlg = QDialog(self)
         dlg.setWindowTitle("Strumenti trovati in rete (VISA)")
         vbox = QVBoxLayout(dlg)
+        
         # Barra filtro: Solo USB
         filter_bar = QHBoxLayout()
         usb_only_cb = QCheckBox("Solo USB")
         filter_bar.addWidget(usb_only_cb)
         filter_bar.addStretch(1)
         vbox.addLayout(filter_bar)
+        
         table = QTableWidget(0, 3)
         table.setHorizontalHeaderLabels(["Indirizzo", "IDN", "Interfaccia"])
         vbox.addWidget(table)
+        
         btns = QDialogButtonBox()
         btn_copy = QPushButton("Copia indirizzo")
         btn_apply = QPushButton("Imposta su strumento selezionato")
         btn_close = QPushButton("Chiudi")
-        btns.addButton(btn_copy, QDialogButtonBox.ActionRole)
-        btns.addButton(btn_apply, QDialogButtonBox.ActionRole)
-        btns.addButton(btn_close, QDialogButtonBox.RejectRole)
+        btns.addButton(btn_copy, QDialogButtonBox.ButtonRole.ActionRole)
+        btns.addButton(btn_apply, QDialogButtonBox.ButtonRole.ActionRole)
+        btns.addButton(btn_close, QDialogButtonBox.ButtonRole.RejectRole)
         vbox.addWidget(btns)
 
         # Esegui discovery
         resources = []
         idn_cache = {}  # addr -> (idn, iface)
         try:
-            try:
-                rm = pyvisa.ResourceManager('@py')
-            except Exception:
-                rm = pyvisa.ResourceManager()
-            try:
-                resources = list(rm.list_resources())
-            except Exception:
-                resources = []
-            for addr in resources:
-                idn = ""
-                iface = addr.split("::", 1)[0] if "::" in addr else ""
+            if pyvisa is not None:
                 try:
-                    inst = rm.open_resource(addr)
-                    # timeout breve
-                    try:
-                        inst.timeout = 1000
-                    except Exception:
-                        pass
-                    try:
-                        # Imposta terminatori se supportati
-                        setattr(inst, 'write_termination', '\n')
-                        setattr(inst, 'read_termination', '\n')
-                    except Exception:
-                        pass
-                    try:
-                        q = getattr(inst, 'query', None)
-                        if callable(q):
-                            idn = q("*IDN?")
-                        else:
-                            w = getattr(inst, 'write', None)
-                            r = getattr(inst, 'read', None)
-                            if callable(w):
-                                try:
-                                    w("*IDN?")
-                                except Exception:
-                                    pass
-                            if callable(r):
-                                try:
-                                    idn = r()
-                                except Exception:
-                                    idn = ""
-                            else:
-                                idn = ""
-                    except Exception:
-                        idn = ""
-                    try:
-                        close_fn = getattr(inst, 'close', None)
-                        if callable(close_fn):
-                            close_fn()
-                    except Exception:
-                        pass
+                    rm = pyvisa.ResourceManager('@py')
                 except Exception:
+                    rm = pyvisa.ResourceManager()
+                try:
+                    resources = list(rm.list_resources())
+                except Exception:
+                    resources = []
+                for addr in resources:
                     idn = ""
-                idn_cache[addr] = (str(idn or "").strip(), iface)
-
-            def is_usb(addr_iface_tuple):
-                _, iface_val = addr_iface_tuple
-                # Considera periferiche USB se l'interfaccia inizia con "USB" o l'indirizzo inizia con USB
-                return str(iface_val).upper().startswith('USB')
-
-            def populate_table(only_usb=False):
-                table.setRowCount(0)
-                for addr, (idn_text, iface_val) in idn_cache.items():
-                    if only_usb and not (str(iface_val).upper().startswith('USB') or addr.upper().startswith('USB')):
-                        continue
-                    row = table.rowCount()
-                    table.insertRow(row)
-                    table.setItem(row, 0, QTableWidgetItem(addr))
-                    table.setItem(row, 1, QTableWidgetItem(idn_text))
-                    table.setItem(row, 2, QTableWidgetItem(iface_val))
-                table.resizeColumnsToContents()
-
-            # Popola inizialmente senza filtro, poi collega la checkbox
-            populate_table(only_usb=False)
-            usb_only_cb.stateChanged.connect(lambda _state: populate_table(usb_only_cb.isChecked()))
+                    iface = addr.split("::", 1)[0] if "::" in addr else ""
+                    try:
+                        inst = rm.open_resource(addr)
+                        try:
+                            inst.timeout = 1000
+                        except Exception:
+                            pass
+                        try:
+                            setattr(inst, 'write_termination', '\n')
+                            setattr(inst, 'read_termination', '\n')
+                        except Exception:
+                            pass
+                        try:
+                            q = getattr(inst, 'query', None)
+                            if callable(q):
+                                idn = q("*IDN?")
+                            else:
+                                w = getattr(inst, 'write', None)
+                                r = getattr(inst, 'read', None)
+                                if callable(w):
+                                    try:
+                                        w("*IDN?")
+                                    except Exception:
+                                        pass
+                                if callable(r):
+                                    try:
+                                        idn = r()
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+                        inst.close()
+                    except Exception:
+                        pass
+                    idn_cache[addr] = (idn, iface)
         except Exception as e:
             QMessageBox.warning(self, "Errore scansione", str(e))
+
+        def is_usb(addr_iface_tuple):
+            _, iface_val = addr_iface_tuple
+            return "USB" in iface_val.upper()
+
+        def populate_table(only_usb=False):
+            table.setRowCount(0)
+            for addr, (idn_text, iface_val) in idn_cache.items():
+                if only_usb and not is_usb((addr, iface_val)):
+                    continue
+                row = table.rowCount()
+                table.insertRow(row)
+                table.setItem(row, 0, QTableWidgetItem(addr))
+                table.setItem(row, 1, QTableWidgetItem(idn_text))
+                table.setItem(row, 2, QTableWidgetItem(iface_val))
+            table.resizeColumnsToContents()
+
+        populate_table(only_usb=False)
+        usb_only_cb.stateChanged.connect(lambda _state: populate_table(usb_only_cb.isChecked()))
+        table.cellDoubleClicked.connect(lambda row, _col: btn_apply.click())
 
         def copy_selected():
             row = table.currentRow()
             if row < 0:
                 return
-            item = table.item(row, 0)
-            if item is None:
+            addr_item = table.item(row, 0)
+            if addr_item is None:
                 return
-            addr = item.text()
-            from PyQt5.QtWidgets import QApplication
-            cb = QApplication.clipboard()
-            if cb is not None:
-                cb.setText(addr)
+            addr = addr_item.text()
+            clipboard = QApplication.clipboard()
+            if clipboard is not None:
+                clipboard.setText(addr)
 
         def apply_selected():
-            if self.current_instrument is None:
-                QMessageBox.information(self, "Nessuno strumento selezionato", "Seleziona uno strumento nella lista a sinistra per applicare l'indirizzo.")
-                return
             row = table.currentRow()
             if row < 0:
                 return
-            item = table.item(row, 0)
-            if item is None:
+            addr_item = table.item(row, 0)
+            if addr_item is None:
                 return
-            addr = item.text()
-            self.current_instrument['visa_address'] = addr
-            if hasattr(self, 'addr_label'):
-                self.addr_label.setText(addr)
-            self.save_instruments()
+            addr = addr_item.text()
+            if self.current_instrument is not None:
+                self.current_instrument['visa_address'] = addr
+                if hasattr(self, 'addr_label'):
+                    self.addr_label.setText(addr)
+                self.save_instruments()
 
         btn_copy.clicked.connect(copy_selected)
         btn_apply.clicked.connect(apply_selected)
         btn_close.clicked.connect(dlg.reject)
-        dlg.exec_()
-
-    def show_channel_table(self, inst, is_power=False, is_multimeter=False):
-        # Ricava info capabilities dal modello selezionato
-        model_id = inst.get('model_id')
-        type_name = inst.get('instrument_type', inst.get('type', '')).lower()
-        series_id = inst.get('series', '')
-        model_caps = self.load_instruments.get_model_capabilities(type_name, series_id, model_id)
-        n = model_caps.get('number_of_channels', inst.get('num_channels', 0)) if model_caps else inst.get('num_channels', 0)
-        channel_ids = model_caps.get('channel_ids', []) if model_caps else []
-        max_voltage = model_caps.get('max_voltage') if model_caps else None
-        max_current = model_caps.get('max_current') if model_caps else None
-        measurement_types = model_caps.get('measurement_types', []) if model_caps else []
-        channels = inst.get('channels', [])
-        # Ricostruisci la lista canali mantenendo i dati esistenti dove possibile
-        new_channels = []
-        for i in range(n):
-            ch = channels[i] if i < len(channels) else {}
-            ch['enabled'] = ch.get('enabled', False)
-            ch['name'] = ch.get('name', channel_ids[i] if i < len(channel_ids) else f'CH{i+1}')
-            if is_power:
-                ch['max_current'] = ch.get('max_current', max_current if max_current is not None else 0.0)
-                ch['max_voltage'] = ch.get('max_voltage', max_voltage if max_voltage is not None else 0.0)
-            elif measurement_types:
-                ch['meas_type'] = ch.get('meas_type', measurement_types[0] if measurement_types else '')
-                ch['attenuation'] = ch.get('attenuation', 1.0)
-                ch['unit'] = ch.get('unit', 'V')
-                ch['integration_time'] = ch.get('integration_time', 0.0)
-            new_channels.append(ch)
-        inst['channels'] = new_channels
-        channels = new_channels
-        # Costruisci tabella
-        if is_power:
-            from PowerSupplyConfigDialog import PowerSupplyConfigDialog
-            callbacks = {
-                'enabled': self.on_channel_enabled_changed,
-                'max_current': self.on_channel_current_changed,
-                'max_voltage': self.on_channel_voltage_changed,
-                'name': self.on_channel_name_changed
-            }
-            table = PowerSupplyConfigDialog.create_channel_table(channels, channel_ids, max_current, max_voltage, self, callbacks)
-        elif measurement_types:
-            from DataloggerConfigDialog import DataloggerConfigDialog
-            callbacks = {
-                'enabled': self.on_channel_enabled_changed,
-                'meas_type': self.on_channel_meas_type_changed,
-                'attenuation': self.on_channel_attenuation_changed,
-                'unit': self.on_channel_unit_changed,
-                'integration_time': self.on_channel_integration_time_changed
-            }
-            table = DataloggerConfigDialog.create_channel_table(channels, channel_ids, measurement_types, self, callbacks)
-        else:
-            table = QTableWidget(len(channels), 6 if not is_power else 3)
-            headers = ["Abilita", "Nome variabile", "Tipo misura", "Attenuazione", "Unità", "Tempo integrazione"]
-            table.setHorizontalHeaderLabels(headers)
-            for row, ch in enumerate(channels):
-                name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
-                name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
-                table.setCellWidget(row, 1, name_edit)
-                type_edit = QLineEdit(ch.get('meas_type', ''))
-                type_edit.textChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
-                table.setCellWidget(row, 2, type_edit)
-                att_edit = QLineEdit(str(ch.get('attenuation', 1.0)))
-                att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
-                table.setCellWidget(row, 3, att_edit)
-                unit_edit = QLineEdit(ch.get('unit', ''))
-                unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
-                table.setCellWidget(row, 4, unit_edit)
-                tint_edit = QLineEdit(str(ch.get('integration_time', 0.0)))
-                tint_edit.textChanged.connect(lambda val, r=row: self.on_channel_integration_time_changed(r, val))
-                table.setCellWidget(row, 5, tint_edit)
-            table.resizeColumnsToContents()
-        self.editor_layout.addWidget(table)
-        self.channel_table = table
+        dlg.exec()
 
     # Metodi di callback per salvataggio immediato
     def on_channel_enabled_changed(self, row, state):
@@ -563,6 +640,7 @@ class InstrumentConfigDialog(QDialog):
         # Serie: aggiornata in base al tipo
         series_combo = QComboBox()
         model_combo = QComboBox()
+        model_map = {}
         def update_series():
             series_combo.clear()
             model_combo.clear()
@@ -577,13 +655,13 @@ class InstrumentConfigDialog(QDialog):
             t = type_combo.currentText()
             series_id = series_combo.currentData()
             models = self.load_instruments.get_models(t, series_id)
-            model_combo.model_map = {}
+            model_map.clear()
             for m in models or []:
                 model_name = m.get('name', str(m))
                 model_id = m.get('id', model_name)
                 num_channels = m.get('channels', m.get('num_channels', 1))
                 model_combo.addItem(model_name)
-                model_combo.model_map[model_name] = (model_id, num_channels)
+                model_map[model_name] = (model_id, num_channels)
         type_combo.currentTextChanged.connect(update_series)
         series_combo.currentIndexChanged.connect(update_models)
         update_series()
@@ -601,12 +679,12 @@ class InstrumentConfigDialog(QDialog):
         form.addRow(btns)
         ok_btn.clicked.connect(dlg.accept)
         cancel_btn.clicked.connect(dlg.reject)
-        if dlg.exec_() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             t = type_combo.currentText()
             name = name_edit.text().strip() or t
             series = series_combo.currentData()
             model = model_combo.currentText().strip()
-            model_id, guessed_num_channels = model_combo.model_map.get(model, (model, 1))
+            model_id, guessed_num_channels = model_map.get(model, (model, 1))
             # Ricava num_channels dalle capabilities quando possibile
             caps = None
             try:

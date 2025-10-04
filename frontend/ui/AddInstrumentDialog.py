@@ -1,5 +1,5 @@
 import json
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QSpinBox, 
     QDialogButtonBox, QLabel, QMessageBox, QTextEdit
 )

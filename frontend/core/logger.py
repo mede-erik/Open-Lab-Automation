@@ -76,25 +76,25 @@ class Logger:
             
             self.info(f"Log file created: {log_file}")
 
-    def debug(self, message: str):
+    def debug(self, message: str, **kwargs):
         """Log a debug message"""
-        self.logger.debug(message)
+        self.logger.debug(message, **kwargs)
         
-    def info(self, message: str):
+    def info(self, message: str, **kwargs):
         """Log an informational message"""
-        self.logger.info(message)
+        self.logger.info(message, **kwargs)
         
-    def warning(self, message: str):
+    def warning(self, message: str, **kwargs):
         """Log a warning message"""
-        self.logger.warning(message)
+        self.logger.warning(message, **kwargs)
         
-    def error(self, message: str):
+    def error(self, message: str, **kwargs):
         """Log an error message"""
-        self.logger.error(message)
+        self.logger.error(message, **kwargs)
         
-    def critical(self, message: str):
+    def critical(self, message: str, **kwargs):
         """Log a critical error message"""
-        self.logger.critical(message)
+        self.logger.critical(message, **kwargs)
         
     def get_current_log_file(self) -> Optional[str]:
         """Returns the current log file path"""

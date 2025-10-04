@@ -10,8 +10,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from decimal import Decimal
 import json
-from database import DatabaseManager
-from logger import Logger
+from .database import DatabaseManager
+from .logger import Logger
 
 
 class Project:
