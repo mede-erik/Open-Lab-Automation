@@ -1,0 +1,19 @@
+{
+  "type": "efficiency",
+  "sweeps": [
+    {
+      "variable": "Vaux",
+      "config": {
+        "mode": "range",
+        "start": 5.0,
+        "stop": 10.0,
+        "points": 5
+      }
+    }
+  ],
+  "measured_variables": [],
+  "timing": {
+    "delay_between_points": 0.5,
+    "delay_between_loops": 1.0
+  }
+}

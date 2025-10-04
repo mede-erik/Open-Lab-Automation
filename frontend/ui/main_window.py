@@ -780,7 +780,8 @@ class MainWindow(QMainWindow):
         fname = item.text()
         file_path = os.path.join(self.current_project_dir, fname)
         if fname.endswith('.eff'):
-            dlg = EffFileDialog(file_path, self.translator, self)
+            # Passa i dati del progetto corrente alla dialog per le variabili
+            dlg = EffFileDialog(file_path, self.translator, self.current_project_data, self)
             dlg.exec()
         elif fname.endswith('.was'):
             dlg = WasFileDialog(file_path, self.translator, self)

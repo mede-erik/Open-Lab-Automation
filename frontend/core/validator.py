@@ -10,7 +10,7 @@ import re
 import ipaddress
 from typing import Union, List, Any
 from datetime import datetime
-from core.errorhandler import ValidationError, ErrorCode
+from frontend.core.errorhandler import ValidationError, ErrorCode
 
 
 def is_valid_email(email: str) -> bool:
