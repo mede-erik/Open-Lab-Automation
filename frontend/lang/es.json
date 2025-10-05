@@ -234,5 +234,7 @@
   "empty_value_list": "La lista de valores no puede estar vacía",
   "configuration_saved": "Configuración guardada",
   "invalid_number_format": "Formato de número inválido",
-  "parameters_applied": "Parámetros aplicados al JSON"
+  "parameters_applied": "Parámetros aplicados al JSON",
+  "database_connected_successfully": "¡Base de datos conectada con éxito!",
+  "database_connection_failed": "Falló la conexión a la base de datos. Verifique la configuración."
 }

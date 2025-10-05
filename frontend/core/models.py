@@ -656,21 +656,22 @@ class Waveform:
     def get_waveform_downsampled(self, id_punto: int, canale: int, tipo_misura: str,
                                 bucket_interval: str = '100 microseconds') -> List[Dict[str, Any]]:
         """
-        Get downsampled waveform data using TimescaleDB time_bucket function.
+        Get downsampled waveform data using PostgreSQL date_bin function.
         
         Args:
             id_punto: Measurement point ID
             canale: Oscilloscope channel number
             tipo_misura: Type of measurement
-            bucket_interval: Time bucket interval for downsampling
+            bucket_interval: Time bucket interval for downsampling (e.g., '100 microseconds', '1 millisecond')
             
         Returns:
             List of downsampled waveform data
         """
         try:
+            # Convert interval string to PostgreSQL interval format
             query = """
                 SELECT 
-                    time_bucket(%s, timestamp_campione) AS timestamp_bucket,
+                    date_bin(%s::INTERVAL, timestamp_campione, TIMESTAMP '2000-01-01') AS timestamp_bucket,
                     canale,
                     tipo_misura,
                     AVG(valore) AS valore_medio,

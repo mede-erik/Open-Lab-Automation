@@ -27,6 +27,7 @@ from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
+from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler, ErrorCode, ValidationError
@@ -186,6 +187,11 @@ class MainWindow(QMainWindow):
         settings_action = QAction(self.translator.t('open_settings'), self)
         settings_action.triggered.connect(self.open_settings)
         settings_menu.addAction(settings_action)
+        
+        # Database configuration action
+        database_action = QAction(self.translator.t('database_configuration'), self)
+        database_action.triggered.connect(self.open_database_config)
+        settings_menu.addAction(database_action)
         
         # Help menu
         help_menu = menubar.addMenu(self.translator.t('help'))
@@ -819,6 +825,40 @@ class MainWindow(QMainWindow):
         """Open the hex/dec converter dialog."""
         dlg = HexDecConverterDialog(self)
         dlg.exec()
+    
+    def open_database_config(self):
+        """
+        Open database configuration dialog.
+        Allows user to configure PostgreSQL connection.
+        """
+        self.logger.debug("Opening database configuration dialog.")
+        try:
+            dialog = DatabaseConfigDialog(self)
+            result = dialog.exec()
+            
+            if result == QDialog.DialogCode.Accepted:
+                # Reload database configuration
+                self.logger.info("Database configuration saved, reinitializing connection...")
+                self.initialize_database_connection()
+                
+                # Test connection and show result
+                if self.db_manager and self.db_manager.test_connection():
+                    QMessageBox.information(
+                        self, 
+                        self.translator.t('database_configuration'),
+                        self.translator.t('database_connected_successfully')
+                    )
+                    self.logger.info("Database connected successfully")
+                else:
+                    QMessageBox.warning(
+                        self, 
+                        self.translator.t('database_configuration'),
+                        self.translator.t('database_connection_failed')
+                    )
+                    self.logger.warning("Database connection test failed")
+        except Exception as e:
+            self.logger.error(f"Error opening database configuration: {e}", exc_info=True, error_code="UI-002")
+            self.error_handler.handle_error(e, "Error opening database configuration")
         
     def show_file_context_menu(self, pos):
         """Show context menu for project files."""

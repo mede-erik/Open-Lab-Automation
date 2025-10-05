@@ -1,7 +1,5 @@
-"""
-Database configuration dialog for PostgreSQL/TimescaleDB connection settings.
-
-This module provides a GUI for configuring database connection parameters
+"""  
+Database configuration dialog for PostgreSQL connection settings.This module provides a GUI for configuring database connection parameters
 and testing connectivity.
 """
 
@@ -14,8 +12,9 @@ from PyQt6.QtGui import QFont
 import json
 import os
 from typing import Dict, Any
-from core.database import DatabaseManager
-from core.logger import Logger
+from frontend.core.database import DatabaseManager
+from frontend.core.logger import Logger
+from frontend.core.database_config import get_database_config_manager
 
 
 class DatabaseTestThread(QThread):
@@ -41,23 +40,23 @@ class DatabaseTestThread(QThread):
     def run(self):
         """
         Run database connectivity test in background thread.
+        Note: Connects to 'postgres' database for testing since project databases are created separately.
         """
         try:
-            self.progress_update.emit("Connecting to database...")
+            self.progress_update.emit("Connecting to database server...")
+            
+            # Add 'postgres' database for connection test (always exists)
+            test_params = self.connection_params.copy()
+            test_params['database'] = 'postgres'
             
             # Create database manager with test parameters
-            db_manager = DatabaseManager(**self.connection_params)
+            db_manager = DatabaseManager(**test_params)
             
             self.progress_update.emit("Testing connection...")
             
             # Test basic connectivity
             if db_manager.test_connection():
-                self.progress_update.emit("Testing schema...")
-                
-                # Test schema info retrieval
-                schema_info = db_manager.get_schema_info()
-                
-                success_msg = f"Connection successful!\nTables: {len(schema_info.get('tables', []))}\nHypertables: {len(schema_info.get('hypertables', []))}"
+                success_msg = "Connection successful!\nServer is accessible and credentials are valid."
                 self.test_finished.emit(True, success_msg)
             else:
                 self.test_finished.emit(False, "Connection test failed")
@@ -70,8 +69,8 @@ class DatabaseTestThread(QThread):
 
 class DatabaseConfigDialog(QDialog):
     """
-    Dialog for configuring PostgreSQL/TimescaleDB connection settings.
-    Provides interface for connection parameters, testing, and schema initialization.
+    Dialog for configuring PostgreSQL connection settings.
+    Provides interface for connection parameters and testing.
     """
     
     def __init__(self, parent=None):
@@ -84,15 +83,16 @@ class DatabaseConfigDialog(QDialog):
         super().__init__(parent)
         self.logger = Logger()
         self.test_thread = None
-        self.db_manager = None
+        
+        # Use secure config manager
+        self.config_manager = get_database_config_manager()
         
         self.setWindowTitle("Database Configuration")
         self.setMinimumSize(500, 600)
         self.setModal(True)
         
-        # Load existing configuration
-        self.config_file = os.path.join(os.path.dirname(__file__), 'database_config.json')
-        self.config = self.load_config()
+        # Load existing configuration (password will be decrypted automatically)
+        self.config = self.config_manager.load_config()
         
         self.init_ui()
         self.load_form_values()
@@ -118,11 +118,6 @@ class DatabaseConfigDialog(QDialog):
         host_layout.addWidget(QLabel("Port:"))
         host_layout.addWidget(self.port_spin, 1)
         conn_layout.addRow("Host:", host_layout)
-        
-        # Database name
-        self.database_edit = QLineEdit()
-        self.database_edit.setPlaceholderText("dcdc_measurements")
-        conn_layout.addRow("Database:", self.database_edit)
         
         # Username and password
         self.username_edit = QLineEdit()
@@ -163,30 +158,14 @@ class DatabaseConfigDialog(QDialog):
         
         layout.addWidget(test_group)
         
-        # Schema management group
-        schema_group = QGroupBox("Schema Management")
-        schema_layout = QVBoxLayout(schema_group)
-        
-        schema_btn_layout = QHBoxLayout()
-        self.init_schema_btn = QPushButton("Initialize Schema")
-        self.init_schema_btn.clicked.connect(self.initialize_schema)
-        self.init_schema_btn.setEnabled(False)
-        
-        self.schema_info_btn = QPushButton("View Schema Info")
-        self.schema_info_btn.clicked.connect(self.show_schema_info)
-        self.schema_info_btn.setEnabled(False)
-        
-        schema_btn_layout.addWidget(self.init_schema_btn)
-        schema_btn_layout.addWidget(self.schema_info_btn)
-        schema_layout.addLayout(schema_btn_layout)
-        
-        # Schema status
-        self.schema_status = QTextEdit()
-        self.schema_status.setMaximumHeight(100)
-        self.schema_status.setReadOnly(True)
-        schema_layout.addWidget(self.schema_status)
-        
-        layout.addWidget(schema_group)
+        # Info label
+        info_label = QLabel(
+            "Note: This configuration is used for all projects. "
+            "Each project will create its own database automatically."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: gray; font-style: italic; padding: 10px;")
+        layout.addWidget(info_label)
         
         # Dialog buttons
         button_layout = QHBoxLayout()
@@ -208,41 +187,13 @@ class DatabaseConfigDialog(QDialog):
         
         layout.addLayout(button_layout)
     
-    def load_config(self) -> Dict[str, Any]:
-        """
-        Load database configuration from file.
-        
-        Returns:
-            Dictionary containing configuration data
-        """
-        default_config = {
-            'host': 'localhost',
-            'port': 5432,
-            'database': 'dcdc_measurements',
-            'username': 'dcdc_app',
-            'password': '',
-            'use_ssl': False
-        }
-        
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    # Merge with defaults to handle missing keys
-                    default_config.update(config)
-                    self.logger.debug("Loaded database configuration from file")
-            return default_config
-        except Exception as e:
-            self.logger.warning(f"Failed to load database config: {str(e)}")
-            return default_config
-    
     def load_form_values(self):
         """
         Load configuration values into form fields.
+        Password is already decrypted by config_manager.load_config().
         """
         self.host_edit.setText(self.config.get('host', ''))
         self.port_spin.setValue(self.config.get('port', 5432))
-        self.database_edit.setText(self.config.get('database', ''))
         self.username_edit.setText(self.config.get('username', ''))
         self.password_edit.setText(self.config.get('password', ''))
         self.ssl_checkbox.setChecked(self.config.get('use_ssl', False))
@@ -250,14 +201,14 @@ class DatabaseConfigDialog(QDialog):
     def get_connection_params(self) -> Dict[str, Any]:
         """
         Get current connection parameters from form.
+        Note: Database name is not included here as it's created by each project.
         
         Returns:
-            Dictionary containing connection parameters
+            Dictionary containing connection parameters (host, port, username, password, sslmode)
         """
         params = {
             'host': self.host_edit.text().strip() or 'localhost',
             'port': self.port_spin.value(),
-            'database': self.database_edit.text().strip() or 'dcdc_measurements',
             'username': self.username_edit.text().strip() or 'dcdc_app',
             'password': self.password_edit.text()
         }
@@ -314,103 +265,35 @@ class DatabaseConfigDialog(QDialog):
         if success:
             self.status_label.setText(f"✓ {message}")
             self.status_label.setStyleSheet("color: green;")
-            self.init_schema_btn.setEnabled(True)
-            self.schema_info_btn.setEnabled(True)
-            
-            # Store successful connection params
-            self.db_manager = DatabaseManager(**self.get_connection_params())
         else:
             self.status_label.setText(f"✗ {message}")
             self.status_label.setStyleSheet("color: red;")
-            self.init_schema_btn.setEnabled(False)
-            self.schema_info_btn.setEnabled(False)
-            self.db_manager = None
-    
-    def initialize_schema(self):
-        """
-        Initialize database schema with tables and indexes.
-        """
-        if not self.db_manager:
-            QMessageBox.warning(self, "Warning", "Please test connection first")
-            return
-        
-        reply = QMessageBox.question(
-            self, "Initialize Schema",
-            "This will create database tables and indexes.\nAre you sure you want to continue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                self.schema_status.append("Initializing database schema...")
-                success = self.db_manager.initialize_database()
-                
-                if success:
-                    self.schema_status.append("✓ Schema initialized successfully")
-                    self.logger.info("Database schema initialized successfully")
-                else:
-                    self.schema_status.append("✗ Schema initialization failed")
-                    self.logger.error("Database schema initialization failed")
-                    
-            except Exception as e:
-                error_msg = f"Schema initialization error: {str(e)}"
-                self.schema_status.append(f"✗ {error_msg}")
-                self.logger.error(error_msg)
-    
-    def show_schema_info(self):
-        """
-        Display current schema information.
-        """
-        if not self.db_manager:
-            QMessageBox.warning(self, "Warning", "Please test connection first")
-            return
-        
-        try:
-            schema_info = self.db_manager.get_schema_info()
-            
-            info_text = "Current Schema Information:\n\n"
-            
-            # Tables
-            tables = schema_info.get('tables', [])
-            info_text += f"Tables ({len(tables)}):\n"
-            for table in tables:
-                info_text += f"  - {table['table_name']} ({table['table_type']})\n"
-            
-            # Hypertables
-            hypertables = schema_info.get('hypertables', [])
-            if hypertables:
-                info_text += f"\nHypertables ({len(hypertables)}):\n"
-                for ht in hypertables:
-                    info_text += f"  - {ht['hypertable_name']} ({ht['num_dimensions']} dimensions)\n"
-            
-            self.schema_status.clear()
-            self.schema_status.append(info_text)
-            
-        except Exception as e:
-            error_msg = f"Failed to get schema info: {str(e)}"
-            self.schema_status.append(f"✗ {error_msg}")
-            self.logger.error(error_msg)
     
     def save_configuration(self):
         """
-        Save current configuration to file.
+        Save current configuration to secure location with encrypted password.
+        Uses DatabaseConfigManager for cross-platform storage.
         """
         try:
             config = {
                 'host': self.host_edit.text().strip(),
                 'port': self.port_spin.value(),
-                'database': self.database_edit.text().strip(),
                 'username': self.username_edit.text().strip(),
-                'password': self.password_edit.text(),
+                'password': self.password_edit.text(),  # Will be encrypted by config_manager
                 'use_ssl': self.ssl_checkbox.isChecked()
             }
             
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
-            
-            self.config = config
-            QMessageBox.information(self, "Success", "Configuration saved successfully!")
-            self.logger.info("Database configuration saved")
+            # Save using secure config manager (encrypts password automatically)
+            if self.config_manager.save_config(config):
+                self.config = config
+                
+                # Show success message with config location
+                config_location = self.config_manager.get_config_location()
+                msg = f"Configuration saved successfully!\n\nLocation: {config_location}\n\nPassword is encrypted for security."
+                QMessageBox.information(self, "Success", msg)
+                self.logger.info(f"Database configuration saved to {config_location}")
+            else:
+                raise Exception("Failed to save configuration")
             
         except Exception as e:
             error_msg = f"Failed to save configuration: {str(e)}"

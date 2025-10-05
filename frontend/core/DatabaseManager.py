@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 
 class DatabaseManager:
-    """Gestisce la connessione e le operazioni sul database PostgreSQL/TimescaleDB."""
+    """Manages connection and operations on PostgreSQL database."""
     
     def __init__(self, host: str, port: int, dbname: str, user: str, password: str):
         """Inizializza il gestore database con i parametri di connessione."""
@@ -270,11 +270,11 @@ class DatabaseManager:
                     'values': [row[1] for row in rows]
                 }
             else:
-                # Applica il downsampling
+                # Apply downsampling using PostgreSQL date_bin
                 cur.execute(
                     """
                     SELECT 
-                        time_bucket(%s, timestamp) AS bucket,
+                        date_bin(%s::INTERVAL, timestamp, TIMESTAMP '2000-01-01') AS bucket,
                         avg(valore) as value_avg,
                         min(valore) as value_min,
                         max(valore) as value_max

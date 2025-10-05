@@ -234,5 +234,7 @@
   "empty_value_list": "Die Werteliste darf nicht leer sein",
   "configuration_saved": "Konfiguration gespeichert",
   "invalid_number_format": "Ungültiges Zahlenformat",
-  "parameters_applied": "Parameter auf JSON angewendet"
+  "parameters_applied": "Parameter auf JSON angewendet",
+  "database_connected_successfully": "Datenbank erfolgreich verbunden!",
+  "database_connection_failed": "Datenbankverbindung fehlgeschlagen. Überprüfen Sie die Einstellungen."
 }

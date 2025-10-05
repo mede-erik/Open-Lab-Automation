@@ -9,8 +9,8 @@ from frontend.core.Translator import Translator
 from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
 from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
-from ui.DataloggerConfigDialog import DataloggerConfigDialog
-from core.LoadInstruments import LoadInstruments
+from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
+from frontend.core.LoadInstruments import LoadInstruments
 
 # PyVISA opzionale per discovery
 try:

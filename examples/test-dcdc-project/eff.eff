@@ -11,7 +11,11 @@
       }
     }
   ],
-  "measured_variables": [],
+  "measured_variables": [
+    "Vaux",
+    "Vd_Q1",
+    "Vs_Q1"
+  ],
   "timing": {
     "delay_between_points": 0.5,
     "delay_between_loops": 1.0

@@ -1,7 +1,5 @@
-"""
-Database management module for Lab Automation PostgreSQL/TimescaleDB integration.
-
-This module provides connection management, schema creation, and data access
+"""  
+Database management module for Lab Automation PostgreSQL integration.This module provides connection management, schema creation, and data access
 operations for the DC-DC converter measurement system.
 """
 
@@ -13,12 +11,12 @@ import logging
 from contextlib import contextmanager
 import json
 from datetime import datetime
-from logger import Logger
+from frontend.core.logger import Logger
 
 
 class DatabaseManager:
     """
-    Main database manager class for PostgreSQL/TimescaleDB operations.
+    Main database manager class for PostgreSQL operations.
     Handles connection management, schema operations, and provides base functionality
     for data access operations.
     """
@@ -74,10 +72,10 @@ class DatabaseManager:
     
     def test_connection(self) -> bool:
         """
-        Test database connectivity and TimescaleDB extension availability.
+        Test database connectivity.
         
         Returns:
-            bool: True if connection successful and TimescaleDB available
+            bool: True if connection successful
         """
         try:
             with self.get_connection() as conn:
@@ -86,24 +84,6 @@ class DatabaseManager:
                     cursor.execute("SELECT version();")
                     version = cursor.fetchone()[0]
                     self.logger.info(f"Connected to PostgreSQL: {version}")
-                    
-                    # Check TimescaleDB extension
-                    cursor.execute("""
-                        SELECT default_version, installed_version 
-                        FROM pg_available_extensions 
-                        WHERE name = 'timescaledb';
-                    """)
-                    result = cursor.fetchone()
-                    if result:
-                        default_ver, installed_ver = result
-                        if installed_ver:
-                            self.logger.info(f"TimescaleDB extension active: {installed_ver}")
-                        else:
-                            self.logger.warning("TimescaleDB extension available but not installed")
-                    else:
-                        self.logger.error("TimescaleDB extension not available")
-                        return False
-                    
                     return True
         except Exception as e:
             self.logger.error(f"Connection test failed: {str(e)}")
@@ -111,7 +91,7 @@ class DatabaseManager:
     
     def initialize_database(self) -> bool:
         """
-        Initialize database with TimescaleDB extension and create schema.
+        Initialize database and create schema.
         
         Returns:
             bool: True if initialization successful
@@ -119,10 +99,6 @@ class DatabaseManager:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Enable TimescaleDB extension
-                    cursor.execute("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;")
-                    self.logger.info("TimescaleDB extension enabled")
-                    
                     # Create schema
                     if self._create_schema(cursor):
                         conn.commit()
@@ -223,20 +199,6 @@ class DatabaseManager:
                 );
             """)
             self.logger.debug("Created forme_d_onda table")
-            
-            # Check if hypertable already exists
-            cursor.execute("""
-                SELECT 1 FROM timescaledb_information.hypertables 
-                WHERE hypertable_name = 'forme_d_onda';
-            """)
-            if not cursor.fetchone():
-                # Create hypertable
-                cursor.execute("""
-                    SELECT create_hypertable('forme_d_onda', 'timestamp_campione', 
-                                            chunk_time_interval => INTERVAL '1 hour',
-                                            if_not_exists => TRUE);
-                """)
-                self.logger.debug("Created forme_d_onda hypertable")
             
             # Create indexes for optimization
             self._create_indexes(cursor)
@@ -356,16 +318,8 @@ class DatabaseManager:
                     """)
                     tables = cursor.fetchall()
                     
-                    # Get hypertable information
-                    cursor.execute("""
-                        SELECT hypertable_name, associated_schema_name, num_dimensions
-                        FROM timescaledb_information.hypertables;
-                    """)
-                    hypertables = cursor.fetchall()
-                    
                     return {
                         'tables': tables,
-                        'hypertables': hypertables,
                         'connection_params': {k: v for k, v in self.connection_params.items() if k != 'password'}
                     }
                     
