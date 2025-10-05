@@ -25,16 +25,21 @@ class PowerSupplyInstrumentDialog(QDialog):
         self.setModal(True)
         self.resize(600, 800)
         
-        # Scroll area per contenere tutto
-        scroll = QScrollArea()
-        scroll_widget = QWidget()
-        layout = QVBoxLayout()
+                # Main container
+        container_widget = QWidget()
+        container_layout = QVBoxLayout(container_widget)
         
-        # === SEZIONE SERIE ===
-        series_group = QGroupBox(self.translator.get("series_group", "Serie di Appartenenza"))
+        # Scroll area to contain everything
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(container_widget)
+        main_layout.addWidget(scroll_area)
+        
+        # === SERIES SELECTION SECTION ===
+        series_group = QGroupBox(translator.translate('select_series'))
         series_layout = QVBoxLayout()
         
-        # Radio buttons per scegliere se usare serie esistente o crearne una nuova
+        # Radio buttons to choose whether to use existing series or create a new one
         self.series_button_group = QButtonGroup()
         self.existing_series_radio = QRadioButton(self.translator.get("existing_series", "Usa serie esistente"))
         self.new_series_radio = QRadioButton(self.translator.get("new_series", "Crea nuova serie"))

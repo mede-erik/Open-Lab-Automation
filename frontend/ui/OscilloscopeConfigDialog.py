@@ -14,7 +14,7 @@ class OscilloscopeConfigDialog(QDialog):
         self.setWindowTitle(self.translator.t('oscilloscope_channel_config') if self.translator else "Configurazione Canali Oscilloscopio")
         self.instrument = instrument
         
-        # --- Sincronizza canali con capabilities ---
+        # --- Sync channels with capabilities ---
         capabilities = instrument.get('capabilities', {})
         n = capabilities.get('number_of_channel', instrument.get('num_channels', 4))
         channel_ids = capabilities.get('channel_ids', [f'CH{i+1}' for i in range(n)])
@@ -22,7 +22,7 @@ class OscilloscopeConfigDialog(QDialog):
         channels = instrument.get('channels', [])
         new_channels = []
         
-        # Scale volt/div comuni per oscilloscopi
+        # Common volt/div scales for oscilloscopes
         self.volt_div_options = [
             "1mV", "2mV", "5mV",
             "10mV", "20mV", "50mV",
@@ -60,7 +60,7 @@ class OscilloscopeConfigDialog(QDialog):
         self.table.setHorizontalHeaderLabels(headers)
         
         for row, ch in enumerate(self.channels):
-            # Colonna 0: Checkbox Abilita
+            # Column 0: Enable Checkbox
             chk = QCheckBox()
             chk.setChecked(ch.get('enabled', False))
             chk.stateChanged.connect(lambda state, r=row: self.on_enabled_changed(r, state))

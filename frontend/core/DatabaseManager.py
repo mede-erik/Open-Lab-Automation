@@ -169,13 +169,16 @@ class DatabaseManager:
 
         self.ensure_connection()
         with self.conn.cursor() as cur:
-            # Prepara i dati per l'inserimento bulk
-            data = [
-                (point_id, ts, channel, val)
-                for ts, val in zip(timestamps, values)
-            ]
+                        # Prepare data for bulk insert
+            data_list = []
+            for point in measurement_points:
+                data_list.append((
+                    session_id,
+                    point['timestamp'],
+                    point.get('values', {})
+                ))
             
-            # Usa execute_values per inserimento bulk efficiente
+            # Use execute_values for efficient bulk insert
             execute_values(
                 cur,
                 """

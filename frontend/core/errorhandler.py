@@ -108,6 +108,7 @@ class ErrorHandler(QObject):
     def handle_error(self, exception, user_message="An error occurred", show_dialog=True):
         """
         Handle an exception with consistent logging and user notification.
+        Uses structured logging format: LEVEL-CODE-Message
         
         Args:
             exception: The exception that occurred
@@ -119,12 +120,17 @@ class ErrorHandler(QObject):
         
         # Extract error code if it's one of our custom exceptions
         if hasattr(exception, 'error_code'):
-            error_code = exception.error_code.value
+            error_code_enum = exception.error_code
+            # Remove brackets from error code for structured format
+            error_code = error_code_enum.value.strip('[]')
             if hasattr(exception, 'message') and exception.message:
                 technical_message = exception.message
         
-        # Log the error
-        log_message = f"{error_code} {technical_message}" if error_code else technical_message
+        # Log with structured format
+        if error_code:
+            log_message = f"[{error_code}] {technical_message}"
+        else:
+            log_message = technical_message
         self.logger.error(log_message, exc_info=True)
         
         # Emit signal

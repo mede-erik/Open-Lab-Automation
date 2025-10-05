@@ -19,8 +19,8 @@ class SettingsDialog(QDialog):
         
         self.translator = translator
         
-        print("[SettingsDialog DEBUG] Creazione helper function t()...")
-        # Helper function per traduzioni sicure
+        print("[SettingsDialog DEBUG] Creating helper function t()...")
+        # Helper function for safe translations
         def t(key, default=None):
             if self.translator and hasattr(self.translator, 't'):
                 return self.translator.t(key)

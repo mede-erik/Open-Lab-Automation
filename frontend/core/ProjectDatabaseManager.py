@@ -3,7 +3,15 @@ Project Database Manager - PostgreSQL
 ======================================
 
 Gestisce database PostgreSQL per progetti di automazione laboratorio.
-Ogni progetto ha il proprio database.
+Ogni p            # Check if database exists
+            cursor.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s",
+                (self.db_name,)
+            )
+            exists = cursor.fetchone() is not None
+            
+            if not exists:
+                # Create the databasea il proprio database.
 Ogni file .eff genera tabelle con numero incrementale per ogni esecuzione.
 
 Architettura:
@@ -59,30 +67,30 @@ class ProjectDatabaseManager:
         Returns:
             Nome database valido (lowercase, underscores, alfanumerico)
         """
-        # Converte a lowercase, sostituisce spazi e caratteri speciali con underscore
+        # Converts to lowercase, replaces spaces and special characters with underscores
         sanitized = re.sub(r'[^a-z0-9_]', '_', name.lower())
-        # Rimuove underscore multipli consecutivi
+        # Removes consecutive multiple underscores
         sanitized = re.sub(r'_+', '_', sanitized)
-        # Rimuove underscore iniziali/finali
+        # Removes leading/trailing underscores
         sanitized = sanitized.strip('_')
-        # Assicura che inizi con una lettera
+        # Ensures it starts with a letter
         if sanitized and not sanitized[0].isalpha():
             sanitized = 'proj_' + sanitized
         return sanitized or 'unnamed_project'
     
     def _sanitize_table_name(self, eff_filename: str) -> str:
         """
-        Sanitizza il nome del file .eff per usarlo come nome tabella.
+        Sanitizes the .eff filename to use it as a table name.
         
         Args:
-            eff_filename: Nome del file .eff (con o senza estensione)
+            eff_filename: Name of the .eff file (with or without extension)
             
         Returns:
-            Nome tabella valido
+            Valid table name
         """
-        # Rimuove estensione .eff se presente
+        # Removes .eff extension if present
         name = eff_filename.replace('.eff', '')
-        # Sanitizza come per db_name
+        # Sanitizes like db_name
         sanitized = re.sub(r'[^a-z0-9_]', '_', name.lower())
         sanitized = re.sub(r'_+', '_', sanitized)
         sanitized = sanitized.strip('_')
@@ -156,7 +164,7 @@ class ProjectDatabaseManager:
             conn = self.connect_postgres()
             cursor = conn.cursor()
             
-            # Verifica se il database esiste
+            # Check if database exists
             cursor.execute(
                 "SELECT 1 FROM pg_database WHERE datname = %s",
                 (self.db_name,)
@@ -164,13 +172,15 @@ class ProjectDatabaseManager:
             exists = cursor.fetchone()
             
             if not exists:
-                # Crea il database
+                # Create the database
                 cursor.execute(
                     sql.SQL("CREATE DATABASE {}").format(
                         sql.Identifier(self.db_name)
                     )
                 )
-                print(f"[INFO] Database '{self.db_name}' creato con successo")
+                print(f"Database created: {manager.db_name}")
+        
+        # Create the table
             else:
                 print(f"[INFO] Database '{self.db_name}' già esistente")
             
@@ -202,7 +212,7 @@ class ProjectDatabaseManager:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
-            # Cerca tutte le tabelle che iniziano con il nome base
+            # Find all tables starting with the base name
             cursor.execute("""
                 SELECT tablename 
                 FROM pg_tables 
@@ -217,7 +227,7 @@ class ProjectDatabaseManager:
             if not tables:
                 return 1
             
-            # Estrae i numeri dalle tabelle esistenti
+            # Extract numbers from existing tables
             numbers = []
             pattern = re.compile(rf"{re.escape(sanitized_name)}_(\d+)$")
             for (table_name,) in tables:
@@ -261,28 +271,28 @@ class ProjectDatabaseManager:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
-            # Costruisce le colonne della tabella
+            # Build table columns
             columns = []
             
-            # ID auto-incrementale
+            # Auto-increment ID
             columns.append("id SERIAL PRIMARY KEY")
             
-            # Variabili di misura (stringhe/timestamp)
+            # Measurement variables (strings/timestamps)
             for var_name, var_type in measurement_vars.items():
                 columns.append(f"{var_name} {var_type}")
             
-            # Variabili di sweep (DOUBLE PRECISION)
+            # Sweep variables (DOUBLE PRECISION)
             for sweep_var in sweep_variables:
                 columns.append(f"{sweep_var} DOUBLE PRECISION")
             
-            # Colonne dati (DOUBLE PRECISION)
+            # Data columns (DOUBLE PRECISION)
             for data_col in data_columns:
                 columns.append(f"{data_col} DOUBLE PRECISION")
             
-            # Timestamp di creazione record
+            # Record creation timestamp
             columns.append("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
             
-            # Crea la tabella
+            # Create the table
             create_query = sql.SQL("CREATE TABLE {} ({})").format(
                 sql.Identifier(table_name),
                 sql.SQL(", ".join(columns))
@@ -290,7 +300,7 @@ class ProjectDatabaseManager:
             
             cursor.execute(create_query)
             
-            # Crea indici per migliorare le query
+            # Create indexes to improve queries
             for sweep_var in sweep_variables:
                 index_name = f"idx_{table_name}_{sweep_var}"
                 cursor.execute(
@@ -340,20 +350,20 @@ class ProjectDatabaseManager:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
-            # Prepara i dati da inserire
-            insert_data = []
-            for row in data_rows:
-                # Combina measurement_info con i dati del punto
-                full_row = {**measurement_info, **row}
-                insert_data.append(full_row)
+            # Prepare data to insert
+            data_to_insert = []
+            for point in measurement_points:
+                # Combine measurement_info with point data
+                point_data = {**measurement_info, **point}
+                data_to_insert.append(point_data)
             
-            if not insert_data:
-                return 0
+            if not data_to_insert:
+                return
             
-            # Estrae le colonne (escluso 'id' e 'created_at' che sono auto-generati)
-            columns = list(insert_data[0].keys())
+            # Extract columns (excluding 'id' and 'created_at' which are auto-generated)
+            columns = [k for k in data_to_insert[0].keys() if k not in ('id', 'created_at')]
             
-            # Prepara la query di inserimento
+            # Prepare insert query
             insert_query = sql.SQL("INSERT INTO {} ({}) VALUES %s").format(
                 sql.Identifier(table_name),
                 sql.SQL(", ").join(map(sql.Identifier, columns))

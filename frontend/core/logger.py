@@ -3,10 +3,20 @@ import os
 from datetime import datetime
 from typing import Optional
 
+
 class Logger:
     """
-    Class to handle application logging.
-    Writes logs to both console and file in the project folder.
+    Class to handle application logging with structured format.
+    
+    Log Format: <Level>-<ErrorCode>-<Message>
+    - Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    - ErrorCode: Optional error code for errors (e.g., VISA-001, FILE-002)
+    - Message: The log message
+    
+    Examples:
+        INFO--Application started
+        ERROR-VISA-001-Connection failed to device
+        WARNING--Configuration file not found
     """
     _instance = None
     
@@ -26,11 +36,34 @@ class Logger:
         self.current_log_file = None
         self.project_dir = None
         
-        # Log formatter
-        formatter = logging.Formatter(
-            '[%(levelname)s] - %(asctime)s - %(message)s',
-            datefmt='%H:%M:%S'
-        )
+        # Custom formatter for structured logs
+        class StructuredFormatter(logging.Formatter):
+            def format(self, record):
+                # Extract error code if present in message
+                msg = record.getMessage()
+                error_code = ""
+                
+                # Check if message starts with [CODE-XXX]
+                if msg.startswith('[') and ']' in msg:
+                    end_bracket = msg.index(']')
+                    error_code = msg[1:end_bracket]
+                    msg = msg[end_bracket + 1:].strip()
+                    # Remove leading : or - if present
+                    if msg.startswith(':') or msg.startswith('-'):
+                        msg = msg[1:].strip()
+                
+                # Format: LEVEL-CODE-Message
+                level = record.levelname
+                if error_code:
+                    formatted = f"{level}-{error_code}-{msg}"
+                else:
+                    formatted = f"{level}--{msg}"
+                
+                # Add timestamp
+                timestamp = self.formatTime(record, self.datefmt)
+                return f"[{timestamp}] {formatted}"
+        
+        formatter = StructuredFormatter(datefmt='%H:%M:%S')
         
         # Console handler
         console_handler = logging.StreamHandler()
@@ -63,37 +96,96 @@ class Logger:
             timestamp = datetime.now().strftime('%Y%m%d')
             log_file = os.path.join(logs_dir, f'lab_automation_{timestamp}.log')
             
-            # Create file handler
+            # Create file handler with structured formatter
             self.file_handler = logging.FileHandler(log_file, encoding='utf-8')
             self.file_handler.setLevel(logging.DEBUG)
-            formatter = logging.Formatter(
-                '[%(levelname)s] - %(asctime)s - %(message)s',
-                datefmt='%H:%M:%S'
-            )
+            
+            class StructuredFormatter(logging.Formatter):
+                def format(self, record):
+                    msg = record.getMessage()
+                    error_code = ""
+                    
+                    if msg.startswith('[') and ']' in msg:
+                        end_bracket = msg.index(']')
+                        error_code = msg[1:end_bracket]
+                        msg = msg[end_bracket + 1:].strip()
+                        if msg.startswith(':') or msg.startswith('-'):
+                            msg = msg[1:].strip()
+                    
+                    level = record.levelname
+                    if error_code:
+                        formatted = f"{level}-{error_code}-{msg}"
+                    else:
+                        formatted = f"{level}--{msg}"
+                    
+                    timestamp = self.formatTime(record, self.datefmt)
+                    return f"[{timestamp}] {formatted}"
+            
+            formatter = StructuredFormatter(datefmt='%H:%M:%S')
             self.file_handler.setFormatter(formatter)
             self.logger.addHandler(self.file_handler)
             self.current_log_file = log_file
             
             self.info(f"Log file created: {log_file}")
 
-    def debug(self, message: str, **kwargs):
-        """Log a debug message"""
+    def debug(self, message: str, error_code: str = "", **kwargs):
+        """
+        Log a debug message.
+        
+        Args:
+            message: The log message
+            error_code: Optional error code (e.g., 'VISA-001')
+        """
+        if error_code:
+            message = f"[{error_code}] {message}"
         self.logger.debug(message, **kwargs)
         
-    def info(self, message: str, **kwargs):
-        """Log an informational message"""
+    def info(self, message: str, error_code: str = "", **kwargs):
+        """
+        Log an informational message.
+        
+        Args:
+            message: The log message
+            error_code: Optional error code
+        """
+        if error_code:
+            message = f"[{error_code}] {message}"
         self.logger.info(message, **kwargs)
         
-    def warning(self, message: str, **kwargs):
-        """Log a warning message"""
+    def warning(self, message: str, error_code: str = "", **kwargs):
+        """
+        Log a warning message.
+        
+        Args:
+            message: The log message
+            error_code: Optional error code
+        """
+        if error_code:
+            message = f"[{error_code}] {message}"
         self.logger.warning(message, **kwargs)
         
-    def error(self, message: str, **kwargs):
-        """Log an error message"""
+    def error(self, message: str, error_code: str = "", **kwargs):
+        """
+        Log an error message.
+        
+        Args:
+            message: The log message
+            error_code: Optional error code (e.g., 'VISA-001')
+        """
+        if error_code:
+            message = f"[{error_code}] {message}"
         self.logger.error(message, **kwargs)
         
-    def critical(self, message: str, **kwargs):
-        """Log a critical error message"""
+    def critical(self, message: str, error_code: str = "", **kwargs):
+        """
+        Log a critical error message.
+        
+        Args:
+            message: The log message
+            error_code: Optional error code
+        """
+        if error_code:
+            message = f"[{error_code}] {message}"
         self.logger.critical(message, **kwargs)
         
     def get_current_log_file(self) -> Optional[str]:

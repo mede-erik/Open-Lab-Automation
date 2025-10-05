@@ -404,9 +404,14 @@ class RemoteControlTab(QWidget):
                     self.measurement_timer.start(2000)  # Start con 2 secondi
                     
             # --- Then, for each power supply/electronic load, create a group per instrument ---
+            print("\n=== DEBUG: Creazione controlli alimentatori/carichi ===")
             for inst in inst_data.get('instruments', []):
+                print(f"Controllo strumento: {inst.get('instance_name', 'N/A')} - Tipo: {inst.get('instrument_type', 'N/A')}")
                 if inst.get('instrument_type') in ['power_supplies', 'electronic_loads']:
+                    print(f"  ✓ Tipo valido per controllo remoto")
+                    print(f"  Numero canali: {len(inst.get('channels', []))}")
                     visa_addr = inst.get('visa_address', None)
+                    print(f"  Indirizzo VISA: {visa_addr}")
                     # --- Pulsante di connessione per strumento ---
                     conn_btn = QPushButton('Collega')
                     conn_btn.setCheckable(True)
@@ -455,7 +460,9 @@ class RemoteControlTab(QWidget):
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
                     # Per ogni canale, aggiungi i controlli
-                    for ch in inst.get('channels', []):
+                    print(f"  Iterazione canali per {inst.get('instance_name', 'N/A')}:")
+                    for ch_idx, ch in enumerate(inst.get('channels', [])):
+                        print(f"    Canale [{ch_idx}]: {ch.get('name', 'N/A')} - Enabled: {ch.get('enabled', 'N/A')}")
                         group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
                         group.setProperty('instrument', inst)
                         group.setProperty('channel', ch)
@@ -489,8 +496,14 @@ class RemoteControlTab(QWidget):
                         group.setLayout(vbox)
                         inst_vbox.addWidget(group)
                         self.current_channel_widgets.append(group)
+                        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')}")
                     inst_group.setLayout(inst_vbox)
                     self.channels_layout.addWidget(inst_group)
+                    print(f"  ✓ GroupBox aggiunto al layout per {inst.get('instance_name', 'N/A')}")
+                else:
+                    print(f"  ✗ Tipo NON valido per controllo remoto")
+            print(f"Totale widget canali creati: {len(self.current_channel_widgets)}")
+            print("=" * 50 + "\n")
             self.channels_layout.addStretch()
             
         except Exception as e:
@@ -520,10 +533,10 @@ class RemoteControlTab(QWidget):
             self.visa_connections[visa_addr] = instr
             return instr
         except Exception as e:
-            error_msg = f'VISA Error - Cannot open {visa_addr}: {e}'
-            print(f"ERRORE: {error_msg}")
+            error_msg = f'Cannot open {visa_addr}: {e}'
+            print(f"ERRORE-VISA-002: {error_msg}")
             if self.logger:
-                self.logger.error(error_msg)
+                self.logger.error(error_msg, error_code="VISA-002")
             return None
 
     def set_voltage(self, inst, ch, edit):

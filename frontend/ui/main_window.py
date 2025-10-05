@@ -94,6 +94,17 @@ class MainWindow(QMainWindow):
         
         self.remote_tab = RemoteControlTab(self.load_instruments)
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
+        
+        # Tab Avvia Efficienza (futura implementazione)
+        self.efficiency_tab = QWidget()
+        efficiency_layout = QVBoxLayout()
+        efficiency_label = QLabel('Avvia Efficienza - Funzionalità in arrivo...')
+        efficiency_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        efficiency_label.setStyleSheet('font-size: 16px; color: gray; padding: 50px;')
+        efficiency_layout.addWidget(efficiency_label)
+        self.efficiency_tab.setLayout(efficiency_layout)
+        self.tabs.addTab(self.efficiency_tab, 'Avvia Efficienza')
+        
         self.project_files_list = QListWidget()
         self.logger.debug("UI tabs and lists created.")
         
@@ -465,10 +476,14 @@ class MainWindow(QMainWindow):
         # Aggiorna le variabili del progetto dagli strumenti
         self.update_project_variables()
         
-        # Aggiorna RemoteControlTab se serve
+        # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
         if hasattr(self, 'remote_tab') and inst_file:
-            # Qui si può aggiungere logica per aggiornare la tab con il nuovo file strumenti
-            pass
+            inst_path = os.path.join(self.current_project_dir, inst_file)
+            if os.path.exists(inst_path):
+                self.logger.info(f"Loading instruments in RemoteControlTab: {inst_path}")
+                self.remote_tab.load_instruments(inst_path)
+            else:
+                self.logger.warning(f"Instruments file not found: {inst_path}")
     
     def update_project_variables(self):
         """

@@ -11,18 +11,18 @@ class LoadInstruments:
 
     def load_instruments(self, file_path):
         """
-        Carica la lista degli strumenti da un file JSON.
+        Loads the instrument list from a JSON file.
         Args:
-            file_path (str): Percorso del file JSON degli strumenti.
+            file_path (str): Path to the instruments JSON file.
         """
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
-                # Normalizza a dizionario con chiave 'instrument_library'
+                # Normalize to dictionary with 'instrument_library' key
                 if isinstance(data, dict) and 'instrument_library' in data:
                     self.instruments = data['instrument_library']
                 else:
-                    # fallback: accetta direttamente la struttura dizionario attesa
+                    # fallback: accept directly the expected dictionary structure
                     self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
             print(f"File not found: {file_path}")
@@ -31,21 +31,21 @@ class LoadInstruments:
 
     def get_powersupplys_series(self):
         """
-        Recupera le serie di alimentatori disponibili.
+        Retrieves the available power supply series.
         Returns:
-            list: Lista delle serie di alimentatori.
+            list: List of power supply series.
         """
-        # Cerca strumenti di tipo 'power_supply' e raccoglie le loro serie
+        # Find instruments of type 'power_supply' and collect their series
         power_supplies_series = self.instruments.get('power_supplies_series', [])
         return power_supplies_series
     
     def get_dataloggers_series(self):
         """
-        Recupera le serie di datalogger disponibili.
+        Retrieves the available datalogger series.
         Returns:
-            list: Lista delle serie di datalogger.
+            list: List of datalogger series.
         """
-        # Cerca strumenti di tipo 'datalogger' e raccoglie le loro serie
+        # Find instruments of type 'datalogger' and collect their series
         dataloggers_series = self.instruments.get('dataloggers_series', [])
         return dataloggers_series
 
@@ -193,7 +193,7 @@ class LoadInstruments:
                 return series['common_scpi_commands']
         return None
     
-    # Nota: get_datalogger_common_scpi è già definito sopra; evitare duplicati
+    # Note: get_datalogger_common_scpi is already defined above; avoid duplicates
 
     def get_powersupply_capabilities(self, model_id):
         """

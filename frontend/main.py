@@ -12,10 +12,10 @@ from PyQt6.QtCore import QSettings
 
 # ---------------------------------------------------------------------------
 # Dynamic import path bootstrap
-# Permette di eseguire questo script anche da fuori la cartella frontend,
-# ad esempio: `python frontend/main.py` dalla root del repository.
-# In tal caso Python aggiunge solo la root repo a sys.path e il pacchetto
-# "ui" non verrebbe trovato. Aggiungiamo quindi la directory di questo file.
+# Allows running this script from outside the frontend folder,
+# for example: `python frontend/main.py` from the repository root.
+# In this case Python only adds the repo root to sys.path and the
+# "ui" package wouldn't be found. So we add this file's directory.
 # ---------------------------------------------------------------------------
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
@@ -34,9 +34,9 @@ def main():
     """
     # Initialize logger
     logger = Logger()
-    logger.debug("=================================================")
-    logger.debug("    Open Lab Automation application starting...")
-    logger.debug("=================================================")
+    logger.info("=================================================")
+    logger.info("    Open Lab Automation application starting...")
+    logger.info("=================================================")
     
     # Create the QApplication instance
     app = QApplication(sys.argv)
