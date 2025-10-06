@@ -21,153 +21,150 @@ class PowerSupplyInstrumentDialog(QDialog):
         
     def init_ui(self):
         """Inizializza l'interfaccia utente"""
-        self.setWindowTitle(self.translator.get("power_supply_config", "Configurazione Alimentatore"))
+        self.setWindowTitle(self.translator.t("power_supply_config"))
         self.setModal(True)
         self.resize(600, 800)
-        
-                # Main container
+
+        main_layout = QVBoxLayout(self)
+
+        # Main container
         container_widget = QWidget()
         container_layout = QVBoxLayout(container_widget)
-        
+
         # Scroll area to contain everything
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(container_widget)
         main_layout.addWidget(scroll_area)
-        
+
         # === SERIES SELECTION SECTION ===
-        series_group = QGroupBox(translator.translate('select_series'))
+        series_group = QGroupBox(self.translator.t('select_series'))
         series_layout = QVBoxLayout()
         
         # Radio buttons to choose whether to use existing series or create a new one
         self.series_button_group = QButtonGroup()
-        self.existing_series_radio = QRadioButton(self.translator.get("existing_series", "Usa serie esistente"))
-        self.new_series_radio = QRadioButton(self.translator.get("new_series", "Crea nuova serie"))
+        self.existing_series_radio = QRadioButton(self.translator.t("existing_series"))
+        self.new_series_radio = QRadioButton(self.translator.t("new_series"))
         self.existing_series_radio.setChecked(True)
-        
+
         self.series_button_group.addButton(self.existing_series_radio, 0)
         self.series_button_group.addButton(self.new_series_radio, 1)
-        
+
         series_layout.addWidget(self.existing_series_radio)
         series_layout.addWidget(self.new_series_radio)
-        
+
         # ComboBox per serie esistenti
         self.existing_series_combo = QComboBox()
         self.load_existing_series()
-        
+
         # Campi per nuova serie
         self.new_series_widget = QWidget()
         new_series_layout = QFormLayout()
         self.new_series_id = QLineEdit()
         self.new_series_name = QLineEdit()
-        new_series_layout.addRow(self.translator.get("series_id", "ID Serie:"), self.new_series_id)
-        new_series_layout.addRow(self.translator.get("series_name", "Nome Serie:"), self.new_series_name)
+        new_series_layout.addRow(self.translator.t("series_id"), self.new_series_id)
+        new_series_layout.addRow(self.translator.t("series_name"), self.new_series_name)
         self.new_series_widget.setLayout(new_series_layout)
         self.new_series_widget.setEnabled(False)
-        
-        series_layout.addWidget(QLabel(self.translator.get("existing_series_label", "Serie esistente:")))
+
+        series_layout.addWidget(QLabel(self.translator.t("existing_series_label")))
         series_layout.addWidget(self.existing_series_combo)
         series_layout.addWidget(self.new_series_widget)
-        
+
         # Connetti i segnali per abilitare/disabilitare i controlli
         self.existing_series_radio.toggled.connect(self.toggle_series_controls)
-        
+
         series_group.setLayout(series_layout)
-        layout.addWidget(series_group)
-        
+        main_layout.addWidget(series_group)
+
         # === SEZIONE INFORMAZIONI MODELLO ===
-        model_group = QGroupBox(self.translator.get("model_info", "Informazioni Modello"))
+        model_group = QGroupBox(self.translator.t("model_info"))
         model_layout = QFormLayout()
-        
+
         self.model_name = QLineEdit()
         self.manufacturer = QLineEdit()
         self.model_id = QLineEdit()
-        
-        model_layout.addRow(self.translator.get("model_name_label", "Nome Modello:"), self.model_name)
-        model_layout.addRow(self.translator.get("manufacturer_label", "Produttore:"), self.manufacturer)
-        model_layout.addRow(self.translator.get("model_id_label", "ID Modello:"), self.model_id)
-        
+
+        model_layout.addRow(self.translator.t("model_name_label"), self.model_name)
+        model_layout.addRow(self.translator.t("manufacturer_label"), self.manufacturer)
+        model_layout.addRow(self.translator.t("model_id_label"), self.model_id)
+
         model_group.setLayout(model_layout)
-        layout.addWidget(model_group)
-        
+        main_layout.addWidget(model_group)
+
         # === SEZIONE CANALI ===
-        channels_group = QGroupBox(self.translator.get("channels_config", "Configurazione Canali"))
+        channels_group = QGroupBox(self.translator.t("channels_config"))
         channels_layout = QFormLayout()
-        
+
         self.num_channels = QSpinBox()
         self.num_channels.setMinimum(1)
         self.num_channels.setMaximum(10)
         self.num_channels.setValue(1)
         self.num_channels.valueChanged.connect(self.update_channels_config)
-        
-        channels_layout.addRow(self.translator.get("num_channels_label", "Numero di Canali:"), self.num_channels)
-        
+
+        channels_layout.addRow(self.translator.t("num_channels_label"), self.num_channels)
+
         # Container per i canali
         self.channels_container = QWidget()
         self.channels_container_layout = QVBoxLayout()
         self.channels_container.setLayout(self.channels_container_layout)
-        
-        channels_layout.addRow(self.translator.get("configuration_label", "Configurazione:"), self.channels_container)
+
+        channels_layout.addRow(self.translator.t("configuration_label"), self.channels_container)
         channels_group.setLayout(channels_layout)
-        layout.addWidget(channels_group)
-        
+        main_layout.addWidget(channels_group)
+
         # Inizializza con un canale
         self.update_channels_config()
-        
+
         # === SEZIONE INTERFACCE ===
-        interface_group = QGroupBox(self.translator.get("supported_interfaces", "Interfacce Supportate"))
+        interface_group = QGroupBox(self.translator.t("supported_interfaces"))
         interface_layout = QVBoxLayout()
-        
+
         # Checkboxes per le interfacce
-        self.usb_checkbox = QCheckBox(self.translator.get("usb_tmc", "USB-TMC"))
-        self.ethernet_checkbox = QCheckBox(self.translator.get("ethernet_lxi", "Ethernet/LXI"))
-        self.serial_checkbox = QCheckBox(self.translator.get("rs232_485", "RS-232/RS-485"))
-        self.gpib_checkbox = QCheckBox(self.translator.get("gpib", "GPIB"))
-        
+        self.usb_checkbox = QCheckBox(self.translator.t("usb_tmc"))
+        self.ethernet_checkbox = QCheckBox(self.translator.t("ethernet_lxi"))
+        self.serial_checkbox = QCheckBox(self.translator.t("rs232_485"))
+        self.gpib_checkbox = QCheckBox(self.translator.t("gpib"))
+
         interface_layout.addWidget(self.usb_checkbox)
         interface_layout.addWidget(self.ethernet_checkbox)
         interface_layout.addWidget(self.serial_checkbox)
         interface_layout.addWidget(self.gpib_checkbox)
-        
+
         interface_group.setLayout(interface_layout)
-        layout.addWidget(interface_group)
-        
+        main_layout.addWidget(interface_group)
+
         # === SEZIONE DOCUMENTAZIONE ===
-        docs_group = QGroupBox(self.translator.get("documentation_group", "Documentazione"))
+        docs_group = QGroupBox(self.translator.t("documentation_group"))
         docs_layout = QFormLayout()
-        
+
         self.documentation_path = QLineEdit()
         self.notes = QTextEdit()
         self.notes.setMaximumHeight(100)
-        
-        docs_layout.addRow(self.translator.get("documentation_path_label", "Percorso Documentazione:"), self.documentation_path)
-        docs_layout.addRow(self.translator.get("notes_label", "Note:"), self.notes)
-        
+
+        docs_layout.addRow(self.translator.t("documentation_path_label"), self.documentation_path)
+        docs_layout.addRow(self.translator.t("notes_label"), self.notes)
+
         docs_group.setLayout(docs_layout)
-        layout.addWidget(docs_group)
-        
+        main_layout.addWidget(docs_group)
+
         # === PULSANTI ===
         button_layout = QHBoxLayout()
-        
-        cancel_button = QPushButton(self.translator.get("cancel", "Annulla"))
+
+        cancel_button = QPushButton(self.translator.t("cancel"))
         cancel_button.clicked.connect(self.reject)
-        
-        save_button = QPushButton(self.translator.get("save_instrument", "Salva Strumento"))
+
+        save_button = QPushButton(self.translator.t("save_instrument"))
         save_button.clicked.connect(self.save_instrument)
         save_button.setDefault(True)
         
         button_layout.addStretch()
         button_layout.addWidget(cancel_button)
         button_layout.addWidget(save_button)
-        
-        layout.addLayout(button_layout)
-        
-        scroll_widget.setLayout(layout)
-        scroll.setWidget(scroll_widget)
-        scroll.setWidgetResizable(True)
-        
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(scroll)
+
+        main_layout.addLayout(button_layout)
+        # Il layout principale è già stato creato e usato, non serve ricrearlo né ridefinirlo.
+        # Lo scroll_area è già aggiunto a main_layout all'inizio del metodo.
         self.setLayout(main_layout)
         
     def load_existing_series(self):
@@ -205,7 +202,7 @@ class PowerSupplyInstrumentDialog(QDialog):
         self.channel_configs = []
         
         for i in range(self.num_channels.value()):
-            channel_widget = QGroupBox(f"{self.translator.get('channel_label', 'Canale')} {i+1}")
+            channel_widget = QGroupBox(f"{self.translator.t('channel_label')} {i+1}")
             channel_layout = QFormLayout()
             
             # Configurazione del canale
@@ -226,12 +223,12 @@ class PowerSupplyInstrumentDialog(QDialog):
             channel_config['voltage_max'].setValue(30.0)  # Default
             channel_config['current_max'].setValue(5.0)   # Default
             
-            channel_layout.addRow(self.translator.get("channel_id_label", "ID Canale:"), channel_config['id'])
-            channel_layout.addRow(self.translator.get("channel_label_label", "Etichetta:"), channel_config['label'])
-            channel_layout.addRow(self.translator.get("voltage_min_label", "Tensione Min (V):"), channel_config['voltage_min'])
-            channel_layout.addRow(self.translator.get("voltage_max_label", "Tensione Max (V):"), channel_config['voltage_max'])
-            channel_layout.addRow(self.translator.get("current_min_label", "Corrente Min (A):"), channel_config['current_min'])
-            channel_layout.addRow(self.translator.get("current_max_label", "Corrente Max (A):"), channel_config['current_max'])
+            channel_layout.addRow(self.translator.t("channel_id_label"), channel_config['id'])
+            channel_layout.addRow(self.translator.t("channel_label_label"), channel_config['label'])
+            channel_layout.addRow(self.translator.t("voltage_min_label"), channel_config['voltage_min'])
+            channel_layout.addRow(self.translator.t("voltage_max_label"), channel_config['voltage_max'])
+            channel_layout.addRow(self.translator.t("current_min_label"), channel_config['current_min'])
+            channel_layout.addRow(self.translator.t("current_max_label"), channel_config['current_max'])
             
             channel_widget.setLayout(channel_layout)
             self.channels_container_layout.addWidget(channel_widget)
@@ -247,13 +244,13 @@ class PowerSupplyInstrumentDialog(QDialog):
             if self.existing_series_radio.isChecked():
                 selected_series = self.existing_series_combo.currentData()
                 if not selected_series:
-                    QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("select_existing_series", "Seleziona una serie esistente."))
+                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("select_existing_series"))
                     return
                 target_series_id = selected_series.get('series_id')
             else:
                 target_series_id = self.new_series_id.text().strip()
                 if not target_series_id or not self.new_series_name.text().strip():
-                    QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("complete_new_series_fields", "Completa tutti i campi per la nuova serie."))
+                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("complete_new_series_fields"))
                     return
             
             # Crea l'entry del nuovo strumento
@@ -263,20 +260,20 @@ class PowerSupplyInstrumentDialog(QDialog):
             success = self.save_to_library(instrument_data, target_series_id)
             
             if success:
-                QMessageBox.information(self, self.translator.get("success", "Successo"), self.translator.get("power_supply_added", "Alimentatore aggiunto con successo!"))
+                QMessageBox.information(self, self.translator.t("success"), self.translator.t("power_supply_added"))
                 self.accept()
                 
         except Exception as e:
-            QMessageBox.critical(self, self.translator.get("error", "Errore"), f"{self.translator.get('save_instrument_error', 'Errore nel salvare lo strumento:')} {str(e)}")
+            QMessageBox.critical(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {str(e)}")
             
     def validate_input(self):
         """Valida l'input dell'utente"""
         if not self.model_name.text().strip():
-            QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("model_name_required", "Il nome del modello è obbligatorio."))
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_name_required"))
             return False
             
         if not self.manufacturer.text().strip():
-            QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("manufacturer_required", "Il produttore è obbligatorio."))
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("manufacturer_required"))
             return False
             
         return True

@@ -58,7 +58,9 @@ class AddInstrumentDialog(QDialog):
         self.main_layout.addLayout(self.form_layout)
         
         # Buttons
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.main_layout.addWidget(self.button_box)
