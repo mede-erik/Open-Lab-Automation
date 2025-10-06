@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, 
     QPushButton, QHBoxLayout, QComboBox, QFileDialog, QListWidget, 
     QListWidgetItem, QInputDialog, QLineEdit, QMessageBox, QMenu,
-    QFormLayout
+    QFormLayout, QSplitter
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QSettings
@@ -120,11 +120,23 @@ class MainWindow(QMainWindow):
         self.project_files_list = QListWidget()
         self.logger.debug("UI tabs and lists created.")
         
-        # Layout: tabs on the left, file list on the right
+        # Layout: tabs on the right, file list on the left
         central_widget = QWidget()
         main_layout = QHBoxLayout()
-        main_layout.addWidget(self.project_files_list, 1)
-        main_layout.addWidget(self.tabs, 3)
+        
+        # Create a splitter to make the file list resizable
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.project_files_list)
+        self.splitter.addWidget(self.tabs)
+        
+        # Set initial sizes for the splitter
+        # Sidebar takes 1/7, main area 6/7
+        total_width = self.size().width()
+        sidebar_width = int(total_width / 7)
+        main_width = total_width - sidebar_width
+        self.splitter.setSizes([sidebar_width, main_width])
+        
+        main_layout.addWidget(self.splitter)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
         

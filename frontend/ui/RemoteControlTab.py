@@ -104,9 +104,15 @@ class RemoteControlTab(QWidget):
         self.meas_group.setLayout(self.meas_layout)
         self.main_layout.addWidget(self.meas_group)
         self.channels_container = QWidget()
-        self.channels_layout = QVBoxLayout()
+        self.channels_layout = QHBoxLayout()  # Cambiato da QVBoxLayout a QHBoxLayout per supportare colonne
         self.channels_container.setLayout(self.channels_layout)
         self.main_layout.addWidget(self.channels_container)
+        
+        # Crea le colonne per i canali
+        self.left_column = QVBoxLayout()
+        self.right_column = QVBoxLayout()
+        self.channels_layout.addLayout(self.left_column)
+        self.channels_layout.addLayout(self.right_column)
         self.main_layout.addStretch()
         self.setLayout(self.main_layout)
         self.current_channel_widgets = []  # Stores references to current channel widgets
@@ -567,17 +573,39 @@ class RemoteControlTab(QWidget):
             self.logger.info(msg)
             
         try:
-            # Clear previous controls
-            for i in reversed(range(self.channels_layout.count())):
-                widget = self.channels_layout.itemAt(i).widget()
-                if widget:
-                    widget.setParent(None)
+            # Clear previous controls - pulisci colonne
+            for i in reversed(range(self.left_column.count())):
+                item = self.left_column.itemAt(i)
+                if item:
+                    widget = item.widget()
+                    if widget:
+                        widget.setParent(None)
+            
+            for i in reversed(range(self.right_column.count())):
+                item = self.right_column.itemAt(i)
+                if item:
+                    widget = item.widget()
+                    if widget:
+                        widget.setParent(None)
+            
+            # Pulisci la terza colonna se esiste
+            if hasattr(self, 'third_column'):
+                for i in reversed(range(self.third_column.count())):
+                    item = self.third_column.itemAt(i)
+                    if item:
+                        widget = item.widget()
+                        if widget:
+                            widget.setParent(None)
+            
             self.current_channel_widgets.clear()
+            
             # Clear measurement area
             for i in reversed(range(self.meas_layout.count())):
-                widget = self.meas_layout.itemAt(i).widget()
-                if widget:
-                    widget.setParent(None)
+                item = self.meas_layout.itemAt(i)
+                if item:
+                    widget = item.widget()
+                    if widget:
+                        widget.setParent(None)
             
             # Stop measurement timer if exists
             if hasattr(self, 'measurement_timer'):
@@ -718,130 +746,187 @@ class RemoteControlTab(QWidget):
                 if self.auto_refresh_cb.isChecked():
                     self.measurement_timer.start(2000)  # Start con 2 secondi
                     
-            # --- Then, for each power supply/electronic load, create a group per instrument ---
-            print("\n=== DEBUG: Creazione controlli alimentatori/carichi ===")
+            # --- Analizza la struttura degli strumenti per ottimizzare il layout ---
+            power_instruments = []
+            total_enabled_channels = 0
+            
             for inst in inst_data.get('instruments', []):
-                print(f"Controllo strumento: {inst.get('instance_name', 'N/A')} - Tipo: {inst.get('instrument_type', 'N/A')}")
-                # Gestisce varianti di naming: power_supply/power_supplies, electronic_load/electronic_loads
                 inst_type = inst.get('instrument_type', '')
                 if inst_type in ['power_supply', 'power_supplies', 'electronic_load', 'electronic_loads']:
-                    print(f"  ✓ Tipo valido per controllo remoto")
-                    print(f"  Numero canali: {len(inst.get('channels', []))}")
-                    visa_addr = inst.get('visa_address', None)
-                    print(f"  Indirizzo VISA: {visa_addr}")
-                    # --- Pulsante di connessione per strumento ---
-                    conn_btn = QPushButton('Collega')
-                    conn_btn.setCheckable(True)
-                    conn_btn.setChecked(False)
-                    conn_btn.setStyleSheet('border: 2px solid gray;')
-                    def try_connect(inst=inst, btn=conn_btn):
+                    enabled_channels = [ch for ch in inst.get('channels', []) if ch.get('enabled', False)]
+                    if enabled_channels:
+                        power_instruments.append({
+                            'inst': inst,
+                            'enabled_channels': enabled_channels,
+                            'channel_count': len(enabled_channels)
+                        })
+                        total_enabled_channels += len(enabled_channels)
+            
+            print(f"\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
+            print(f"Strumenti validi: {len(power_instruments)}")
+            print(f"Totale canali abilitati: {total_enabled_channels}")
+            
+            # Ordina gli strumenti dal più grande al più piccolo per un miglior bilanciamento
+            power_instruments.sort(key=lambda x: x['channel_count'], reverse=True)
+            
+            for i, inst_info in enumerate(power_instruments):
+                inst_name = inst_info['inst'].get('instance_name', 'N/A')
+                channel_count = inst_info['channel_count']
+                print(f"  -> Strumento ordinato [{i}]: {inst_name} ({channel_count} canali)")
+            
+            # Determina il numero di colonne necessarie
+            if total_enabled_channels <= 4:
+                num_columns = 1
+            elif 5 <= total_enabled_channels <= 8:
+                num_columns = 2
+            else:
+                num_columns = 3
+            
+            # Crea colonne aggiuntive se necessarie
+            if num_columns >= 3 and not hasattr(self, 'third_column'):
+                self.third_column = QVBoxLayout()
+                self.channels_layout.addLayout(self.third_column)
+            
+            print(f"Layout scelto: {num_columns} colonne per {total_enabled_channels} canali totali")
+            
+            # --- Then, for each power supply/electronic load, create a group per instrument ---
+            print("\n=== DEBUG: Creazione controlli alimentatori/carichi ===")
+            columns = [self.left_column, self.right_column]
+            if num_columns >= 3:
+                columns.append(self.third_column)
+            
+            # Azzera le colonne prima di aggiungere nuovi widget
+            for col in columns:
+                while col.count():
+                    item = col.takeAt(0)
+                    widget = item.widget()
+                    if widget:
+                        widget.setParent(None)
+            
+            # Distribuisci gli strumenti nelle colonne in modo bilanciato
+            column_loads = [0] * num_columns  # Conta canali per colonna
+            for inst_info in power_instruments:
+                inst = inst_info['inst']
+                enabled_channels = inst_info['enabled_channels']
+                channel_count = inst_info['channel_count']
+                
+                print(f"Elaborazione strumento: {inst.get('instance_name', 'N/A')} - {channel_count} canali")
+                
+                # --- Pulsante di connessione per strumento ---
+                conn_btn = QPushButton(f"Connect {inst.get('instance_name','')}")
+                conn_btn.setCheckable(True)
+                conn_btn.setStyleSheet('QPushButton { font-weight: bold; padding: 5px; }')
+                def try_connect(inst, btn):
+                    visa_addr = inst.get('visa_address', '')
+                    if not visa_addr:
+                        btn.setStyleSheet('border: 2px solid orange;')
+                        btn.setChecked(False)
+                        return
+                    try:
                         if not self._ensure_visa_initialized():
-                            btn.setStyleSheet('border: 2px solid orange;')
-                            btn.setChecked(False)
-                            btn.setToolTip("VISA non disponibile")
-                            return
-                            
-                        visa_addr = inst.get('visa_address', None)
-                        if not visa_addr:
                             btn.setStyleSheet('border: 2px solid red;')
                             btn.setChecked(False)
                             return
-                        try:
-                            instr = self.rm.open_resource(visa_addr)
-                            self.visa_connections[visa_addr] = instr
-                            btn.setStyleSheet('border: 2px solid green;')
-                            btn.setChecked(True)
-                        except Exception as e:
-                            btn.setStyleSheet('border: 2px solid red;')
-                            btn.setChecked(False)
-                            
-                            # Log error using centralized error handler
-                            self.error_handler.handle_visa_error(e, f"connection to {visa_addr}")
-                            
-                            # Gestione sicura del timer per evitare crash
-                            timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
-                            if timer_key in self.connection_timers:
-                                self.connection_timers[timer_key].stop()
-                                self.connection_timers[timer_key].deleteLater()
-                            
-                            timer = QTimer(self)
-                            timer.setSingleShot(True)
-                            # Usa una connessione sicura che verifica se il button è ancora valido
-                            timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
-                            self.connection_timers[timer_key] = timer
-                            timer.start(5000)
-                    conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
-                    # --- Fine pulsante connessione ---
-                    # Crea un groupbox per lo strumento
+                        instr = self.rm.open_resource(visa_addr)
+                        self.visa_connections[visa_addr] = instr
+                        btn.setStyleSheet('border: 2px solid green;')
+                        btn.setChecked(True)
+                    except Exception as e:
+                        btn.setStyleSheet('border: 2px solid red;')
+                        btn.setChecked(False)
+                        
+                        # Log error using centralized error handler
+                        self.error_handler.handle_visa_error(e, f"connection to {visa_addr}")
+                        
+                        # Gestione sicura del timer per evitare crash
+                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
+                        if timer_key in self.connection_timers:
+                            self.connection_timers[timer_key].stop()
+                            self.connection_timers[timer_key].deleteLater()
+                        
+                        timer = QTimer(self)
+                        timer.setSingleShot(True)
+                        # Usa una connessione sicura che verifica se il button è ancora valido
+                        timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                        self.connection_timers[timer_key] = timer
+                        timer.start(5000)
+                conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
+                
+                # Strategia di layout per strumento con molti canali (>3)
+                if channel_count > 3:
+                    # Crea sotto-colonne per questo strumento
+                    print(f"  → Strumento con {channel_count} canali: creazione sotto-colonne")
+                    inst_main_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_main_layout = QVBoxLayout()
+                    inst_main_layout.addWidget(conn_btn)
+                    
+                    # Layout orizzontale per le sotto-colonne
+                    inst_sub_layout = QHBoxLayout()
+                    left_sub_column = QVBoxLayout()
+                    right_sub_column = QVBoxLayout()
+                    
+                    # Distribuisci i canali nelle sotto-colonne
+                    for ch_idx, ch in enumerate(enabled_channels):
+                        channel_widget = self._create_channel_widget(inst, ch)
+                        if ch_idx % 2 == 0:
+                            left_sub_column.addWidget(channel_widget)
+                        else:
+                            right_sub_column.addWidget(channel_widget)
+                        self.current_channel_widgets.append(channel_widget)
+                    
+                    # Aggiungi stretch per allineare in alto
+                    left_sub_column.addStretch()
+                    right_sub_column.addStretch()
+                    
+                    # Crea widget contenitori per le sotto-colonne
+                    left_sub_widget = QWidget()
+                    left_sub_widget.setLayout(left_sub_column)
+                    right_sub_widget = QWidget()
+                    right_sub_widget.setLayout(right_sub_column)
+                    
+                    inst_sub_layout.addWidget(left_sub_widget)
+                    inst_sub_layout.addWidget(right_sub_widget)
+                    
+                    inst_main_layout.addLayout(inst_sub_layout)
+                    inst_main_group.setLayout(inst_main_layout)
+                    
+                    # Trova la colonna con meno carico per questo strumento grande
+                    best_column_idx = column_loads.index(min(column_loads))
+                    columns[best_column_idx].addWidget(inst_main_group)
+                    column_loads[best_column_idx] += channel_count
+                    
+                    print(f"  ✓ Strumento con sotto-colonne aggiunto alla colonna {best_column_idx + 1}")
+                    
+                else:
+                    # Strumento normale: crea groupbox standard
                     inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
-                    # Per ogni canale, aggiungi i controlli (solo canali abilitati)
-                    print(f"  Iterazione canali per {inst.get('instance_name', 'N/A')}:")
-                    for ch_idx, ch in enumerate(inst.get('channels', [])):
-                        is_enabled = ch.get('enabled', False)
-                        print(f"    Canale [{ch_idx}]: {ch.get('name', 'N/A')} - Enabled: {is_enabled}")
-                        
-                        # Salta canali disabilitati
-                        if not is_enabled:
-                            print(f"      → Saltato (canale disabilitato)")
-                            continue
-                            
-                        print(f"      → Creazione controlli per canale abilitato")
-                        group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
-                        group.setProperty('instrument', inst)
-                        group.setProperty('channel', ch)
-                        vbox = QVBoxLayout()
-                        # Voltage set with limits
-                        hbox_v = QHBoxLayout()
-                        max_voltage = ch.get('max_voltage', 30.0)  # Valore di default
-                        voltage_label = QLabel(f'Voltage (V) [0-{max_voltage}]:')
-                        hbox_v.addWidget(voltage_label)
-                        v_edit = QLineEdit()
-                        v_edit.setPlaceholderText(f'Max: {max_voltage}V')
-                        # Validazione input voltaggio
-                        from PyQt6.QtGui import QDoubleValidator
-                        v_validator = QDoubleValidator(0.0, max_voltage, 3)
-                        v_edit.setValidator(v_validator)
-                        set_v_btn = QPushButton('Set')
-                        set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
-                        hbox_v.addWidget(v_edit)
-                        hbox_v.addWidget(set_v_btn)
-                        vbox.addLayout(hbox_v)
-                        # Current set with limits
-                        hbox_c = QHBoxLayout()
-                        max_current = ch.get('max_current', 10.0)  # Valore di default
-                        current_label = QLabel(f'Current (A) [0-{max_current}]:')
-                        hbox_c.addWidget(current_label)
-                        c_edit = QLineEdit()
-                        c_edit.setPlaceholderText(f'Max: {max_current}A')
-                        # Validazione input corrente
-                        from PyQt6.QtGui import QDoubleValidator
-                        c_validator = QDoubleValidator(0.0, max_current, 3)
-                        c_edit.setValidator(c_validator)
-                        set_c_btn = QPushButton('Set')
-                        set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
-                        hbox_c.addWidget(c_edit)
-                        hbox_c.addWidget(set_c_btn)
-                        vbox.addLayout(hbox_c)
-                        # Add a read actual values button
-                        read_btn = QPushButton('Read Actual Values')
-                        read_lbl = QLabel('V: ...  I: ...')
-                        read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
-                        vbox.addWidget(read_btn)
-                        vbox.addWidget(read_lbl)
-                        group.setLayout(vbox)
-                        inst_vbox.addWidget(group)
-                        self.current_channel_widgets.append(group)
-                        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')}")
+                    
+                    # Aggiungi tutti i canali abilitati
+                    for ch in enabled_channels:
+                        channel_widget = self._create_channel_widget(inst, ch)
+                        inst_vbox.addWidget(channel_widget)
+                        self.current_channel_widgets.append(channel_widget)
+                    
                     inst_group.setLayout(inst_vbox)
-                    self.channels_layout.addWidget(inst_group)
-                    print(f"  ✓ GroupBox aggiunto al layout per {inst.get('instance_name', 'N/A')}")
-                else:
-                    print(f"  ✗ Tipo NON valido per controllo remoto")
+                    
+                    # Trova la colonna con meno carico
+                    best_column_idx = column_loads.index(min(column_loads))
+                    columns[best_column_idx].addWidget(inst_group)
+                    column_loads[best_column_idx] += channel_count
+                    
+                    print(f"  ✓ Strumento aggiunto alla colonna {best_column_idx + 1} (carico: {column_loads[best_column_idx]})")
+            
+            print(f"\n=== Distribuzione finale ===")
+            for i, load in enumerate(column_loads):
+                print(f"Colonna {i+1}: {load} canali")
             print(f"Totale widget canali creati: {len(self.current_channel_widgets)}")
             print("=" * 50 + "\n")
-            self.channels_layout.addStretch()
+            
+            # Aggiungi stretch alle colonne per allineamento in alto
+            for column in columns:
+                column.addStretch()
             
         except Exception as e:
             error_msg = f"ERRORE in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
@@ -849,6 +934,64 @@ class RemoteControlTab(QWidget):
             if self.logger:
                 self.logger.error(error_msg)
             # Error already logged - no popup needed
+    
+    def _create_channel_widget(self, inst, ch):
+        """
+        Crea un widget per un singolo canale di strumento.
+        :param inst: Dati dello strumento
+        :param ch: Dati del canale
+        :return: QGroupBox contenente i controlli del canale
+        """
+        print(f"      → Creazione controlli per canale {ch.get('name', 'N/A')}")
+        group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
+        group.setProperty('instrument', inst)
+        group.setProperty('channel', ch)
+        vbox = QVBoxLayout()
+        
+        # Voltage set with limits
+        hbox_v = QHBoxLayout()
+        max_voltage = ch.get('max_voltage', 30.0)  # Valore di default
+        voltage_label = QLabel(f'Voltage (V) [0-{max_voltage}]:')
+        hbox_v.addWidget(voltage_label)
+        v_edit = QLineEdit()
+        v_edit.setPlaceholderText(f'Max: {max_voltage}V')
+        # Validazione input voltaggio
+        from PyQt6.QtGui import QDoubleValidator
+        v_validator = QDoubleValidator(0.0, max_voltage, 3)
+        v_edit.setValidator(v_validator)
+        set_v_btn = QPushButton('Set')
+        set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
+        hbox_v.addWidget(v_edit)
+        hbox_v.addWidget(set_v_btn)
+        vbox.addLayout(hbox_v)
+        
+        # Current set with limits
+        hbox_c = QHBoxLayout()
+        max_current = ch.get('max_current', 10.0)  # Valore di default
+        current_label = QLabel(f'Current (A) [0-{max_current}]:')
+        hbox_c.addWidget(current_label)
+        c_edit = QLineEdit()
+        c_edit.setPlaceholderText(f'Max: {max_current}A')
+        # Validazione input corrente
+        from PyQt6.QtGui import QDoubleValidator
+        c_validator = QDoubleValidator(0.0, max_current, 3)
+        c_edit.setValidator(c_validator)
+        set_c_btn = QPushButton('Set')
+        set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
+        hbox_c.addWidget(c_edit)
+        hbox_c.addWidget(set_c_btn)
+        vbox.addLayout(hbox_c)
+        
+        # Add a read actual values button
+        read_btn = QPushButton('Read Actual Values')
+        read_lbl = QLabel('V: ...  I: ...')
+        read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
+        vbox.addWidget(read_btn)
+        vbox.addWidget(read_lbl)
+        
+        group.setLayout(vbox)
+        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')}")
+        return group
 
     def get_visa_instrument(self, inst):
         """
