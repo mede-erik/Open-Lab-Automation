@@ -1,6 +1,7 @@
 import json
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel, QComboBox)
+                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel, QComboBox,
+                              QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
 
 class OscilloscopeConfigDialog(QDialog):
@@ -95,6 +96,15 @@ class OscilloscopeConfigDialog(QDialog):
             self.table.setCellWidget(row, 4, probe_edit)
         
         self.table.resizeColumnsToContents()
+        # Configurazione ridimensionamento tabella per adattarsi al dialog
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nome segnale
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Unità
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Volt/div
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Attenuazione
+        
         layout.addWidget(self.table)
         
         # Info label

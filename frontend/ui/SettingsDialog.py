@@ -110,9 +110,9 @@ class SettingsDialog(QDialog):
             if hasattr(self.translator, 't'):
                 self.lang_label.setText(self.translator.t('language')+':')
         
-        parent = self.parent()
-        if parent and hasattr(parent, 'update_translations'):
-            parent.update_translations()
+            parent = self.parent()
+            if parent is not None and hasattr(parent, 'update_translations'):
+                parent.update_translations()
         
         self.save_settings()
         self.close()
@@ -172,11 +172,10 @@ class SettingsDialog(QDialog):
         theme = self.theme_combo.currentData()
         print(f"[SettingsDialog DEBUG] Applicazione tema: {theme}")
         parent = self.parent()
-        if parent and hasattr(parent, 'apply_theme'):
+        if parent is not None and hasattr(parent, 'apply_theme'):
             parent.apply_theme(theme)
         
         # Update translations if language changed
-        if parent:
-            if hasattr(parent, 'update_translations'):
-                parent.update_translations()
+        if parent is not None and hasattr(parent, 'update_translations'):
+            parent.update_translations()
         self.close()

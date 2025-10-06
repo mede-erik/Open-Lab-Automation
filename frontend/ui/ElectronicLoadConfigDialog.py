@@ -1,5 +1,7 @@
 import sys
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QDialogButtonBox, QCheckBox, QLineEdit, QLabel
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
+                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel,
+                              QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
 from PyQt6.QtCore import Qt 
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
@@ -34,9 +36,17 @@ class ElectronicLoadConfigDialog(QDialog):
         layout = QVBoxLayout(self)
         # Tabella canali
         self.table = self.create_channel_table(self.channels, [f'CH{i+1}' for i in range(len(self.channels))], None, None, self)
+        # Configurazione ridimensionamento tabella per adattarsi al dialog
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nome
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Corrente max
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Tensione max
+        
         layout.addWidget(self.table)
         # Pulsanti OK/Annulla
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)

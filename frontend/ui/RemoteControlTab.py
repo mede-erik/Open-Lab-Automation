@@ -22,7 +22,7 @@ class RemoteControlTab(QWidget):
     """
     Tab for remote control of instruments.
     For each power supply/electronic load channel, shows a box to set voltage/current.
-    On top, a single box shows all measurements from dataloggers/multimeters.
+    On top, a single box shows all measurements from dataloggers/multimeters (oscilloscopes excluded).
     Uses pyvisa for direct communication, using SCPI commands from LoadInstruments.
     """
     def __init__(self, load_instruments):
@@ -57,8 +57,48 @@ class RemoteControlTab(QWidget):
                 self.logger.info(msg)
                 
         self.main_layout = QVBoxLayout()
+        # Layout orizzontale per titolo e pulsante reload
+        top_layout = QHBoxLayout()
         self.label = QLabel('Remote control of instruments')
-        self.main_layout.addWidget(self.label)
+        top_layout.addWidget(self.label)
+        # Pulsante oscilloscopio con icona
+        self.osc_btn = QPushButton()
+        self.osc_btn.setToolTip('Configura Oscilloscopio (.was)')
+        osc_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/oscilloscope.png')
+        print(f"[RemoteControlTab] Cercando icona oscilloscopio: {osc_icon_path}")
+        if os.path.exists(osc_icon_path):
+            from PyQt6.QtGui import QIcon
+            from PyQt6.QtCore import QSize
+            icon = QIcon(osc_icon_path)
+            self.osc_btn.setIcon(icon)
+            self.osc_btn.setIconSize(QSize(48, 48))  # Icona 48px dentro pulsante 64px
+            print(f"[RemoteControlTab] Icona oscilloscopio caricata: {osc_icon_path}")
+        else:
+            self.osc_btn.setText('OSC')
+            print(f"[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
+        self.osc_btn.setFixedSize(64, 64)
+        self.osc_btn.clicked.connect(self._configure_oscilloscope_from_was)
+        top_layout.addWidget(self.osc_btn)
+        # Pulsante reload con icona
+        self.reload_btn = QPushButton()
+        self.reload_btn.setToolTip('Ricarica strumenti (.inst)')
+        refresh_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/refresh.png')
+        print(f"[RemoteControlTab] Cercando icona refresh: {refresh_icon_path}")
+        if os.path.exists(refresh_icon_path):
+            from PyQt6.QtGui import QIcon
+            from PyQt6.QtCore import QSize
+            icon = QIcon(refresh_icon_path)
+            self.reload_btn.setIcon(icon)
+            self.reload_btn.setIconSize(QSize(48, 48))  # Icona 48px dentro pulsante 64px
+            print(f"[RemoteControlTab] Icona refresh caricata: {refresh_icon_path}")
+        else:
+            self.reload_btn.setText('↻')
+            print(f"[RemoteControlTab] Icona refresh non trovata, usando testo")
+        self.reload_btn.setFixedSize(64, 64)
+        self.reload_btn.clicked.connect(self._reload_instruments_from_mainwindow)
+        top_layout.addWidget(self.reload_btn)
+        top_layout.addStretch()
+        self.main_layout.addLayout(top_layout)
         self.meas_group = QGroupBox('Measurements (Datalogger/Multimeter)')
         self.meas_layout = QVBoxLayout()
         self.meas_group.setLayout(self.meas_layout)
@@ -70,7 +110,276 @@ class RemoteControlTab(QWidget):
         self.main_layout.addStretch()
         self.setLayout(self.main_layout)
         self.current_channel_widgets = []  # Stores references to current channel widgets
+        # Initialize VISA resource manager with lazy loading to avoid segmentation fault
+        self.rm = None
+        self._visa_init_attempted = False
+        self.visa_connections = {}  # Stores active VISA connections
+        self.meas_labels = {}  # Stores measurement labels for dataloggers
+        self.connection_timers = {}  # Stores connection retry timers
+
+    def _reload_instruments_from_mainwindow(self):
+        """Richiama la funzione di reload strumenti dal MainWindow se disponibile."""
+        parent = self.parent()
+        # Cerca il MainWindow nella gerarchia
+        while parent is not None and not hasattr(parent, 'reload_remote_tab_instruments'):
+            parent = parent.parent()
+        if parent is not None and hasattr(parent, 'reload_remote_tab_instruments'):
+            parent.reload_remote_tab_instruments()
+        else:
+            print("[RemoteControlTab] MainWindow con reload_remote_tab_instruments non trovato.")
+    
+    def _configure_oscilloscope_from_was(self):
+        """Configura l'oscilloscopio con i parametri dal file .was del progetto corrente."""
+        parent = self.parent()
+        # Cerca il MainWindow nella gerarchia
+        while parent is not None and not hasattr(parent, 'current_project_dir'):
+            parent = parent.parent()
         
+        if parent is None or not hasattr(parent, 'current_project_data'):
+            print("[RemoteControlTab] MainWindow non trovato o progetto non caricato.")
+            return
+        
+        if not parent.current_project_dir or not parent.current_project_data:
+            print("[RemoteControlTab] Nessun progetto attivo.")
+            return
+        
+        # Trova il primo file .was nel progetto
+        was_files = parent.current_project_data.get('was_files', [])
+        if not was_files:
+            print("[RemoteControlTab] Nessun file .was trovato nel progetto.")
+            return
+        
+        was_file = was_files[0]  # Usa il primo file .was
+        was_path = os.path.join(parent.current_project_dir, was_file)
+        
+        if not os.path.exists(was_path):
+            print(f"[RemoteControlTab] File .was non trovato: {was_path}")
+            return
+        
+        try:
+            # Carica i parametri dal file .was
+            with open(was_path, 'r', encoding='utf-8') as f:
+                was_data = json.load(f)
+            
+            print(f"[RemoteControlTab] Configurazione oscilloscopio da: {was_file}")
+            print(f"[RemoteControlTab] Parametri caricati: {list(was_data.keys())}")
+            
+            # Qui puoi implementare la logica per inviare i comandi SCPI all'oscilloscopio
+            # Esempio: configurazione timebase, canali, trigger, ecc.
+            self._apply_oscilloscope_settings(was_data)
+            
+        except Exception as e:
+            print(f"[RemoteControlTab] Errore durante caricamento file .was: {e}")
+    
+    def _apply_oscilloscope_settings(self, was_data):
+        """Applica le impostazioni dell'oscilloscopio tramite comandi SCPI."""
+        # Trova gli oscilloscopi negli strumenti caricati
+        if not hasattr(self, 'visa_connections'):
+            print("[RemoteControlTab] Nessuna connessione VISA attiva.")
+            return
+        
+        # Carica gli oscilloscopi dal file .inst del progetto corrente
+        oscilloscopes = self._get_project_oscilloscopes()
+        if not oscilloscopes:
+            print("[RemoteControlTab] Nessun oscilloscopio trovato nel progetto.")
+            return
+        
+        print(f"[RemoteControlTab] Trovati {len(oscilloscopes)} oscilloscopi nel progetto.")
+        
+        for osc_inst in oscilloscopes:
+            try:
+                self._configure_single_oscilloscope(osc_inst, was_data)
+            except Exception as e:
+                print(f"[RemoteControlTab] Errore configurazione oscilloscopio {osc_inst.get('instance_name', 'N/A')}: {e}")
+        
+        print("[RemoteControlTab] Configurazione oscilloscopi completata.")
+    
+    def _get_project_oscilloscopes(self):
+        """Recupera gli oscilloscopi dal file .inst del progetto corrente."""
+        parent = self.parent()
+        while parent is not None and not hasattr(parent, 'current_project_dir'):
+            parent = parent.parent()
+        
+        if not parent or not parent.current_project_dir or not parent.current_project_data:
+            return []
+        
+        inst_file = parent.current_project_data.get('inst_file')
+        if not inst_file:
+            return []
+        
+        inst_path = os.path.join(parent.current_project_dir, inst_file)
+        if not os.path.exists(inst_path):
+            return []
+        
+        try:
+            with open(inst_path, 'r', encoding='utf-8') as f:
+                inst_data = json.load(f)
+            
+            # Filtra solo gli oscilloscopi (gestisce sia 'oscilloscope' che 'oscilloscopes')
+            oscilloscopes = []
+            print(f"[RemoteControlTab] Analisi strumenti nel file .inst:")
+            for idx, inst in enumerate(inst_data.get('instruments', [])):
+                inst_type = inst.get('instrument_type', '')
+                inst_name = inst.get('instance_name', 'N/A')
+                print(f"  [{idx}] {inst_name} - Tipo: '{inst_type}'")
+                
+                # Gestisce sia 'oscilloscope' che 'oscilloscopes'
+                if inst_type in ['oscilloscope', 'oscilloscopes']:
+                    oscilloscopes.append(inst)
+                    print(f"    → Oscilloscopio trovato: {inst_name}")
+            
+            print(f"[RemoteControlTab] Oscilloscopi trovati: {len(oscilloscopes)}")
+            return oscilloscopes
+        except Exception as e:
+            print(f"[RemoteControlTab] Errore lettura file .inst: {e}")
+            return []
+    
+    def _configure_single_oscilloscope(self, osc_inst, was_data):
+        """Configura un singolo oscilloscopio con i parametri dal file .was."""
+        osc_name = osc_inst.get('instance_name', 'N/A')
+        osc_model = osc_inst.get('model', '')
+        visa_addr = osc_inst.get('visa_address', '')
+        
+        print(f"[RemoteControlTab] Configurazione oscilloscopio: {osc_name} ({osc_model})")
+        
+        if not visa_addr:
+            print(f"[RemoteControlTab] Indirizzo VISA mancante per {osc_name}")
+            return
+        
+        # Carica i comandi SCPI specifici per questo modello dalla libreria
+        scpi_commands = self._get_oscilloscope_scpi_commands(osc_model)
+        if not scpi_commands:
+            print(f"[RemoteControlTab] Comandi SCPI non trovati per modello {osc_model}")
+            return
+        
+        # Connessione VISA
+        if not self._ensure_visa_initialized():
+            print(f"[RemoteControlTab] VISA non inizializzato")
+            return
+        
+        try:
+            # Connetti all'oscilloscopio
+            if visa_addr in self.visa_connections:
+                instr = self.visa_connections[visa_addr]
+            else:
+                instr = self.rm.open_resource(visa_addr)
+                self.visa_connections[visa_addr] = instr
+            
+            print(f"[RemoteControlTab] Connesso a {osc_name} su {visa_addr}")
+            
+            # Applica le impostazioni dal file .was
+            self._apply_was_settings_to_oscilloscope(instr, scpi_commands, was_data)
+            
+        except Exception as e:
+            print(f"[RemoteControlTab] Errore connessione a {osc_name}: {e}")
+    
+    def _get_oscilloscope_scpi_commands(self, model_id):
+        """Recupera i comandi SCPI per il modello di oscilloscopio dalla libreria."""
+        if not self.instruments_manager:
+            return {}
+        
+        try:
+            # Cerca nelle serie di oscilloscopi
+            osc_series = self.instruments_manager.instruments.get('oscilloscopes_series', [])
+            
+            for series in osc_series:
+                for model in series.get('models', []):
+                    if model.get('id') == model_id or model.get('model') == model_id:
+                        # Combina comandi comuni della serie con quelli specifici del modello
+                        common_commands = series.get('common_scpi_commands', {})
+                        model_commands = model.get('scpi_commands', {})
+                        
+                        # Merge dei comandi
+                        combined_commands = {**common_commands, **model_commands}
+                        print(f"[RemoteControlTab] Trovati {len(combined_commands)} comandi SCPI per {model_id}")
+                        return combined_commands
+            
+            print(f"[RemoteControlTab] Modello {model_id} non trovato nella libreria")
+            return {}
+            
+        except Exception as e:
+            print(f"[RemoteControlTab] Errore recupero comandi SCPI: {e}")
+            return {}
+    
+    def _apply_was_settings_to_oscilloscope(self, instr, scpi_commands, was_data):
+        """Applica le impostazioni specifiche del file .was all'oscilloscopio."""
+        try:
+            # Reset oscilloscopio
+            if 'reset' in scpi_commands:
+                instr.write(scpi_commands['reset'])
+                print("[RemoteControlTab] Reset oscilloscopio")
+            
+            # Applica impostazioni timebase
+            if 'timebase_scale' in was_data and 'set_timebase_scale' in scpi_commands:
+                timebase_value = was_data['timebase_scale']
+                cmd = scpi_commands['set_timebase_scale'].format(value=timebase_value)
+                instr.write(cmd)
+                print(f"[RemoteControlTab] Timebase: {timebase_value}")
+            
+            # Applica impostazioni canali
+            channels = was_data.get('channels', {})
+            for ch_num, ch_settings in channels.items():
+                channel_number = ch_num.replace('CH', '').replace('CHAN', '')
+                
+                # Scala canale
+                if 'scale' in ch_settings and 'set_channel_scale' in scpi_commands:
+                    scale_value = ch_settings['scale']
+                    cmd = scpi_commands['set_channel_scale'].format(channel_number=channel_number, value=scale_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Canale {channel_number} scala: {scale_value}")
+                
+                # Offset canale
+                if 'offset' in ch_settings and 'set_channel_offset' in scpi_commands:
+                    offset_value = ch_settings['offset']
+                    cmd = scpi_commands['set_channel_offset'].format(channel_number=channel_number, value=offset_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Canale {channel_number} offset: {offset_value}")
+                
+                # Accoppiamento canale
+                if 'coupling' in ch_settings and 'set_channel_coupling' in scpi_commands:
+                    coupling_value = ch_settings['coupling']
+                    cmd = scpi_commands['set_channel_coupling'].format(channel_number=channel_number, coupling_type=coupling_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Canale {channel_number} coupling: {coupling_value}")
+            
+            # Applica impostazioni trigger
+            trigger = was_data.get('trigger', {})
+            if trigger:
+                # Sorgente trigger
+                if 'source' in trigger and 'set_trigger_source' in scpi_commands:
+                    source = trigger['source']
+                    # Estrai numero canale da stringhe come 'CH1', 'CHAN1'
+                    if source.upper().startswith(('CH', 'CHAN')):
+                        channel_number = source.replace('CH', '').replace('CHAN', '').replace('ch', '').replace('chan', '')
+                        cmd = scpi_commands['set_trigger_source'].format(channel_number=channel_number)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Trigger source: {source}")
+                
+                # Livello trigger
+                if 'level' in trigger and 'set_trigger_level' in scpi_commands:
+                    level_value = trigger['level']
+                    cmd = scpi_commands['set_trigger_level'].format(value=level_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Trigger level: {level_value}")
+                
+                # Modalità trigger
+                if 'mode' in trigger and 'set_trigger_mode' in scpi_commands:
+                    mode_value = trigger['mode']
+                    cmd = scpi_commands['set_trigger_mode'].format(mode=mode_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Trigger mode: {mode_value}")
+            
+            # Auto setup se disponibile
+            if 'auto_setup' in scpi_commands:
+                instr.write(scpi_commands['auto_setup'])
+                print("[RemoteControlTab] Auto setup eseguito")
+            
+            print(f"[RemoteControlTab] Configurazione completata con successo")
+            
+        except Exception as e:
+            print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
+        self.setLayout(self.main_layout)
+        self.current_channel_widgets = []  # Stores references to current channel widgets
         # Initialize VISA resource manager with lazy loading to avoid segmentation fault
         self.rm = None
         self._visa_init_attempted = False
@@ -239,7 +548,7 @@ class RemoteControlTab(QWidget):
         :param translator: Translator instance for language translation.
         """
         self.label.setText(translator.t('remote_control'))
-        self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter)')
+        self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter only)')
         # Optionally update channel group titles
         for group in self.current_channel_widgets:
             inst = group.property('instrument')
@@ -306,18 +615,18 @@ class RemoteControlTab(QWidget):
                     print(f"         [{ch_idx}] {ch.get('name', 'N/A')} - Enabled: {ch.get('enabled', False)}")
             print("=" * 50 + "\n")
             
-            # --- First, collect all datalogger/multimeter/oscilloscope channels for measurement area ---
+            # --- First, collect all datalogger/multimeter channels for measurement area ---
+            # Note: Oscilloscopes are excluded as they cannot perform continuous automatic measurements
             self.meas_vars = []  # [(inst, ch)]
             for inst in inst_data.get('instruments', []):
-                if inst.get('instrument_type') in ['dataloggers', 'multimeters']:
+                inst_type = inst.get('instrument_type', '')
+                # Gestisce varianti di naming: datalogger/dataloggers, multimeter/multimeters
+                if inst_type in ['datalogger', 'dataloggers', 'multimeter', 'multimeters']:
                     for ch in inst.get('channels', []):
-                        if ch.get('enabled', True):  # Solo canali abilitati
+                        is_enabled = ch.get('enabled', True)  # Solo canali abilitati
+                        if is_enabled:
                             self.meas_vars.append((inst, ch))
-                # Aggiungi anche i canali degli oscilloscopi abilitati
-                elif inst.get('instrument_type') == 'oscilloscopes':
-                    for ch in inst.get('channels', []):
-                        if ch.get('enabled', False):  # Solo canali esplicitamente abilitati
-                            self.meas_vars.append((inst, ch))
+                            print(f"    → Canale misura aggiunto: {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
             
             if self.meas_vars:
                 # Crea un layout a griglia per le misure
@@ -335,20 +644,26 @@ class RemoteControlTab(QWidget):
                         unit = 'V'  # Gli oscilloscopi misurano sempre tensioni
                     else:
                         var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
-                        unit = ch.get('unit_of_measure', 'V')  # Default V se non specificato
+                        # Per multimetri e datalogger usa l'unità specifica dal canale
+                        inst_type = inst.get('instrument_type', '')
+                        if inst_type in ['multimeter', 'multimeters', 'datalogger', 'dataloggers']:
+                            unit = ch.get('unit', 'V')  # Campo 'unit' nel file .inst
+                        else:
+                            unit = ch.get('unit_of_measure', 'V')  # Default per altri strumenti
                     
                     # Crea etichetta con formato: Nome_variabile = --- unità
                     label = QLabel(f"{var_name} = --- {unit}")
+                    label.setProperty("class", "measurement")
                     label.setStyleSheet("""
                         QLabel {
-                            border: 1px solid #ccc;
+                            border: 2px solid #45475a;
                             padding: 8px;
                             margin: 2px;
-                            background-color: #f9f9f9;
-                            border-radius: 4px;
+                            border-radius: 6px;
                             font-family: 'Courier New', monospace;
                             font-size: 12px;
                             min-width: 150px;
+                            font-weight: 600;
                         }
                     """)
                     
@@ -407,7 +722,9 @@ class RemoteControlTab(QWidget):
             print("\n=== DEBUG: Creazione controlli alimentatori/carichi ===")
             for inst in inst_data.get('instruments', []):
                 print(f"Controllo strumento: {inst.get('instance_name', 'N/A')} - Tipo: {inst.get('instrument_type', 'N/A')}")
-                if inst.get('instrument_type') in ['power_supplies', 'electronic_loads']:
+                # Gestisce varianti di naming: power_supply/power_supplies, electronic_load/electronic_loads
+                inst_type = inst.get('instrument_type', '')
+                if inst_type in ['power_supply', 'power_supplies', 'electronic_load', 'electronic_loads']:
                     print(f"  ✓ Tipo valido per controllo remoto")
                     print(f"  Numero canali: {len(inst.get('channels', []))}")
                     visa_addr = inst.get('visa_address', None)
@@ -459,29 +776,49 @@ class RemoteControlTab(QWidget):
                     inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
-                    # Per ogni canale, aggiungi i controlli
+                    # Per ogni canale, aggiungi i controlli (solo canali abilitati)
                     print(f"  Iterazione canali per {inst.get('instance_name', 'N/A')}:")
                     for ch_idx, ch in enumerate(inst.get('channels', [])):
-                        print(f"    Canale [{ch_idx}]: {ch.get('name', 'N/A')} - Enabled: {ch.get('enabled', 'N/A')}")
+                        is_enabled = ch.get('enabled', False)
+                        print(f"    Canale [{ch_idx}]: {ch.get('name', 'N/A')} - Enabled: {is_enabled}")
+                        
+                        # Salta canali disabilitati
+                        if not is_enabled:
+                            print(f"      → Saltato (canale disabilitato)")
+                            continue
+                            
+                        print(f"      → Creazione controlli per canale abilitato")
                         group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
                         group.setProperty('instrument', inst)
                         group.setProperty('channel', ch)
                         vbox = QVBoxLayout()
-                        # Voltage set
+                        # Voltage set with limits
                         hbox_v = QHBoxLayout()
-                        hbox_v.addWidget(QLabel('Voltage (V):'))
+                        max_voltage = ch.get('max_voltage', 30.0)  # Valore di default
+                        voltage_label = QLabel(f'Voltage (V) [0-{max_voltage}]:')
+                        hbox_v.addWidget(voltage_label)
                         v_edit = QLineEdit()
-                        v_edit.setPlaceholderText('Set voltage')
+                        v_edit.setPlaceholderText(f'Max: {max_voltage}V')
+                        # Validazione input voltaggio
+                        from PyQt6.QtGui import QDoubleValidator
+                        v_validator = QDoubleValidator(0.0, max_voltage, 3)
+                        v_edit.setValidator(v_validator)
                         set_v_btn = QPushButton('Set')
                         set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
                         hbox_v.addWidget(v_edit)
                         hbox_v.addWidget(set_v_btn)
                         vbox.addLayout(hbox_v)
-                        # Current set
+                        # Current set with limits
                         hbox_c = QHBoxLayout()
-                        hbox_c.addWidget(QLabel('Current (A):'))
+                        max_current = ch.get('max_current', 10.0)  # Valore di default
+                        current_label = QLabel(f'Current (A) [0-{max_current}]:')
+                        hbox_c.addWidget(current_label)
                         c_edit = QLineEdit()
-                        c_edit.setPlaceholderText('Set current')
+                        c_edit.setPlaceholderText(f'Max: {max_current}A')
+                        # Validazione input corrente
+                        from PyQt6.QtGui import QDoubleValidator
+                        c_validator = QDoubleValidator(0.0, max_current, 3)
+                        c_edit.setValidator(c_validator)
                         set_c_btn = QPushButton('Set')
                         set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
                         hbox_c.addWidget(c_edit)
@@ -546,13 +883,35 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the voltage value.
         """
-        value = edit.text()
+        value_str = edit.text().strip()
+        if not value_str:
+            print("[RemoteControlTab] Valore voltaggio vuoto")
+            return
+            
+        try:
+            value_float = float(value_str)
+            max_voltage = ch.get('max_voltage', 30.0)
+            
+            # Validazione limiti
+            if value_float < 0:
+                print(f"[RemoteControlTab] Voltaggio negativo non consentito: {value_float}V")
+                return
+            elif value_float > max_voltage:
+                print(f"[RemoteControlTab] Voltaggio {value_float}V supera il limite massimo di {max_voltage}V")
+                return
+                
+        except ValueError:
+            print(f"[RemoteControlTab] Valore voltaggio non valido: '{value_str}'")
+            return
+            
         instr = self.get_visa_instrument(inst)
         if not instr:
             return
+            
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value)
+            cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value_str)
             instr.write(cmd)
+            print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Voltage Error: {str(e)}'
             print(f"ERRORE: {error_msg}")
@@ -566,13 +925,35 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the current value.
         """
-        value = edit.text()
+        value_str = edit.text().strip()
+        if not value_str:
+            print("[RemoteControlTab] Valore corrente vuoto")
+            return
+            
+        try:
+            value_float = float(value_str)
+            max_current = ch.get('max_current', 10.0)
+            
+            # Validazione limiti
+            if value_float < 0:
+                print(f"[RemoteControlTab] Corrente negativa non consentita: {value_float}A")
+                return
+            elif value_float > max_current:
+                print(f"[RemoteControlTab] Corrente {value_float}A supera il limite massimo di {max_current}A")
+                return
+                
+        except ValueError:
+            print(f"[RemoteControlTab] Valore corrente non valido: '{value_str}'")
+            return
+            
         instr = self.get_visa_instrument(inst)
         if not instr:
             return
+            
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value)
+            cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value_str)
             instr.write(cmd)
+            print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Current Error: {str(e)}'
             print(f"ERRORE: {error_msg}")
@@ -613,7 +994,18 @@ class RemoteControlTab(QWidget):
         for inst, ch in self.meas_vars:
             instr = self.get_visa_instrument(inst)
             var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
-            unit = ch.get('unit_of_measure', 'V')
+            
+            # Determina l'unità di misura corretta
+            inst_type = inst.get('instrument_type', '')
+            if inst_type in ['multimeter', 'multimeters', 'datalogger', 'dataloggers']:
+                # Per multimetri e datalogger usa l'unità specifica dal canale
+                unit = ch.get('unit', 'V')
+                print(f"[DEBUG] {inst_type} - Unità da campo 'unit': {unit} per {var_name}")
+            else:
+                # Per altri strumenti usa il default o unit_of_measure
+                unit = ch.get('unit_of_measure', 'V')
+                print(f"[DEBUG] {inst_type} - Unità da 'unit_of_measure': {unit} per {var_name}")
+                
             attenuation = ch.get('attenuation', 1.0)  # Default nessuna attenuazione
             
             label = self.meas_labels.get((inst.get('instance_name',''), var_name))
@@ -623,7 +1015,7 @@ class RemoteControlTab(QWidget):
             if not instr:
                 # Strumento non connesso
                 label.setText(f"{var_name} = NC {unit}")
-                label.setStyleSheet(label.styleSheet().replace('background-color: #f9f9f9', 'background-color: #ffeeee'))
+                label.setProperty("state", "error")
                 continue
                 
             try:
@@ -647,7 +1039,7 @@ class RemoteControlTab(QWidget):
                         formatted_val = f"{final_val:.6f}"
                         
                     label.setText(f"{var_name} = {formatted_val} {unit}")
-                    label.setStyleSheet(label.styleSheet().replace('background-color: #ffeeee', 'background-color: #f9f9f9'))
+                    label.setProperty("state", "normal")
                     
                 except ValueError:
                     # Il valore non è numerico, mostra così com'è
@@ -656,7 +1048,7 @@ class RemoteControlTab(QWidget):
                     
             except Exception as e:
                 label.setText(f"{var_name} = ERR {unit}")
-                label.setStyleSheet(label.styleSheet().replace('background-color: #f9f9f9', 'background-color: #ffeeee'))
+                label.setProperty("state", "error")
     
     def toggle_auto_refresh(self, enabled):
         """Abilita/disabilita aggiornamento automatico."""

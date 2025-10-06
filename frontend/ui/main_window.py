@@ -33,6 +33,22 @@ from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler, ErrorCode, ValidationError
 from frontend.core.tools import read_json, save_json
 class MainWindow(QMainWindow):
+    def reload_remote_tab_instruments(self):
+        """
+        Ricarica gli strumenti nella RemoteControlTab dal file .inst corrente del progetto.
+        """
+        if not self.current_project_dir or not self.current_project_data:
+            return
+        inst_file = self.current_project_data.get('inst_file')
+        if not inst_file:
+            self.logger.debug("No instruments file in project, skipping reload")
+            return
+        inst_path = os.path.join(self.current_project_dir, inst_file)
+        if not os.path.exists(inst_path):
+            self.logger.warning(f"Instruments file not found: {inst_path}")
+            return
+        if hasattr(self, 'remote_tab'):
+            self.remote_tab.load_instruments(inst_path)
     """
     Main application window. Handles project management, file operations, instrument configuration,
     and main UI tabs (remote control, project files, etc.).
@@ -44,20 +60,15 @@ class MainWindow(QMainWindow):
         """
         self.logger = Logger()
         self.logger.debug("MainWindow.__init__ started.")
-        
         # Initialize translator early
         self.translator = Translator()
         self.logger.debug("Translator initialized.")
-        
         super().__init__()
-        
         self.db = None
         self.db_manager = None
-        
         # Initialize error handler
         self.error_handler = ErrorHandler()
         self.logger.debug("ErrorHandler initialized.")
-        
         # Load app info from JSON
         appinfo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'appinfo.json')
         try:
@@ -144,12 +155,14 @@ class MainWindow(QMainWindow):
                 project_data = read_json(last_project_path)
                 self.current_project_dir = os.path.dirname(last_project_path)
                 self.current_project_data = project_data
+                self.logger.set_project_directory(self.current_project_dir)
                 self.refresh_project_files()
                 self.logger.info(f"Successfully loaded last project: {project_data.get('project_name')}")
             except Exception as e:
                 self.logger.error(f"Failed to load last project: {last_project_path} - {e}", exc_info=True)
                 self.error_handler.handle_error(e, f"Failed to load last project: {last_project_path}")
 
+                self.logger.set_project_directory(self.current_project_dir)
         self.project_files_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.project_files_list.customContextMenuRequested.connect(self.show_file_context_menu)
         self.logger.debug("MainWindow.__init__ finished.")
@@ -295,6 +308,7 @@ class MainWindow(QMainWindow):
             
             self.current_project_dir = dir_path
             self.current_project_data = project_data
+            self.logger.set_project_directory(self.current_project_dir)
             self.refresh_project_files()
             
             self.logger.debug(f"Project '{project_name}' created successfully in '{dir_path}'.")
@@ -339,19 +353,21 @@ class MainWindow(QMainWindow):
 
     def apply_theme(self, theme_option):
         """
-        Apply the selected theme (system, dark, or light).
-        :param theme_option: 'system', 'dark', or 'light'
+        Apply the selected theme (system, dark, light, modern_dark, dark_modern, ultra_modern, ultra_modern_dark).
+        :param theme_option: 'system', 'dark', 'light', 'modern_dark', 'dark_modern', 'ultra_modern', 'ultra_modern_dark'
         """
         self.logger.debug(f"[apply_theme] Ricevuto theme_option: {theme_option}")
         print(f"[MainWindow DEBUG] apply_theme chiamato con: {theme_option}")
         
-        if theme_option == 'dark':
-            print("[MainWindow DEBUG] Applicazione tema SCURO")
-            self.set_dark_theme()
-        elif theme_option == 'light':
-            print("[MainWindow DEBUG] Applicazione tema CHIARO")
-            self.set_light_theme()
-        elif theme_option == 'system':
+        # Map theme names to QSS files
+        theme_files = {
+            'dark': 'dark_theme.qss',
+            'light': 'light_theme.qss'
+            # 'modern_dark': 'modern_dark.qss',
+            # 'dark_modern': 'dark_modern.qss'
+        }
+        
+        if theme_option == 'system':
             print("[MainWindow DEBUG] Applicazione tema DI SISTEMA")
             # Try to detect system theme
             try:
@@ -361,47 +377,79 @@ class MainWindow(QMainWindow):
                     color_scheme = QGuiApplication.styleHints().colorScheme()
                     print(f"[MainWindow DEBUG] Color scheme sistema: {color_scheme}")
                     if color_scheme == Qt.ColorScheme.Dark:
-                        self.set_dark_theme()
+                        self.load_theme_file('dark_theme.qss')
                     else:
-                        self.set_light_theme()
+                        self.load_theme_file('light_theme.qss')
                 else:
                     # Fallback: default to dark if Qt version doesn't support ColorScheme
                     self.logger.warning("System theme detection not supported, defaulting to dark theme.")
                     print("[MainWindow DEBUG] ColorScheme non supportato, uso tema scuro")
-                    self.set_dark_theme()
+                    self.load_theme_file('dark_theme.qss')
             except Exception as e:
                 self.logger.error(f"Error detecting system theme: {e}, defaulting to dark theme.")
                 print(f"[MainWindow DEBUG] Errore rilevamento tema sistema: {e}")
-                self.set_dark_theme()
+                self.load_theme_file('dark_theme.qss')
+        elif theme_option in theme_files:
+            print(f"[MainWindow DEBUG] Applicazione tema: {theme_option}")
+            self.load_theme_file(theme_files[theme_option])
         else:
-            print(f"[MainWindow DEBUG] Tema sconosciuto: {theme_option}")
+            print(f"[MainWindow DEBUG] Tema sconosciuto: {theme_option}, uso tema scuro")
+            self.load_theme_file('dark_theme.qss')
         
         # Save the theme preference
         settings = QSettings('LabAutomation', 'App')
         settings.setValue('theme', theme_option)
         print(f"[MainWindow DEBUG] Salvato tema '{theme_option}' in QSettings")
 
+    def load_theme_file(self, theme_filename):
+        """
+        Load and apply a QSS theme file from the assets/styles directory.
+        :param theme_filename: Name of the QSS file (e.g., 'dark_theme.qss')
+        """
+        self.logger.debug(f"Loading theme file: {theme_filename}")
+        print(f"[MainWindow DEBUG] Caricamento file tema: {theme_filename}")
+        
+        # Build path to theme file
+        styles_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'assets', 'styles'
+        )
+        theme_path = os.path.join(styles_dir, theme_filename)
+        
+        print(f"[MainWindow DEBUG] Percorso completo tema: {theme_path}")
+        
+        # Load and apply the stylesheet
+        try:
+            if os.path.exists(theme_path):
+                with open(theme_path, 'r', encoding='utf-8') as f:
+                    stylesheet = f.read()
+                    self.setStyleSheet(stylesheet)
+                    print(f"[MainWindow DEBUG] Tema '{theme_filename}' applicato con successo ({len(stylesheet)} caratteri)")
+                    self.logger.info(f"Theme '{theme_filename}' applied successfully")
+            else:
+                self.logger.warning(f"Theme file not found: {theme_path}, using default theme")
+                print(f"[MainWindow DEBUG] File tema non trovato: {theme_path}")
+                self.setStyleSheet("")
+        except Exception as e:
+            self.logger.error(f"Error loading theme file {theme_filename}: {e}", exc_info=True)
+            print(f"[MainWindow DEBUG] Errore caricamento tema: {e}")
+            self.setStyleSheet("")
+    
     def set_dark_theme(self):
         """
-        Set the application to dark theme using a predefined stylesheet.
+        Set the application to dark theme using the dark_theme.qss file.
+        (Legacy method, now uses load_theme_file)
         """
-        self.logger.debug("Setting dark theme stylesheet.")
-        dark_stylesheet = """
-            QWidget { background-color: #232629; color: #f0f0f0; }
-            QTabWidget::pane { border: 1px solid #444; }
-            QTabBar::tab { background: #232629; color: #f0f0f0; }
-            QMenuBar { background-color: #232629; color: #f0f0f0; }
-            QMenu { background-color: #232629; color: #f0f0f0; }
-            QPushButton { background-color: #444; color: #f0f0f0; border: 1px solid #666; }
-        """
-        self.setStyleSheet(dark_stylesheet)
+        self.logger.debug("Setting dark theme (legacy method).")
+        self.load_theme_file('dark_theme.qss')
 
     def set_light_theme(self):
         """
-        Set the application to light theme (default Qt theme).
+        Set the application to light theme using the light_theme.qss file.
+        (Legacy method, now uses load_theme_file)
         """
-        self.logger.debug("Setting light theme (default).")
-        self.setStyleSheet("")
+        self.logger.debug("Setting light theme (legacy method).")
+        self.load_theme_file('light_theme.qss')
 
     def update_translations(self):
         """

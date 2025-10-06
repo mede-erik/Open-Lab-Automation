@@ -55,6 +55,170 @@
         }
       ],
       "visa_address": "TCPIP0::192.168.1.104::INSTR"
+    },
+    {
+      "instrument_type": "power_supply",
+      "instance_name": "HC",
+      "series": "Keysight_E36300_Series",
+      "model": "Keysight E36312A",
+      "model_id": "PSU_Keysight_E36312A",
+      "num_channels": 3,
+      "channels": [
+        {
+          "enabled": true,
+          "name": "VIN",
+          "max_current": 10.0,
+          "max_voltage": 30.0
+        },
+        {
+          "enabled": true,
+          "name": "Vdrive",
+          "max_current": 10.0,
+          "max_voltage": 6.0
+        },
+        {
+          "enabled": false,
+          "name": "CH3",
+          "max_current": 0.0,
+          "max_voltage": 0.0
+        }
+      ],
+      "visa_address": "TCPIP0::192.168.1.201::INSTR"
+    },
+    {
+      "instrument_type": "datalogger",
+      "instance_name": "DL",
+      "series": "Keysight_3497X_Series",
+      "model": "Keysight 34972A",
+      "model_id": "DL_Keysight_34972A",
+      "num_channels": 20,
+      "channels": [
+        {
+          "enabled": true,
+          "name": "Vin",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": true,
+          "name": "Vout",
+          "meas_type": "DC_V",
+          "unit": "V",
+          "attenuation": 1.0
+        },
+        {
+          "enabled": true,
+          "name": "Iin",
+          "meas_type": "DC_V",
+          "unit": "A",
+          "attenuation": 0.5
+        },
+        {
+          "enabled": true,
+          "name": "Iout",
+          "meas_type": "DC_V",
+          "unit": "A",
+          "attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH5",
+          "meas_type": "DC_V",
+          "unit": "V",
+          "attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH6",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH7",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH8",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH9",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH10",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH11",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH12",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH13",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH14",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH15",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH16",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH17",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH18",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH19",
+          "meas_type": "DC_V",
+          "unit": "V"
+        },
+        {
+          "enabled": false,
+          "name": "CH20",
+          "meas_type": "DC_V",
+          "unit": "V"
+        }
+      ],
+      "visa_address": "TCPIP0::192.168.1.210::INSTR"
     }
   ]
 }

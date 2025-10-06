@@ -1,4 +1,6 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QCheckBox, QLineEdit, QDialogButtonBox, QLabel, QComboBox
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
+                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel, QComboBox,
+                              QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
 
 class DataloggerConfigDialog(QDialog):
@@ -47,7 +49,12 @@ class DataloggerConfigDialog(QDialog):
             self.table.setCellWidget(row, 2, type_edit)
             # Attenuazione
             att_edit = QLineEdit(str(ch.get('attenuation', 1.0)))
-            att_edit.setValidator(QDoubleValidator(0.0, 1e6, 3, att_edit))
+            att_edit.setValidator(QDoubleValidator(0.0000000001, 1e6, 10, att_edit))  # 10 cifre decimali
+            att_edit.setPlaceholderText("Es: 0.5 (shunt 0.5Ω), 10.0 (amplif. x10)")
+            att_edit.setToolTip("Fattore di attenuazione/amplificazione (max 10 cifre decimali).\n" +
+                              "• Shunt: Resistenza in Ω (es: 0.1 per shunt 0.1Ω)\n" +
+                              "• Amplificatore: Guadagno (es: 10.0 per amplif. x10)\n" +
+                              "• Default: 1.0 (nessuna attenuazione)")
             att_edit.textChanged.connect(lambda val, r=row: self.on_attenuation_changed(r, val))
             self.table.setCellWidget(row, 3, att_edit)
             # Unità
@@ -57,12 +64,23 @@ class DataloggerConfigDialog(QDialog):
             # Tempo integrazione
             tint_edit = QLineEdit(str(ch.get('integration_time', 0.0)))
             tint_edit.setValidator(QDoubleValidator(0.0, 1e6, 3, tint_edit))
+            tint_edit.setPlaceholderText("Tempo in secondi")
             tint_edit.textChanged.connect(lambda val, r=row: self.on_integration_time_changed(r, val))
             self.table.setCellWidget(row, 5, tint_edit)
         self.table.resizeColumnsToContents()
+        # Configurazione ridimensionamento tabella per adattarsi al dialog
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nome variabile
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Tipo misura
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Attenuazione
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Unità
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Tempo integrazione
+        
         layout.addWidget(self.table)
         # Pulsanti OK/Annulla
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
@@ -78,6 +96,8 @@ class DataloggerConfigDialog(QDialog):
         self.save_channels()
     def on_attenuation_changed(self, row, val):
         try:
+            # Sostituisci la virgola con il punto per garantire il formato corretto
+            val = str(val).replace(',', '.')
             self.channels[row]['attenuation'] = float(val)
         except Exception:
             self.channels[row]['attenuation'] = 1.0

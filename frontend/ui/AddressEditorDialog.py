@@ -46,7 +46,7 @@ class AddressEditorDialog(QDialog):
         form.addRow(self.fields_widget)
         layout.addLayout(form)
         # Pulsanti OK/Annulla
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)

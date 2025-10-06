@@ -297,3 +297,60 @@ QStatusBar {
     color: #f0f0f0;
     border-top: 1px solid #444;
 }
+
+/* ===== MEASUREMENT LABELS ===== */
+QLabel[class="measurement"] {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+    border: 2px solid #666;
+    padding: 8px;
+    margin: 2px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    min-width: 150px;
+    font-weight: 600;
+}
+
+QLabel[class="measurement"][state="error"] {
+    background-color: #4a2a2a;
+    color: #ff6b6b;
+    border: 2px solid #ff6b6b;
+}
+
+QLabel[class="measurement"][state="normal"] {
+    background-color: #2a4a3a;
+    color: #6bff6b;
+    border: 2px solid #4a9eff;
+}
+
+/* ===== WIDGET NELLE TABELLE ===== */
+QTableWidget {
+    gridline-color: #444;
+}
+
+QTableWidget QLineEdit {
+    min-height: 0;
+    max-height: none;
+    min-width: 0;
+    max-width: none;
+    padding: 2px 4px;
+    font-size: 10px;
+}
+
+QTableWidget QComboBox {
+    min-height: 0;
+    max-height: none;
+    min-width: 0;
+    max-width: none;
+    padding: 2px 4px;
+    font-size: 10px;
+}
+
+QTableWidget QCheckBox {
+    padding: 2px;
+    min-height: 0;
+    max-height: none;
+    min-width: 0;
+    max-width: none;
+}

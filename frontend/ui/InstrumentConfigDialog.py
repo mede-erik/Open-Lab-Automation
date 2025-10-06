@@ -2,8 +2,8 @@ import json
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt, pyqtSignal, QLocale
+from PyQt6.QtGui import QAction, QDoubleValidator
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
 from frontend.core.Translator import Translator   
 from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
@@ -51,8 +51,28 @@ class InstrumentConfigDialog(QDialog):
         if self.suppress_save:
             return
         try:
+            print("[DEBUG] Salvataggio strumenti: stato attuale self.instruments:", self.instruments)
+            # Serializza attenuation come float con 10 cifre decimali (no notazione scientifica)
+            def fix_attenuation(obj):
+                if isinstance(obj, dict):
+                    for k, v in obj.items():
+                        if k == 'channels' and isinstance(v, list):
+                            for ch in v:
+                                if 'attenuation' in ch:
+                                    print(f"[DEBUG] Prima della serializzazione: ch['attenuation'] = {ch['attenuation']} (type: {type(ch['attenuation'])})")
+                                    if isinstance(ch['attenuation'], float):
+                                        ch['attenuation'] = float(f"{ch['attenuation']:.10f}")
+                                    print(f"[DEBUG] Dopo la serializzazione: ch['attenuation'] = {ch['attenuation']} (type: {type(ch['attenuation'])})")
+                        else:
+                            fix_attenuation(v)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        fix_attenuation(item)
+            data = {'instruments': self.instruments}
+            fix_attenuation(data)
+            print("[DEBUG] Dati serializzati pronti per il salvataggio:", data)
             with open(self.inst_file_path, 'w', encoding='utf-8') as f:
-                json.dump({'instruments': self.instruments}, f, indent=2)
+                json.dump(data, f, indent=2, ensure_ascii=False)
             self.instruments_modified = True  # Segnala che ci sono state modifiche
             # Notifica i listener che il file .inst è stato modificato/salvato
             try:
@@ -61,6 +81,7 @@ class InstrumentConfigDialog(QDialog):
                 # Ignora se il segnale non è connesso o in caso di errori di runtime
                 pass
         except Exception as e:
+            print(f"[DEBUG] Errore durante il salvataggio strumenti: {e}")
             QMessageBox.warning(self, "Errore salvataggio", str(e))
 
     def init_ui(self):
@@ -423,7 +444,23 @@ class InstrumentConfigDialog(QDialog):
                 table.setCellWidget(row, 2, meas_combo)
                 
                 # Attenuazione
-                att_edit = QLineEdit(str(ch.get('attenuation', 1.0)))
+                # Forza la visualizzazione attenuazione in formato decimale con punto
+                att_val = ch.get('attenuation', 1.0)
+                if isinstance(att_val, float):
+                    att_str = f"{att_val:.10f}".rstrip('0').rstrip('.') if '.' in f"{att_val:.10f}" else str(att_val)
+                else:
+                    att_str = str(att_val).replace(',', '.')
+                att_edit = QLineEdit(att_str)
+                # Validator con locale C per forzare il punto decimale
+                validator = QDoubleValidator(0.0000000001, 1e6, 10, att_edit)
+                validator.setLocale(QLocale(QLocale.Language.C))
+                validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+                att_edit.setValidator(validator)
+                att_edit.setPlaceholderText("Es: 0.5 (shunt 0.5Ω), 10.0 (amplif. x10)")
+                att_edit.setToolTip("Fattore di attenuazione/amplificazione (max 10 cifre decimali).\n" +
+                                  "• Shunt: Resistenza in Ω (es: 0.1 per shunt 0.1Ω)\n" +
+                                  "• Amplificatore: Guadagno (es: 10.0 per amplif. x10)\n" +
+                                  "• Default: 1.0 (nessuna attenuazione)")
                 att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
                 table.setCellWidget(row, 3, att_edit)
                 
@@ -434,12 +471,15 @@ class InstrumentConfigDialog(QDialog):
                 
                 # Tempo integrazione
                 tint_edit = QLineEdit(str(ch.get('integration_time', 0.0)))
+                tint_edit.setValidator(QDoubleValidator(0.0, 1e6, 3, tint_edit))
+                tint_edit.setPlaceholderText("Tempo in secondi")
                 tint_edit.textChanged.connect(lambda val, r=row: self.on_channel_integration_time_changed(r, val))
                 table.setCellWidget(row, 5, tint_edit)
         else:
             # Datalogger o generico
-            table = QTableWidget(n, 4)
-            table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Unità"])
+            # Aggiunta colonna Attenuazione per permettere l'inserimento di shunt/guadagni
+            table = QTableWidget(n, 5)
+            table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Attenuazione", "Unità"])
             
             for row, ch in enumerate(inst['channels']):
                 # Abilita
@@ -460,10 +500,30 @@ class InstrumentConfigDialog(QDialog):
                 meas_combo.currentTextChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
                 table.setCellWidget(row, 2, meas_combo)
                 
+                # Attenuazione (supporta 10 cifre decimali) - visualizzazione forzata decimale con punto
+                att_val = ch.get('attenuation', 1.0)
+                if isinstance(att_val, float):
+                    att_str = f"{att_val:.10f}".rstrip('0').rstrip('.') if '.' in f"{att_val:.10f}" else str(att_val)
+                else:
+                    att_str = str(att_val).replace(',', '.')
+                att_edit = QLineEdit(att_str)
+                # Validator con locale C per forzare il punto decimale
+                validator = QDoubleValidator(0.0000000001, 1e6, 10, att_edit)
+                validator.setLocale(QLocale(QLocale.Language.C))
+                validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+                att_edit.setValidator(validator)
+                att_edit.setPlaceholderText("Es: 0.5 (shunt 0.5Ω), 10.0 (amplif. x10)")
+                att_edit.setToolTip("Fattore di attenuazione/amplificazione (max 10 cifre decimali).\n" +
+                                  "• Shunt: Resistenza in Ω (es: 0.1 per shunt 0.1Ω)\n" +
+                                  "• Amplificatore: Guadagno (es: 10.0 per amplif. x10)\n" +
+                                  "• Default: 1.0 (nessuna attenuazione)")
+                att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
+                table.setCellWidget(row, 3, att_edit)
+                
                 # Unità
                 unit_edit = QLineEdit(ch.get('unit', 'V'))
                 unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
-                table.setCellWidget(row, 3, unit_edit)
+                table.setCellWidget(row, 4, unit_edit)
                 
         table.resizeColumnsToContents()
         self.editor_layout.addWidget(table)
@@ -653,9 +713,15 @@ class InstrumentConfigDialog(QDialog):
     def on_channel_attenuation_changed(self, row, val):
         if self.current_instrument is not None:
             try:
-                self.current_instrument['channels'][row]['attenuation'] = float(val)
-            except Exception:
+                print(f"[DEBUG] Input attenuazione ricevuto: {val} (row: {row})")
+                val = str(val).replace(',', '.')
+                parsed = float(val)
+                print(f"[DEBUG] Valore attenuazione convertito in float: {parsed}")
+                self.current_instrument['channels'][row]['attenuation'] = parsed
+            except Exception as e:
+                print(f"[DEBUG] Errore conversione attenuazione: {e}")
                 self.current_instrument['channels'][row]['attenuation'] = 1.0
+            print(f"[DEBUG] Stato canale dopo set attenuazione: {self.current_instrument['channels'][row]}")
             self.save_instruments()
     def on_channel_unit_changed(self, row, val):
         if self.current_instrument is not None:

@@ -1,7 +1,7 @@
 {
   "project_id": "test-project-001",
   "created_at": "2025-09-29T16:00:00",
-  "last_opened": "2025-10-04T18:54:00.621222",
+  "last_opened": "2025-10-06T18:14:16.775830",
   "project_name": "Test DC-DC Converter",
   "eff_files": [
     "eff.eff"
@@ -11,10 +11,16 @@
     "osc1.was"
   ],
   "control_variables": [
-    "Vaux"
+    "Vaux",
+    "VIN",
+    "Vdrive"
   ],
   "measure_variables": [
     "Vd_Q1",
-    "Vs_Q1"
+    "Vs_Q1",
+    "Vin",
+    "Vout",
+    "Iin",
+    "Iout"
   ]
 }

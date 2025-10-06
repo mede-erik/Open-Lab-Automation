@@ -1,5 +1,7 @@
 import json
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QCheckBox, QLineEdit, QDialogButtonBox, QLabel
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
+                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel,
+                              QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
 
 class PowerSupplyConfigDialog(QDialog):
@@ -46,9 +48,16 @@ class PowerSupplyConfigDialog(QDialog):
             curr_edit.textChanged.connect(lambda val, r=row: self.on_current_changed(r, val))
             self.table.setCellWidget(row, 2, curr_edit)
         self.table.resizeColumnsToContents()
+        # Configurazione ridimensionamento tabella per adattarsi al dialog
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nome variabile
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Corrente max
+        
         layout.addWidget(self.table)
         # Pulsanti OK/Annulla
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
