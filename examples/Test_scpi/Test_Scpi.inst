@@ -1,0 +1,39 @@
+{
+  "instruments": [
+    {
+      "instrument_type": "power_supply",
+      "instance_name": "AUX",
+      "series": "Rohde_Schwarz_HPM_Series",
+      "model": "Rohde & Schwarz HPM4040",
+      "model_id": "PSU_Rohde_Schwarz_HPM4040",
+      "num_channels": 4,
+      "channels": [
+        {
+          "enabled": true,
+          "name": "Vaux",
+          "max_current": 10.0,
+          "max_voltage": 30.0
+        },
+        {
+          "enabled": false,
+          "name": "CH2",
+          "max_current": 0.0,
+          "max_voltage": 0.0
+        },
+        {
+          "enabled": false,
+          "name": "CH3",
+          "max_current": 0.0,
+          "max_voltage": 0.0
+        },
+        {
+          "enabled": false,
+          "name": "CH4",
+          "max_current": 0.0,
+          "max_voltage": 0.0
+        }
+      ],
+      "visa_address": "TCPIP0::127.0.0.1::INSTR"
+    }
+  ]
+}

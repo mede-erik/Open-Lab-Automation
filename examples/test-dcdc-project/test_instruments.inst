@@ -287,7 +287,8 @@
           "max_current": 10.0,
           "max_voltage": 6.0
         }
-      ]
+      ],
+      "visa_address": "TCPIP0::127.0.0.1::INSTR"
     }
   ]
 }

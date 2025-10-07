@@ -1,0 +1,13 @@
+{
+  "project_id": "cd98da96-8862-441b-ba49-5cf7fe59a827",
+  "created_at": "2025-10-07T10:41:00.885045",
+  "last_opened": "2025-10-07T10:41:17.221949",
+  "project_name": "Test_Scpi",
+  "eff_files": [],
+  "inst_file": "Test_Scpi.inst",
+  "was_files": [
+    "wave_setting.was"
+  ],
+  "control_variables": [],
+  "measure_variables": []
+}
