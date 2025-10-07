@@ -1326,6 +1326,9 @@ class RemoteControlTab(QWidget):
         hbox_c.addWidget(set_c_btn)
         vbox.addLayout(hbox_c)
         
+        # Output button and Read button on the same row
+        hbox_controls = QHBoxLayout()
+        
         # Output enable/disable button
         output_btn = QPushButton('Output: OFF')
         output_btn.setCheckable(True)
@@ -1342,13 +1345,17 @@ class RemoteControlTab(QWidget):
             }
         """)
         output_btn.clicked.connect(lambda checked, i=inst, c=ch, b=output_btn: self.toggle_output(i, c, b, checked))
-        vbox.addWidget(output_btn)
+        hbox_controls.addWidget(output_btn)
         
         # Add a read actual values button
-        read_btn = QPushButton('Read Actual Values')
+        read_btn = QPushButton('Read Values')
+        hbox_controls.addWidget(read_btn)
+        
+        vbox.addLayout(hbox_controls)
+        
+        # Label for read values
         read_lbl = QLabel('V: ...  I: ...')
         read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
-        vbox.addWidget(read_btn)
         vbox.addWidget(read_lbl)
         
         group.setLayout(vbox)
