@@ -25,9 +25,11 @@ class AddressEditorDialog(QDialog):
         visa_templates = self.load_instruments.find_instrument(type_name=t, series_id=series_id, model_id=model_id)
         if visa_templates and 'interface' in visa_templates and 'visa_templates' in visa_templates['interface']:
             return visa_templates['interface']['visa_templates']
-        # Default
+        # Default with multiple protocol options
         return {
-            'LXI': 'TCPIP0::{ip}::INSTR',
+            'LXI (VXI-11)': 'TCPIP0::{ip}::inst0::INSTR',
+            'LXI (HiSLIP)': 'TCPIP0::{ip}::hislip0::INSTR', 
+            'LXI (Socket)': 'TCPIP0::{ip}::{port}::SOCKET',
             'USB': 'USB0::{vendor_id}::{product_id}::{serial}::INSTR',
             'GPIB': 'GPIB0::{gpib_addr}::INSTR'
         }

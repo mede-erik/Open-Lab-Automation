@@ -382,8 +382,8 @@
               "set_current": "CURR {value}",
               "read_voltage": "MEAS:VOLT?",
               "read_current": "MEAS:CURR?",
-              "output_on": "OUTP ON",
-              "output_off": "OUTP OFF"
+              "output_on": "OUTPut ON",
+              "output_off": "OUTPut OFF"
             }
           }
         ]

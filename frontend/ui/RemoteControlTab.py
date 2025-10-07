@@ -501,6 +501,278 @@ class RemoteControlTab(QWidget):
                     del self.connection_timers[timer_key]
                 except:
                     pass
+    
+    def diagnose_connection(self, visa_address: str) -> dict:
+        """
+        Perform diagnostic tests on instrument connection.
+        
+        Args:
+            visa_address: VISA address to diagnose (e.g., 'TCPIP0::192.168.1.100::INSTR')
+            
+        Returns:
+            Dictionary with diagnostic results
+        """
+        import subprocess
+        import re
+        
+        results = {
+            'visa_address': visa_address,
+            'address_valid': False,
+            'host_reachable': False,
+            'port_open': False,
+            'visa_available': PYVISA_AVAILABLE,
+            'recommendations': []
+        }
+        
+        # Parse VISA address to extract host and port
+        try:
+            # Pattern for TCPIP: TCPIP[board]::host[:port]::INSTR
+            tcpip_pattern = r'TCPIP\d*::([^:]+)(?:::(\d+))?::INSTR'
+            match = re.match(tcpip_pattern, visa_address, re.IGNORECASE)
+            
+            if match:
+                results['address_valid'] = True
+                host = match.group(1)
+                port = match.group(2) if match.group(2) else '111'  # VXI-11 default port
+                
+                results['host'] = host
+                results['port'] = int(port)
+                
+                # Test 1: Ping host
+                try:
+                    ping_result = subprocess.run(
+                        ['ping', '-c', '1', '-W', '2', host],
+                        capture_output=True,
+                        text=True,
+                        timeout=3
+                    )
+                    results['host_reachable'] = ping_result.returncode == 0
+                    results['ping_output'] = ping_result.stdout
+                    
+                    if not results['host_reachable']:
+                        results['recommendations'].append(
+                            f"Host {host} is not reachable. Check network connection and IP address."
+                        )
+                except subprocess.TimeoutExpired:
+                    results['host_reachable'] = False
+                    results['recommendations'].append(f"Ping to {host} timed out. Network may be slow or host is blocking ICMP.")
+                except Exception as e:
+                    results['ping_error'] = str(e)
+                    results['recommendations'].append(f"Could not ping host: {str(e)}")
+                
+                # Test 2: Check if port is open (using netcat or telnet)
+                if results['host_reachable']:
+                    try:
+                        # Try with nc (netcat) first
+                        nc_result = subprocess.run(
+                            ['nc', '-zv', '-w', '2', host, str(port)],
+                            capture_output=True,
+                            text=True,
+                            timeout=3
+                        )
+                        results['port_open'] = nc_result.returncode == 0
+                        
+                        if not results['port_open']:
+                            results['recommendations'].append(
+                                f"Port {port} on {host} is closed or filtered. "
+                                f"Verify VXI-11 service is running on instrument."
+                            )
+                    except FileNotFoundError:
+                        # nc not available, try with timeout command and telnet
+                        try:
+                            telnet_result = subprocess.run(
+                                ['timeout', '2', 'telnet', host, str(port)],
+                                capture_output=True,
+                                text=True
+                            )
+                            # If telnet connects, it usually returns 0 or gets timeout
+                            results['port_open'] = 'Connected' in telnet_result.stdout or telnet_result.returncode == 124
+                        except Exception:
+                            results['recommendations'].append(
+                                f"Could not test port {port}. Install 'nc' or 'telnet' for better diagnostics."
+                            )
+                    except Exception as e:
+                        results['port_test_error'] = str(e)
+            else:
+                results['recommendations'].append(
+                    f"VISA address format not recognized: {visa_address}\n"
+                    f"Expected format: TCPIP0::hostname::INSTR or TCPIP0::hostname::port::INSTR"
+                )
+                
+        except Exception as e:
+            results['parse_error'] = str(e)
+            results['recommendations'].append(f"Error parsing VISA address: {str(e)}")
+        
+        # Add general recommendations
+        if not results['visa_available']:
+            results['recommendations'].append("PyVISA is not available. Install it with: pip install pyvisa pyvisa-py")
+        
+        if results['address_valid'] and not results['host_reachable']:
+            results['recommendations'].append(
+                f"Host {host} is not reachable. Check:\n"
+                "  - Instrument is powered on\n"
+                "  - IP address is correct\n"
+                "  - Network cable is connected\n"
+                "  - Instrument and PC are on the same network"
+            )
+        
+        if results['address_valid'] and results['host_reachable'] and not results['port_open']:
+            results['recommendations'].append(
+                f"Port {port} is closed on {host}. Common causes:\n"
+                "  VXI-11 Protocol (port 111):\n"
+                "    - Use format: TCPIP0::{host}::inst0::INSTR\n"
+                "    - Enable VXI-11/LXI service on instrument\n"
+                "    - Check firewall settings\n"
+                "  HiSLIP Protocol (port 4880):\n"
+                "    - Use format: TCPIP0::{host}::hislip0::INSTR\n"
+                "    - Enable HiSLIP service on instrument\n"
+                "  Socket Protocol (custom port):\n"
+                "    - Use format: TCPIP0::{host}::{port}::SOCKET\n"
+                "    - Verify correct port number in instrument settings\n"
+                "\n"
+                "Try changing the protocol in Address Editor if connection fails."
+            )
+        
+        if results['port_open'] and 'inst0' in visa_address.lower():
+            results['recommendations'].append(
+                "Port is open but connection may still fail. If using VXI-11:\n"
+                "  - Ensure RPC portmapper is running on instrument\n"
+                "  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR"
+            )
+            results['recommendations'].append("Check that instrument is powered on and connected to network.")
+            results['recommendations'].append("Verify IP address configuration on instrument.")
+        
+        if results['host_reachable'] and not results['port_open']:
+            results['recommendations'].append("Enable remote control/LXI interface on instrument.")
+            results['recommendations'].append("Check instrument manual for VXI-11 or SCPI-over-LAN setup.")
+            results['recommendations'].append("Verify firewall is not blocking the connection.")
+        
+        return results
+    
+    def show_connection_diagnostics(self, visa_address: str):
+        """
+        Show connection diagnostics dialog with detailed troubleshooting information.
+        
+        Args:
+            visa_address: VISA address to diagnose
+        """
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QProgressBar
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Connection Diagnostics - {visa_address}")
+        dialog.setMinimumSize(600, 400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Progress bar
+        progress = QProgressBar()
+        progress.setRange(0, 0)  # Indeterminate
+        layout.addWidget(progress)
+        
+        # Text area for results
+        text_area = QTextEdit()
+        text_area.setReadOnly(True)
+        layout.addWidget(text_area)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.show()
+        
+        # Run diagnostics in background (simulated with QTimer to avoid blocking UI)
+        def run_diagnostics():
+            progress.setVisible(False)
+            results = self.diagnose_connection(visa_address)
+            
+            # Format results
+            output = f"Connection Diagnostics for: {visa_address}\n"
+            output += "=" * 60 + "\n\n"
+            
+            output += f"✓ VISA Available: {'Yes' if results['visa_available'] else 'No'}\n"
+            output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
+            
+            if 'host' in results:
+                output += f"\nHost: {results['host']}\n"
+                output += f"Port: {results['port']}\n\n"
+                output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable: {'Yes' if results['host_reachable'] else 'No'}\n"
+                output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
+            
+            if results['recommendations']:
+                output += "\n" + "=" * 60 + "\n"
+                output += "RECOMMENDATIONS:\n"
+                output += "=" * 60 + "\n\n"
+                for i, rec in enumerate(results['recommendations'], 1):
+                    output += f"{i}. {rec}\n\n"
+            
+            if 'ping_output' in results:
+                output += "\n" + "=" * 60 + "\n"
+                output += "PING OUTPUT:\n"
+                output += "=" * 60 + "\n"
+                output += results['ping_output']
+            
+            text_area.setText(output)
+            
+            # Log diagnostics
+            if self.logger:
+                self.logger.info(f"Connection diagnostics completed for {visa_address}")
+                self.logger.debug(f"Diagnostics results: {results}")
+        
+    def _show_connection_error_with_diagnostics(self, error_message, visa_address):
+        """
+        Show connection error with option to run diagnostics.
+        
+        Args:
+            error_message: The error message to display
+            visa_address: The VISA address that failed to connect
+        """
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Connection Error")
+        dialog.setMinimumWidth(500)
+        
+        layout = QVBoxLayout()
+        
+        # Error icon and title
+        title_layout = QHBoxLayout()
+        title_label = QLabel("❌ Connection Failed")
+        title_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #d32f2f;")
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
+        
+        # Error message
+        error_text = QTextEdit()
+        error_text.setReadOnly(True)
+        error_text.setPlainText(error_message)
+        error_text.setMaximumHeight(200)
+        layout.addWidget(error_text)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        diagnose_btn = QPushButton("🔍 Run Diagnostics")
+        diagnose_btn.clicked.connect(lambda: [dialog.accept(), self.show_connection_diagnostics(visa_address)])
+        diagnose_btn.setStyleSheet("background-color: #1976d2; color: white; padding: 8px;")
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.reject)
+        close_btn.setStyleSheet("padding: 8px;")
+        
+        button_layout.addStretch()
+        button_layout.addWidget(diagnose_btn)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+        dialog.setLayout(layout)
+        
+        # Log error
+        if self.logger:
+            self.logger.error(f"Connection error for {visa_address}: {error_message}")
+        
+        dialog.exec()
 
     def get_scpi_cmd(self, inst, ch, action):
         """
@@ -533,6 +805,10 @@ class RemoteControlTab(QWidget):
                 return 'MEAS:CURR?'
             if action == 'read_measurement':
                 return 'MEAS?'
+            if action == 'output_on':
+                return 'OUTP ON'
+            if action == 'output_off':
+                return 'OUTP OFF'
             return ''
         # Mappa azione → chiave SCPI
         action_map = {
@@ -540,7 +816,9 @@ class RemoteControlTab(QWidget):
             'set_current': ['set_current', 'CURR'],
             'read_voltage': ['read_voltage', 'MEAS:VOLT?'],
             'read_current': ['read_current', 'MEAS:CURR?'],
-            'read_measurement': ['read_measurement', 'MEAS?']
+            'read_measurement': ['read_measurement', 'MEAS?'],
+            'output_on': ['output_on', 'OUTP ON'],
+            'output_off': ['output_off', 'OUTP OFF']
         }
         for key in action_map.get(action, []):
             if key in scpi_dict:
@@ -831,12 +1109,78 @@ class RemoteControlTab(QWidget):
                         self.visa_connections[visa_addr] = instr
                         btn.setStyleSheet('border: 2px solid green;')
                         btn.setChecked(True)
+                    except ConnectionRefusedError as e:
+                        btn.setStyleSheet('border: 2px solid red;')
+                        btn.setChecked(False)
+                        
+                        # Specific error for connection refused with diagnostics option
+                        error_msg = f"Connection refused to {visa_addr}\n\n"
+                        error_msg += "Possible causes:\n"
+                        error_msg += "• Instrument is powered off\n"
+                        error_msg += "• Wrong IP address or port\n"
+                        error_msg += "• VXI-11 service not running on instrument\n"
+                        error_msg += "• Network/firewall blocking connection\n"
+                        error_msg += f"\nTechnical details: {str(e)}"
+                        
+                        # Show error with diagnostics option
+                        self._show_connection_error_with_diagnostics(error_msg, visa_addr)
+                        
+                        # Safe timer management
+                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
+                        if timer_key in self.connection_timers:
+                            self.connection_timers[timer_key].stop()
+                            self.connection_timers[timer_key].deleteLater()
+                        
+                        timer = QTimer(self)
+                        timer.setSingleShot(True)
+                        timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                    except TimeoutError as e:
+                        btn.setStyleSheet('border: 2px solid red;')
+                        btn.setChecked(False)
+                        
+                        # Specific error for timeout
+                        error_msg = f"Connection timeout to {visa_addr}\n\n"
+                        error_msg += "Possible causes:\n"
+                        error_msg += "• Instrument is not responding\n"
+                        error_msg += "• Network latency too high\n"
+                        error_msg += "• Instrument is busy with another operation\n"
+                        error_msg += f"\nTechnical details: {str(e)}"
+                        
+                        self.error_handler.handle_visa_error(
+                            Exception(error_msg), 
+                            f"connection to {visa_addr}"
+                        )
+                        
+                        # Safe timer management
+                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
+                        if timer_key in self.connection_timers:
+                            self.connection_timers[timer_key].stop()
+                            self.connection_timers[timer_key].deleteLater()
+                        
+                        timer = QTimer(self)
+                        timer.setSingleShot(True)
+                        timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
                     except Exception as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)
                         
+                        # Generic error with detailed message
+                        error_type = type(e).__name__
+                        error_msg = f"Failed to connect to {visa_addr}\n\n"
+                        error_msg += f"Error type: {error_type}\n"
+                        error_msg += f"Details: {str(e)}\n\n"
+                        error_msg += "Troubleshooting steps:\n"
+                        error_msg += "1. Verify instrument is powered on\n"
+                        error_msg += "2. Check VISA address is correct\n"
+                        error_msg += "3. Test network connectivity (ping)\n"
+                        error_msg += "4. Verify VISA backend is installed\n"
+                        error_msg += "5. Check instrument manual for remote control setup"
+                        
                         # Log error using centralized error handler
-                        self.error_handler.handle_visa_error(e, f"connection to {visa_addr}")
+                        self.error_handler.handle_visa_error(
+                            Exception(error_msg), 
+                            f"connection to {visa_addr}"
+                        )
                         
                         # Gestione sicura del timer per evitare crash
                         timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
@@ -982,6 +1326,24 @@ class RemoteControlTab(QWidget):
         hbox_c.addWidget(set_c_btn)
         vbox.addLayout(hbox_c)
         
+        # Output enable/disable button
+        output_btn = QPushButton('Output: OFF')
+        output_btn.setCheckable(True)
+        output_btn.setChecked(False)
+        output_btn.setStyleSheet("""
+            QPushButton {
+                padding: 8px;
+                font-weight: bold;
+                background-color: #d32f2f;
+                color: white;
+            }
+            QPushButton:checked {
+                background-color: #2e7d32;
+            }
+        """)
+        output_btn.clicked.connect(lambda checked, i=inst, c=ch, b=output_btn: self.toggle_output(i, c, b, checked))
+        vbox.addWidget(output_btn)
+        
         # Add a read actual values button
         read_btn = QPushButton('Read Actual Values')
         read_lbl = QLabel('V: ...  I: ...')
@@ -1000,17 +1362,28 @@ class RemoteControlTab(QWidget):
         :param inst: Instrument instance data.
         :return: VISA instrument object or None if error.
         """
+        print(f"[DEBUG] get_visa_instrument chiamato per {inst.get('instance_name', 'N/A')}")
+        
         if not self._ensure_visa_initialized():
+            print("[DEBUG] VISA non inizializzato!")
             return None
             
         visa_addr = inst.get('visa_address', None)
+        print(f"[DEBUG] VISA address: {visa_addr}")
+        
         if not visa_addr:
+            print("[DEBUG] VISA address mancante!")
             return None
+            
         if visa_addr in self.visa_connections:
+            print(f"[DEBUG] Connessione esistente trovata per {visa_addr}")
             return self.visa_connections[visa_addr]
+            
+        print(f"[DEBUG] Tentativo apertura nuova connessione a {visa_addr}")
         try:
             instr = self.rm.open_resource(visa_addr)
             self.visa_connections[visa_addr] = instr
+            print(f"[DEBUG] Connessione aperta con successo: {instr}")
             return instr
         except Exception as e:
             error_msg = f'Cannot open {visa_addr}: {e}'
@@ -1026,6 +1399,8 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the voltage value.
         """
+        print(f"[DEBUG] set_voltage chiamato per {inst.get('instance_name', 'N/A')}")
+        
         value_str = edit.text().strip()
         if not value_str:
             print("[RemoteControlTab] Valore voltaggio vuoto")
@@ -1046,13 +1421,19 @@ class RemoteControlTab(QWidget):
         except ValueError:
             print(f"[RemoteControlTab] Valore voltaggio non valido: '{value_str}'")
             return
-            
+        
+        print(f"[DEBUG] Valore validato: {value_float}V")
+        
         instr = self.get_visa_instrument(inst)
         if not instr:
+            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
-            
+        
+        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
+        
         try:
             cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value_str)
+            print(f"[DEBUG] Comando SCPI: '{cmd}'")
             instr.write(cmd)
             print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
@@ -1068,6 +1449,8 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the current value.
         """
+        print(f"[DEBUG] set_current chiamato per {inst.get('instance_name', 'N/A')}")
+        
         value_str = edit.text().strip()
         if not value_str:
             print("[RemoteControlTab] Valore corrente vuoto")
@@ -1088,13 +1471,19 @@ class RemoteControlTab(QWidget):
         except ValueError:
             print(f"[RemoteControlTab] Valore corrente non valido: '{value_str}'")
             return
-            
+        
+        print(f"[DEBUG] Valore validato: {value_float}A")
+        
         instr = self.get_visa_instrument(inst)
         if not instr:
+            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
-            
+        
+        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
+        
         try:
             cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value_str)
+            print(f"[DEBUG] Comando SCPI: '{cmd}'")
             instr.write(cmd)
             print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
@@ -1102,6 +1491,51 @@ class RemoteControlTab(QWidget):
             print(f"ERRORE: {error_msg}")
             if self.logger:
                 self.logger.error(error_msg)
+
+    def toggle_output(self, inst, ch, button, checked):
+        """
+        Enable or disable the output for the given instrument and channel.
+        :param inst: Instrument instance data.
+        :param ch: Channel data.
+        :param button: QPushButton that was clicked.
+        :param checked: Boolean state of the button (True=ON, False=OFF).
+        """
+        print(f"[DEBUG] toggle_output chiamato - Checked: {checked}")
+        
+        instr = self.get_visa_instrument(inst)
+        if not instr:
+            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            # Reset button state if connection failed
+            button.setChecked(False)
+            button.setText('Output: OFF')
+            return
+        
+        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
+        
+        try:
+            if checked:
+                # Turn output ON
+                cmd = self.get_scpi_cmd(inst, ch, 'output_on')
+                print(f"[DEBUG] Comando ON: '{cmd}'")
+                instr.write(cmd)
+                button.setText('Output: ON')
+                print(f"[RemoteControlTab] Output abilitato per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+            else:
+                # Turn output OFF
+                cmd = self.get_scpi_cmd(inst, ch, 'output_off')
+                print(f"[DEBUG] Comando OFF: '{cmd}'")
+                instr.write(cmd)
+                button.setText('Output: OFF')
+                print(f"[RemoteControlTab] Output disabilitato per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+                
+        except Exception as e:
+            error_msg = f'Toggle Output Error: {str(e)}'
+            print(f"ERRORE: {error_msg}")
+            if self.logger:
+                self.logger.error(error_msg)
+            # Reset button to previous state on error
+            button.setChecked(not checked)
+            button.setText('Output: ON' if not checked else 'Output: OFF')
 
     def read_actual(self, inst, ch, label):
         """

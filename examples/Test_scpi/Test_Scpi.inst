@@ -3,37 +3,19 @@
     {
       "instrument_type": "power_supply",
       "instance_name": "AUX",
-      "series": "Rohde_Schwarz_HPM_Series",
-      "model": "Rohde & Schwarz HPM4040",
-      "model_id": "PSU_Rohde_Schwarz_HPM4040",
-      "num_channels": 4,
+      "series": "OWON_SPE6000_Series",
+      "model": "OWON SPE6103",
+      "model_id": "PSU_OWON_SPE6103",
+      "num_channels": 1,
       "channels": [
         {
           "enabled": true,
-          "name": "Vaux",
+          "name": "Vin",
           "max_current": 10.0,
-          "max_voltage": 30.0
-        },
-        {
-          "enabled": false,
-          "name": "CH2",
-          "max_current": 0.0,
-          "max_voltage": 0.0
-        },
-        {
-          "enabled": false,
-          "name": "CH3",
-          "max_current": 0.0,
-          "max_voltage": 0.0
-        },
-        {
-          "enabled": false,
-          "name": "CH4",
-          "max_current": 0.0,
-          "max_voltage": 0.0
+          "max_voltage": 1.0
         }
       ],
-      "visa_address": "TCPIP0::127.0.0.1::INSTR"
+      "visa_address": "TCPIP0::127.0.0.1::5025::SOCKET"
     }
   ]
 }
