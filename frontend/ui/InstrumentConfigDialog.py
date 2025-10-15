@@ -543,9 +543,12 @@ class InstrumentConfigDialog(QDialog):
         dlg = AddressEditorDialog(self.current_instrument, self.load_instruments, self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             # Aggiorna indirizzo
-            self.current_instrument['visa_address'] = dlg.get_address()
-            self.addr_label.setText(self.current_instrument['visa_address'])
-            self.save_instruments()
+            new_address = dlg.get_address()
+            if new_address is not None:  # Validazione passata
+                self.current_instrument['visa_address'] = new_address
+                self.addr_label.setText(self.current_instrument['visa_address'])
+                self.save_instruments()
+            # Se None, la validazione è fallita e l'utente ha già ricevuto il messaggio di errore
     def open_network_scan_dialog(self):
         """Scansiona le risorse VISA disponibili e permette di applicare un indirizzo allo strumento selezionato."""
         from PyQt6.QtWidgets import QApplication

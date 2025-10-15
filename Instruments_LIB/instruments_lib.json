@@ -347,6 +347,20 @@
             {
         "series_id": "OWON_SPE6000_Series",
         "series_name": "OWON SPE6000 Series",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYST:ERR?",
+          "self_test": "*TST?",
+          "set_voltage": "VOLT {value}",
+          "set_current": "CURR {value}",
+          "read_voltage": "MEAS:VOLT?",
+          "read_current": "MEAS:CURR?",
+          "output_on": "OUTPut ON",
+          "output_off": "OUTPut OFF",
+          "output_state_query": "OUTPut?"
+        },
         "models": [
           {
             "id": "PSU_OWON_SPE6103",
@@ -357,9 +371,29 @@
             "interface": {
               "supported_connection_types": [
                 {
-                  "type": "USB-TMC",
-                  "visa_resource_id_template": "USB_PSU_{serial_number}",
-                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                  "type": "SERIAL",
+                  "visa_resource_id_template": "SERIAL_PSU_{unique_id}",
+                  "address_format_example": "ASRL{COM_PORT}::INSTR",
+                  "serial_settings": {
+                    "baud_rate": 9600,
+                    "data_bits": 8,
+                    "parity": "none",
+                    "stop_bits": 1,
+                    "flow_control": "none"
+                
+                  }
+                },
+                {
+                  "type": "USB-SERIAL",
+                  "visa_resource_id_template": "USB_SERIAL_PSU_{serial_number}",
+                  "address_format_example": "ASRL{COM_PORT}::INSTR",
+                  "serial_settings": {
+                    "baud_rate": 9600,
+                    "data_bits": 8,
+                    "parity": "none",
+                    "stop_bits": 1,
+                    "flow_control": "none"
+                  }
                 }
               ]
             },

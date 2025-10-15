@@ -15,7 +15,7 @@
           "max_voltage": 1.0
         }
       ],
-      "visa_address": "TCPIP0::127.0.0.1::5025::SOCKET"
+      "visa_address": "ASRL1::INSTR"
     }
   ]
 }
