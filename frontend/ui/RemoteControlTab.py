@@ -809,6 +809,8 @@ class RemoteControlTab(QWidget):
                 return 'OUTP ON'
             if action == 'output_off':
                 return 'OUTP OFF'
+            if action == 'output_state_query':
+                return 'OUTP?'
             return ''
         # Mappa azione → chiave SCPI
         action_map = {
@@ -818,7 +820,8 @@ class RemoteControlTab(QWidget):
             'read_current': ['read_current', 'MEAS:CURR?'],
             'read_measurement': ['read_measurement', 'MEAS?'],
             'output_on': ['output_on', 'OUTP ON'],
-            'output_off': ['output_off', 'OUTP OFF']
+            'output_off': ['output_off', 'OUTP OFF'],
+            'output_state_query': ['output_state_query', 'OUTP?']
         }
         for key in action_map.get(action, []):
             if key in scpi_dict:
@@ -1502,6 +1505,7 @@ class RemoteControlTab(QWidget):
     def toggle_output(self, inst, ch, button, checked):
         """
         Enable or disable the output for the given instrument and channel.
+        Verifica lo stato effettivo dell'uscita e riprova in caso di fallimento.
         :param inst: Instrument instance data.
         :param ch: Channel data.
         :param button: QPushButton that was clicked.
@@ -1519,30 +1523,98 @@ class RemoteControlTab(QWidget):
         
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
         
-        try:
-            if checked:
-                # Turn output ON
-                cmd = self.get_scpi_cmd(inst, ch, 'output_on')
-                print(f"[DEBUG] Comando ON: '{cmd}'")
-                instr.write(cmd)
-                button.setText('Output: ON')
-                print(f"[RemoteControlTab] Output abilitato per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
-            else:
-                # Turn output OFF
-                cmd = self.get_scpi_cmd(inst, ch, 'output_off')
-                print(f"[DEBUG] Comando OFF: '{cmd}'")
-                instr.write(cmd)
-                button.setText('Output: OFF')
-                print(f"[RemoteControlTab] Output disabilitato per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+        # Numero massimo di tentativi
+        max_attempts = 2
+        success = False
+        
+        for attempt in range(1, max_attempts + 1):
+            try:
+                if checked:
+                    # Turn output ON
+                    cmd = self.get_scpi_cmd(inst, ch, 'output_on')
+                    print(f"[DEBUG] Tentativo {attempt}/{max_attempts} - Comando ON: '{cmd}'")
+                    instr.write(cmd)
+                else:
+                    # Turn output OFF
+                    cmd = self.get_scpi_cmd(inst, ch, 'output_off')
+                    print(f"[DEBUG] Tentativo {attempt}/{max_attempts} - Comando OFF: '{cmd}'")
+                    instr.write(cmd)
                 
-        except Exception as e:
-            error_msg = f'Toggle Output Error: {str(e)}'
-            print(f"ERRORE: {error_msg}")
-            if self.logger:
-                self.logger.error(error_msg)
+                # Attendi un momento per permettere allo strumento di rispondere
+                import time
+                time.sleep(0.2)
+                
+                # Verifica lo stato effettivo dell'uscita
+                verify_cmd = self.get_scpi_cmd(inst, ch, 'output_state_query')
+                if verify_cmd:
+                    print(f"[DEBUG] Verifica stato con comando: '{verify_cmd}'")
+                    response = instr.query(verify_cmd).strip()
+                    print(f"[DEBUG] Risposta strumento: '{response}'")
+                    
+                    # Analizza la risposta (può essere "1", "ON", "0", "OFF", etc.)
+                    is_on = response in ['1', 'ON', 'on', 'On']
+                    is_off = response in ['0', 'OFF', 'off', 'Off']
+                    
+                    # Verifica che lo stato corrisponda a quello richiesto
+                    if (checked and is_on) or (not checked and is_off):
+                        success = True
+                        print(f"[DEBUG] ✓ Verifica stato riuscita al tentativo {attempt}")
+                        break
+                    else:
+                        print(f"[DEBUG] ✗ Stato non corrispondente - Richiesto: {'ON' if checked else 'OFF'}, Ottenuto: {response}")
+                        if attempt < max_attempts:
+                            print(f"[DEBUG] Riprovo...")
+                            time.sleep(0.3)
+                        continue
+                else:
+                    # Se non c'è comando di verifica, assumiamo successo
+                    print(f"[DEBUG] ⚠ Nessun comando di verifica disponibile, assumo successo")
+                    success = True
+                    break
+                    
+            except Exception as e:
+                error_msg = f'Toggle Output Error (tentativo {attempt}/{max_attempts}): {str(e)}'
+                print(f"ERRORE: {error_msg}")
+                if self.logger:
+                    self.logger.error(error_msg)
+                
+                if attempt < max_attempts:
+                    print(f"[DEBUG] Riprovo dopo l'errore...")
+                    import time
+                    time.sleep(0.3)
+                continue
+        
+        # Gestisci il risultato finale
+        if success:
+            if checked:
+                button.setText('Output: ON')
+                button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+                print(f"[RemoteControlTab] ✓ Output abilitato con successo per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+            else:
+                button.setText('Output: OFF')
+                button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
+                print(f"[RemoteControlTab] ✓ Output disabilitato con successo per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+        else:
+            # Fallimento dopo tutti i tentativi
+            print(f"[RemoteControlTab] ✗ ERRORE: Impossibile {'abilitare' if checked else 'disabilitare'} l'output dopo {max_attempts} tentativi")
+            
+            # Mostra messaggio di errore all'utente
+            from PyQt6.QtWidgets import QMessageBox
+            error_title = "Errore attivazione output"
+            error_text = f"Impossibile {'abilitare' if checked else 'disabilitare'} l'output del canale {ch.get('name', 'N/A')} " \
+                        f"dello strumento {inst.get('instance_name', 'N/A')}.\n\n" \
+                        f"Sono stati effettuati {max_attempts} tentativi senza successo.\n\n" \
+                        f"Verificare:\n" \
+                        f"• La connessione allo strumento\n" \
+                        f"• Lo stato fisico dello strumento\n" \
+                        f"• I comandi SCPI nella libreria strumenti"
+            
+            QMessageBox.critical(self, error_title, error_text)
+            
             # Reset button to previous state on error
             button.setChecked(not checked)
             button.setText('Output: ON' if not checked else 'Output: OFF')
+            button.setStyleSheet('')  # Reset style
 
     def read_actual(self, inst, ch, label):
         """
