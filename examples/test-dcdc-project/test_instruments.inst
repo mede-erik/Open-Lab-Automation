@@ -95,130 +95,585 @@
       "channels": [
         {
           "enabled": true,
-          "name": "Vin",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": true,
-          "name": "Vout",
-          "meas_type": "DC_V",
+          "name": "VIN",
+          "meas_type": "VOLT:DC",
+          "attenuation": 1.0,
           "unit": "V",
-          "attenuation": 1.0
+          "slot_number": 1,
+          "module_id": "34902A"
         },
         {
           "enabled": true,
-          "name": "Iin",
-          "meas_type": "DC_V",
-          "unit": "A",
-          "attenuation": 0.5
-        },
-        {
-          "enabled": true,
-          "name": "Iout",
-          "meas_type": "DC_V",
-          "unit": "A",
-          "attenuation": 1.0
-        },
-        {
-          "enabled": false,
-          "name": "CH5",
-          "meas_type": "DC_V",
+          "name": "VOUT",
+          "meas_type": "VOLT:DC",
+          "attenuation": 1.0,
           "unit": "V",
-          "attenuation": 1.0
+          "slot_number": 2,
+          "module_id": "34901A"
         },
         {
-          "enabled": false,
-          "name": "CH6",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH7",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH8",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH9",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH10",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH11",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH12",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH13",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH14",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH15",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH16",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH17",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH18",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH19",
-          "meas_type": "DC_V",
-          "unit": "V"
-        },
-        {
-          "enabled": false,
-          "name": "CH20",
-          "meas_type": "DC_V",
-          "unit": "V"
+          "enabled": true,
+          "name": "Vaux",
+          "meas_type": "VOLT:DC",
+          "attenuation": 1.0,
+          "unit": "V",
+          "slot_number": 3,
+          "module_id": "34908A"
         }
       ],
-      "visa_address": "TCPIP0::192.168.1.210::INSTR"
+      "visa_address": "TCPIP0::192.168.1.210::INSTR",
+      "slots": [
+        {
+          "slot_number": 1,
+          "module_id": "34902A",
+          "channels": [
+            {
+              "enabled": true,
+              "name": "VIN",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH2",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH3",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH4",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH5",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH6",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH7",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH8",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH9",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH10",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH11",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH12",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH13",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH14",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH15",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH16",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            }
+          ]
+        },
+        {
+          "slot_number": 2,
+          "module_id": "34901A",
+          "channels": [
+            {
+              "enabled": true,
+              "name": "VOUT",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH2",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH3",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH4",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH5",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH6",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH7",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH8",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH9",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH10",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH11",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH12",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH13",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH14",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH15",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH16",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH17",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH18",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH19",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH20",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            }
+          ]
+        },
+        {
+          "slot_number": 3,
+          "module_id": "34908A",
+          "channels": [
+            {
+              "enabled": true,
+              "name": "Vaux",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH2",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH3",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH4",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH5",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH6",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH7",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH8",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH9",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH10",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH11",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH12",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH13",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH14",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH15",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH16",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH17",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH18",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH19",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH20",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH21",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH22",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH23",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH24",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH25",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH26",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH27",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH28",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH29",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH30",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH31",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH32",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH33",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH34",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH35",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH36",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH37",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH38",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH39",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            },
+            {
+              "enabled": false,
+              "name": "CH40",
+              "meas_type": "VOLT:DC",
+              "attenuation": 1.0,
+              "unit": "V"
+            }
+          ]
+        }
+      ]
     },
     {
       "instrument_type": "electronic_load",

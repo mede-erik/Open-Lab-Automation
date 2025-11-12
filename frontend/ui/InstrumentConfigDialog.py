@@ -10,6 +10,7 @@ from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
 from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
 from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
+from frontend.ui.DataloggerSlotConfigDialog import DataloggerSlotConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
 
 # PyVISA opzionale per discovery
@@ -286,7 +287,22 @@ class InstrumentConfigDialog(QDialog):
         elif t in ['electronic_load', 'electronic_loads', 'carico_elettronico', 'carichi_elettronici']:
             self.show_channel_table(inst, is_power=True)
         elif t in ['datalogger', 'dataloggers']:
-            self.show_channel_table(inst, is_power=False)
+            # Check if datalogger has slots configuration
+            model_id = inst.get('model_id')
+            series_id = inst.get('series', '')
+            try:
+                capabilities = self.load_instruments.get_model_capabilities(t, series_id, model_id)
+                num_slots = capabilities.get('number_of_slots', 0) if capabilities else 0
+                
+                if num_slots > 0:
+                    # Datalogger with slots - show slot configuration button
+                    self.show_datalogger_slot_config_button(inst)
+                else:
+                    # Legacy datalogger without slots - show channel table
+                    self.show_channel_table(inst, is_power=False)
+            except Exception:
+                # Fallback to channel table if error
+                self.show_channel_table(inst, is_power=False)
         elif t in ['multimeter', 'multimeters', 'multimetro', 'multimetri']:
             self.show_channel_table(inst, is_power=False, is_multimeter=True)
         elif t in ['oscilloscope', 'oscilloscopes', 'oscilloscopio', 'oscilloscopi']:
@@ -333,6 +349,67 @@ class InstrumentConfigDialog(QDialog):
             # Aggiorna l'interfaccia dopo la configurazione
             self.save_instruments()
             # Ricarica l'editor per mostrare il riepilogo aggiornato
+            self.show_instrument_editor(inst)
+
+    def show_datalogger_slot_config_button(self, inst):
+        """Show a button to configure datalogger slots and modules"""
+        # Info label
+        info_label = QLabel("🔧 " + self.translator.t('datalogger_slot_config_desc'))
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #e3f2fd; border-radius: 5px; }")
+        self.editor_layout.addWidget(info_label)
+        
+        # Button to open DataloggerSlotConfigDialog
+        config_btn = QPushButton("⚙️ " + self.translator.t('configure_datalogger_slots'))
+        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.clicked.connect(lambda: self.open_datalogger_slot_config_dialog(inst))
+        self.editor_layout.addWidget(config_btn)
+        
+        # Show summary of configured slots
+        slots = inst.get('slots', [])
+        if slots:
+            configured_slots = sum(1 for slot in slots if slot.get('module_id'))
+            total_channels = sum(
+                len(slot.get('channels', [])) 
+                for slot in slots 
+                if slot.get('module_id')
+            )
+            enabled_channels = sum(
+                sum(1 for ch in slot.get('channels', []) if ch.get('enabled', False))
+                for slot in slots
+                if slot.get('module_id')
+            )
+            
+            summary_label = QLabel(
+                f"📊 {self.translator.t('configured_slots')}: {configured_slots}/{len(slots)} | "
+                f"{self.translator.t('total_channels')}: {total_channels} | "
+                f"{self.translator.t('enabled_channels')}: {enabled_channels}"
+            )
+            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            self.editor_layout.addWidget(summary_label)
+            
+            # List configured modules
+            if configured_slots > 0:
+                module_list_parts = []
+                for slot in slots:
+                    module_id = slot.get('module_id')
+                    if module_id:
+                        slot_num = slot.get('slot_number', '?')
+                        num_ch = len(slot.get('channels', []))
+                        module_list_parts.append(f"{self.translator.t('slot')} {slot_num}: {module_id} ({num_ch} ch)")
+                
+                modules_list = QLabel(self.translator.t('configured_modules') + ": " + ", ".join(module_list_parts))
+                modules_list.setWordWrap(True)
+                modules_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                self.editor_layout.addWidget(modules_list)
+
+    def open_datalogger_slot_config_dialog(self, inst):
+        """Open the datalogger slot configuration dialog"""
+        dlg = DataloggerSlotConfigDialog(inst, self.load_instruments, self.translator, self)
+        if dlg.exec():
+            # Update interface after configuration
+            self.save_instruments()
+            # Reload editor to show updated summary
             self.show_instrument_editor(inst)
 
     def show_channel_table(self, inst, is_power=False, is_multimeter=False):

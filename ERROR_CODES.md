@@ -514,6 +514,168 @@ Errors related to graphical interface.
 
 ---
 
+## DL - Datalogger Configuration Errors (DL-XXX)
+
+Errors related to datalogger slot and module configuration.
+
+### DL-001: No Slots Configured
+**Description**: Datalogger has no slots configured  
+**Common Cause**:
+- Datalogger model without slot information in library
+- Incorrect library configuration
+- Model capabilities missing
+
+**Solution**:
+1. Verify that the datalogger model supports slots
+2. Check `instruments_lib.json` for `number_of_slots` in capabilities
+3. Update library if necessary
+4. Contact support if model should have slots
+
+**Log Example**:
+```
+[11:00:00] ERROR-DL-001-Datalogger Keysight_34972A has no slots configured
+```
+
+---
+
+### DL-002: Invalid Module
+**Description**: Selected module is invalid  
+**Common Cause**:
+- Module ID does not exist
+- Malformed module ID
+- Library corruption
+
+**Solution**:
+1. Verify module ID syntax
+2. Check that module exists in `datalogger_modules` section
+3. Reload instrument library
+4. Recreate configuration
+
+**Log Example**:
+```
+[11:01:00] ERROR-DL-002-Invalid module selected: 34999X
+```
+
+---
+
+### DL-003: Incompatible Module
+**Description**: Module not compatible with this datalogger  
+**Common Cause**:
+- Module not in `compatible_modules` list
+- Wrong module for different datalogger series
+- Incorrect library configuration
+
+**Solution**:
+1. Check `compatible_modules` list in datalogger capabilities
+2. Select compatible module from dropdown
+3. Consult datalogger manual for compatible modules
+4. Update library if module should be compatible
+
+**Log Example**:
+```
+[11:02:00] ERROR-DL-003-Module 34902A not compatible with datalogger model ODP3033
+```
+
+---
+
+### DL-004: Module Not Found
+**Description**: Module not found in instrument library  
+**Common Cause**:
+- Module not defined in `datalogger_modules` section
+- Library incomplete or outdated
+- Module ID typo
+
+**Solution**:
+1. Verify module exists in `instruments_lib.json`
+2. Add module definition if missing
+3. Update library from repository
+4. Check module ID spelling
+
+**Log Example**:
+```
+[11:03:00] ERROR-DL-004-Module 34901A not found in library
+```
+
+---
+
+### DL-005: Empty Slot
+**Description**: Attempted operation on empty slot  
+**Common Cause**:
+- No module configured for slot
+- Trying to read from unconfigured slot
+- Configuration error
+
+**Solution**:
+1. Configure module for the slot before using it
+2. Enable at least one module
+3. Verify slot configuration in dialog
+
+**Log Example**:
+```
+[11:04:00] ERROR-DL-005-Slot 2 is empty, cannot configure channels
+```
+
+---
+
+### DL-006: Module Disabled
+**Description**: Module is disabled in library  
+**Common Cause**:
+- Module has `not_enabled: true` in library
+- Module under development or deprecated
+- Experimental module
+
+**Solution**:
+1. Check library: module may have `"not_enabled": true`
+2. Remove `not_enabled` flag if module is ready
+3. Select different module that is enabled
+4. Contact support for module enablement
+
+**Log Example**:
+```
+[11:05:00] ERROR-DL-006-Module 34903A is disabled in library
+```
+
+---
+
+### DL-007: Invalid Slot Number
+**Description**: Slot number out of range  
+**Common Cause**:
+- Slot number exceeds available slots
+- Slot number less than 1
+- Programming error
+
+**Solution**:
+1. Use slot numbers from 1 to number_of_slots
+2. Verify datalogger slot count in library
+3. Report bug if error persists
+
+**Log Example**:
+```
+[11:06:00] ERROR-DL-007-Invalid slot number: 5 (max: 3)
+```
+
+---
+
+### DL-008: Configuration Error
+**Description**: General datalogger configuration error  
+**Common Cause**:
+- Corrupted configuration data
+- Missing required fields
+- Inconsistent slot/module data
+
+**Solution**:
+1. Recreate datalogger configuration
+2. Check configuration file syntax
+3. Clear and reconfigure all slots
+4. Contact support if issue persists
+
+**Log Example**:
+```
+[11:07:00] ERROR-DL-008-Configuration error: missing channels for slot 1
+```
+
+---
+
 ## How to Use This Guide
 
 ### For Users
@@ -562,6 +724,7 @@ To add a new error code:
 | **DB** | 001-099 | Database errors |
 | **NET** | 001-099 | Generic network errors |
 | **UI** | 001-099 | User interface errors |
+| **DL** | 001-099 | Datalogger configuration errors |
 
 ---
 

@@ -57,6 +57,16 @@ class ErrorCode(Enum):
     UI_WIDGET_DELETED = "[UI-001]"
     UI_INVALID_STATE = "[UI-002]"
     UI_TIMER_ERROR = "[UI-003]"
+    
+    # Datalogger related errors (DL-XXX)
+    DL_NO_SLOTS = "[DL-001]"
+    DL_INVALID_MODULE = "[DL-002]"
+    DL_INCOMPATIBLE_MODULE = "[DL-003]"
+    DL_MODULE_NOT_FOUND = "[DL-004]"
+    DL_SLOT_EMPTY = "[DL-005]"
+    DL_MODULE_DISABLED = "[DL-006]"
+    DL_INVALID_SLOT_NUMBER = "[DL-007]"
+    DL_CONFIGURATION_ERROR = "[DL-008]"
 
 
 class ValidationError(Exception):
@@ -85,6 +95,14 @@ class FileError(Exception):
 
 class UIError(Exception):
     """Custom exception for UI-related errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class DataloggerError(Exception):
+    """Custom exception for datalogger-related errors"""
     def __init__(self, error_code: ErrorCode, message: str = ""):
         self.error_code = error_code
         self.message = message

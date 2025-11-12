@@ -531,17 +531,74 @@
               ]
             },
             "capabilities": {
-              "channels": 20,
-              "max_sample_rate_sps": 2000,
-              "measurement_types": ["VOLT:DC", "CURR:DC", "TEMP"],
-              "trigger_source": ["BUS", "EXT", "IMM"],
-              "internal_memory_kpoints": 50
+              "number_of_slots":3,
+              "compatible_modules": [
+                "34901A", "34902A", "34903A", "34904A", "34905A", "34906A", "34908A"
+              ]
             },
             "scpi_commands": {
               "setup_voltage_range": "SENS:VOLT:DC:RANG {range},(@{channels})"
             }
           }
         ]
+      }
+    ],
+    "datalogger_modules":[
+      {
+        "module_id": "34901A",
+        "name": "Keysight 34901A 20-Channel Multiplexer Module",
+        "number_of_channels": 20,
+        "capabilities": {
+          "measurement_types": ["VOLT:DC", "VOLT:AC", "TEMP"]
+        },
+        "max_voltage": 300.0,
+        "documentation_path": "docs/Keysight/3497X_Series/34901A_manual.pdf",
+        "speed":60
+      },
+      {
+        "module_id": "34902A",
+        "name": "Keysight 34902A 16-Channel Multiplexer Module",
+        "number_of_channels": 16,
+        "capabilities": {
+          "measurement_types": ["VOLT:DC", "VOLT:AC", "TEMP"]
+        },
+        "max_voltage": 300.0,
+        "documentation_path": "docs/Keysight/3497X_Series/34902A_manual.pdf",
+        "speed":250
+      },
+      {
+        "module_id": "34903A",
+        "name": "Keysight 34903A 20-Channel Actuator/GP Switch Module",
+        "number_of_channels": 20,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34904A",
+        "name": "Keysight 34904A 4 x 8 Two-Wire Matrix Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34905A",
+        "name": "Keysight 34905A 2 GHz Dual 1:4 RF Mux, 50 Ohm Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34906A",
+        "name": "Keysight 34906A 2 GHz Dual 1:4 RF Mux, 75 Ohm Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34908A",
+        "name": "Keysight 34908A 40 Channel Single-Ended Multiplexer Module",
+        "number_of_channels": 40,
+        "speed":60,
+        "capabilities": {
+          "measurement_types": ["VOLT:DC", "VOLT:AC", "TEMP"]
+        },
+        "max_voltage": 300.0
       }
     ],
     "oscilloscopes_series": [

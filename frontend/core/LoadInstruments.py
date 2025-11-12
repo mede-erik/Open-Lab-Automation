@@ -565,3 +565,66 @@ class LoadInstruments:
                     if model.get('id') == model_id:
                         return model.get('name')
         return None
+
+    def get_all_datalogger_modules(self):
+        """
+        Restituisce tutti i moduli datalogger disponibili nella libreria.
+        Returns:
+            list: Lista di dizionari contenenti le informazioni sui moduli datalogger.
+        """
+        return self.instruments.get('datalogger_modules', [])
+
+    def get_module_info(self, module_id):
+        """
+        Restituisce le informazioni di un modulo datalogger specifico.
+        Args:
+            module_id (str): ID del modulo (es. '34901A', '34902A').
+        Returns:
+            dict: Dizionario con le informazioni del modulo o None se non trovato.
+        """
+        modules = self.get_all_datalogger_modules()
+        for module in modules:
+            if module.get('module_id') == module_id:
+                return module
+        return None
+
+    def get_compatible_modules(self, type_name, series_id, model_id):
+        """
+        Restituisce i moduli compatibili per un datalogger specifico.
+        Args:
+            type_name (str): Tipo di strumento (deve essere 'datalogger').
+            series_id (str): ID della serie del datalogger.
+            model_id (str): ID del modello del datalogger.
+        Returns:
+            list: Lista di module_id compatibili, o lista vuota se non ci sono moduli.
+        """
+        if type_name != 'datalogger':
+            return []
+        
+        capabilities = self.get_model_capabilities(type_name, series_id, model_id)
+        if not capabilities:
+            return []
+        
+        return capabilities.get('compatible_modules', [])
+
+    def get_enabled_compatible_modules(self, type_name, series_id, model_id):
+        """
+        Restituisce solo i moduli compatibili e abilitati per un datalogger.
+        Args:
+            type_name (str): Tipo di strumento (deve essere 'datalogger').
+            series_id (str): ID della serie del datalogger.
+            model_id (str): ID del modello del datalogger.
+        Returns:
+            list: Lista di dizionari con le informazioni dei moduli abilitati e compatibili.
+        """
+        compatible_ids = self.get_compatible_modules(type_name, series_id, model_id)
+        all_modules = self.get_all_datalogger_modules()
+        
+        enabled_modules = []
+        for module in all_modules:
+            module_id = module.get('module_id')
+            # Controlla se il modulo è nella lista dei compatibili e non è disabilitato
+            if module_id in compatible_ids and not module.get('not_enabled', False):
+                enabled_modules.append(module)
+        
+        return enabled_modules
