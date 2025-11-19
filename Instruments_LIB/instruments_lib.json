@@ -903,6 +903,68 @@
             }
           }
         ]
+      },
+      {
+        "series_id":"Keysight_EL4900_Series",
+        "series_name":"Keysight EL4900 Series Electronic Loads",
+        "notes":"High-Power, High-Density Regenerative DC Electronic Loads",
+        "common_scpi_commands":{
+          "reset":"*RST",
+          "clear_status":"*CLS",
+          "identification_query":"*IDN?",
+          "enable_ovp":"VOLT:PROT:STAT ON",
+          "disable_ovp":"VOLT:PROT:STAT OFF",
+          "set_ovp_level":"VOLT:PROT {value}",
+          "enable_ocp":"CURR:PROT:STAT ON",
+          "set_ocp_level":"CURR:PROT {value}",
+          "enable_opp":"POW:PROT:STAT ON",
+          "set_opp_level":"POW:PROT {value}",
+          "set_mode":"FUNC|MODE {mode}",
+          "set_current_level":"CURR {value}",
+          "set_voltage_level":"VOLT {value}", 
+          "set_resistance_level":"RES {value}",
+          "set_power_level":"POW {value}",
+          "set_voltage_slew_rate":"VOLT:SLEW {value}",
+          "set_voltage_slew_rate_neg":"VOLT:SLEW:NEG {value}",
+          "set_current_slew_rate":"CURR:SLEW {value}",
+          "set_current_slew_rate_neg":"CURR:SLEW:NEG {value}",
+          "short":"INP|OUTP:SHORt ON",
+          "open":"INP|OUTP:SHORt OFF",
+          "load_on":"INP|OUTP ON",
+          "load_off":"INP|OUTP OFF",
+          "enable_ucp":"CURR:UND:PROT:STAT ON",
+          "set_ucp_level":"CURR:UND:PROT {value}",
+          "set_uvp_level":"VOLT:UND:PROT {value}",
+          "enable_uvp":"VOLT:UND:PROT:STAT ON",
+          "clear_protection_fault":"",
+
+        },
+        "models":[
+          {
+            "id":"EL_Keysight_EL4913A",
+            "name":"Keysight EL4913A",
+            "manufacturer":"Keysight Technologies",
+            "model":"EL4913A",
+            "documentation_path":"docs/Keysight/EL4900_Series/EL4913A_Programming_Guide.pdf",
+            "interface":{
+              "supported_connection_types":[
+                {
+                  "type":"LXI",
+                  "visa_resource_id_template":"LXI_EL_{unique_id}",
+                  "address_format_example":"TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities":{
+              "max_power_w":2000,
+              "operating_modes":["CC","CV","CR","CP"],
+              "max_voltage_v":80,
+              "max_current_a":40,
+              "current_slope_us":10
+            }}
+          ]
+
+            
       }
     ]
   }
