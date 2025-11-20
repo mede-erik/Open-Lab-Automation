@@ -67,6 +67,16 @@ class ErrorCode(Enum):
     DL_MODULE_DISABLED = "[DL-006]"
     DL_INVALID_SLOT_NUMBER = "[DL-007]"
     DL_CONFIGURATION_ERROR = "[DL-008]"
+    
+    # Tool related errors (TOOL-XXX)
+    TOOL_NO_INSTRUMENT_SELECTED = "[TOOL-001]"
+    TOOL_INSTRUMENT_NOT_FOUND = "[TOOL-002]"
+    TOOL_MISSING_COMMANDS = "[TOOL-003]"
+    TOOL_PARAMETER_EXCEEDS_LIMIT = "[TOOL-004]"
+    TOOL_COMMAND_FAILED = "[TOOL-005]"
+    TOOL_PULSE_ALREADY_RUNNING = "[TOOL-006]"
+    TOOL_MISSING_CAPABILITIES = "[TOOL-007]"
+    TOOL_POWER_EXCEEDS_LIMIT = "[TOOL-008]"
 
 
 class ValidationError(Exception):
@@ -103,6 +113,14 @@ class UIError(Exception):
 
 class DataloggerError(Exception):
     """Custom exception for datalogger-related errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class ToolError(Exception):
+    """Custom exception for tool-related errors"""
     def __init__(self, error_code: ErrorCode, message: str = ""):
         self.error_code = error_code
         self.message = message

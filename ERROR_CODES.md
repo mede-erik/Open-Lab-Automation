@@ -676,6 +676,175 @@ Errors related to datalogger slot and module configuration.
 
 ---
 
+## TOOL - Tool Errors (TOOL-XXX)
+
+### TOOL-001: No Instrument Selected
+**Description**: No instrument selected for tool operation  
+**Common Cause**:
+- Tool opened without selecting an instrument
+- Project has no compatible instruments
+- Instrument selection cleared
+
+**Solution**:
+1. Select an electronic load from the dropdown
+2. Verify project has configured instruments
+3. Check .inst file contains electronic loads
+4. Add instruments to project if needed
+
+**Log Example**:
+```
+[12:00:00] ERROR-TOOL-001-No instrument selected for pulse generation
+```
+
+---
+
+### TOOL-002: Instrument Not Found
+**Description**: Selected instrument not found in project configuration  
+**Common Cause**:
+- Instrument removed from project
+- Configuration file corrupted
+- Project file mismatch
+
+**Solution**:
+1. Verify instrument exists in .inst file
+2. Reload project
+3. Re-add instrument if necessary
+4. Check project file integrity
+
+**Log Example**:
+```
+[12:01:00] ERROR-TOOL-002-Instrument EL_Load_1 not found in project
+```
+
+---
+
+### TOOL-003: Missing Required Commands
+**Description**: Required SCPI commands not found in instrument library  
+**Common Cause**:
+- Instrument library incomplete
+- Model does not support pulse/dynamic mode
+- Library not updated
+- Wrong instrument type selected
+
+**Solution**:
+1. Check instruments_lib.json for required commands
+2. Add missing commands: `set_dynamic_level_high`, `set_dynamic_level_low`, `load_on`, `load_off`
+3. Consult instrument programming manual for correct SCPI syntax
+4. Update library from repository
+5. **NEVER attempt undefined commands - risk of instrument damage**
+
+**Log Example**:
+```
+[12:02:00] ERROR-TOOL-003-Missing commands: set_dynamic_level_high, set_dynamic_level_low
+```
+
+---
+
+### TOOL-004: Parameter Exceeds Limit
+**Description**: Input parameter exceeds maximum safe limit from capabilities  
+**Common Cause**:
+- User entered value beyond instrument capability
+- Amplitude > max_current_a
+- Voltage > max_voltage_v
+- Invalid parameter range
+
+**Solution**:
+1. Value automatically corrected to maximum
+2. Check instrument capabilities in library
+3. Use values within specified limits
+4. Consult instrument manual for ratings
+
+**Log Example**:
+```
+[12:03:00] ERROR-TOOL-004-Amplitude 50.0A exceeds maximum 40.0A. Corrected to 40.0A
+```
+
+---
+
+### TOOL-005: Command Failed
+**Description**: SCPI command execution failed  
+**Common Cause**:
+- VISA communication timeout
+- Instrument not responding
+- Command syntax error
+- Instrument in wrong state
+
+**Solution**:
+1. Check VISA connection
+2. Verify instrument powered on
+3. Test with *IDN? query
+4. Check command syntax in library
+5. Restart instrument if necessary
+
+**Log Example**:
+```
+[12:04:00] ERROR-TOOL-005-Command failed: set_dynamic_level_high - Timeout
+```
+
+---
+
+### TOOL-006: Pulse Already Running
+**Description**: Cannot start pulse while already running  
+**Common Cause**:
+- Start button pressed while pulse active
+- Previous pulse not stopped properly
+- State synchronization issue
+
+**Solution**:
+1. Stop current pulse before starting new one
+2. Use Stop button to terminate pulse
+3. Restart tool if state inconsistent
+4. Check instrument output state
+
+**Log Example**:
+```
+[12:05:00] ERROR-TOOL-006-Pulse already running. Stop before restarting
+```
+
+---
+
+### TOOL-007: Missing Capabilities
+**Description**: Instrument capabilities not defined in library  
+**Common Cause**:
+- Incomplete library entry
+- Missing max_current_a, max_voltage_v, max_power_w
+- New instrument not fully configured
+- Library corruption
+
+**Solution**:
+1. Add complete capabilities to instruments_lib.json
+2. Required fields: `max_current_a`, `max_voltage_v`, `max_power_w`
+3. Consult instrument datasheet for correct values
+4. Tool cannot validate safety limits without capabilities
+5. **DO NOT use tool without safety limits defined**
+
+**Log Example**:
+```
+[12:06:00] ERROR-TOOL-007-Missing capabilities for EL_Keysight_EL4913A
+```
+
+---
+
+### TOOL-008: Power Exceeds Limit
+**Description**: Combined power (I × V) exceeds max_power_w  
+**Common Cause**:
+- Amplitude and voltage combination too high
+- P = I × V > max_power_w
+- Parameter changed without power recalculation
+
+**Solution**:
+1. Last modified parameter automatically corrected
+2. Reduce amplitude or voltage
+3. Check power rating in capabilities
+4. Calculate P = I × V before setting
+
+**Log Example**:
+```
+[12:07:00] ERROR-TOOL-008-Power 2500W exceeds maximum 2000W
+```
+
+---
+
 ## How to Use This Guide
 
 ### For Users

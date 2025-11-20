@@ -27,6 +27,7 @@ from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
+from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.logger import Logger
@@ -235,6 +236,12 @@ class MainWindow(QMainWindow):
         hexdec_action = QAction("Convertitore Hex/Dec", self)
         hexdec_action.triggered.connect(self.open_hexdec_converter)
         tools_menu.addAction(hexdec_action)
+        
+        # Pulse Generator Tool
+        pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
+        pulse_gen_action.triggered.connect(self.open_pulse_generator)
+        tools_menu.addAction(pulse_gen_action)
+        
         self.logger.debug("Menubar initialized.")
 
     def show_software_info(self):
@@ -885,6 +892,33 @@ class MainWindow(QMainWindow):
         """Open the hex/dec converter dialog."""
         dlg = HexDecConverterDialog(self)
         dlg.exec()
+    
+    def open_pulse_generator(self):
+        """Open the electronic load pulse generator tool."""
+        # Check if project is open
+        if not self.current_project_dir:
+            QMessageBox.warning(
+                self,
+                self.translator.t('warning') if hasattr(self.translator, 't') else 'Warning',
+                self.translator.t('no_project_open') if hasattr(self.translator, 't') else 'Please open a project first.'
+            )
+            return
+        
+        try:
+            dlg = PulseGeneratorDialog(
+                self.current_project_dir,
+                self.load_instruments,
+                self.translator,
+                self
+            )
+            dlg.exec()
+        except Exception as e:
+            self.logger.error(f"Error opening pulse generator: {e}")
+            QMessageBox.critical(
+                self,
+                self.translator.t('error') if hasattr(self.translator, 't') else 'Error',
+                f"Error opening pulse generator: {str(e)}"
+            )
     
     def open_database_config(self):
         """

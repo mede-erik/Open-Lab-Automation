@@ -38,6 +38,15 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - Detailed error logging with stack traces for debugging.
   - User-friendly error messages with technical error codes for support.
 
+- **Tools**
+  - **Pulse Generator Tool**: Generate current/voltage pulses on electronic loads with real-time waveform preview.
+    - Visual configuration with amplitude, frequency, rise/fall time parameters.
+    - Automatic validation against instrument capabilities (max_current_a, max_voltage_v, max_power_w).
+    - Real-time trapezoidal waveform visualization with matplotlib.
+    - Uses ONLY library-defined SCPI commands for safety (no command guessing).
+    - Automatic correction to maximum safe values when limits exceeded.
+    - Supports dynamic mode (Chroma 6330A) and future extensibility for other electronic loads.
+
 ## Project Structure
 
 - **Frontend:** Python (PyQt6) — Modern graphical interface with comprehensive instrument management and advanced sweep configuration
@@ -71,6 +80,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - `WasFileDialog.py` — Oscilloscope waveform settings editor
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
   - `DataloggerSlotConfigDialog.py` — Slot-based module configuration for modular dataloggers
+  - `PulseGeneratorDialog.py` — Electronic load pulse generator with waveform preview
   - Various instrument-specific configuration dialogs (power supplies, electronic loads, oscilloscopes)
 
 ### Translation & Localization
