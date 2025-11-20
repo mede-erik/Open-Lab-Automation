@@ -1,8 +1,8 @@
 # Open Lab Automation
 
 Open Lab Automation is an open-source suite for automated electrical measurements, designed for hobbyists, makers, and lab enthusiasts. The frontend is a modern Python (PyQt5) graphical interface for instrument configuration and control, while the C backend ensures fast, direct communication with instruments via USB, LAN, GPIB, or serial.
-
-**Note: This software is under active development. Features and stability may change, and some parts may be incomplete or experimental.**
+>[!IMPORTANT]  
+>This software is under active development. Features and stability may change, and some parts may be incomplete or experimental.
 
 ## Main Features
 
@@ -78,11 +78,12 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - `Instruments_LIB/docs/` — Instrument manuals and documentation
 
 ## Disclaimer
-
-**This software is provided for hobbyist and non-professional use only.**
-
-The authors and contributors of Open Lab Automation accept no responsibility for damage to persons, property, or equipment resulting from the use of this software. Use at your own risk. The software is provided "as is", without any express or implied warranty. It is not intended for professional, industrial, or safety-critical use.
+>[!WARNING]
+>**This software is provided for hobbyist and non-professional use only.**
+>
+>The authors and contributors of Open Lab Automation accept no responsibility for damage to persons, property, or equipment resulting from the use of this software. Use at your own risk. The software is provided "as is", without any express or implied warranty. It is not intended for professional, industrial, or safety-critical use.
 
 ## License
 
 See the LICENSE file for details.
+
