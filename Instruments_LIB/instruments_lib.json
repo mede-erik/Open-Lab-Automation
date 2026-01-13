@@ -834,6 +834,89 @@
             "scpi_commands": {}
           }
         ]
+      },
+      {
+        "series_id":"Sigilent_SDS800X_Series",
+        "series_name":"Siglent SDS800X HD Digital Storage Oscilloscope",
+        "common_scpi_commands":{
+
+        },
+        "models":[
+          {
+            "id":"OSC_Siglent_SDS804X",
+            "name":"Siglent SDS804X",
+            "manufacturer":"Siglent Technologies",
+            "model":"SDS804X",
+            "documentation_path":"docs/Sigilent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface":{   
+              "supported_connection_types":[
+                {
+                  "type":"USB-TMC",
+                  "visa_resource_id_template":"USB_OSC_{serial_number}",
+                  "address_format_example":"USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type":"LXI",
+                  "visa_resource_id_template":"LXI_OSC_{unique_id}",
+                  "address_format_example":"TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities":{
+              "number_of_channels":4,
+              "bandwidth_mhz":70,
+              "sample_rate_gsa_s":2.0,
+              "memory_depth_mpts":50,
+              "measurement_types":["VMAX","VMIN","VPP","RMS","FREQ","PERIod"],
+              "trigger_modes":["EDGE","PULS","VIDeo"],
+              "waveform_formats":["ASCii","BYTE","WORD"],
+              "channels":[
+                {"channel_id":"CHAN1","label":"Channel 1"},
+                {"channel_id":"CHAN2","label":"Channel 2"},
+                {"channel_id":"CHAN3","label":"Channel 3"},
+                {"channel_id":"CHAN4","label":"Channel 4"}
+              ]
+            }
+
+          },
+          {
+            "id":"OSC_Siglent_SDS824X",
+            "name":"Siglent SDS824X",
+            "manufacturer":"Siglent Technologies",
+            "model":"SDS824X",
+            "documentation_path":"docs/Sigilent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface":{   
+              "supported_connection_types":[
+                {
+                  "type":"USB-TMC",
+                  "visa_resource_id_template":"USB_OSC_{serial_number}",
+                  "address_format_example":"USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type":"LXI",
+                  "visa_resource_id_template":"LXI_OSC_{unique_id}",
+                  "address_format_example":"TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },  
+            "capabilities":{
+              "number_of_channels":4,
+              "bandwidth_mhz":200,
+              "sample_rate_gsa_s":2.0,
+              "memory_depth_mpts":100,
+              "measurement_types":["VMAX","VMIN","VPP","RMS","FREQ","PERIod"],
+              "trigger_modes":["EDGE","PULS","VIDeo"],
+              "waveform_formats":["ASCii","BYTE","WORD"],
+              "channels":[
+                {"channel_id":"CHAN1","label":"Channel 1"},
+                {"channel_id":"CHAN2","label":"Channel 2"},
+                {"channel_id":"CHAN3","label":"Channel 3"},
+                {"channel_id":"CHAN4","label":"Channel 4"}
+              ]
+            }
+
+          }
+        ]
       }
     ],
     "electronic_loads_series": [
