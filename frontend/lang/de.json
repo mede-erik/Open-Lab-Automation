@@ -295,5 +295,9 @@
   "pulse_stop_failed": "Fehler beim Stoppen der Impulserzeugung",
   "pulse_running_close_confirm": "Impulse laufen derzeit. Impulse stoppen und schließen?",
   "pyvisa_not_available": "PyVISA-Bibliothek nicht verfügbar. Kommunikation mit Gerät nicht möglich.",
-  "no_visa_address": "Keine VISA-Adresse für dieses Gerät konfiguriert."
+  "no_visa_address": "Keine VISA-Adresse für dieses Gerät konfiguriert.",
+  "experimental": "Experimentell",
+  "experimental_instrument": "Experimentell (Nicht getestet)",
+  "show_experimental_instruments": "Experimentelle Geräte anzeigen",
+  "enable_experimental_instruments": "Experimentelle Geräte in der Geräteliste aktivieren"
 }

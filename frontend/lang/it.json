@@ -296,5 +296,9 @@
   "pulse_stop_failed": "Impossibile fermare generazione impulsi",
   "pulse_running_close_confirm": "Impulsi attualmente in esecuzione. Fermare impulsi e chiudere?",
   "pyvisa_not_available": "Libreria PyVISA non disponibile. Impossibile comunicare con lo strumento.",
-  "no_visa_address": "Nessun indirizzo VISA configurato per questo strumento."
+  "no_visa_address": "Nessun indirizzo VISA configurato per questo strumento.",
+  "experimental": "Sperimentale",
+  "experimental_instrument": "Sperimentale (Non Testato)",
+  "show_experimental_instruments": "Mostra strumenti sperimentali",
+  "enable_experimental_instruments": "Abilita strumenti sperimentali nell'elenco degli strumenti"
 }

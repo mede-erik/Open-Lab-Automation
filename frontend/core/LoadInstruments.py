@@ -402,6 +402,50 @@ class LoadInstruments:
                 return series.get('models')
         return None
 
+    def get_visible_models(self, type_name, series_id, include_experimental=False):
+        """
+        Recupera i modelli visibili (non sperimentali per default) per una serie.
+        Args:
+            type_name (str): Tipo di strumento.
+            series_id (str): ID della serie di strumenti.
+            include_experimental (bool): Se True, include anche i modelli sperimentali.
+        Returns:
+            list | None: Lista dei modelli filtrati.
+        """
+        models = self.get_models(type_name, series_id)
+        if not models:
+            return None
+        
+        if include_experimental:
+            return models
+        
+        visible_models = []
+        for model in models:
+            if not model.get('experimental', False):
+                visible_models.append(model)
+        return visible_models
+
+    def get_visible_series(self, type_name, include_experimental=False):
+        """
+        Recupera tutte le serie visibili (non sperimentali per default) per un tipo.
+        Args:
+            type_name (str): Tipo di strumento.
+            include_experimental (bool): Se True, include anche le serie con modelli sperimentali.
+        Returns:
+            list | None: Lista delle serie con modelli visibili.
+        """
+        series_list = self.get_series(type_name) or []
+        if include_experimental:
+            return series_list
+        
+        visible_series = []
+        for series in series_list:
+            models = series.get('models', [])
+            visible_models = [m for m in models if not m.get('experimental', False)]
+            if visible_models:
+                visible_series.append({**series, 'models': visible_models})
+        return visible_series if visible_series else None
+
     def get_model_capabilities(self, type_name, series_id, model_id):
         """
         Recupera le capabilities di un modello specifico.

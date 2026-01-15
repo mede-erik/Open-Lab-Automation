@@ -1,34 +1,57 @@
 ---
 name: "Bug Report"
-about: "Report a bug or error in the code."
+about: "Report a bug or error in the application"
 title: "[Bug]: <short description>"
-labels: ["code", "bug"]
+labels: ["bug"]
 assignees: []
 ---
 
-## Description
+## Bug Description
 
-<!-- Describe the bug or error in detail. -->
+<!-- Provide a clear and concise description of the bug -->
 
-## Environment
-- OS:
-- Python version:
-- Application version (if known):
+## Environment Information
+
+- **Operating System:** <!-- e.g. Windows 11, Ubuntu 22.04, macOS 14 -->
+- **Python Version:** <!-- e.g. 3.10.5 -->
+- **Application Version:** <!-- e.g. v1.2.3 or commit hash -->
+- **PyQt6 Version:** <!-- if known -->
 
 ## Steps to Reproduce
 
 1. 
 2. 
 3. 
+4. 
 
 ## Expected Behavior
 
-<!-- What did you expect to happen? -->
+<!-- Describe what you expected to happen -->
 
 ## Actual Behavior
 
-<!-- What actually happened? -->
+<!-- Describe what actually happened -->
 
-## Additional Notes
+## Error Messages/Codes
 
-<!-- Add any other relevant information, screenshots, or logs -->
+<!-- If you received an error message or error code (e.g. [FILE-001]), paste it here -->
+
+```
+<!-- Paste error message or stack trace here -->
+```
+
+## Screenshots
+
+<!-- If applicable, add screenshots to help explain the problem -->
+
+## Log Files
+
+<!-- If available, attach or paste relevant log file contents -->
+
+## Additional Context
+
+<!-- Add any other information about the problem:
+     - Does it happen consistently or intermittently?
+     - Did this work in a previous version?
+     - Any workarounds you've found?
+     - Related issues? -->

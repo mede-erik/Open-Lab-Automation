@@ -295,5 +295,9 @@
   "pulse_stop_failed": "Failed to stop pulse generation",
   "pulse_running_close_confirm": "Pulse is currently running. Stop pulse and close?",
   "pyvisa_not_available": "PyVISA library not available. Cannot communicate with instrument.",
-  "no_visa_address": "No VISA address configured for this instrument."
+  "no_visa_address": "No VISA address configured for this instrument.",
+  "experimental": "Experimental",
+  "experimental_instrument": "Experimental (Not Tested)",
+  "show_experimental_instruments": "Show experimental instruments",
+  "enable_experimental_instruments": "Enable experimental instruments in the instrument list"
 }

@@ -1,8 +1,8 @@
 import sys
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QTreeWidget, QTreeWidgetItem, QSplitter, 
-                             QTextEdit, QLabel, QMessageBox)
-from PyQt6.QtCore import Qt
+                             QTextEdit, QLabel, QMessageBox, QCheckBox)
+from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtWidgets import QWidget 
 from frontend.core.LoadInstruments import LoadInstruments
 
@@ -12,6 +12,11 @@ class InstrumentLibraryDialog(QDialog):
         super().__init__(parent)
         self.translator = translator
         self.load_instruments = load_instruments
+        
+        # Carica le impostazioni
+        self.settings = QSettings('LabAutomation', 'App')
+        self.show_experimental = self.settings.value('show_experimental_instruments', False, type=bool)
+        
         # Usa translator.t se disponibile, altrimenti lascia la stringa così com'è
         t = getattr(self.translator, 't', None) if self.translator is not None else None
         _ = t if callable(t) else (lambda s: s)
@@ -43,6 +48,18 @@ class InstrumentLibraryDialog(QDialog):
         self.tree_widget.setHeaderLabels(["Nome", "Tipo", "Canali"])
         self.tree_widget.itemClicked.connect(self.on_item_selected)
         left_panel.addWidget(self.tree_widget)
+        
+        # Checkbox per mostrare strumenti sperimentali
+        t = getattr(self.translator, 't', None) if self.translator is not None else None
+        _ = t if callable(t) else (lambda s: s)
+        
+        checkbox_layout = QHBoxLayout()
+        self.experimental_checkbox = QCheckBox(str(_('show_experimental_instruments')))
+        self.experimental_checkbox.setChecked(self.show_experimental)
+        self.experimental_checkbox.stateChanged.connect(self.on_experimental_checkbox_toggled)
+        checkbox_layout.addWidget(self.experimental_checkbox)
+        checkbox_layout.addStretch()
+        left_panel.addLayout(checkbox_layout)
         
         # Pulsanti
         button_layout = QHBoxLayout()
@@ -144,8 +161,8 @@ class InstrumentLibraryDialog(QDialog):
             type_item.setText(1, "Tipo")
             type_item.setData(0, 256, {"type": "instrument_type", "key": type_name})  # 256 = Qt.UserRole
             
-            # Ottieni le serie per questo tipo
-            series_list = self.load_instruments.get_series(type_name) or []
+            # Ottieni le serie per questo tipo (con filtraggio per strumenti sperimentali)
+            series_list = self.load_instruments.get_visible_series(type_name, self.show_experimental) or []
             
             for series in series_list:
                 # Crea nodo per la serie
@@ -161,6 +178,11 @@ class InstrumentLibraryDialog(QDialog):
                     # Crea nodo per il modello
                     model_item = QTreeWidgetItem(series_item)
                     model_name = model.get('name', model.get('model', 'Modello sconosciuto'))
+                    # Aggiungi etichetta "[Sperimentale]" se è un modello sperimentale
+                    if model.get('experimental', False):
+                        t = getattr(self.translator, 't', None) if self.translator is not None else None
+                        _ = t if callable(t) else (lambda s: s)
+                        model_name += f" [{_('experimental_instrument')}]"
                     model_item.setText(0, model_name)
                     model_item.setText(1, "Modello")
                     
@@ -182,6 +204,13 @@ class InstrumentLibraryDialog(QDialog):
         
         # Espandi tutti i nodi di primo livello
         self.tree_widget.expandAll()
+
+    def on_experimental_checkbox_toggled(self, state):
+        """Gestisce il cambio di stato della checkbox per gli strumenti sperimentali"""
+        self.show_experimental = state == Qt.CheckState.Checked.value
+        # Salva lo stato nelle impostazioni
+        self.settings.setValue('show_experimental_instruments', self.show_experimental)
+        self.populate_tree()
 
     def get_display_name_for_type(self, type_name):
         """Converte il nome interno del tipo in un nome visualizzabile"""

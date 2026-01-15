@@ -294,5 +294,9 @@
   "pulse_stop_failed": "Échec de l'arrêt de la génération d'impulsions",
   "pulse_running_close_confirm": "Impulsions en cours d'exécution. Arrêter les impulsions et fermer?",
   "pyvisa_not_available": "Bibliothèque PyVISA non disponible. Impossible de communiquer avec l'instrument.",
-  "no_visa_address": "Aucune adresse VISA configurée pour cet instrument."
+  "no_visa_address": "Aucune adresse VISA configurée pour cet instrument.",
+  "experimental": "Expérimental",
+  "experimental_instrument": "Expérimental (Non testé)",
+  "show_experimental_instruments": "Afficher les instruments expérimentaux",
+  "enable_experimental_instruments": "Activer les instruments expérimentaux dans la liste des instruments"
 }

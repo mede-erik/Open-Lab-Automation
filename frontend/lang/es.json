@@ -295,5 +295,9 @@
   "pulse_stop_failed": "Error al detener generación de pulsos",
   "pulse_running_close_confirm": "Pulsos en ejecución. ¿Detener pulsos y cerrar?",
   "pyvisa_not_available": "Biblioteca PyVISA no disponible. No se puede comunicar con el instrumento.",
-  "no_visa_address": "No hay dirección VISA configurada para este instrumento."
+  "no_visa_address": "No hay dirección VISA configurada para este instrumento.",
+  "experimental": "Experimental",
+  "experimental_instrument": "Experimental (No probado)",
+  "show_experimental_instruments": "Mostrar instrumentos experimentales",
+  "enable_experimental_instruments": "Habilitar instrumentos experimentales en la lista de instrumentos"
 }
