@@ -834,7 +834,9 @@ class InstrumentConfigDialog(QDialog):
             series_combo.clear()
             model_combo.clear()
             t = type_combo.currentText()
-            series_list = self.load_instruments.get_series(t)
+            from PyQt6.QtCore import QSettings
+            show_exp = QSettings('LabAutomation', 'App').value('show_experimental_instruments', False, type=bool)
+            series_list = self.load_instruments.get_visible_series(t, include_experimental=show_exp)
             for s in series_list or []:
                 label = s.get('series_name', s.get('series_id', str(s)))
                 series_combo.addItem(label, s.get('series_id', label))
@@ -843,7 +845,9 @@ class InstrumentConfigDialog(QDialog):
             model_combo.clear()
             t = type_combo.currentText()
             series_id = series_combo.currentData()
-            models = self.load_instruments.get_models(t, series_id)
+            from PyQt6.QtCore import QSettings
+            show_exp = QSettings('LabAutomation', 'App').value('show_experimental_instruments', False, type=bool)
+            models = self.load_instruments.get_visible_models(t, series_id, include_experimental=show_exp)
             model_map.clear()
             for m in models or []:
                 model_name = m.get('name', str(m))

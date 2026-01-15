@@ -152,7 +152,10 @@ class InstFileDialog(QDialog):
         if not type_key or type_key not in self.type_map:
             return
         type_name = self.type_map[type_key][1]
-        series_list = self.load_instruments.get_series(type_name)
+        # Read experimental instruments setting
+        from PyQt6.QtCore import QSettings
+        show_exp = QSettings('LabAutomation', 'App').value('show_experimental_instruments', False, type=bool)
+        series_list = self.load_instruments.get_visible_series(type_name, include_experimental=show_exp)
         if not series_list:
             return
         for s in series_list:
@@ -172,7 +175,10 @@ class InstFileDialog(QDialog):
         if not type_key or not series_id or not hasattr(self, '_current_series_list'):
             return
         type_name = self.type_map[type_key][1]
-        models = self.load_instruments.get_models(type_name, series_id)
+        # Read experimental instruments setting
+        from PyQt6.QtCore import QSettings
+        show_exp = QSettings('LabAutomation', 'App').value('show_experimental_instruments', False, type=bool)
+        models = self.load_instruments.get_visible_models(type_name, series_id, include_experimental=show_exp)
         if not models:
             return
         for m in models:

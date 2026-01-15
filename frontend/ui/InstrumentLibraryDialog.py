@@ -242,7 +242,8 @@ class InstrumentLibraryDialog(QDialog):
 
     def show_type_details(self, type_key):
         """Mostra i dettagli di un tipo di strumento"""
-        series_list = self.load_instruments.get_series(type_key) or []
+        # Usa il filtro corrente (checkbox) per mostrare i dettagli coerenti
+        series_list = self.load_instruments.get_visible_series(type_key, self.show_experimental) or []
         total_models = sum(len(series.get('models', [])) for series in series_list)
         
         details = f"""TIPO DI STRUMENTO: {self.get_display_name_for_type(type_key)}

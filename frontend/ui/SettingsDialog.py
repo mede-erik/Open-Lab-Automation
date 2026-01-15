@@ -79,6 +79,10 @@ class SettingsDialog(QDialog):
         self.naming_group.addWidget(self.eff_toggle)
         self.naming_group.addWidget(self.was_toggle)
         layout.addLayout(self.naming_group)
+
+        # Experimental instruments setting
+        self.experimental_checkbox = QCheckBox(t('enable_experimental_instruments', 'Enable experimental instruments in the instrument list'))
+        layout.addWidget(self.experimental_checkbox)
         # Apply button
         btn_layout = QHBoxLayout()
         self.apply_btn = QPushButton(t('apply', 'Apply'))
@@ -132,6 +136,7 @@ class SettingsDialog(QDialog):
         settings.setValue('advanced_naming_inst', self.inst_toggle.isChecked())
         settings.setValue('advanced_naming_eff', self.eff_toggle.isChecked())
         settings.setValue('advanced_naming_was', self.was_toggle.isChecked())
+        settings.setValue('show_experimental_instruments', self.experimental_checkbox.isChecked())
 
     def load_settings(self):
         """
@@ -161,6 +166,10 @@ class SettingsDialog(QDialog):
         self.eff_toggle.setChecked(adv_eff)
         self.was_toggle.setChecked(adv_was)
         self.toggle_advanced_naming(Qt.CheckState.Checked if adv_naming else Qt.CheckState.Unchecked)
+
+        # Load experimental instruments setting
+        show_exp = settings.value('show_experimental_instruments', False, type=bool)
+        self.experimental_checkbox.setChecked(show_exp)
 
     def apply_settings(self):
         """
