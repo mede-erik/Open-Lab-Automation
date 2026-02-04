@@ -312,15 +312,19 @@ class RemoteControlTab(QWidget):
         try:
             # Reset oscilloscopio
             if 'reset' in scpi_commands:
-                instr.write(scpi_commands['reset'])
+                reset_cmd = self._get_scpi_set_syntax(scpi_commands.get('reset'))
+                if reset_cmd:
+                    instr.write(reset_cmd)
                 print("[RemoteControlTab] Reset oscilloscopio")
             
             # Applica impostazioni timebase
             if 'timebase_scale' in was_data and 'set_timebase_scale' in scpi_commands:
                 timebase_value = was_data['timebase_scale']
-                cmd = scpi_commands['set_timebase_scale'].format(value=timebase_value)
-                instr.write(cmd)
-                print(f"[RemoteControlTab] Timebase: {timebase_value}")
+                syntax = self._get_scpi_set_syntax(scpi_commands.get('set_timebase_scale'))
+                if syntax:
+                    cmd = syntax.format(value=timebase_value)
+                    instr.write(cmd)
+                    print(f"[RemoteControlTab] Timebase: {timebase_value}")
             
             # Applica impostazioni canali
             channels = was_data.get('channels', {})
@@ -330,23 +334,29 @@ class RemoteControlTab(QWidget):
                 # Scala canale
                 if 'scale' in ch_settings and 'set_channel_scale' in scpi_commands:
                     scale_value = ch_settings['scale']
-                    cmd = scpi_commands['set_channel_scale'].format(channel_number=channel_number, value=scale_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Canale {channel_number} scala: {scale_value}")
+                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_scale'))
+                    if syntax:
+                        cmd = syntax.format(channel_number=channel_number, value=scale_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Canale {channel_number} scala: {scale_value}")
                 
                 # Offset canale
                 if 'offset' in ch_settings and 'set_channel_offset' in scpi_commands:
                     offset_value = ch_settings['offset']
-                    cmd = scpi_commands['set_channel_offset'].format(channel_number=channel_number, value=offset_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Canale {channel_number} offset: {offset_value}")
+                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_offset'))
+                    if syntax:
+                        cmd = syntax.format(channel_number=channel_number, value=offset_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Canale {channel_number} offset: {offset_value}")
                 
                 # Accoppiamento canale
                 if 'coupling' in ch_settings and 'set_channel_coupling' in scpi_commands:
                     coupling_value = ch_settings['coupling']
-                    cmd = scpi_commands['set_channel_coupling'].format(channel_number=channel_number, coupling_type=coupling_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Canale {channel_number} coupling: {coupling_value}")
+                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_coupling'))
+                    if syntax:
+                        cmd = syntax.format(channel_number=channel_number, coupling_type=coupling_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Canale {channel_number} coupling: {coupling_value}")
             
             # Applica impostazioni trigger
             trigger = was_data.get('trigger', {})
@@ -357,33 +367,51 @@ class RemoteControlTab(QWidget):
                     # Estrai numero canale da stringhe come 'CH1', 'CHAN1'
                     if source.upper().startswith(('CH', 'CHAN')):
                         channel_number = source.replace('CH', '').replace('CHAN', '').replace('ch', '').replace('chan', '')
-                        cmd = scpi_commands['set_trigger_source'].format(channel_number=channel_number)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger source: {source}")
+                        syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_source'))
+                        if syntax:
+                            cmd = syntax.format(channel_number=channel_number)
+                            instr.write(cmd)
+                            print(f"[RemoteControlTab] Trigger source: {source}")
                 
                 # Livello trigger
                 if 'level' in trigger and 'set_trigger_level' in scpi_commands:
                     level_value = trigger['level']
-                    cmd = scpi_commands['set_trigger_level'].format(value=level_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Trigger level: {level_value}")
+                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_level'))
+                    if syntax:
+                        cmd = syntax.format(value=level_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Trigger level: {level_value}")
                 
                 # Modalità trigger
                 if 'mode' in trigger and 'set_trigger_mode' in scpi_commands:
                     mode_value = trigger['mode']
-                    cmd = scpi_commands['set_trigger_mode'].format(mode=mode_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Trigger mode: {mode_value}")
+                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_mode'))
+                    if syntax:
+                        cmd = syntax.format(mode=mode_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Trigger mode: {mode_value}")
             
             # Auto setup se disponibile
             if 'auto_setup' in scpi_commands:
-                instr.write(scpi_commands['auto_setup'])
-                print("[RemoteControlTab] Auto setup eseguito")
+                auto_setup_cmd = self._get_scpi_set_syntax(scpi_commands.get('auto_setup'))
+                if auto_setup_cmd:
+                    instr.write(auto_setup_cmd)
+                    print("[RemoteControlTab] Auto setup eseguito")
             
             print(f"[RemoteControlTab] Configurazione completata con successo")
             
         except Exception as e:
             print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
+
+    def _get_scpi_set_syntax(self, command_def):
+        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
+        if isinstance(command_def, str):
+            return command_def
+        if isinstance(command_def, dict):
+            set_def = command_def.get('set')
+            if isinstance(set_def, dict):
+                return set_def.get('syntax')
+        return None
         self.setLayout(self.main_layout)
         self.current_channel_widgets = []  # Stores references to current channel widgets
         # Initialize VISA resource manager with lazy loading to avoid segmentation fault

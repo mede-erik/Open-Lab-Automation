@@ -5,20 +5,129 @@
         "series_id": "OWON_ODP_Series",
         "series_name": "OWON ODP Series Programmable DC Power Supplies",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYST:ERR?",
-          "self_test": "*TST?",
-          "select_channel": "INST:NSEL {channel_number}",
-          "set_voltage": "VOLT {value}",
-          "set_current": "CURR {value}",
-          "read_voltage": "MEAS:VOLT?",
-          "read_current": "MEAS:CURR?",
-          "read_power": "MEAS:POW?",
-          "output_on": "OUTP ON",
-          "output_off": "OUTP OFF",
-          "output_state_query": "OUTP?"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYST:ERR?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "select_channel": {
+            "description": "select channel",
+            "set": {
+              "syntax": "INST:NSEL {channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_voltage": {
+            "description": "set voltage",
+            "set": {
+              "syntax": "VOLT {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_current": {
+            "description": "set current",
+            "set": {
+              "syntax": "CURR {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "read_voltage": {
+            "description": "read voltage",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:VOLT?",
+              "return_type": "float"
+            }
+          },
+          "read_current": {
+            "description": "read current",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:CURR?",
+              "return_type": "float"
+            }
+          },
+          "read_power": {
+            "description": "read power",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:POW?",
+              "return_type": "float"
+            }
+          },
+          "output_on": {
+            "description": "output on",
+            "set": {
+              "syntax": "OUTP ON"
+            },
+            "query": null
+          },
+          "output_off": {
+            "description": "output off",
+            "set": {
+              "syntax": "OUTP OFF"
+            },
+            "query": null
+          },
+          "output_state_query": {
+            "description": "output state query",
+            "set": null,
+            "query": {
+              "syntax": "OUTP?",
+              "return_type": "string"
+            }
+          }
         },
         "models": [
           {
@@ -220,16 +329,109 @@
         "series_id": "Keysight_E36300_Series",
         "series_name": "Keysight E36300 Series Programmable DC Power Supplies",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "select_channel": "INST:SEL CH{channel_number}",
-          "set_voltage": "VOLT {value}",
-          "set_current": "CURR {value}",
-          "read_voltage": "MEAS:VOLT? CH{channel_number}",
-          "read_current": "MEAS:CURR? CH{channel_number}",
-          "output_on": "OUTP ON",
-          "output_off": "OUTP OFF"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "select_channel": {
+            "description": "select channel",
+            "set": {
+              "syntax": "INST:SEL CH{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_voltage": {
+            "description": "set voltage",
+            "set": {
+              "syntax": "VOLT {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_current": {
+            "description": "set current",
+            "set": {
+              "syntax": "CURR {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "read_voltage": {
+            "description": "read voltage",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:VOLT? CH{channel_number}",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "read_current": {
+            "description": "read current",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:CURR? CH{channel_number}",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "output_on": {
+            "description": "output on",
+            "set": {
+              "syntax": "OUTP ON"
+            },
+            "query": null
+          },
+          "output_off": {
+            "description": "output off",
+            "set": {
+              "syntax": "OUTP OFF"
+            },
+            "query": null
+          }
         },
         "models": [
           {
@@ -422,18 +624,108 @@
         "series_id": "TDK_Lambda_GEN_Series",
         "series_name": "TDK-Lambda GEN Series Power Supplies",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYSTem:ERRor?",
-          "self_test": "*TST?",
-          "set_voltage": "VOLT {value}",
-          "set_current": "CURR {value}",
-          "read_voltage": "MEAS:VOLT?",
-          "read_current": "MEAS:CURR?",
-          "output_on": "OUTPut ON",
-          "output_off": "OUTPut OFF",
-          "output_state_query": "OUTPut?"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYSTem:ERRor?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "set_voltage": {
+            "description": "set voltage",
+            "set": {
+              "syntax": "VOLT {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_current": {
+            "description": "set current",
+            "set": {
+              "syntax": "CURR {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "read_voltage": {
+            "description": "read voltage",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:VOLT?",
+              "return_type": "float"
+            }
+          },
+          "read_current": {
+            "description": "read current",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:CURR?",
+              "return_type": "float"
+            }
+          },
+          "output_on": {
+            "description": "output on",
+            "set": {
+              "syntax": "OUTPut ON"
+            },
+            "query": null
+          },
+          "output_off": {
+            "description": "output off",
+            "set": {
+              "syntax": "OUTPut OFF"
+            },
+            "query": null
+          },
+          "output_state_query": {
+            "description": "output state query",
+            "set": null,
+            "query": {
+              "syntax": "OUTPut?",
+              "return_type": "string"
+            }
+          }
         },
         "models": [
           {
@@ -580,19 +872,133 @@
         "series_id": "Rohde_Schwarz_HPM_Series",
         "series_name": "Rohde & Schwarz HPM Series Power Supplies",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYSTem:ERRor?",
-          "self_test": "*TST?",
-          "select_channel": "INST:SEL OUT{channel_number}",
-          "set_voltage": "VOLT {value}",
-          "set_current": "CURR {value}",
-          "read_voltage": "MEAS:VOLT? OUT{channel_number}",
-          "read_current": "MEAS:CURR? OUT{channel_number}",
-          "output_on": "OUTPut ON",
-          "output_off": "OUTPut OFF",
-          "output_state_query": "OUTPut?"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYSTem:ERRor?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "select_channel": {
+            "description": "select channel",
+            "set": {
+              "syntax": "INST:SEL OUT{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_voltage": {
+            "description": "set voltage",
+            "set": {
+              "syntax": "VOLT {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_current": {
+            "description": "set current",
+            "set": {
+              "syntax": "CURR {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "read_voltage": {
+            "description": "read voltage",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:VOLT? OUT{channel_number}",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "read_current": {
+            "description": "read current",
+            "set": null,
+            "query": {
+              "syntax": "MEAS:CURR? OUT{channel_number}",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "output_on": {
+            "description": "output on",
+            "set": {
+              "syntax": "OUTPut ON"
+            },
+            "query": null
+          },
+          "output_off": {
+            "description": "output off",
+            "set": {
+              "syntax": "OUTPut OFF"
+            },
+            "query": null
+          },
+          "output_state_query": {
+            "description": "output state query",
+            "set": null,
+            "query": {
+              "syntax": "OUTPut?",
+              "return_type": "string"
+            }
+          }
         },
         "models": [
           {
@@ -702,20 +1108,135 @@
         "series_id": "Keysight_3497X_Series",
         "series_name": "Keysight 3497XA/B Series",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYST:ERR?",
-          "self_test": "*TST?",
-          "query_status_byte": "*STB?",
-          "query_event_status_register": "*ESR?",
-          "enable_event_status_register": "*ESE {value}",
-          "query_event_status_enable": "*ESE?",
-          "select_channels": "ROUT:SCAN (@{channels})",
-          "read_scan": "READ?",
-          "trigger_bus": "*TRG",
-          "set_trigger_source": "TRIG:SOUR {source}",
-          "set_trigger_count": "TRIG:COUN {count}"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYST:ERR?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "query_status_byte": {
+            "description": "query status byte",
+            "set": null,
+            "query": {
+              "syntax": "*STB?",
+              "return_type": "int"
+            }
+          },
+          "query_event_status_register": {
+            "description": "query event status register",
+            "set": null,
+            "query": {
+              "syntax": "*ESR?",
+              "return_type": "int"
+            }
+          },
+          "enable_event_status_register": {
+            "description": "enable event status register",
+            "set": {
+              "syntax": "*ESE {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "int"
+              }
+            }
+          },
+          "query_event_status_enable": {
+            "description": "query event status enable",
+            "set": null,
+            "query": {
+              "syntax": "*ESE?",
+              "return_type": "int"
+            }
+          },
+          "select_channels": {
+            "description": "select channels",
+            "set": {
+              "syntax": "ROUT:SCAN (@{channels})",
+              "args": ["channels"]
+            },
+            "query": null,
+            "parameters": {
+              "channels": {
+                "type": "string"
+              }
+            }
+          },
+          "read_scan": {
+            "description": "read scan",
+            "set": null,
+            "query": {
+              "syntax": "READ?",
+              "return_type": "string"
+            }
+          },
+          "trigger_bus": {
+            "description": "trigger bus",
+            "set": {
+              "syntax": "*TRG"
+            },
+            "query": null
+          },
+          "set_trigger_source": {
+            "description": "set trigger source",
+            "set": {
+              "syntax": "TRIG:SOUR {source}",
+              "args": ["source"]
+            },
+            "query": null,
+            "parameters": {
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "set_trigger_count": {
+            "description": "set trigger count",
+            "set": {
+              "syntax": "TRIG:COUN {count}",
+              "args": ["count"]
+            },
+            "query": null,
+            "parameters": {
+              "count": {
+                "type": "int"
+              }
+            }
+          }
         },
         "models": [
           {
@@ -751,7 +1272,22 @@
               ]
             },
             "scpi_commands": {
-              "setup_voltage_range": "SENS:VOLT:DC:RANG {range},(@{channels})"
+              "setup_voltage_range": {
+                "description": "setup voltage range",
+                "set": {
+                  "syntax": "SENS:VOLT:DC:RANG {range},(@{channels})",
+                  "args": ["range", "channels"]
+                },
+                "query": null,
+                "parameters": {
+                  "range": {
+                    "type": "float"
+                  },
+                  "channels": {
+                    "type": "string"
+                  }
+                }
+              }
             },
             "experimental": true
           }
@@ -833,19 +1369,139 @@
         "series_id": "Tektronix_5_Series_MSO",
         "series_name": "Tektronix 5 Series Mixed Signal Oscilloscopes",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "auto_setup": "AUTOSet EXECute",
-          "set_channel_scale": "CH{channel_number}:SCAle {value}",
-          "set_channel_offset": "CH{channel_number}:OFFSet {value}",
-          "set_timebase_scale": "HORizontal:MODE:SCAle {value}",
-          "run_acquisition": "ACQuire:STATE RUN",
-          "stop_acquisition": "ACQuire:STATE STOP",
-          "set_trigger_source": "TRIGger:A:EDGE:SOUrce CH{channel_number}",
-          "set_trigger_level": "TRIGger:A:LEVel:CH{channel_number} {value}",
-          "query_waveform_data": "CURVe?",
-          "query_waveform_preamble": "WFMOutpre?"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "auto_setup": {
+            "description": "auto setup",
+            "set": {
+              "syntax": "AUTOSet EXECute"
+            },
+            "query": null
+          },
+          "set_channel_scale": {
+            "description": "set channel scale",
+            "set": {
+              "syntax": "CH{channel_number}:SCAle {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_channel_offset": {
+            "description": "set channel offset",
+            "set": {
+              "syntax": "CH{channel_number}:OFFSet {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_timebase_scale": {
+            "description": "set timebase scale",
+            "set": {
+              "syntax": "HORizontal:MODE:SCAle {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "run_acquisition": {
+            "description": "run acquisition",
+            "set": {
+              "syntax": "ACQuire:STATE RUN"
+            },
+            "query": null
+          },
+          "stop_acquisition": {
+            "description": "stop acquisition",
+            "set": {
+              "syntax": "ACQuire:STATE STOP"
+            },
+            "query": null
+          },
+          "set_trigger_source": {
+            "description": "set trigger source",
+            "set": {
+              "syntax": "TRIGger:A:EDGE:SOUrce CH{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_trigger_level": {
+            "description": "set trigger level",
+            "set": {
+              "syntax": "TRIGger:A:LEVel:CH{channel_number} {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_waveform_data": {
+            "description": "query waveform data",
+            "set": null,
+            "query": {
+              "syntax": "CURVe?",
+              "return_type": "string"
+            }
+          },
+          "query_waveform_preamble": {
+            "description": "query waveform preamble",
+            "set": null,
+            "query": {
+              "syntax": "WFMOutpre?",
+              "return_type": "string"
+            }
+          }
         },
         "models": [
           {
@@ -949,35 +1605,302 @@
         "series_id": "Rigol_DS1000Z_Series",
         "series_name": "Rigol DS1000Z Series Digital Oscilloscopes",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": ":SYSTem:ERRor?",
-          "self_test": "*TST?",
-          "query_status_byte": "*STB?",
-          "query_event_status_register": "*ESR?",
-          "enable_event_status_register": "*ESE {value}",
-          "query_event_status_enable": "*ESE?",
-          "auto_setup": ":AUToscale",
-          "set_channel_coupling": ":CHANnel{channel_number}:COUPling {coupling_type}",
-          "set_channel_scale": ":CHANnel{channel_number}:SCALe {value}",
-          "set_channel_offset": ":CHANnel{channel_number}:OFFSet {value}",
-          "query_channel_scale": ":CHANnel{channel_number}:SCALe?",
-          "query_channel_offset": ":CHANnel{channel_number}:OFFSet?",
-          "set_timebase_scale": ":TIMebase:SCALe {value}",
-          "query_timebase_scale": ":TIMebase:SCALe?",
-          "set_trigger_mode": ":TRIGger:MODE {mode}",
-          "set_trigger_source": ":TRIGger:EDGE:SOURce CHAN{channel_number}",
-          "set_trigger_level": ":TRIGger:EDGE:LEVel {value}",
-          "query_trigger_level": ":TRIGger:EDGE:LEVel?",
-          "force_trigger": ":TRIGger:FORCe",
-          "set_waveform_source": ":WAVeform:SOURce CHAN{channel_number}",
-          "set_waveform_format": ":WAVeform:FORMat {format_type}",
-          "query_waveform_preamble": ":WAVeform:PREamble?",
-          "query_waveform_data": ":WAVeform:DATA?",
-          "run_acquisition": ":RUN",
-          "stop_acquisition": ":STOP",
-          "single_acquisition": ":SINGle"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": ":SYSTem:ERRor?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "query_status_byte": {
+            "description": "query status byte",
+            "set": null,
+            "query": {
+              "syntax": "*STB?",
+              "return_type": "int"
+            }
+          },
+          "query_event_status_register": {
+            "description": "query event status register",
+            "set": null,
+            "query": {
+              "syntax": "*ESR?",
+              "return_type": "int"
+            }
+          },
+          "enable_event_status_register": {
+            "description": "enable event status register",
+            "set": {
+              "syntax": "*ESE {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "int"
+              }
+            }
+          },
+          "query_event_status_enable": {
+            "description": "query event status enable",
+            "set": null,
+            "query": {
+              "syntax": "*ESE?",
+              "return_type": "int"
+            }
+          },
+          "auto_setup": {
+            "description": "auto setup",
+            "set": {
+              "syntax": ":AUToscale"
+            },
+            "query": null
+          },
+          "set_channel_coupling": {
+            "description": "set channel coupling",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:COUPling {coupling_type}",
+              "args": ["channel_number", "coupling_type"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "coupling_type": {
+                "type": "string"
+              }
+            }
+          },
+          "set_channel_scale": {
+            "description": "set channel scale",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:SCALe {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_channel_offset": {
+            "description": "set channel offset",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:OFFSet {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_channel_scale": {
+            "description": "query channel scale",
+            "set": null,
+            "query": {
+              "syntax": ":CHANnel{channel_number}:SCALe?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "query_channel_offset": {
+            "description": "query channel offset",
+            "set": null,
+            "query": {
+              "syntax": ":CHANnel{channel_number}:OFFSet?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_timebase_scale": {
+            "description": "set timebase scale",
+            "set": {
+              "syntax": ":TIMebase:SCALe {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_timebase_scale": {
+            "description": "query timebase scale",
+            "set": null,
+            "query": {
+              "syntax": ":TIMebase:SCALe?",
+              "return_type": "float"
+            }
+          },
+          "set_trigger_mode": {
+            "description": "set trigger mode",
+            "set": {
+              "syntax": ":TRIGger:MODE {mode}",
+              "args": ["mode"]
+            },
+            "query": null,
+            "parameters": {
+              "mode": {
+                "type": "string"
+              }
+            }
+          },
+          "set_trigger_source": {
+            "description": "set trigger source",
+            "set": {
+              "syntax": ":TRIGger:EDGE:SOURce CHAN{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_trigger_level": {
+            "description": "set trigger level",
+            "set": {
+              "syntax": ":TRIGger:EDGE:LEVel {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_trigger_level": {
+            "description": "query trigger level",
+            "set": null,
+            "query": {
+              "syntax": ":TRIGger:EDGE:LEVel?",
+              "return_type": "float"
+            }
+          },
+          "force_trigger": {
+            "description": "force trigger",
+            "set": {
+              "syntax": ":TRIGger:FORCe"
+            },
+            "query": null
+          },
+          "set_waveform_source": {
+            "description": "set waveform source",
+            "set": {
+              "syntax": ":WAVeform:SOURce CHAN{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_waveform_format": {
+            "description": "set waveform format",
+            "set": {
+              "syntax": ":WAVeform:FORMat {format_type}",
+              "args": ["format_type"]
+            },
+            "query": null,
+            "parameters": {
+              "format_type": {
+                "type": "string"
+              }
+            }
+          },
+          "query_waveform_preamble": {
+            "description": "query waveform preamble",
+            "set": null,
+            "query": {
+              "syntax": ":WAVeform:PREamble?",
+              "return_type": "string"
+            }
+          },
+          "query_waveform_data": {
+            "description": "query waveform data",
+            "set": null,
+            "query": {
+              "syntax": ":WAVeform:DATA?",
+              "return_type": "string"
+            }
+          },
+          "run_acquisition": {
+            "description": "run acquisition",
+            "set": {
+              "syntax": ":RUN"
+            },
+            "query": null
+          },
+          "stop_acquisition": {
+            "description": "stop acquisition",
+            "set": {
+              "syntax": ":STOP"
+            },
+            "query": null
+          },
+          "single_acquisition": {
+            "description": "single acquisition",
+            "set": {
+              "syntax": ":SINGle"
+            },
+            "query": null
+          }
         },
         "models": [
           {
@@ -1116,28 +2039,232 @@
         "series_id": "Tektronix_MSO_Series",
         "series_name": "Tektronix MSO Series Mixed Signal Oscilloscopes",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYST:ERR?",
-          "self_test": "*TST?",
-          "set_channel_coupling": "CH{channel_number}:COUP {coupling_type}",
-          "set_channel_scale": "CH{channel_number}:SCA {value}",
-          "set_channel_offset": "CH{channel_number}:OFFS {value}",
-          "query_channel_scale": "CH{channel_number}:SCA?",
-          "query_channel_offset": "CH{channel_number}:OFFS?",
-          "set_timebase_scale": "HOR:MAI:SCA {value}",
-          "query_timebase_scale": "HOR:MAI:SCA?",
-          "set_trigger_mode": "TRIG:A:MODE {mode}",
-          "set_trigger_source": "TRIG:A:EDGE:SOU CH{channel_number}",
-          "set_trigger_level": "TRIG:A:LEVel {value}",
-          "query_trigger_level": "TRIG:A:LEVel?",
-          "force_trigger": "TRIG:A:FORC",
-          "acquire_run": "ACQ:STATE RUN",
-          "acquire_stop": "ACQ:STATE STOP",
-          "acquire_single": "ACQ:STATE RUN;*OPC",
-          "waveform_preamble_query": "WAVFrm:PREamble?",
-          "waveform_data_query": "WAVFrm:DATA?"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYST:ERR?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "set_channel_coupling": {
+            "description": "set channel coupling",
+            "set": {
+              "syntax": "CH{channel_number}:COUP {coupling_type}",
+              "args": ["channel_number", "coupling_type"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "coupling_type": {
+                "type": "string"
+              }
+            }
+          },
+          "set_channel_scale": {
+            "description": "set channel scale",
+            "set": {
+              "syntax": "CH{channel_number}:SCA {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_channel_offset": {
+            "description": "set channel offset",
+            "set": {
+              "syntax": "CH{channel_number}:OFFS {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_channel_scale": {
+            "description": "query channel scale",
+            "set": null,
+            "query": {
+              "syntax": "CH{channel_number}:SCA?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "query_channel_offset": {
+            "description": "query channel offset",
+            "set": null,
+            "query": {
+              "syntax": "CH{channel_number}:OFFS?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_timebase_scale": {
+            "description": "set timebase scale",
+            "set": {
+              "syntax": "HOR:MAI:SCA {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_timebase_scale": {
+            "description": "query timebase scale",
+            "set": null,
+            "query": {
+              "syntax": "HOR:MAI:SCA?",
+              "return_type": "float"
+            }
+          },
+          "set_trigger_mode": {
+            "description": "set trigger mode",
+            "set": {
+              "syntax": "TRIG:A:MODE {mode}",
+              "args": ["mode"]
+            },
+            "query": null,
+            "parameters": {
+              "mode": {
+                "type": "string"
+              }
+            }
+          },
+          "set_trigger_source": {
+            "description": "set trigger source",
+            "set": {
+              "syntax": "TRIG:A:EDGE:SOU CH{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_trigger_level": {
+            "description": "set trigger level",
+            "set": {
+              "syntax": "TRIG:A:LEVel {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_trigger_level": {
+            "description": "query trigger level",
+            "set": null,
+            "query": {
+              "syntax": "TRIG:A:LEVel?",
+              "return_type": "float"
+            }
+          },
+          "force_trigger": {
+            "description": "force trigger",
+            "set": {
+              "syntax": "TRIG:A:FORC"
+            },
+            "query": null
+          },
+          "acquire_run": {
+            "description": "acquire run",
+            "set": {
+              "syntax": "ACQ:STATE RUN"
+            },
+            "query": null
+          },
+          "acquire_stop": {
+            "description": "acquire stop",
+            "set": {
+              "syntax": "ACQ:STATE STOP"
+            },
+            "query": null
+          },
+          "acquire_single": {
+            "description": "acquire single",
+            "set": {
+              "syntax": "ACQ:STATE RUN;*OPC"
+            },
+            "query": null
+          },
+          "waveform_preamble_query": {
+            "description": "waveform preamble query",
+            "set": null,
+            "query": {
+              "syntax": "WAVFrm:PREamble?",
+              "return_type": "string"
+            }
+          },
+          "waveform_data_query": {
+            "description": "waveform data query",
+            "set": null,
+            "query": {
+              "syntax": "WAVFrm:DATA?",
+              "return_type": "string"
+            }
+          }
         },
         "models": [
           {
@@ -1307,33 +2434,292 @@
         "series_id": "Siglent_SDS_HD_Series",
         "series_name": "Siglent SDS HD Series Digital Oscilloscopes",
         "common_scpi_commands": {
-          "reset": "*RST",
-          "clear_status": "*CLS",
-          "identification_query": "*IDN?",
-          "error_query": "SYSTem:ERRor?",
-          "self_test": "*TST?",
-          "operation_complete_query": "*OPC?",
-          "auto_setup": ":AUToset",
-          "set_channel_coupling": ":CHANnel{channel_number}:COUPling {coupling_type}",
-          "set_channel_scale": ":CHANnel{channel_number}:SCALe {value}",
-          "set_channel_offset": ":CHANnel{channel_number}:OFFSet {value}",
-          "query_channel_scale": ":CHANnel{channel_number}:SCALe?",
-          "query_channel_offset": ":CHANnel{channel_number}:OFFSet?",
-          "set_timebase_scale": ":TIMebase:SCALe {value}",
-          "query_timebase_scale": ":TIMebase:SCALe?",
-          "set_timebase_delay": ":TIMebase:DELay {value}",
-          "set_trigger_mode": ":TRIGger:MODE {mode}",
-          "set_trigger_source": ":TRIGger:EDGE:SOURce C{channel_number}",
-          "set_trigger_level": ":TRIGger:EDGE:LEVel {value}",
-          "query_trigger_level": ":TRIGger:EDGE:LEVel?",
-          "set_waveform_source": ":WAVeform:SOURce C{channel_number}",
-          "set_waveform_format": ":WAVeform:FORMat {format_type}",
-          "query_waveform_preamble": ":WAVeform:PREamble?",
-          "query_waveform_data": ":WAVeform:DATA?",
-          "acquire_memory_depth": ":ACQuire:MDEPth {depth}",
-          "run_acquisition": ":TRIGger:RUN",
-          "stop_acquisition": ":TRIGger:STOP",
-          "single_acquisition": ":TRIGger:MODE SINGle"
+          "reset": {
+            "description": "reset",
+            "set": {
+              "syntax": "*RST"
+            },
+            "query": null
+          },
+          "clear_status": {
+            "description": "clear status",
+            "set": {
+              "syntax": "*CLS"
+            },
+            "query": null
+          },
+          "identification_query": {
+            "description": "identification query",
+            "set": null,
+            "query": {
+              "syntax": "*IDN?",
+              "return_type": "string"
+            }
+          },
+          "error_query": {
+            "description": "error query",
+            "set": null,
+            "query": {
+              "syntax": "SYSTem:ERRor?",
+              "return_type": "string"
+            }
+          },
+          "self_test": {
+            "description": "self test",
+            "set": null,
+            "query": {
+              "syntax": "*TST?",
+              "return_type": "int"
+            }
+          },
+          "operation_complete_query": {
+            "description": "operation complete query",
+            "set": null,
+            "query": {
+              "syntax": "*OPC?",
+              "return_type": "int"
+            }
+          },
+          "auto_setup": {
+            "description": "auto setup",
+            "set": {
+              "syntax": ":AUToset"
+            },
+            "query": null
+          },
+          "set_channel_coupling": {
+            "description": "set channel coupling",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:COUPling {coupling_type}",
+              "args": ["channel_number", "coupling_type"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "coupling_type": {
+                "type": "string"
+              }
+            }
+          },
+          "set_channel_scale": {
+            "description": "set channel scale",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:SCALe {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_channel_offset": {
+            "description": "set channel offset",
+            "set": {
+              "syntax": ":CHANnel{channel_number}:OFFSet {value}",
+              "args": ["channel_number", "value"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              },
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_channel_scale": {
+            "description": "query channel scale",
+            "set": null,
+            "query": {
+              "syntax": ":CHANnel{channel_number}:SCALe?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "query_channel_offset": {
+            "description": "query channel offset",
+            "set": null,
+            "query": {
+              "syntax": ":CHANnel{channel_number}:OFFSet?",
+              "args": ["channel_number"],
+              "return_type": "float"
+            },
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_timebase_scale": {
+            "description": "set timebase scale",
+            "set": {
+              "syntax": ":TIMebase:SCALe {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_timebase_scale": {
+            "description": "query timebase scale",
+            "set": null,
+            "query": {
+              "syntax": ":TIMebase:SCALe?",
+              "return_type": "float"
+            }
+          },
+          "set_timebase_delay": {
+            "description": "set timebase delay",
+            "set": {
+              "syntax": ":TIMebase:DELay {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "set_trigger_mode": {
+            "description": "set trigger mode",
+            "set": {
+              "syntax": ":TRIGger:MODE {mode}",
+              "args": ["mode"]
+            },
+            "query": null,
+            "parameters": {
+              "mode": {
+                "type": "string"
+              }
+            }
+          },
+          "set_trigger_source": {
+            "description": "set trigger source",
+            "set": {
+              "syntax": ":TRIGger:EDGE:SOURce C{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_trigger_level": {
+            "description": "set trigger level",
+            "set": {
+              "syntax": ":TRIGger:EDGE:LEVel {value}",
+              "args": ["value"]
+            },
+            "query": null,
+            "parameters": {
+              "value": {
+                "type": "float"
+              }
+            }
+          },
+          "query_trigger_level": {
+            "description": "query trigger level",
+            "set": null,
+            "query": {
+              "syntax": ":TRIGger:EDGE:LEVel?",
+              "return_type": "float"
+            }
+          },
+          "set_waveform_source": {
+            "description": "set waveform source",
+            "set": {
+              "syntax": ":WAVeform:SOURce C{channel_number}",
+              "args": ["channel_number"]
+            },
+            "query": null,
+            "parameters": {
+              "channel_number": {
+                "type": "int"
+              }
+            }
+          },
+          "set_waveform_format": {
+            "description": "set waveform format",
+            "set": {
+              "syntax": ":WAVeform:FORMat {format_type}",
+              "args": ["format_type"]
+            },
+            "query": null,
+            "parameters": {
+              "format_type": {
+                "type": "string"
+              }
+            }
+          },
+          "query_waveform_preamble": {
+            "description": "query waveform preamble",
+            "set": null,
+            "query": {
+              "syntax": ":WAVeform:PREamble?",
+              "return_type": "string"
+            }
+          },
+          "query_waveform_data": {
+            "description": "query waveform data",
+            "set": null,
+            "query": {
+              "syntax": ":WAVeform:DATA?",
+              "return_type": "string"
+            }
+          },
+          "acquire_memory_depth": {
+            "description": "acquire memory depth",
+            "set": {
+              "syntax": ":ACQuire:MDEPth {depth}",
+              "args": ["depth"]
+            },
+            "query": null,
+            "parameters": {
+              "depth": {
+                "type": "int"
+              }
+            }
+          },
+          "run_acquisition": {
+            "description": "run acquisition",
+            "set": {
+              "syntax": ":TRIGger:RUN"
+            },
+            "query": null
+          },
+          "stop_acquisition": {
+            "description": "stop acquisition",
+            "set": {
+              "syntax": ":TRIGger:STOP"
+            },
+            "query": null
+          },
+          "single_acquisition": {
+            "description": "single acquisition",
+            "set": {
+              "syntax": ":TRIGger:MODE SINGle"
+            },
+            "query": null
+          }
         },
         "models": [
           {
@@ -1755,32 +3141,193 @@
             "scpi_commands": {},
             "experimental": true
           }
-        ],
-        "electronic_loads_series": [
+        ]
+      }
+    ],
+    "electronic_loads_series": [
           {
             "series_id": "Chroma_6330A_Series",
             "series_name": "Chroma 6330A Series DC Electronic Load Mainframes",
             "notes": "The 6330A is a mainframe. Actual load capabilities depend on installed modules.",
             "common_scpi_commands": {
-              "reset": "*RST",
-              "clear_status": "*CLS",
-              "identification_query": "*IDN?",
-              "error_query": "SYST:ERR?",
-              "self_test": "*TST?",
-              "query_status_byte": "*STB?",
-              "query_event_status_register": "*ESR?",
-              "enable_event_status_register": "*ESE {value}",
-              "query_event_status_enable": "*ESE?",
-              "load_on": "LOAD ON",
-              "load_off": "LOAD OFF",
-              "set_mode": "MODE {mode}",
-              "set_current_level": "CURR:LEV {value}",
-              "set_voltage_level": "VOLT:LEV {value}",
-              "set_resistance_level": "RES:LEV {value}",
-              "set_power_level": "POW:LEV {value}",
-              "read_voltage": "MEAS:VOLT?",
-              "read_current": "MEAS:CURR?",
-              "read_power": "MEAS:POW?"
+              "reset": {
+                "description": "reset",
+                "set": {
+                  "syntax": "*RST"
+                },
+                "query": null
+              },
+              "clear_status": {
+                "description": "clear status",
+                "set": {
+                  "syntax": "*CLS"
+                },
+                "query": null
+              },
+              "identification_query": {
+                "description": "identification query",
+                "set": null,
+                "query": {
+                  "syntax": "*IDN?",
+                  "return_type": "string"
+                }
+              },
+              "error_query": {
+                "description": "error query",
+                "set": null,
+                "query": {
+                  "syntax": "SYST:ERR?",
+                  "return_type": "string"
+                }
+              },
+              "self_test": {
+                "description": "self test",
+                "set": null,
+                "query": {
+                  "syntax": "*TST?",
+                  "return_type": "int"
+                }
+              },
+              "query_status_byte": {
+                "description": "query status byte",
+                "set": null,
+                "query": {
+                  "syntax": "*STB?",
+                  "return_type": "int"
+                }
+              },
+              "query_event_status_register": {
+                "description": "query event status register",
+                "set": null,
+                "query": {
+                  "syntax": "*ESR?",
+                  "return_type": "int"
+                }
+              },
+              "enable_event_status_register": {
+                "description": "enable event status register",
+                "set": {
+                  "syntax": "*ESE {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "int"
+                  }
+                }
+              },
+              "query_event_status_enable": {
+                "description": "query event status enable",
+                "set": null,
+                "query": {
+                  "syntax": "*ESE?",
+                  "return_type": "int"
+                }
+              },
+              "load_on": {
+                "description": "load on",
+                "set": {
+                  "syntax": "LOAD ON"
+                },
+                "query": null
+              },
+              "load_off": {
+                "description": "load off",
+                "set": {
+                  "syntax": "LOAD OFF"
+                },
+                "query": null
+              },
+              "set_mode": {
+                "description": "set mode",
+                "set": {
+                  "syntax": "MODE {mode}",
+                  "args": ["mode"]
+                },
+                "query": null,
+                "parameters": {
+                  "mode": {
+                    "type": "string"
+                  }
+                }
+              },
+              "set_current_level": {
+                "description": "set current level",
+                "set": {
+                  "syntax": "CURR:LEV {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_voltage_level": {
+                "description": "set voltage level",
+                "set": {
+                  "syntax": "VOLT:LEV {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_resistance_level": {
+                "description": "set resistance level",
+                "set": {
+                  "syntax": "RES:LEV {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_power_level": {
+                "description": "set power level",
+                "set": {
+                  "syntax": "POW:LEV {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "read_voltage": {
+                "description": "read voltage",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:VOLT?",
+                  "return_type": "float"
+                }
+              },
+              "read_current": {
+                "description": "read current",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:CURR?",
+                  "return_type": "float"
+                }
+              },
+              "read_power": {
+                "description": "read power",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:POW?",
+                  "return_type": "float"
+                }
+              }
             },
             "models": [
               {
@@ -1824,8 +3371,32 @@
                   "read_power": true
                 },
                 "scpi_commands": {
-                  "set_dynamic_level_high": "CURR:DYN:L1 {value}",
-                  "set_dynamic_level_low": "CURR:DYN:L2 {value}"
+                  "set_dynamic_level_high": {
+                    "description": "set dynamic level high",
+                    "set": {
+                      "syntax": "CURR:DYN:L1 {value}",
+                      "args": ["value"]
+                    },
+                    "query": null,
+                    "parameters": {
+                      "value": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "set_dynamic_level_low": {
+                    "description": "set dynamic level low",
+                    "set": {
+                      "syntax": "CURR:DYN:L2 {value}",
+                      "args": ["value"]
+                    },
+                    "query": null,
+                    "parameters": {
+                      "value": {
+                        "type": "float"
+                      }
+                    }
+                  }
                 }
               }
             ]
@@ -1835,34 +3406,287 @@
             "series_name": "Keysight EL4900 Series Electronic Loads",
             "notes": "High-Power, High-Density Regenerative DC Electronic Loads",
             "common_scpi_commands": {
-              "reset": "*RST",
-              "clear_status": "*CLS",
-              "identification_query": "*IDN?",
-              "enable_ovp": "VOLT:PROT:STAT ON",
-              "disable_ovp": "VOLT:PROT:STAT OFF",
-              "set_ovp_level": "VOLT:PROT {value}",
-              "enable_ocp": "CURR:PROT:STAT ON",
-              "set_ocp_level": "CURR:PROT {value}",
-              "enable_opp": "POW:PROT:STAT ON",
-              "set_opp_level": "POW:PROT {value}",
-              "set_mode": "FUNC|MODE {mode}",
-              "set_current_level": "CURR {value}",
-              "set_voltage_level": "VOLT {value}",
-              "set_resistance_level": "RES {value}",
-              "set_power_level": "POW {value}",
-              "set_voltage_slew_rate": "VOLT:SLEW {value}",
-              "set_voltage_slew_rate_neg": "VOLT:SLEW:NEG {value}",
-              "set_current_slew_rate": "CURR:SLEW {value}",
-              "set_current_slew_rate_neg": "CURR:SLEW:NEG {value}",
-              "short": "INP|OUTP:SHORt ON",
-              "open": "INP|OUTP:SHORt OFF",
-              "load_on": "INP|OUTP ON",
-              "load_off": "INP|OUTP OFF",
-              "enable_ucp": "CURR:UND:PROT:STAT ON",
-              "set_ucp_level": "CURR:UND:PROT {value}",
-              "set_uvp_level": "VOLT:UND:PROT {value}",
-              "enable_uvp": "VOLT:UND:PROT:STAT ON",
-              "clear_protection_fault": ""
+              "reset": {
+                "description": "reset",
+                "set": {
+                  "syntax": "*RST"
+                },
+                "query": null
+              },
+              "clear_status": {
+                "description": "clear status",
+                "set": {
+                  "syntax": "*CLS"
+                },
+                "query": null
+              },
+              "identification_query": {
+                "description": "identification query",
+                "set": null,
+                "query": {
+                  "syntax": "*IDN?",
+                  "return_type": "string"
+                }
+              },
+              "enable_ovp": {
+                "description": "enable ovp",
+                "set": {
+                  "syntax": "VOLT:PROT:STAT ON"
+                },
+                "query": null
+              },
+              "disable_ovp": {
+                "description": "disable ovp",
+                "set": {
+                  "syntax": "VOLT:PROT:STAT OFF"
+                },
+                "query": null
+              },
+              "set_ovp_level": {
+                "description": "set ovp level",
+                "set": {
+                  "syntax": "VOLT:PROT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "enable_ocp": {
+                "description": "enable ocp",
+                "set": {
+                  "syntax": "CURR:PROT:STAT ON"
+                },
+                "query": null
+              },
+              "set_ocp_level": {
+                "description": "set ocp level",
+                "set": {
+                  "syntax": "CURR:PROT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "enable_opp": {
+                "description": "enable opp",
+                "set": {
+                  "syntax": "POW:PROT:STAT ON"
+                },
+                "query": null
+              },
+              "set_opp_level": {
+                "description": "set opp level",
+                "set": {
+                  "syntax": "POW:PROT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_mode": {
+                "description": "set mode",
+                "set": {
+                  "syntax": "FUNC|MODE {mode}",
+                  "args": ["mode"]
+                },
+                "query": null,
+                "parameters": {
+                  "mode": {
+                    "type": "string"
+                  }
+                }
+              },
+              "set_current_level": {
+                "description": "set current level",
+                "set": {
+                  "syntax": "CURR {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_voltage_level": {
+                "description": "set voltage level",
+                "set": {
+                  "syntax": "VOLT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_resistance_level": {
+                "description": "set resistance level",
+                "set": {
+                  "syntax": "RES {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_power_level": {
+                "description": "set power level",
+                "set": {
+                  "syntax": "POW {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_voltage_slew_rate": {
+                "description": "set voltage slew rate",
+                "set": {
+                  "syntax": "VOLT:SLEW {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_voltage_slew_rate_neg": {
+                "description": "set voltage slew rate neg",
+                "set": {
+                  "syntax": "VOLT:SLEW:NEG {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_current_slew_rate": {
+                "description": "set current slew rate",
+                "set": {
+                  "syntax": "CURR:SLEW {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_current_slew_rate_neg": {
+                "description": "set current slew rate neg",
+                "set": {
+                  "syntax": "CURR:SLEW:NEG {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "short": {
+                "description": "short",
+                "set": {
+                  "syntax": "INP|OUTP:SHORt ON"
+                },
+                "query": null
+              },
+              "open": {
+                "description": "open",
+                "set": {
+                  "syntax": "INP|OUTP:SHORt OFF"
+                },
+                "query": null
+              },
+              "load_on": {
+                "description": "load on",
+                "set": {
+                  "syntax": "INP|OUTP ON"
+                },
+                "query": null
+              },
+              "load_off": {
+                "description": "load off",
+                "set": {
+                  "syntax": "INP|OUTP OFF"
+                },
+                "query": null
+              },
+              "enable_ucp": {
+                "description": "enable ucp",
+                "set": {
+                  "syntax": "CURR:UND:PROT:STAT ON"
+                },
+                "query": null
+              },
+              "set_ucp_level": {
+                "description": "set ucp level",
+                "set": {
+                  "syntax": "CURR:UND:PROT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_uvp_level": {
+                "description": "set uvp level",
+                "set": {
+                  "syntax": "VOLT:UND:PROT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "enable_uvp": {
+                "description": "enable uvp",
+                "set": {
+                  "syntax": "VOLT:UND:PROT:STAT ON"
+                },
+                "query": null
+              },
+              "clear_protection_fault": {
+                "description": "clear protection fault",
+                "set": {
+                  "syntax": ""
+                },
+                "query": null
+              }
             },
             "models": [
               {
@@ -1895,9 +3719,191 @@
                 "scpi_commands": {}
               }
             ]
+          },
+          {
+            "series_id": "Siglent_SDL1000X_E_Series",
+            "series_name": "Siglent SDL1000X-E Series Electronic Loads",
+            "common_scpi_commands": {
+              "reset": {
+                "description": "reset",
+                "set": {
+                  "syntax": "*RST"
+                },
+                "query": null
+              },
+              "clear_status": {
+                "description": "clear status",
+                "set": {
+                  "syntax": "*CLS"
+                },
+                "query": null
+              },
+              "identification_query": {
+                "description": "identification query",
+                "set": null,
+                "query": {
+                  "syntax": "*IDN?",
+                  "return_type": "string"
+                }
+              },
+              "error_query": {
+                "description": "error query",
+                "set": null,
+                "query": {
+                  "syntax": "SYST:ERR?",
+                  "return_type": "string"
+                }
+              },
+              "self_test": {
+                "description": "self test",
+                "set": null,
+                "query": {
+                  "syntax": "*TST?",
+                  "return_type": "int"
+                }
+              },
+              "load_on": {
+                "description": "load on",
+                "set": {
+                  "syntax": "LOAD ON"
+                },
+                "query": null
+              },
+              "load_off": {
+                "description": "load off",
+                "set": {
+                  "syntax": "LOAD OFF"
+                },
+                "query": null
+              },
+              "set_mode": {
+                "description": "set mode",
+                "set": {
+                  "syntax": "MODE {mode}",
+                  "args": ["mode"]
+                },
+                "query": null,
+                "parameters": {
+                  "mode": {
+                    "type": "string"
+                  }
+                }
+              },
+              "set_current_level": {
+                "description": "set current level",
+                "set": {
+                  "syntax": "CURR {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_voltage_level": {
+                "description": "set voltage level",
+                "set": {
+                  "syntax": "VOLT {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_resistance_level": {
+                "description": "set resistance level",
+                "set": {
+                  "syntax": "RES {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "set_power_level": {
+                "description": "set power level",
+                "set": {
+                  "syntax": "POW {value}",
+                  "args": ["value"]
+                },
+                "query": null,
+                "parameters": {
+                  "value": {
+                    "type": "float"
+                  }
+                }
+              },
+              "read_voltage": {
+                "description": "read voltage",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:VOLT?",
+                  "return_type": "float"
+                }
+              },
+              "read_current": {
+                "description": "read current",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:CURR?",
+                  "return_type": "float"
+                }
+              },
+              "read_power": {
+                "description": "read power",
+                "set": null,
+                "query": {
+                  "syntax": "MEAS:POW?",
+                  "return_type": "float"
+                }
+              }
+            },
+            "models": [
+              {
+                "id": "EL_Siglent_SDL1030X_E",
+                "name": "Siglent SDL1030X-E",
+                "manufacturer": "Siglent Technologies",
+                "model": "SDL1030X-E",
+                "documentation_path": "docs/Siglent/SDL1000X_E_Series/SDL1000X-E_ProgrammingGuide.pdf",
+                "interface": {
+                  "supported_connection_types": [
+                    {
+                      "type": "USB-TMC",
+                      "visa_resource_id_template": "USB_EL_{serial_number}",
+                      "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                    },
+                    {
+                      "type": "LXI",
+                      "visa_resource_id_template": "LXI_EL_{unique_id}",
+                      "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                    }
+                  ]
+                },
+                "capabilities": {
+                  "number_of_channels": 1,
+                  "operating_modes": [
+                    "CC",
+                    "CV",
+                    "CR",
+                    "CP"
+                  ],
+                  "max_voltage_v": 30,
+                  "max_current_a": 30,
+                  "max_power_w": 150
+                },
+                "scpi_commands": {},
+                "experimental": false
+              }
+            ]
           }
         ]
-      }
-    ]
   }
 }

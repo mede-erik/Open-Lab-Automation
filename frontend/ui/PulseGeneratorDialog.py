@@ -566,21 +566,30 @@ class PulseGeneratorDialog(QDialog):
             frequency = self.frequency_spin.value()
             
             # Send SCPI commands
-            cmd_high = self.current_scpi_commands['set_dynamic_level_high'].replace('{value}', str(amplitude))
-            cmd_low = self.current_scpi_commands['set_dynamic_level_low'].replace('{value}', str(base_level))
-            cmd_on = self.current_scpi_commands['load_on']
+            cmd_high = self._get_scpi_set_syntax(self.current_scpi_commands.get('set_dynamic_level_high'))
+            cmd_low = self._get_scpi_set_syntax(self.current_scpi_commands.get('set_dynamic_level_low'))
+            cmd_on = self._get_scpi_set_syntax(self.current_scpi_commands.get('load_on'))
+
+            if not cmd_high or not cmd_low or not cmd_on:
+                raise ValueError("Comandi SCPI richiesti mancanti o non validi")
+
+            cmd_high = cmd_high.format(value=amplitude)
+            cmd_low = cmd_low.format(value=base_level)
             
             self.visa_instr.write(cmd_high)
             self.visa_instr.write(cmd_low)
             
             # Check for additional dynamic mode commands if available
             if 'set_dynamic_frequency' in self.current_scpi_commands:
-                cmd_freq = self.current_scpi_commands['set_dynamic_frequency'].replace('{value}', str(frequency))
-                self.visa_instr.write(cmd_freq)
+                cmd_freq = self._get_scpi_set_syntax(self.current_scpi_commands.get('set_dynamic_frequency'))
+                if cmd_freq:
+                    self.visa_instr.write(cmd_freq.format(value=frequency))
             
             # Enable dynamic mode if command exists
             if 'enable_dynamic_mode' in self.current_scpi_commands:
-                self.visa_instr.write(self.current_scpi_commands['enable_dynamic_mode'])
+                cmd_enable = self._get_scpi_set_syntax(self.current_scpi_commands.get('enable_dynamic_mode'))
+                if cmd_enable:
+                    self.visa_instr.write(cmd_enable)
             
             # Turn load on
             self.visa_instr.write(cmd_on)
@@ -612,11 +621,14 @@ class PulseGeneratorDialog(QDialog):
         try:
             # Disable dynamic mode if command exists
             if 'disable_dynamic_mode' in self.current_scpi_commands:
-                self.visa_instr.write(self.current_scpi_commands['disable_dynamic_mode'])
+                cmd_disable = self._get_scpi_set_syntax(self.current_scpi_commands.get('disable_dynamic_mode'))
+                if cmd_disable:
+                    self.visa_instr.write(cmd_disable)
             
             # Turn load off
-            cmd_off = self.current_scpi_commands['load_off']
-            self.visa_instr.write(cmd_off)
+            cmd_off = self._get_scpi_set_syntax(self.current_scpi_commands.get('load_off'))
+            if cmd_off:
+                self.visa_instr.write(cmd_off)
             
             # Close connection
             self.visa_instr.close()
@@ -658,3 +670,13 @@ class PulseGeneratorDialog(QDialog):
                 event.ignore()
         else:
             event.accept()
+
+    def _get_scpi_set_syntax(self, command_def):
+        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
+        if isinstance(command_def, str):
+            return command_def
+        if isinstance(command_def, dict):
+            set_def = command_def.get('set')
+            if isinstance(set_def, dict):
+                return set_def.get('syntax')
+        return None

@@ -352,7 +352,22 @@ class DataloggerInstrumentDialog(QDialog):
                 "internal_memory_kpoints": self.internal_memory.value()
             },
             "scpi_commands": {
-                "setup_voltage_range": f"SENS:VOLT:DC:RANG {{range}},(@{{channels}})"
+                "setup_voltage_range": {
+                    "description": "setup voltage range",
+                    "set": {
+                        "syntax": "SENS:VOLT:DC:RANG {range},(@{channels})",
+                        "args": ["range", "channels"]
+                    },
+                    "query": None,
+                    "parameters": {
+                        "range": {
+                            "type": "float"
+                        },
+                        "channels": {
+                            "type": "string"
+                        }
+                    }
+                }
             }
         }
         
@@ -380,13 +395,64 @@ class DataloggerInstrumentDialog(QDialog):
                     "series_id": target_series_id,
                     "series_name": self.new_series_name.text(),
                     "common_scpi_commands": {
-                        "reset": "*RST",
-                        "clear_status": "*CLS", 
-                        "identification_query": "*IDN?",
-                        "error_query": "SYST:ERR?",
-                        "select_channels": "ROUT:SCAN (@{channels})",
-                        "read_scan": "READ?",
-                        "trigger_bus": "*TRG"
+                        "reset": {
+                            "description": "reset",
+                            "set": {
+                                "syntax": "*RST"
+                            },
+                            "query": None
+                        },
+                        "clear_status": {
+                            "description": "clear status",
+                            "set": {
+                                "syntax": "*CLS"
+                            },
+                            "query": None
+                        },
+                        "identification_query": {
+                            "description": "identification query",
+                            "set": None,
+                            "query": {
+                                "syntax": "*IDN?",
+                                "return_type": "string"
+                            }
+                        },
+                        "error_query": {
+                            "description": "error query",
+                            "set": None,
+                            "query": {
+                                "syntax": "SYST:ERR?",
+                                "return_type": "string"
+                            }
+                        },
+                        "select_channels": {
+                            "description": "select channels",
+                            "set": {
+                                "syntax": "ROUT:SCAN (@{channels})",
+                                "args": ["channels"]
+                            },
+                            "query": None,
+                            "parameters": {
+                                "channels": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "read_scan": {
+                            "description": "read scan",
+                            "set": None,
+                            "query": {
+                                "syntax": "READ?",
+                                "return_type": "string"
+                            }
+                        },
+                        "trigger_bus": {
+                            "description": "trigger bus",
+                            "set": {
+                                "syntax": "*TRG"
+                            },
+                            "query": None
+                        }
                     },
                     "models": [instrument_data]
                 }

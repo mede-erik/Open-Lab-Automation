@@ -1,0 +1,1903 @@
+{
+  "instrument_library": {
+    "power_supplies_series": [
+      {
+        "series_id": "OWON_ODP_Series",
+        "series_name": "OWON ODP Series Programmable DC Power Supplies",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYST:ERR?",
+          "self_test": "*TST?",
+          "select_channel": "INST:NSEL {channel_number}",
+          "set_voltage": "VOLT {value}",
+          "set_current": "CURR {value}",
+          "read_voltage": "MEAS:VOLT?",
+          "read_current": "MEAS:CURR?",
+          "read_power": "MEAS:POW?",
+          "output_on": "OUTP ON",
+          "output_off": "OUTP OFF",
+          "output_state_query": "OUTP?"
+        },
+        "models": [
+          {
+            "id": "PSU_OWON_ODP3033",
+            "name": "OWON ODP3033",
+            "manufacturer": "OWON Technology",
+            "model": "ODP3033",
+            "documentation_path": "docs/OWON/ODP_Series/ODP_Series_Power_Supply_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "SERIAL",
+                  "visa_resource_id_template": "SERIAL_PSU_{unique_id}",
+                  "address_format_example": "ASRL{COM_PORT}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "CH1 (30V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 30
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "CH2 (30V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 30
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "CH3 (6V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                }
+              ],
+              "trigger_output": false
+            },
+            "experimental": true
+          },
+          {
+            "id": "PSU_OWON_ODP3063",
+            "name": "OWON ODP3063",
+            "manufacturer": "OWON Technology",
+            "model": "ODP3063",
+            "documentation_path": "docs/OWON/ODP_Series/ODP_Series_Power_Supply_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                },
+                {
+                  "type": "SERIAL"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "CH1 (30V/6A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 30
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 6
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "CH2 (30V/6A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 30
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 6
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "CH3 (6V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                }
+              ]
+            },
+            "experimental": true  
+          },
+          {
+            "id": "PSU_OWON_ODP6033",
+            "name": "OWON ODP6033",
+            "manufacturer": "OWON Technology",
+            "model": "ODP6033",
+            "documentation_path": "docs/OWON/ODP_Series/ODP_Series_Power_Supply_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                },
+                {
+                  "type": "SERIAL"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "CH1 (60V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 60
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "CH2 (60V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 60
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "CH3 (6V/3A)",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 3
+                  }
+                }
+              ]
+            },
+            "experimental": true  
+          }
+        ]
+      },
+      {
+        "series_id": "Keysight_E36300_Series",
+        "series_name": "Keysight E36300 Series Programmable DC Power Supplies",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "select_channel": "INST:SEL CH{channel_number}",
+          "set_voltage": "VOLT {value}",
+          "set_current": "CURR {value}",
+          "read_voltage": "MEAS:VOLT? CH{channel_number}",
+          "read_current": "MEAS:CURR? CH{channel_number}",
+          "output_on": "OUTP ON",
+          "output_off": "OUTP OFF"
+        },
+        "models": [
+          {
+            "id": "PSU_Keysight_E36311A",
+            "name": "Keysight E36311A",
+            "manufacturer": "Keysight Technologies",
+            "model": "E36311A",
+            "documentation_path": "docs/Keysight/E36300_Series/Programmable DC Power Supplies E36300 Series.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "Channel 1",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 5
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "Channel 2",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 1
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "Channel 3",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 1
+                  }
+                }
+              ],
+              "notes": "Basic model, USB only, no LAN/GPIB."
+            },
+            "experimental": true
+          },
+          {
+            "id": "PSU_Keysight_E36312A",
+            "name": "Keysight E36312A",
+            "manufacturer": "Keysight Technologies",
+            "model": "E36312A",
+            "documentation_path": "docs/Keysight/E36300_Series/Programmable DC Power Supplies E36300 Series.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                },
+                {
+                  "type": "GPIB"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "Channel 1",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 5
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "Channel 2",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 1
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "Channel 3",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 1
+                  }
+                }
+              ],
+              "low_current_measurement": true
+            },
+            "experimental": true
+          },
+          {
+            "id": "PSU_Keysight_E36313A",
+            "name": "Keysight E36313A",
+            "manufacturer": "Keysight Technologies",
+            "model": "E36313A",
+            "documentation_path": "docs/Keysight/E36300_Series/Programmable DC Power Supplies E36300 Series.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                },
+                {
+                  "type": "GPIB"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 3,
+              "channels": [
+                {
+                  "channel_id": "1",
+                  "label": "Channel 1",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 6
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 10
+                  }
+                },
+                {
+                  "channel_id": "2",
+                  "label": "Channel 2",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 2
+                  }
+                },
+                {
+                  "channel_id": "3",
+                  "label": "Channel 3",
+                  "voltage_output": {
+                    "min": 0,
+                    "max": 25
+                  },
+                  "current_output": {
+                    "min": 0,
+                    "max": 2
+                  }
+                }
+              ],
+              "high_current_output": true,
+              "low_current_measurement": true
+            },
+            "experimental": true
+          }
+        ]
+      },
+      {
+        "series_id": "TDK_Lambda_GEN_Series",
+        "series_name": "TDK-Lambda GEN Series Power Supplies",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYSTem:ERRor?",
+          "self_test": "*TST?",
+          "set_voltage": "VOLT {value}",
+          "set_current": "CURR {value}",
+          "read_voltage": "MEAS:VOLT?",
+          "read_current": "MEAS:CURR?",
+          "output_on": "OUTPut ON",
+          "output_off": "OUTPut OFF",
+          "output_state_query": "OUTPut?"
+        },
+        "models": [
+          {
+            "id": "PSU_TDK_GEN80_19",
+            "name": "TDK-Lambda GEN80-19",
+            "manufacturer": "TDK-Lambda",
+            "model": "GEN80-19",
+            "documentation_path": "docs/TDK-Lambda/GEN_Series/GEN_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 1,
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Main Output",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 80.0,
+                    "resolution": 3,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 19.0,
+                    "resolution": 3,
+                    "units": "A"
+                  }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true
+            },
+            "scpi_commands": {},
+            "experimental": true
+          },
+          {
+            "id": "PSU_TDK_GEN80_30",
+            "name": "TDK-Lambda GEN80-30",
+            "manufacturer": "TDK-Lambda",
+            "model": "GEN80-30",
+            "documentation_path": "docs/TDK-Lambda/GEN_Series/GEN_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 1,
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Main Output",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 80.0,
+                    "resolution": 3,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 30.0,
+                    "resolution": 3,
+                    "units": "A"
+                  }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true
+            },
+            "scpi_commands": {},
+            "experimental": true
+          },
+          {
+            "id": "PSU_TDK_GEN100_15",
+            "name": "TDK-Lambda GEN100-15",
+            "manufacturer": "TDK-Lambda",
+            "model": "GEN100-15",
+            "documentation_path": "docs/TDK-Lambda/GEN_Series/GEN_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 1,
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Main Output",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 100.0,
+                    "resolution": 3,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 15.0,
+                    "resolution": 3,
+                    "units": "A"
+                  }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true
+            },
+            "scpi_commands": {},
+            "experimental": true
+          }
+        ]
+      },
+      {
+        "series_id": "Rohde_Schwarz_HPM_Series",
+        "series_name": "Rohde & Schwarz HPM Series Power Supplies",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYSTem:ERRor?",
+          "self_test": "*TST?",
+          "select_channel": "INST:SEL OUT{channel_number}",
+          "set_voltage": "VOLT {value}",
+          "set_current": "CURR {value}",
+          "read_voltage": "MEAS:VOLT? OUT{channel_number}",
+          "read_current": "MEAS:CURR? OUT{channel_number}",
+          "output_on": "OUTPut ON",
+          "output_off": "OUTPut OFF",
+          "output_state_query": "OUTPut?"
+        },
+        "models": [
+          {
+            "id": "PSU_Rohde_Schwarz_HPM4040",
+            "name": "Rohde & Schwarz HPM4040",
+            "manufacturer": "Rohde & Schwarz",
+            "model": "HPM4040",
+            "documentation_path": "docs/Rohde_Schwarz/HPM_Series/HPM4040_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_PSU_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_PSU_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "GPIB",
+                  "visa_resource_id_template": "GPIB_PSU_{unique_id}",
+                  "address_format_example": "GPIB0::{GPIB_ADDRESS}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "channels": [
+                {
+                  "channel_id": "OUT1",
+                  "label": "Channel 1",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 32.0,
+                    "resolution": 0.1,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 10.0,
+                    "resolution": 0.1,
+                    "units": "A"
+                  }
+                },
+                {
+                  "channel_id": "OUT2",
+                  "label": "Channel 2",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 32.0,
+                    "resolution": 0.1,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 10.0,
+                    "resolution": 0.1,
+                    "units": "A"
+                  }
+                },
+                {
+                  "channel_id": "OUT3",
+                  "label": "Channel 3",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 32.0,
+                    "resolution": 0.1,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 10.0,
+                    "resolution": 0.1,
+                    "units": "A"
+                  }
+                },
+                {
+                  "channel_id": "OUT4",
+                  "label": "Channel 4",
+                  "voltage_output": {
+                    "min": 0.0,
+                    "max": 32.0,
+                    "resolution": 0.1,
+                    "units": "V"
+                  },
+                  "current_output": {
+                    "min": 0.0,
+                    "max": 10.0,
+                    "resolution": 0.1,
+                    "units": "A"
+                  }
+                }
+              ],
+              "read_voltage": true,
+              "read_current": true
+            },
+            "scpi_commands": {},
+            "experimental": true
+          }
+        ]
+      }
+    ],
+    "dataloggers_series": [
+      {
+        "series_id": "Keysight_3497X_Series",
+        "series_name": "Keysight 3497XA/B Series",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYST:ERR?",
+          "self_test": "*TST?",
+          "query_status_byte": "*STB?",
+          "query_event_status_register": "*ESR?",
+          "enable_event_status_register": "*ESE {value}",
+          "query_event_status_enable": "*ESE?",
+          "select_channels": "ROUT:SCAN (@{channels})",
+          "read_scan": "READ?",
+          "trigger_bus": "*TRG",
+          "set_trigger_source": "TRIG:SOUR {source}",
+          "set_trigger_count": "TRIG:COUN {count}"
+        },
+        "models": [
+          {
+            "id": "DL_Keysight_34972A",
+            "name": "Keysight 34972A",
+            "manufacturer": "Keysight Technologies",
+            "model": "34972A",
+            "documentation_path": "docs/Keysight/3497X_Series/34972A_manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_DL_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_DL_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_slots": 3,
+              "compatible_modules": [
+                "34901A",
+                "34902A",
+                "34903A",
+                "34904A",
+                "34905A",
+                "34906A",
+                "34908A"
+              ]
+            },
+            "scpi_commands": {
+              "setup_voltage_range": "SENS:VOLT:DC:RANG {range},(@{channels})"
+            },
+            "experimental": true
+          }
+        ]
+      }
+    ],
+    "datalogger_modules": [
+      {
+        "module_id": "34901A",
+        "name": "Keysight 34901A 20-Channel Multiplexer Module",
+        "number_of_channels": 20,
+        "capabilities": {
+          "measurement_types": [
+            "VOLT:DC",
+            "VOLT:AC",
+            "TEMP"
+          ]
+        },
+        "max_voltage": 300.0,
+        "documentation_path": "docs/Keysight/3497X_Series/34901A_manual.pdf",
+        "speed": 60
+      },
+      {
+        "module_id": "34902A",
+        "name": "Keysight 34902A 16-Channel Multiplexer Module",
+        "number_of_channels": 16,
+        "capabilities": {
+          "measurement_types": [
+            "VOLT:DC",
+            "VOLT:AC",
+            "TEMP"
+          ]
+        },
+        "max_voltage": 300.0,
+        "documentation_path": "docs/Keysight/3497X_Series/34902A_manual.pdf",
+        "speed": 250
+      },
+      {
+        "module_id": "34903A",
+        "name": "Keysight 34903A 20-Channel Actuator/GP Switch Module",
+        "number_of_channels": 20,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34904A",
+        "name": "Keysight 34904A 4 x 8 Two-Wire Matrix Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34905A",
+        "name": "Keysight 34905A 2 GHz Dual 1:4 RF Mux, 50 Ohm Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34906A",
+        "name": "Keysight 34906A 2 GHz Dual 1:4 RF Mux, 75 Ohm Module",
+        "number_of_channels": 4,
+        "not_enabled": true
+      },
+      {
+        "module_id": "34908A",
+        "name": "Keysight 34908A 40 Channel Single-Ended Multiplexer Module",
+        "number_of_channels": 40,
+        "speed": 60,
+        "capabilities": {
+          "measurement_types": [
+            "VOLT:DC",
+            "VOLT:AC",
+            "TEMP"
+          ]
+        },
+        "max_voltage": 300.0
+      }
+    ],
+    "oscilloscopes_series": [
+      {
+        "series_id": "Tektronix_5_Series_MSO",
+        "series_name": "Tektronix 5 Series Mixed Signal Oscilloscopes",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "auto_setup": "AUTOSet EXECute",
+          "set_channel_scale": "CH{channel_number}:SCAle {value}",
+          "set_channel_offset": "CH{channel_number}:OFFSet {value}",
+          "set_timebase_scale": "HORizontal:MODE:SCAle {value}",
+          "run_acquisition": "ACQuire:STATE RUN",
+          "stop_acquisition": "ACQuire:STATE STOP",
+          "set_trigger_source": "TRIGger:A:EDGE:SOUrce CH{channel_number}",
+          "set_trigger_level": "TRIGger:A:LEVel:CH{channel_number} {value}",
+          "query_waveform_data": "CURVe?",
+          "query_waveform_preamble": "WFMOutpre?"
+        },
+        "models": [
+          {
+            "id": "OSC_Tek_MSO54",
+            "name": "Tektronix MSO54",
+            "manufacturer": "Tektronix",
+            "model": "MSO54",
+            "documentation_path": "docs/Tektronix/5_Series/5-Series-MSO-Programmer-Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "flex_channels": true,
+              "bandwidth_mhz_max": 2000,
+              "sample_rate_gsa_s": 6.25
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Tek_MSO56",
+            "name": "Tektronix MSO56",
+            "manufacturer": "Tektronix",
+            "model": "MSO56",
+            "documentation_path": "docs/Tektronix/5_Series/5-Series-MSO-Programmer-Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 6,
+              "flex_channels": true,
+              "bandwidth_mhz_max": 2000,
+              "sample_rate_gsa_s": 6.25
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Tek_MSO58",
+            "name": "Tektronix MSO58",
+            "manufacturer": "Tektronix",
+            "model": "MSO58",
+            "documentation_path": "docs/Tektronix/5_Series/5-Series-MSO-Programmer-Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 8,
+              "flex_channels": true,
+              "bandwidth_mhz_max": 2000,
+              "sample_rate_gsa_s": 6.25
+            },
+            "experimental": false
+          },
+          {
+            "id": "OSC_Tek_MSO58LP",
+            "name": "Tektronix MSO58 Low Profile",
+            "manufacturer": "Tektronix",
+            "model": "MSO58LP",
+            "documentation_path": "docs/Tektronix/5_Series/5-Series-MSO-Programmer-Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI"
+                },
+                {
+                  "type": "USB-TMC"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 8,
+              "flex_channels": true,
+              "notes": "Low Profile 1U Form Factor"
+            },
+            "experimental": true
+          }
+        ]
+      },
+      {
+        "series_id": "Rigol_DS1000Z_Series",
+        "series_name": "Rigol DS1000Z Series Digital Oscilloscopes",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": ":SYSTem:ERRor?",
+          "self_test": "*TST?",
+          "query_status_byte": "*STB?",
+          "query_event_status_register": "*ESR?",
+          "enable_event_status_register": "*ESE {value}",
+          "query_event_status_enable": "*ESE?",
+          "auto_setup": ":AUToscale",
+          "set_channel_coupling": ":CHANnel{channel_number}:COUPling {coupling_type}",
+          "set_channel_scale": ":CHANnel{channel_number}:SCALe {value}",
+          "set_channel_offset": ":CHANnel{channel_number}:OFFSet {value}",
+          "query_channel_scale": ":CHANnel{channel_number}:SCALe?",
+          "query_channel_offset": ":CHANnel{channel_number}:OFFSet?",
+          "set_timebase_scale": ":TIMebase:SCALe {value}",
+          "query_timebase_scale": ":TIMebase:SCALe?",
+          "set_trigger_mode": ":TRIGger:MODE {mode}",
+          "set_trigger_source": ":TRIGger:EDGE:SOURce CHAN{channel_number}",
+          "set_trigger_level": ":TRIGger:EDGE:LEVel {value}",
+          "query_trigger_level": ":TRIGger:EDGE:LEVel?",
+          "force_trigger": ":TRIGger:FORCe",
+          "set_waveform_source": ":WAVeform:SOURce CHAN{channel_number}",
+          "set_waveform_format": ":WAVeform:FORMat {format_type}",
+          "query_waveform_preamble": ":WAVeform:PREamble?",
+          "query_waveform_data": ":WAVeform:DATA?",
+          "run_acquisition": ":RUN",
+          "stop_acquisition": ":STOP",
+          "single_acquisition": ":SINGle"
+        },
+        "models": [
+          {
+            "id": "OSC_Rigol_DS1054Z",
+            "name": "Rigol DS1054Z",
+            "manufacturer": "Rigol Technologies",
+            "model": "DS1054Z",
+            "documentation_path": "docs/Rigol/DS1000Z_Series/DS1054Z_Programming_Guide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 50,
+              "sample_rate_gsa_s": 1.0,
+              "memory_depth_mpts": 12,
+              "measurement_types": [
+                "VMAX",
+                "VMIN",
+                "VPP",
+                "RMS",
+                "FREQ",
+                "PERIod"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "PULS",
+                "VIDeo"
+              ],
+              "waveform_formats": [
+                "ASCii",
+                "BYTE",
+                "WORD"
+              ],
+              "channels": [
+                {
+                  "channel_id": "CHAN1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "CHAN2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "CHAN3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "CHAN4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": true
+          },
+          {
+            "id": "OSC_Rigol_DS1104Z_Plus",
+            "name": "Rigol DS1104Z Plus",
+            "manufacturer": "Rigol Technologies",
+            "model": "DS1104Z Plus",
+            "documentation_path": "docs/Rigol/DS1000Z_Series/DS1104Z_Plus_Programming_Guide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 100,
+              "sample_rate_gsa_s": 1.0,
+              "memory_depth_mpts": 24,
+              "measurement_types": [
+                "VMAX",
+                "VMIN",
+                "VPP",
+                "RMS",
+                "FREQ",
+                "PERIod"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "PULS",
+                "VIDeo"
+              ],
+              "waveform_formats": [
+                "ASCii",
+                "BYTE",
+                "WORD"
+              ],
+              "channels": [
+                {
+                  "channel_id": "CHAN1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "CHAN2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "CHAN3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "CHAN4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": true
+          }
+        ]
+      },
+      {
+        "series_id": "Tektronix_MSO_Series",
+        "series_name": "Tektronix MSO Series Mixed Signal Oscilloscopes",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYST:ERR?",
+          "self_test": "*TST?",
+          "set_channel_coupling": "CH{channel_number}:COUP {coupling_type}",
+          "set_channel_scale": "CH{channel_number}:SCA {value}",
+          "set_channel_offset": "CH{channel_number}:OFFS {value}",
+          "query_channel_scale": "CH{channel_number}:SCA?",
+          "query_channel_offset": "CH{channel_number}:OFFS?",
+          "set_timebase_scale": "HOR:MAI:SCA {value}",
+          "query_timebase_scale": "HOR:MAI:SCA?",
+          "set_trigger_mode": "TRIG:A:MODE {mode}",
+          "set_trigger_source": "TRIG:A:EDGE:SOU CH{channel_number}",
+          "set_trigger_level": "TRIG:A:LEVel {value}",
+          "query_trigger_level": "TRIG:A:LEVel?",
+          "force_trigger": "TRIG:A:FORC",
+          "acquire_run": "ACQ:STATE RUN",
+          "acquire_stop": "ACQ:STATE STOP",
+          "acquire_single": "ACQ:STATE RUN;*OPC",
+          "waveform_preamble_query": "WAVFrm:PREamble?",
+          "waveform_data_query": "WAVFrm:DATA?"
+        },
+        "models": [
+          {
+            "id": "OSC_Tektronix_MSO54",
+            "name": "Tektronix MSO54",
+            "manufacturer": "Tektronix",
+            "model": "MSO54",
+            "documentation_path": "docs/Tektronix/MSO_Series/MSO54_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "GPIB",
+                  "visa_resource_id_template": "GPIB_OSC_{unique_id}",
+                  "address_format_example": "GPIB0::{GPIB_ADDRESS}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 500,
+              "sample_rate_gsa_s": 6.25,
+              "memory_depth_mpts": 62.5,
+              "measurement_types": [
+                "VMAX",
+                "VMIN",
+                "VPP",
+                "VAVG",
+                "VRMS",
+                "FREQ",
+                "PERIod",
+                "RISE",
+                "FALL",
+                "PWIDth"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "PULse",
+                "LOGIc",
+                "RUNT",
+                "SETUp"
+              ],
+              "waveform_formats": [
+                "ASCii",
+                "BINary"
+              ],
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Analog Channel 1"
+                },
+                {
+                  "channel_id": "CH2",
+                  "label": "Analog Channel 2"
+                },
+                {
+                  "channel_id": "CH3",
+                  "label": "Analog Channel 3"
+                },
+                {
+                  "channel_id": "CH4",
+                  "label": "Analog Channel 4"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": false
+          },
+          {
+            "id": "OSC_Tektronix_MSO58",
+            "name": "Tektronix MSO58",
+            "manufacturer": "Tektronix",
+            "model": "MSO58",
+            "documentation_path": "docs/Tektronix/MSO_Series/MSO58_Programming_Manual.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                },
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 8,
+              "bandwidth_mhz": 1000,
+              "sample_rate_gsa_s": 25.0,
+              "memory_depth_mpts": 125.0,
+              "measurement_types": [
+                "VMAX",
+                "VMIN",
+                "VPP",
+                "VAVG",
+                "VRMS",
+                "FREQ",
+                "PERIod",
+                "RISE",
+                "FALL",
+                "PWIDth"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "PULse",
+                "LOGIc",
+                "RUNT",
+                "SETUp"
+              ],
+              "waveform_formats": [
+                "ASCii",
+                "BINary"
+              ],
+              "channels": [
+                {
+                  "channel_id": "CH1",
+                  "label": "Analog Channel 1"
+                },
+                {
+                  "channel_id": "CH2",
+                  "label": "Analog Channel 2"
+                },
+                {
+                  "channel_id": "CH3",
+                  "label": "Analog Channel 3"
+                },
+                {
+                  "channel_id": "CH4",
+                  "label": "Analog Channel 4"
+                },
+                {
+                  "channel_id": "CH5",
+                  "label": "Analog Channel 5"
+                },
+                {
+                  "channel_id": "CH6",
+                  "label": "Analog Channel 6"
+                },
+                {
+                  "channel_id": "CH7",
+                  "label": "Analog Channel 7"
+                },
+                {
+                  "channel_id": "CH8",
+                  "label": "Analog Channel 8"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": true
+          }
+        ]
+      },
+      {
+        "series_id": "Siglent_SDS_HD_Series",
+        "series_name": "Siglent SDS HD Series Digital Oscilloscopes",
+        "common_scpi_commands": {
+          "reset": "*RST",
+          "clear_status": "*CLS",
+          "identification_query": "*IDN?",
+          "error_query": "SYSTem:ERRor?",
+          "self_test": "*TST?",
+          "operation_complete_query": "*OPC?",
+          "auto_setup": ":AUToset",
+          "set_channel_coupling": ":CHANnel{channel_number}:COUPling {coupling_type}",
+          "set_channel_scale": ":CHANnel{channel_number}:SCALe {value}",
+          "set_channel_offset": ":CHANnel{channel_number}:OFFSet {value}",
+          "query_channel_scale": ":CHANnel{channel_number}:SCALe?",
+          "query_channel_offset": ":CHANnel{channel_number}:OFFSet?",
+          "set_timebase_scale": ":TIMebase:SCALe {value}",
+          "query_timebase_scale": ":TIMebase:SCALe?",
+          "set_timebase_delay": ":TIMebase:DELay {value}",
+          "set_trigger_mode": ":TRIGger:MODE {mode}",
+          "set_trigger_source": ":TRIGger:EDGE:SOURce C{channel_number}",
+          "set_trigger_level": ":TRIGger:EDGE:LEVel {value}",
+          "query_trigger_level": ":TRIGger:EDGE:LEVel?",
+          "set_waveform_source": ":WAVeform:SOURce C{channel_number}",
+          "set_waveform_format": ":WAVeform:FORMat {format_type}",
+          "query_waveform_preamble": ":WAVeform:PREamble?",
+          "query_waveform_data": ":WAVeform:DATA?",
+          "acquire_memory_depth": ":ACQuire:MDEPth {depth}",
+          "run_acquisition": ":TRIGger:RUN",
+          "stop_acquisition": ":TRIGger:STOP",
+          "single_acquisition": ":TRIGger:MODE SINGle"
+        },
+        "models": [
+          {
+            "id": "OSC_Siglent_SDS804X_HD",
+            "name": "Siglent SDS804X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS804X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 70,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 50,
+              "measurement_types": [
+                "PKPK",
+                "MAX",
+                "MIN",
+                "AMPL",
+                "MEAN",
+                "RMS",
+                "FREQ",
+                "PERiod",
+                "RISE",
+                "FALL"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "SLOPe",
+                "PULSe",
+                "VIDeo",
+                "WINDow",
+                "INTerval",
+                "DROPout",
+                "RUNT",
+                "PATTern"
+              ],
+              "waveform_formats": [
+                "ASCii",
+                "BYTE",
+                "WORD"
+              ],
+              "memory_size_options": [
+                "10k",
+                "100k",
+                "1M",
+                "10M",
+                "25M",
+                "50M"
+              ],
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": true
+          },
+          {
+            "id": "OSC_Siglent_SDS814X_HD",
+            "name": "Siglent SDS814X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS814X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 100,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 50,
+              "measurement_types": [
+                "PKPK",
+                "MAX",
+                "MIN",
+                "AMPL",
+                "MEAN",
+                "RMS",
+                "FREQ",
+                "PERiod"
+              ],
+              "trigger_modes": [
+                "EDGE",
+                "PULS",
+                "VIDeo",
+                "SLOPe"
+              ],
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Siglent_SDS824X_HD",
+            "name": "Siglent SDS824X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS824X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 200,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 100,
+              "measurement_types": [
+                "PKPK",
+                "MAX",
+                "MIN",
+                "AMPL",
+                "MEAN",
+                "RMS",
+                "FREQ",
+                "PERiod"
+              ],
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Siglent_SDS1104X_HD",
+            "name": "Siglent SDS1104X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS1104X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 100,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 100,
+              "measurement_types": [
+                "PKPK",
+                "MAX",
+                "MIN",
+                "AMPL",
+                "MEAN",
+                "RMS",
+                "FREQ",
+                "PERiod"
+              ],
+              "memory_size_options": [
+                "10k",
+                "100k",
+                "1M",
+                "10M",
+                "25M",
+                "50M",
+                "100M"
+              ],
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Siglent_SDS1204X_HD",
+            "name": "Siglent SDS1204X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS1204X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 200,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 100,
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "experimental":   true
+          },
+          {
+            "id": "OSC_Siglent_SDS2104X_HD",
+            "name": "Siglent SDS2104X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS2104X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 100,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 200,
+              "memory_size_options": [
+                "20k",
+                "200k",
+                "2M",
+                "20M",
+                "200M"
+              ],
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "experimental": true
+          },
+          {
+            "id": "OSC_Siglent_SDS2354X_HD",
+            "name": "Siglent SDS2354X HD",
+            "manufacturer": "Siglent Technologies",
+            "model": "SDS2354X HD",
+            "documentation_path": "docs/Siglent/SDS800X_Series/SDS800XHD_Series_ProgrammingGuide.pdf",
+            "interface": {
+              "supported_connection_types": [
+                {
+                  "type": "USB-TMC",
+                  "visa_resource_id_template": "USB_OSC_{serial_number}",
+                  "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                },
+                {
+                  "type": "LXI",
+                  "visa_resource_id_template": "LXI_OSC_{unique_id}",
+                  "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                }
+              ]
+            },
+            "capabilities": {
+              "number_of_channels": 4,
+              "bandwidth_mhz": 350,
+              "sample_rate_gsa_s": 2.0,
+              "vertical_resolution_bits": 12,
+              "memory_depth_mpts": 200,
+              "channels": [
+                {
+                  "channel_id": "C1",
+                  "label": "Channel 1"
+                },
+                {
+                  "channel_id": "C2",
+                  "label": "Channel 2"
+                },
+                {
+                  "channel_id": "C3",
+                  "label": "Channel 3"
+                },
+                {
+                  "channel_id": "C4",
+                  "label": "Channel 4"
+                }
+              ]
+            },
+            "scpi_commands": {},
+            "experimental": true
+          }
+        ],
+        "electronic_loads_series": [
+          {
+            "series_id": "Chroma_6330A_Series",
+            "series_name": "Chroma 6330A Series DC Electronic Load Mainframes",
+            "notes": "The 6330A is a mainframe. Actual load capabilities depend on installed modules.",
+            "common_scpi_commands": {
+              "reset": "*RST",
+              "clear_status": "*CLS",
+              "identification_query": "*IDN?",
+              "error_query": "SYST:ERR?",
+              "self_test": "*TST?",
+              "query_status_byte": "*STB?",
+              "query_event_status_register": "*ESR?",
+              "enable_event_status_register": "*ESE {value}",
+              "query_event_status_enable": "*ESE?",
+              "load_on": "LOAD ON",
+              "load_off": "LOAD OFF",
+              "set_mode": "MODE {mode}",
+              "set_current_level": "CURR:LEV {value}",
+              "set_voltage_level": "VOLT:LEV {value}",
+              "set_resistance_level": "RES:LEV {value}",
+              "set_power_level": "POW:LEV {value}",
+              "read_voltage": "MEAS:VOLT?",
+              "read_current": "MEAS:CURR?",
+              "read_power": "MEAS:POW?"
+            },
+            "models": [
+              {
+                "id": "EL_Chroma_6330A",
+                "name": "Chroma 6330A Electronic Load Mainframe",
+                "manufacturer": "Chroma ATE Inc.",
+                "model": "6330A",
+                "documentation_path": "docs/Chroma/6330A_Series/6330A_Programming_Manual.pdf",
+                "interface": {
+                  "supported_connection_types": [
+                    {
+                      "type": "GPIB",
+                      "visa_resource_id_template": "GPIB_EL_{unique_id}",
+                      "address_format_example": "GPIB0::{GPIB_ADDRESS}::INSTR"
+                    },
+                    {
+                      "type": "USB-TMC",
+                      "visa_resource_id_template": "USB_EL_{serial_number}",
+                      "address_format_example": "USB0::{VENDOR_ID}::{PRODUCT_ID}::{SERIAL_NUMBER}::INSTR"
+                    },
+                    {
+                      "type": "LXI",
+                      "visa_resource_id_template": "LXI_EL_{unique_id}",
+                      "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                    }
+                  ]
+                },
+                "capabilities": {
+                  "number_of_slots": 4,
+                  "max_power_per_frame_w": 1200,
+                  "operating_modes": [
+                    "CC",
+                    "CV",
+                    "CP",
+                    "CR",
+                    "CZ"
+                  ],
+                  "dynamic_mode": true,
+                  "read_voltage": true,
+                  "read_current": true,
+                  "read_power": true
+                },
+                "scpi_commands": {
+                  "set_dynamic_level_high": "CURR:DYN:L1 {value}",
+                  "set_dynamic_level_low": "CURR:DYN:L2 {value}"
+                }
+              }
+            ]
+          },
+          {
+            "series_id": "Keysight_EL4900_Series",
+            "series_name": "Keysight EL4900 Series Electronic Loads",
+            "notes": "High-Power, High-Density Regenerative DC Electronic Loads",
+            "common_scpi_commands": {
+              "reset": "*RST",
+              "clear_status": "*CLS",
+              "identification_query": "*IDN?",
+              "enable_ovp": "VOLT:PROT:STAT ON",
+              "disable_ovp": "VOLT:PROT:STAT OFF",
+              "set_ovp_level": "VOLT:PROT {value}",
+              "enable_ocp": "CURR:PROT:STAT ON",
+              "set_ocp_level": "CURR:PROT {value}",
+              "enable_opp": "POW:PROT:STAT ON",
+              "set_opp_level": "POW:PROT {value}",
+              "set_mode": "FUNC|MODE {mode}",
+              "set_current_level": "CURR {value}",
+              "set_voltage_level": "VOLT {value}",
+              "set_resistance_level": "RES {value}",
+              "set_power_level": "POW {value}",
+              "set_voltage_slew_rate": "VOLT:SLEW {value}",
+              "set_voltage_slew_rate_neg": "VOLT:SLEW:NEG {value}",
+              "set_current_slew_rate": "CURR:SLEW {value}",
+              "set_current_slew_rate_neg": "CURR:SLEW:NEG {value}",
+              "short": "INP|OUTP:SHORt ON",
+              "open": "INP|OUTP:SHORt OFF",
+              "load_on": "INP|OUTP ON",
+              "load_off": "INP|OUTP OFF",
+              "enable_ucp": "CURR:UND:PROT:STAT ON",
+              "set_ucp_level": "CURR:UND:PROT {value}",
+              "set_uvp_level": "VOLT:UND:PROT {value}",
+              "enable_uvp": "VOLT:UND:PROT:STAT ON",
+              "clear_protection_fault": ""
+            },
+            "models": [
+              {
+                "id": "EL_Keysight_EL4913A",
+                "name": "Keysight EL4913A",
+                "manufacturer": "Keysight Technologies",
+                "model": "EL4913A",
+                "documentation_path": "docs/Keysight/EL4900_Series/EL4913A_Programming_Guide.pdf",
+                "interface": {
+                  "supported_connection_types": [
+                    {
+                      "type": "LXI",
+                      "visa_resource_id_template": "LXI_EL_{unique_id}",
+                      "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
+                    }
+                  ]
+                },
+                "capabilities": {
+                  "max_power_w": 2000,
+                  "operating_modes": [
+                    "CC",
+                    "CV",
+                    "CR",
+                    "CP"
+                  ],
+                  "max_voltage_v": 80,
+                  "max_current_a": 40,
+                  "current_slope_us": 10
+                },
+                "scpi_commands": {}
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

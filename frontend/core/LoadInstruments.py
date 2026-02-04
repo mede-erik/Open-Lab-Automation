@@ -564,16 +564,23 @@ class LoadInstruments:
         Returns:
             list: Lista dei tipi di strumenti disponibili.
         """
-        available = []
         mapping = [
             ('power_supplies_series', 'power_supply'),
             ('dataloggers_series', 'datalogger'),
             ('oscilloscopes_series', 'oscilloscope'),
             ('electronic_loads_series', 'electronic_load'),
         ]
+        available = []
         for key, tname in mapping:
             series = self.instruments.get(key)
             if isinstance(series, list) and len(series) > 0:
+                available.append(tname)
+
+        # Assicura che tutte le categorie siano disponibili nella GUI di aggiunta
+        # anche quando la libreria non contiene ancora serie per quel tipo.
+        all_types = [tname for _, tname in mapping]
+        for tname in all_types:
+            if tname not in available:
                 available.append(tname)
         return available
 

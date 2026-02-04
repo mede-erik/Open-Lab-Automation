@@ -18,45 +18,6 @@
       "visa_address": "TCPIP0::192.168.1.100::INSTR"
     },
     {
-      "instrument_type": "oscilloscopes",
-      "instance_name": "OSC",
-      "series": "Rigol_DS1000Z_Series",
-      "model": "Rigol DS1054Z",
-      "model_id": "OSC_Rigol_DS1054Z",
-      "num_channels": 4,
-      "channels": [
-        {
-          "enabled": true,
-          "name": "Vd_Q1",
-          "channel_id": "CH1",
-          "volt_per_div": "10V",
-          "probe_attenuation": 1.0
-        },
-        {
-          "enabled": true,
-          "name": "Vs_Q1",
-          "channel_id": "CH2",
-          "volt_per_div": "10V",
-          "probe_attenuation": 1.0
-        },
-        {
-          "enabled": false,
-          "name": "CH3",
-          "channel_id": "CH3",
-          "volt_per_div": "1V",
-          "probe_attenuation": 1.0
-        },
-        {
-          "enabled": false,
-          "name": "CH4",
-          "channel_id": "CH4",
-          "volt_per_div": "1V",
-          "probe_attenuation": 1.0
-        }
-      ],
-      "visa_address": "TCPIP0::192.168.1.104::INSTR"
-    },
-    {
       "instrument_type": "power_supply",
       "instance_name": "HC",
       "series": "Keysight_E36300_Series",
@@ -104,6 +65,15 @@
         },
         {
           "enabled": true,
+          "name": "Vcc",
+          "meas_type": "VOLT:DC",
+          "attenuation": 1.0,
+          "unit": "V",
+          "slot_number": 1,
+          "module_id": "34902A"
+        },
+        {
+          "enabled": true,
           "name": "VOUT",
           "meas_type": "VOLT:DC",
           "attenuation": 1.0,
@@ -142,8 +112,8 @@
               "unit": "V"
             },
             {
-              "enabled": false,
-              "name": "CH3",
+              "enabled": true,
+              "name": "Vcc",
               "meas_type": "VOLT:DC",
               "attenuation": 1.0,
               "unit": "V"
@@ -744,6 +714,45 @@
         }
       ],
       "visa_address": "TCPIP0::127.0.0.1::INSTR"
+    },
+    {
+      "instrument_type": "oscilloscope",
+      "instance_name": "OSC",
+      "series": "Siglent_SDS_HD_Series",
+      "model": "Siglent SDS824X HD",
+      "model_id": "OSC_Siglent_SDS824X_HD",
+      "num_channels": 4,
+      "channels": [
+        {
+          "enabled": true,
+          "name": "CH1",
+          "channel_id": "CH1",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH2",
+          "channel_id": "CH2",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH3",
+          "channel_id": "CH3",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        },
+        {
+          "enabled": false,
+          "name": "CH4",
+          "channel_id": "CH4",
+          "volt_per_div": "1V",
+          "probe_attenuation": 1.0
+        }
+      ],
+      "visa_address": "TCPIP0::192.168.1.125::inst0::INSTR"
     }
   ]
 }

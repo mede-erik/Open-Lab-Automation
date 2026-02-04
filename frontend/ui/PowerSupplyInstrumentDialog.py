@@ -362,10 +362,36 @@ class PowerSupplyInstrumentDialog(QDialog):
                     "series_id": target_series_id,
                     "series_name": self.new_series_name.text(),
                     "common_scpi_commands": {
-                        "reset": "*RST",
-                        "clear_status": "*CLS", 
-                        "identification_query": "*IDN?",
-                        "error_query": "SYST:ERR?"
+                        "reset": {
+                            "description": "reset",
+                            "set": {
+                                "syntax": "*RST"
+                            },
+                            "query": None
+                        },
+                        "clear_status": {
+                            "description": "clear status",
+                            "set": {
+                                "syntax": "*CLS"
+                            },
+                            "query": None
+                        },
+                        "identification_query": {
+                            "description": "identification query",
+                            "set": None,
+                            "query": {
+                                "syntax": "*IDN?",
+                                "return_type": "string"
+                            }
+                        },
+                        "error_query": {
+                            "description": "error query",
+                            "set": None,
+                            "query": {
+                                "syntax": "SYST:ERR?",
+                                "return_type": "string"
+                            }
+                        }
                     },
                     "models": [instrument_data]
                 }

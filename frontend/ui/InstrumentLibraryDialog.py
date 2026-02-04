@@ -276,7 +276,7 @@ Comandi SCPI comuni:
         
         common_commands = series_data.get('common_scpi_commands', {})
         for cmd_name, cmd_value in common_commands.items():
-            details += f"• {cmd_name}: {cmd_value}\n"
+            details += f"• {cmd_name}: {self._format_scpi_command(cmd_value)}\n"
             
         if models:
             details += f"\nModelli nella serie:\n"
@@ -346,7 +346,7 @@ Documentazione: {model_data.get('documentation_path', 'N/A')}
         if scpi_commands:
             details += f"\nComandi SCPI specifici del modello:\n"
             for cmd_name, cmd_value in scpi_commands.items():
-                details += f"• {cmd_name}: {cmd_value}\n"
+                details += f"• {cmd_name}: {self._format_scpi_command(cmd_value)}\n"
                 
         # Note aggiuntive
         notes = model_data.get('notes', '')
@@ -362,3 +362,20 @@ Documentazione: {model_data.get('documentation_path', 'N/A')}
     def save_instrument_library(self):
         # Se serve salvare, usa i metodi di LoadInstruments
         pass
+
+    def _format_scpi_command(self, command_def):
+        """Formatta un comando SCPI per la visualizzazione, compatibile con vecchio formato."""
+        if isinstance(command_def, str):
+            return command_def
+        if not isinstance(command_def, dict):
+            return "N/A"
+        set_def = command_def.get('set')
+        query_def = command_def.get('query')
+        parts = []
+        if isinstance(set_def, dict) and set_def.get('syntax'):
+            parts.append(f"set: {set_def.get('syntax')}")
+        if isinstance(query_def, dict) and query_def.get('syntax'):
+            parts.append(f"query: {query_def.get('syntax')}")
+        if parts:
+            return " | ".join(parts)
+        return "N/A"
