@@ -62,63 +62,7 @@ Provide any model-specific SCPI commands:
 ## Complete JSON Structure
 
 ```json
-{
-  "series_id": "Manufacturer_ModelSeries_Series",
-  "series_name": "Manufacturer ModelSeries Series",
-  "common_scpi_commands": {
-    "reset": "*RST",
-    "clear_status": "*CLS",
-    "identification_query": "*IDN?",
-    "error_query": "SYST:ERR?",
-    "self_test": "*TST?",
-    "query_status_byte": "*STB?",
-    "query_event_status_register": "*ESR?",
-    "enable_event_status_register": "*ESE {value}",
-    "query_event_status_enable": "*ESE?"
-  },
-  "models": [
-    {
-      "id": "TYPE_Manufacturer_Model",
-      "name": "Manufacturer Model",
-      "manufacturer": "Manufacturer Name",
-      "model": "Model",
-      "documentation_path": "docs/Manufacturer/Series/Model_manual.pdf",
-      "interface": {
-        "supported_connection_types": [
-          {
-            "type": "LXI",
-            "visa_resource_id_template": "LXI_TYPE_{unique_id}",
-            "address_format_example": "TCPIP0::{IP_ADDRESS}::inst0::INSTR"
-          },
-          {
-            "type": "GPIB",
-            "visa_resource_id_template": "GPIB_TYPE_{unique_id}",
-            "address_format_example": "GPIB0::{GPIB_ADDRESS}::INSTR"
-          }
-        ]
-      },
-      "capabilities": {
-        "number_of_channels": 3,
-        "channels": [
-          {
-            "channel_id": "CH1",
-            "label": "Channel 1 (0-6V)",
-            "voltage_output": { "min": 0.0, "max": 6.0, "resolution": 3, "units": "V" },
-            "current_output": { "min": 0.0, "max": 5.0, "resolution": 3, "units": "A" }
-          }
-        ],
-        "read_voltage": true,
-        "read_current": true,
-        "trigger_output": false,
-        "sense_mode": ["INTernal", "EXTernal"],
-        "over_voltage_protection": true
-      },
-      "scpi_commands": {
-        "command_name": "SCPI:COMMAND {parameters}"
-      }
-    }
-  ]
-}
+
 ```
 
 ## Testing
