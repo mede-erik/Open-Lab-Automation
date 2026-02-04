@@ -1,8 +1,0 @@
-# implemntazione panello controllo strumenti
-
-- ricostruendo da zero il panello di controllo Per ogni canale di un strumento di potenza (alimentatore o carico elletronico) genera un riquadro visualizando al suo interno un campo per impostare il valore di tensione e uno per quello di corrente un di finaco al altro sul lato sinsitro della box e sotto la viualizazione del dato misurato dallo stesso strumento sempre all interno della stessa box, sul lato destro sarrano collcati 3 pulsanti 2 verso lalto per selezionare il valora da modificare (Tensione o corrente) e uno verso il basso separato dai altri due per abilitare loutput dello strumento, a fianco di questi pulsanti inserire rottella virtuale a scorrimento inffinito che permetta di alzare il valore selzionato tramte il pulsante, sotto questa rotella inserisci due freccie che servono a selezionare il digit che verra aumentato tramite la rotella,il titolo del riquadro (<Nome strumento> [<numero canale,<Nome sengniale>>]), il titolo si porra al di sopra di tutto
-
-- Tutte le variabili di misura che vengono misuratre dai datalogger o multimetro verrano visualizatte in un riquadro nella parte alta del pannello di controllo, visualizando <Nome varibile di misura>=<Valore> <Unita di misura>
-
-# Database:
--ogni progetto e un database, ogni efficenza e una tabella composta da le variabili della misura (stringa) che servono al utente per riconoscere la misura, e un array annidati a secondo delle varibili di sweep (gli array sono in double)

@@ -77,6 +77,82 @@ class ErrorCode(Enum):
     TOOL_PULSE_ALREADY_RUNNING = "[TOOL-006]"
     TOOL_MISSING_CAPABILITIES = "[TOOL-007]"
     TOOL_POWER_EXCEEDS_LIMIT = "[TOOL-008]"
+    
+    # Project related errors (PROJ-XXX)
+    PROJ_NOT_FOUND = "[PROJ-001]"
+    PROJ_CORRUPT = "[PROJ-002]"
+    PROJ_INVALID_FORMAT = "[PROJ-003]"
+    PROJ_SAVE_FAILED = "[PROJ-004]"
+    PROJ_LOAD_FAILED = "[PROJ-005]"
+    PROJ_INCOMPATIBLE_VERSION = "[PROJ-006]"
+    PROJ_MISSING_FILES = "[PROJ-007]"
+    PROJ_ALREADY_EXISTS = "[PROJ-008]"
+    
+    # Instrument configuration errors (INST-XXX)
+    INST_NOT_SUPPORTED = "[INST-001]"
+    INST_INVALID_CONFIG = "[INST-002]"
+    INST_DUPLICATE = "[INST-003]"
+    INST_INVALID_TYPE = "[INST-004]"
+    INST_MISSING_PARAMETERS = "[INST-005]"
+    INST_CONNECTION_REQUIRED = "[INST-006]"
+    INST_NOT_INITIALIZED = "[INST-007]"
+    INST_INCOMPATIBLE_FIRMWARE = "[INST-008]"
+    
+    # Application configuration errors (CFG-XXX)
+    CFG_FILE_MISSING = "[CFG-001]"
+    CFG_INVALID_VALUE = "[CFG-002]"
+    CFG_INCOMPATIBLE_SETTINGS = "[CFG-003]"
+    CFG_PARSE_ERROR = "[CFG-004]"
+    CFG_SAVE_FAILED = "[CFG-005]"
+    CFG_LOAD_FAILED = "[CFG-006]"
+    CFG_RESET_REQUIRED = "[CFG-007]"
+    
+    # Instrument library errors (LIB-XXX)
+    LIB_NOT_FOUND = "[LIB-001]"
+    LIB_CORRUPT = "[LIB-002]"
+    LIB_MODEL_NOT_FOUND = "[LIB-003]"
+    LIB_SERIES_NOT_FOUND = "[LIB-004]"
+    LIB_INVALID_STRUCTURE = "[LIB-005]"
+    LIB_MISSING_COMMANDS = "[LIB-006]"
+    LIB_INCOMPATIBLE_VERSION = "[LIB-007]"
+    LIB_UPDATE_FAILED = "[LIB-008]"
+    
+    # SCPI command specific errors (SCPI-XXX)
+    SCPI_COMMAND_NOT_SUPPORTED = "[SCPI-001]"
+    SCPI_SYNTAX_ERROR = "[SCPI-002]"
+    SCPI_INVALID_RESPONSE = "[SCPI-003]"
+    SCPI_PARAMETER_ERROR = "[SCPI-004]"
+    SCPI_EXECUTION_ERROR = "[SCPI-005]"
+    SCPI_QUERY_INTERRUPTED = "[SCPI-006]"
+    SCPI_DEVICE_ERROR = "[SCPI-007]"
+    
+    # Data acquisition errors (DATA-XXX)
+    DATA_CORRUPT = "[DATA-001]"
+    DATA_INVALID_FORMAT = "[DATA-002]"
+    DATA_ACQUISITION_FAILED = "[DATA-003]"
+    DATA_BUFFER_OVERFLOW = "[DATA-004]"
+    DATA_SAVE_FAILED = "[DATA-005]"
+    DATA_LOAD_FAILED = "[DATA-006]"
+    DATA_OUT_OF_RANGE = "[DATA-007]"
+    DATA_INCOMPLETE = "[DATA-008]"
+    
+    # Project database errors (PJDB-XXX)
+    PJDB_CONNECTION_FAILED = "[PJDB-001]"
+    PJDB_NOT_SPECIFIED = "[PJDB-002]"
+    PJDB_QUERY_ERROR = "[PJDB-003]"
+    PJDB_TABLE_NOT_FOUND = "[PJDB-004]"
+    PJDB_TIMEOUT = "[PJDB-005]"
+    PJDB_SCHEMA_ERROR = "[PJDB-006]"
+    PJDB_DATA_INTEGRITY = "[PJDB-007]"
+    
+    # System errors (SYS-XXX)
+    SYS_RESOURCE_UNAVAILABLE = "[SYS-001]"
+    SYS_INSUFFICIENT_MEMORY = "[SYS-002]"
+    SYS_THREAD_ERROR = "[SYS-003]"
+    SYS_PERMISSION_DENIED = "[SYS-004]"
+    SYS_DEPENDENCY_MISSING = "[SYS-005]"
+    SYS_INITIALIZATION_FAILED = "[SYS-006]"
+    SYS_UNEXPECTED_ERROR = "[SYS-007]"
 
 
 class ValidationError(Exception):
@@ -121,6 +197,70 @@ class DataloggerError(Exception):
 
 class ToolError(Exception):
     """Custom exception for tool-related errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class ProjectError(Exception):
+    """Custom exception for project-related errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class InstrumentError(Exception):
+    """Custom exception for instrument configuration errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class ConfigError(Exception):
+    """Custom exception for configuration-related errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class LibraryError(Exception):
+    """Custom exception for instrument library errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class SCPIError(Exception):
+    """Custom exception for SCPI command errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class DataError(Exception):
+    """Custom exception for data acquisition/processing errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class ProjectDatabaseError(Exception):
+    """Custom exception for project database errors"""
+    def __init__(self, error_code: ErrorCode, message: str = ""):
+        self.error_code = error_code
+        self.message = message
+        super().__init__(f"{error_code.value}: {message}")
+
+
+class SystemError(Exception):
+    """Custom exception for system-level errors"""
     def __init__(self, error_code: ErrorCode, message: str = ""):
         self.error_code = error_code
         self.message = message
