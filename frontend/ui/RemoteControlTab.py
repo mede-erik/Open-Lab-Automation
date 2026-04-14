@@ -1204,8 +1204,12 @@ class RemoteControlTab(QWidget):
                         if previous_instr is not None:
                             try:
                                 previous_instr.close()
-                            except Exception:
-                                pass
+                            except Exception as close_error:
+                                self.error_handler.handle_visa_error(
+                                    close_error,
+                                    f"close existing connection to {visa_addr}",
+                                    show_dialog=False
+                                )
                             self.visa_connections.pop(visa_addr, None)
                         instr = self.rm.open_resource(visa_addr)
                         self.visa_connections[visa_addr] = instr
