@@ -484,6 +484,17 @@ class RemoteControlTab(QWidget):
                 return
                 
             try:
+                existing_instr = self.visa_connections.get(visa_addr)
+                if existing_instr is not None:
+                    try:
+                        existing_instr.close()
+                    except Exception as close_error:
+                        self.error_handler.handle_visa_error(
+                            close_error,
+                            f"close existing connection to {visa_addr}",
+                            show_dialog=False
+                        )
+                    self.visa_connections.pop(visa_addr, None)
                 instr = self.rm.open_resource(visa_addr)
                 self.visa_connections[visa_addr] = instr
                 btn.setStyleSheet('border: 2px solid green;')
@@ -553,7 +564,8 @@ class RemoteControlTab(QWidget):
         results = {
             'visa_address': visa_address,
             'address_valid': False,
-            'host_reachable': False,
+            'host_resolves': False,   # True when DNS resolution succeeds
+            'host_reachable': False,  # True only when an actual TCP connection succeeds
             'port_open': False,
             'visa_available': PYVISA_AVAILABLE,
             'recommendations': []
@@ -591,27 +603,29 @@ class RemoteControlTab(QWidget):
                     addr_info = socket.getaddrinfo(host, None)
                     resolved = sorted({info[4][0] for info in addr_info if info[4]})
                     results['resolved_addresses'] = resolved
-                    results['host_reachable'] = True
+                    results['host_resolves'] = True
                 except socket.gaierror as e:
-                    results['host_reachable'] = False
+                    results['host_resolves'] = False
                     results['reachability_error'] = str(e)
                     results['recommendations'].append(
                         f"Host '{host}' could not be resolved. "
                         f"Check the hostname/IP address and network configuration."
                     )
                 except Exception as e:
-                    results['host_reachable'] = False
+                    results['host_resolves'] = False
                     results['reachability_error'] = str(e)
                     results['recommendations'].append(
                         f"Could not verify host reachability for '{host}': {e}"
                     )
                 
                 # Test 2: Check if port is open using Python's socket (cross-platform)
-                if results['host_reachable']:
+                if results['host_resolves']:
                     try:
                         with socket.create_connection((host, port), timeout=3):
+                            results['host_reachable'] = True
                             results['port_open'] = True
                     except ConnectionRefusedError:
+                        results['host_reachable'] = True  # host responded (TCP RST), it is reachable
                         results['port_open'] = False
                         results['recommendations'].append(
                             f"Host {host} is reachable, but port {port} is refusing connections. "
@@ -650,7 +664,7 @@ class RemoteControlTab(QWidget):
                 "PyVISA is not available. Install it with: pip install pyvisa pyvisa-py"
             )
         
-        if results['address_valid'] and not results['host_reachable']:
+        if results['address_valid'] and not results['host_resolves']:
             host = results.get('host', '?')
             results['recommendations'].append(
                 f"Host '{host}' is not reachable. Check:\n"
@@ -766,7 +780,8 @@ class RemoteControlTab(QWidget):
                 if 'resolved_addresses' in results:
                     output += f"Resolved: {', '.join(results['resolved_addresses'])}\n"
                 output += "\n"
-                output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable: {'Yes' if results['host_reachable'] else 'No'}\n"
+                output += f"{'✓' if results.get('host_resolves') else '✗'} Host Resolves (DNS): {'Yes' if results.get('host_resolves') else 'No'}\n"
+                output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable (TCP): {'Yes' if results['host_reachable'] else 'No'}\n"
                 output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
             if results['recommendations']:
                 output += "\n" + "=" * 60 + "\n"
@@ -1177,15 +1192,30 @@ class RemoteControlTab(QWidget):
                         btn.setStyleSheet('border: 2px solid orange;')
                         btn.setChecked(False)
                         return
+                    # Compute timer_key once so it is available in both success and failure paths
+                    timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
                     try:
                         if not self._ensure_visa_initialized():
                             btn.setStyleSheet('border: 2px solid red;')
                             btn.setChecked(False)
                             return
+                        # Close any existing connection for this address before opening a new one
+                        previous_instr = self.visa_connections.get(visa_addr)
+                        if previous_instr is not None:
+                            try:
+                                previous_instr.close()
+                            except Exception:
+                                pass
+                            self.visa_connections.pop(visa_addr, None)
                         instr = self.rm.open_resource(visa_addr)
                         self.visa_connections[visa_addr] = instr
                         btn.setStyleSheet('border: 2px solid green;')
                         btn.setChecked(True)
+                        # Cancel any pending retry timer for this instrument on successful connect
+                        if timer_key in self.connection_timers:
+                            self.connection_timers[timer_key].stop()
+                            self.connection_timers[timer_key].deleteLater()
+                            del self.connection_timers[timer_key]
                     except Exception as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)
@@ -1265,7 +1295,6 @@ class RemoteControlTab(QWidget):
                             )
 
                         # Safe timer management – schedule a retry regardless of error type
-                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
                         if timer_key in self.connection_timers:
                             self.connection_timers[timer_key].stop()
                             self.connection_timers[timer_key].deleteLater()
