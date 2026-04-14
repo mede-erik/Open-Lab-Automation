@@ -271,7 +271,12 @@ class InstrumentConfigDialog(QDialog):
         # Manual instrument checkbox
         is_manual_chk = QCheckBox(self.translator.t('manual_instrument_label'))
         is_manual_chk.setToolTip(self.translator.t('manual_instrument_tooltip'))
+        # Block signals during initial setup so setChecked() does not trigger
+        # on_is_manual_changed() (which calls save_instruments()) before the user
+        # has actually changed anything.
+        is_manual_chk.blockSignals(True)
         is_manual_chk.setChecked(inst.get('is_manual', False))
+        is_manual_chk.blockSignals(False)
         is_manual_chk.toggled.connect(self.on_is_manual_changed)
         form.addRow(self.translator.t('manual_instrument'), is_manual_chk)
         self.is_manual_chk = is_manual_chk

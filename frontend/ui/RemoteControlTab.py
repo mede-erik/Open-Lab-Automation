@@ -625,10 +625,13 @@ class RemoteControlTab(QWidget):
                             results['host_reachable'] = True
                             results['port_open'] = True
                     except ConnectionRefusedError:
-                        results['host_reachable'] = True  # host responded (TCP RST), it is reachable
+                        # The host responded (TCP RST), so it is network-reachable,
+                        # but the port is refusing connections – treat as not fully reachable
+                        # for diagnostics purposes so the output is not misleading.
+                        results['host_reachable'] = False
                         results['port_open'] = False
                         results['recommendations'].append(
-                            f"Host {host} is reachable, but port {port} is refusing connections. "
+                            f"Host {host} responded (TCP RST), but port {port} is refusing connections. "
                             f"Verify VXI-11 service is running on instrument."
                         )
                     except (socket.timeout, TimeoutError):
@@ -797,7 +800,11 @@ class RemoteControlTab(QWidget):
             # Signal-based cleanup: ask the thread to stop; deleteLater when it finishes
             thread.quit()
 
-        thread = QThread(self)
+        # Parent the thread to the dialog so it is cleaned up when the dialog
+        # is destroyed.  Also wire dialog.finished -> thread.quit() so that
+        # closing the dialog before diagnostics completes stops the worker and
+        # prevents on_results() from touching destroyed dialog widgets.
+        thread = QThread(dialog)
         worker = _DiagnosticsWorker(self, visa_address)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
@@ -805,6 +812,8 @@ class RemoteControlTab(QWidget):
         # Clean up worker/thread without blocking the GUI thread
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
+        # Stop the worker if the user closes the dialog before it completes
+        dialog.finished.connect(thread.quit)
         thread.start()
         
     def _show_connection_error_with_diagnostics(self, error_message, visa_address):
@@ -1036,18 +1045,13 @@ class RemoteControlTab(QWidget):
                 max_cols = 4  # Massimo 4 misure per riga
                 
                 for inst, ch in self.meas_vars:
-                    # Per oscilloscopi, usa il nome del canale direttamente
-                    if inst.get('instrument_type') == 'oscilloscopes':
-                        var_name = ch.get('name', ch.get('channel_id', 'Unknown'))
-                        unit = 'V'  # Gli oscilloscopi misurano sempre tensioni
+                    # meas_vars only contains datalogger/multimeter channels
+                    var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
+                    inst_type = inst.get('instrument_type', '')
+                    if inst_type in ['multimeter', 'multimeters', 'datalogger', 'dataloggers']:
+                        unit = ch.get('unit', 'V')  # Campo 'unit' nel file .inst
                     else:
-                        var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
-                        # Per multimetri e datalogger usa l'unità specifica dal canale
-                        inst_type = inst.get('instrument_type', '')
-                        if inst_type in ['multimeter', 'multimeters', 'datalogger', 'dataloggers']:
-                            unit = ch.get('unit', 'V')  # Campo 'unit' nel file .inst
-                        else:
-                            unit = ch.get('unit_of_measure', 'V')  # Default per altri strumenti
+                        unit = ch.get('unit_of_measure', 'V')  # Default per altri strumenti
                     
                     # Crea etichetta con formato: Nome_variabile = --- unità
                     label = QLabel(f"{var_name} = --- {unit}")
@@ -1186,7 +1190,14 @@ class RemoteControlTab(QWidget):
                 conn_btn = QPushButton(f"Connect {inst.get('instance_name','')}")
                 conn_btn.setCheckable(True)
                 conn_btn.setStyleSheet('QPushButton { font-weight: bold; padding: 5px; }')
+                # Manual instruments have no remote/VISA control: hide the connect button
+                # and skip all connection/retry logic for them.
+                if inst.get('is_manual', False):
+                    conn_btn.setVisible(False)
                 def try_connect(inst, btn):
+                    # Manual instruments have no VISA control – bail out immediately.
+                    if inst.get('is_manual', False):
+                        return
                     visa_addr = inst.get('visa_address', '')
                     if not visa_addr:
                         btn.setStyleSheet('border: 2px solid orange;')
