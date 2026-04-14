@@ -418,20 +418,6 @@ class RemoteControlTab(QWidget):
             if isinstance(set_def, dict):
                 return set_def.get('syntax')
         return None
-        self.setLayout(self.main_layout)
-        self.current_channel_widgets = []  # Stores references to current channel widgets
-        # Initialize VISA resource manager with lazy loading to avoid segmentation fault
-        self.rm = None
-        self._visa_init_attempted = False
-        
-        if PYVISA_AVAILABLE and pyvisa is not None:
-            print("PyVISA disponibile - inizializzazione VISA rimandata al primo utilizzo")
-        else:
-            print("PyVISA non disponibile - controllo strumenti disabilitato")
-        
-        self.visa_connections = {}  # Stores active VISA connections
-        self.meas_labels = {}  # Stores measurement labels for dataloggers
-        self.connection_timers = {}  # Stores connection retry timers
 
     def _ensure_visa_initialized(self):
         """
@@ -686,12 +672,14 @@ class RemoteControlTab(QWidget):
     def show_connection_diagnostics(self, visa_address: str):
         """
         Show connection diagnostics dialog with detailed troubleshooting information.
+        Diagnostics are run in a background thread to avoid blocking the UI.
         
         Args:
             visa_address: VISA address to diagnose
         """
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QProgressBar
-        
+        from PyQt6.QtCore import QThread, pyqtSignal as Signal, QObject
+
         dialog = QDialog(self)
         dialog.setWindowTitle(f"Connection Diagnostics - {visa_address}")
         dialog.setMinimumSize(600, 400)
@@ -714,44 +702,61 @@ class RemoteControlTab(QWidget):
         layout.addWidget(close_btn)
         
         dialog.show()
-        
-        # Run diagnostics in background (simulated with QTimer to avoid blocking UI)
-        def run_diagnostics():
+
+        # Worker that runs blocking diagnostics in a background thread
+        class _DiagnosticsWorker(QObject):
+            finished = Signal(dict)
+
+            def __init__(self, parent_tab, addr):
+                super().__init__()
+                self._tab = parent_tab
+                self._addr = addr
+
+            def run(self):
+                results = self._tab.diagnose_connection(self._addr)
+                self.finished.emit(results)
+
+        def on_results(results):
             progress.setVisible(False)
-            results = self.diagnose_connection(visa_address)
-            
             # Format results
             output = f"Connection Diagnostics for: {visa_address}\n"
             output += "=" * 60 + "\n\n"
-            
             output += f"✓ VISA Available: {'Yes' if results['visa_available'] else 'No'}\n"
             output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
-            
             if 'host' in results:
                 output += f"\nHost: {results['host']}\n"
                 output += f"Port: {results['port']}\n\n"
                 output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable: {'Yes' if results['host_reachable'] else 'No'}\n"
                 output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
-            
             if results['recommendations']:
                 output += "\n" + "=" * 60 + "\n"
                 output += "RECOMMENDATIONS:\n"
                 output += "=" * 60 + "\n\n"
                 for i, rec in enumerate(results['recommendations'], 1):
                     output += f"{i}. {rec}\n\n"
-            
             if 'ping_output' in results:
                 output += "\n" + "=" * 60 + "\n"
                 output += "PING OUTPUT:\n"
                 output += "=" * 60 + "\n"
                 output += results['ping_output']
-            
             text_area.setText(output)
-            
             # Log diagnostics
             if self.logger:
                 self.logger.info(f"Connection diagnostics completed for {visa_address}")
                 self.logger.debug(f"Diagnostics results: {results}")
+            # Clean up thread
+            thread.quit()
+            thread.wait()
+
+        thread = QThread(self)
+        worker = _DiagnosticsWorker(self, visa_address)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_results)
+        # Keep references alive until done
+        dialog._diag_thread = thread
+        dialog._diag_worker = worker
+        thread.start()
         
     def _show_connection_error_with_diagnostics(self, error_message, visa_address):
         """
@@ -1172,6 +1177,8 @@ class RemoteControlTab(QWidget):
                         timer = QTimer(self)
                         timer.setSingleShot(True)
                         timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                        self.connection_timers[timer_key] = timer
+                        timer.start(5000)
                     except TimeoutError as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)
@@ -1198,6 +1205,8 @@ class RemoteControlTab(QWidget):
                         timer = QTimer(self)
                         timer.setSingleShot(True)
                         timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                        self.connection_timers[timer_key] = timer
+                        timer.start(5000)
                     except Exception as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)

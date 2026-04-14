@@ -284,10 +284,17 @@ class InstrumentConfigDialog(QDialog):
         addr_label = QLabel(inst.get('visa_address', inst.get('address', '')))
         form.addRow("VISA Address", addr_label)
         self.addr_label = addr_label
-        # Hide address controls when manual mode is active
+        # Hide address controls AND their row labels when manual mode is active
         show_address = not inst.get('is_manual', False)
         addr_btn.setVisible(show_address)
         addr_label.setVisible(show_address)
+        # Store form label widgets so on_is_manual_changed can toggle them too
+        self._addr_btn_form_label = form.labelForField(addr_btn)
+        self._addr_label_form_label = form.labelForField(addr_label)
+        if self._addr_btn_form_label:
+            self._addr_btn_form_label.setVisible(show_address)
+        if self._addr_label_form_label:
+            self._addr_label_form_label.setVisible(show_address)
         # Tipo strumento
         type_label = QLabel(inst.get('instrument_type', inst.get('type', '')))
         form.addRow("Tipo", type_label)
@@ -629,11 +636,16 @@ class InstrumentConfigDialog(QDialog):
     def on_is_manual_changed(self, state):
         if self.current_instrument is not None:
             self.current_instrument['is_manual'] = state
-            # Show or hide address controls based on manual mode
+            show_address = not state
+            # Show or hide address controls and their row labels based on manual mode
             if hasattr(self, 'addr_btn'):
-                self.addr_btn.setVisible(not state)
+                self.addr_btn.setVisible(show_address)
             if hasattr(self, 'addr_label'):
-                self.addr_label.setVisible(not state)
+                self.addr_label.setVisible(show_address)
+            if hasattr(self, '_addr_btn_form_label') and self._addr_btn_form_label:
+                self._addr_btn_form_label.setVisible(show_address)
+            if hasattr(self, '_addr_label_form_label') and self._addr_label_form_label:
+                self._addr_label_form_label.setVisible(show_address)
             self.save_instruments()
 
     def open_address_editor(self):
