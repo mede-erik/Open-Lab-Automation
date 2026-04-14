@@ -621,28 +621,35 @@ class RemoteControlTab(QWidget):
                 self.finished.emit(results)
 
         def on_results(results):
-            progress.setVisible(False)
-            # Format results
-            output = f"Connection Diagnostics for: {visa_address}\n"
-            output += "=" * 60 + "\n\n"
-            output += f"✓ VISA Available: {'Yes' if results['visa_available'] else 'No'}\n"
-            output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
-            if 'host' in results:
-                output += f"\nHost: {results['host']}\n"
-                output += f"Port: {results['port']}\n"
-                if 'resolved_addresses' in results:
-                    output += f"Resolved: {', '.join(results['resolved_addresses'])}\n"
-                output += "\n"
-                output += f"{'✓' if results.get('host_resolves') else '✗'} Host Resolves (DNS): {'Yes' if results.get('host_resolves') else 'No'}\n"
-                output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable (TCP): {'Yes' if results['host_reachable'] else 'No'}\n"
-                output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
-            if results['recommendations']:
-                output += "\n" + "=" * 60 + "\n"
-                output += "RECOMMENDATIONS:\n"
+            # Guard against the dialog being closed before the worker finished.
+            # Accessing destroyed Qt C++ widgets raises RuntimeError; catch it
+            # and bail out silently — the user already dismissed the dialog.
+            try:
+                progress.setVisible(False)
+                # Format results
+                output = f"Connection Diagnostics for: {visa_address}\n"
                 output += "=" * 60 + "\n\n"
-                for i, rec in enumerate(results['recommendations'], 1):
-                    output += f"{i}. {rec}\n\n"
-            text_area.setText(output)
+                output += f"✓ VISA Available: {'Yes' if results['visa_available'] else 'No'}\n"
+                output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
+                if 'host' in results:
+                    output += f"\nHost: {results['host']}\n"
+                    output += f"Port: {results['port']}\n"
+                    if 'resolved_addresses' in results:
+                        output += f"Resolved: {', '.join(results['resolved_addresses'])}\n"
+                    output += "\n"
+                    output += f"{'✓' if results.get('host_resolves') else '✗'} Host Resolves (DNS): {'Yes' if results.get('host_resolves') else 'No'}\n"
+                    output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable (TCP): {'Yes' if results['host_reachable'] else 'No'}\n"
+                    output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
+                if results['recommendations']:
+                    output += "\n" + "=" * 60 + "\n"
+                    output += "RECOMMENDATIONS:\n"
+                    output += "=" * 60 + "\n\n"
+                    for i, rec in enumerate(results['recommendations'], 1):
+                        output += f"{i}. {rec}\n\n"
+                text_area.setText(output)
+            except RuntimeError:
+                # Dialog was closed before results arrived; widgets are gone.
+                return
             # Log diagnostics
             if self.logger:
                 self.logger.info(f"Connection diagnostics completed for {visa_address}")

@@ -346,10 +346,10 @@ def diagnose_connection(visa_address: str) -> dict:
                         results['host_reachable'] = True
                         results['port_open'] = True
                 except ConnectionRefusedError:
-                    # The host responded (TCP RST), so it is network-reachable,
-                    # but the port is refusing connections – treat as not fully
-                    # reachable so the output is not misleading.
-                    results['host_reachable'] = False
+                    # The host responded with a TCP RST, which means the host
+                    # is reachable on the network, but the target port/service
+                    # is not accepting connections.
+                    results['host_reachable'] = True
                     results['port_open'] = False
                     results['recommendations'].append(
                         f"Host {host} responded (TCP RST), but port {port} is refusing connections. "
