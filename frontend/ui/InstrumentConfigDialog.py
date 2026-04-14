@@ -272,7 +272,7 @@ class InstrumentConfigDialog(QDialog):
         is_manual_chk = QCheckBox(self.translator.t('manual_instrument_label'))
         is_manual_chk.setToolTip(self.translator.t('manual_instrument_tooltip'))
         is_manual_chk.setChecked(inst.get('is_manual', False))
-        is_manual_chk.stateChanged.connect(lambda state: self.on_is_manual_changed(bool(state)))
+        is_manual_chk.toggled.connect(self.on_is_manual_changed)
         form.addRow(self.translator.t('manual_instrument'), is_manual_chk)
         self.is_manual_chk = is_manual_chk
         # Address editor (hidden when manual mode is active)

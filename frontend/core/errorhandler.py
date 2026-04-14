@@ -351,13 +351,14 @@ class ErrorHandler(QObject):
             print(f"Error displaying dialog: {e}")
             print(f"Original error: {error_code} {user_message} - {technical_message}")
     
-    def handle_visa_error(self, exception, context="VISA operation"):
+    def handle_visa_error(self, exception, context="VISA operation", show_dialog=True):
         """
         Handle VISA-specific errors with appropriate error codes.
         
         Args:
             exception: The VISA exception
             context: Context where the error occurred
+            show_dialog: Whether to show an error dialog (default True)
         """
         if "VI_ERROR_RSRC_NFOUND" in str(exception):
             visa_error = VISAError(
@@ -380,7 +381,7 @@ class ErrorHandler(QObject):
                 f"{context}: {str(exception)}"
             )
         
-        self.handle_error(visa_error, f"Instrument communication error during {context}")
+        self.handle_error(visa_error, f"Instrument communication error during {context}", show_dialog=show_dialog)
     
     def handle_ui_error(self, exception, context="UI operation"):
         """

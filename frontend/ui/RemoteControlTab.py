@@ -495,8 +495,8 @@ class RemoteControlTab(QWidget):
             except Exception as e:
                 btn.setStyleSheet('border: 2px solid red;')
                 btn.setChecked(False)
-                # Log error using centralized error handler (no dialog for retry attempts)
-                self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}")
+                # Log error without showing a dialog during background retry attempts
+                self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}", show_dialog=False)
                 # Create a fresh single-shot timer for the next retry attempt.
                 # (The previous timer already fired and cannot be restarted.)
                 if timer_key in self.connection_timers:
@@ -537,19 +537,18 @@ class RemoteControlTab(QWidget):
     def diagnose_connection(self, visa_address: str) -> dict:
         """
         Perform diagnostic tests on instrument connection.
-        Uses Python's built-in socket module for cross-platform host/port reachability
-        and platform-appropriate ping flags (no external Unix tools required).
+        Parses common TCPIP VISA address forms including VXI-11 (::inst0::INSTR),
+        HiSLIP (::hislip0::INSTR), and socket (::port::SOCKET) variants.
+        Uses Python's built-in socket module for cross-platform host/port reachability.
         
         Args:
-            visa_address: VISA address to diagnose (e.g., 'TCPIP0::192.168.1.100::INSTR')
+            visa_address: VISA address to diagnose (e.g., 'TCPIP0::192.168.1.100::inst0::INSTR')
             
         Returns:
             Dictionary with diagnostic results
         """
         import re
         import socket
-        import subprocess
-        import platform
         
         results = {
             'visa_address': visa_address,
@@ -560,121 +559,139 @@ class RemoteControlTab(QWidget):
             'recommendations': []
         }
         
-        # Parse VISA address to extract host and port
+        # Parse VISA address to extract host and port.
+        # Accepts all common TCPIP forms:
+        #   TCPIP0::host::INSTR                      (VXI-11, port 111)
+        #   TCPIP0::host::inst0::INSTR               (VXI-11 named resource)
+        #   TCPIP0::host::hislip0[,port]::INSTR      (HiSLIP, port 4880)
+        #   TCPIP0::host::<numeric_port>::SOCKET      (raw socket)
+        #   TCPIP0::host::<numeric_port>::INSTR       (numeric port)
         try:
-            # Pattern for TCPIP: TCPIP[board]::host[:port]::INSTR
-            tcpip_pattern = r'TCPIP\d*::([^:]+)(?:::(\d+))?::INSTR'
+            tcpip_pattern = r'TCPIP\d*::([^:]+)(?:::([^:]+))?::(?:INSTR|SOCKET)'
             match = re.match(tcpip_pattern, visa_address, re.IGNORECASE)
             
             if match:
                 results['address_valid'] = True
                 host = match.group(1)
-                port = match.group(2) if match.group(2) else '111'  # VXI-11 default port
+                resource_seg = match.group(2) or ''  # e.g. 'inst0', 'hislip0', '5025', ''
+                
+                # Determine port from resource segment
+                if re.match(r'^\d+$', resource_seg):
+                    port = int(resource_seg)
+                elif resource_seg.lower().startswith('hislip'):
+                    port = 4880  # HiSLIP default
+                else:
+                    port = 111   # VXI-11 / portmapper default
                 
                 results['host'] = host
-                results['port'] = int(port)
+                results['port'] = port
                 
-                # Test 1: Ping host (platform-aware flags)
+                # Test 1: Resolve host using Python's socket module (cross-platform)
                 try:
-                    is_windows = platform.system().lower() == 'windows'
-                    # Windows: ping -n 1 -w 2000 <host>  /  Unix: ping -c 1 -W 2 <host>
-                    ping_cmd = (
-                        ['ping', '-n', '1', '-w', '2000', host]
-                        if is_windows
-                        else ['ping', '-c', '1', '-W', '2', host]
-                    )
-                    ping_result = subprocess.run(
-                        ping_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    results['host_reachable'] = ping_result.returncode == 0
-                    results['ping_output'] = ping_result.stdout
-                    
-                    if not results['host_reachable']:
-                        results['recommendations'].append(
-                            f"Host {host} is not reachable. Check network connection and IP address."
-                        )
-                except subprocess.TimeoutExpired:
+                    addr_info = socket.getaddrinfo(host, None)
+                    resolved = sorted({info[4][0] for info in addr_info if info[4]})
+                    results['resolved_addresses'] = resolved
+                    results['host_reachable'] = True
+                except socket.gaierror as e:
                     results['host_reachable'] = False
+                    results['reachability_error'] = str(e)
                     results['recommendations'].append(
-                        f"Ping to {host} timed out. Network may be slow or host is blocking ICMP."
+                        f"Host '{host}' could not be resolved. "
+                        f"Check the hostname/IP address and network configuration."
                     )
                 except Exception as e:
-                    results['ping_error'] = str(e)
-                    results['recommendations'].append(f"Could not ping host: {str(e)}")
+                    results['host_reachable'] = False
+                    results['reachability_error'] = str(e)
+                    results['recommendations'].append(
+                        f"Could not verify host reachability for '{host}': {e}"
+                    )
                 
                 # Test 2: Check if port is open using Python's socket (cross-platform)
-                try:
-                    with socket.create_connection((host, int(port)), timeout=3):
-                        results['port_open'] = True
-                except (socket.timeout, TimeoutError):
-                    results['port_open'] = False
-                    results['recommendations'].append(
-                        f"Connection to {host}:{port} timed out. "
-                        f"Verify VXI-11 service is running on instrument."
-                    )
-                except OSError:
-                    results['port_open'] = False
-                    results['recommendations'].append(
-                        f"Port {port} on {host} is closed or filtered. "
-                        f"Verify VXI-11 service is running on instrument."
-                    )
-                except Exception as e:
-                    results['port_test_error'] = str(e)
+                if results['host_reachable']:
+                    try:
+                        with socket.create_connection((host, port), timeout=3):
+                            results['port_open'] = True
+                    except ConnectionRefusedError:
+                        results['port_open'] = False
+                        results['recommendations'].append(
+                            f"Host {host} is reachable, but port {port} is refusing connections. "
+                            f"Verify VXI-11 service is running on instrument."
+                        )
+                    except (socket.timeout, TimeoutError):
+                        results['port_open'] = False
+                        results['recommendations'].append(
+                            f"Connection to {host}:{port} timed out. "
+                            f"Verify VXI-11 service is running on instrument."
+                        )
+                    except OSError:
+                        results['port_open'] = False
+                        results['recommendations'].append(
+                            f"Port {port} on {host} is closed or filtered. "
+                            f"Verify VXI-11 service is running on instrument."
+                        )
+                    except Exception as e:
+                        results['port_test_error'] = str(e)
             else:
                 results['recommendations'].append(
                     f"VISA address format not recognized: {visa_address}\n"
-                    f"Expected format: TCPIP0::hostname::INSTR or TCPIP0::hostname::port::INSTR"
+                    f"Expected formats:\n"
+                    f"  TCPIP0::<host>::inst0::INSTR  (VXI-11)\n"
+                    f"  TCPIP0::<host>::hislip0::INSTR  (HiSLIP)\n"
+                    f"  TCPIP0::<host>::<port>::SOCKET  (raw socket)"
                 )
                 
         except Exception as e:
             results['parse_error'] = str(e)
-            results['recommendations'].append(f"Error parsing VISA address: {str(e)}")
+            results['recommendations'].append(f"Error parsing VISA address: {e}")
         
         # Add general recommendations
         if not results['visa_available']:
-            results['recommendations'].append("PyVISA is not available. Install it with: pip install pyvisa pyvisa-py")
+            results['recommendations'].append(
+                "PyVISA is not available. Install it with: pip install pyvisa pyvisa-py"
+            )
         
         if results['address_valid'] and not results['host_reachable']:
+            host = results.get('host', '?')
             results['recommendations'].append(
-                f"Host {host} is not reachable. Check:\n"
+                f"Host '{host}' is not reachable. Check:\n"
                 "  - Instrument is powered on\n"
-                "  - IP address is correct\n"
+                "  - IP address/hostname is correct\n"
                 "  - Network cable is connected\n"
                 "  - Instrument and PC are on the same network"
             )
         
         if results['address_valid'] and results['host_reachable'] and not results['port_open']:
+            host = results.get('host', '?')
+            port = results.get('port', '?')
             results['recommendations'].append(
                 f"Port {port} is closed on {host}. Common causes:\n"
-                "  VXI-11 Protocol (port 111):\n"
-                "    - Use format: TCPIP0::{host}::inst0::INSTR\n"
-                "    - Enable VXI-11/LXI service on instrument\n"
-                "    - Check firewall settings\n"
-                "  HiSLIP Protocol (port 4880):\n"
-                "    - Use format: TCPIP0::{host}::hislip0::INSTR\n"
-                "    - Enable HiSLIP service on instrument\n"
-                "  Socket Protocol (custom port):\n"
-                "    - Use format: TCPIP0::{host}::{port}::SOCKET\n"
-                "    - Verify correct port number in instrument settings\n"
+                f"  VXI-11 Protocol (port 111):\n"
+                f"    - Use format: TCPIP0::{host}::inst0::INSTR\n"
+                f"    - Enable VXI-11/LXI service on instrument\n"
+                f"    - Check firewall settings\n"
+                f"  HiSLIP Protocol (port 4880):\n"
+                f"    - Use format: TCPIP0::{host}::hislip0::INSTR\n"
+                f"    - Enable HiSLIP service on instrument\n"
+                f"  Socket Protocol (custom port):\n"
+                f"    - Use format: TCPIP0::{host}::{port}::SOCKET\n"
+                f"    - Verify correct port number in instrument settings\n"
                 "\n"
                 "Try changing the protocol in Address Editor if connection fails."
             )
         
-        if results['port_open'] and 'inst0' in visa_address.lower():
+        if results.get('port_open') and 'inst0' in visa_address.lower():
+            host = results.get('host', '?')
             results['recommendations'].append(
-                "Port is open but connection may still fail. If using VXI-11:\n"
-                "  - Ensure RPC portmapper is running on instrument\n"
-                "  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR"
+                f"Port is open but connection may still fail. If using VXI-11:\n"
+                f"  - Ensure RPC portmapper is running on instrument\n"
+                f"  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR"
             )
-            results['recommendations'].append("Check that instrument is powered on and connected to network.")
-            results['recommendations'].append("Verify IP address configuration on instrument.")
         
         if results['host_reachable'] and not results['port_open']:
             results['recommendations'].append("Enable remote control/LXI interface on instrument.")
-            results['recommendations'].append("Check instrument manual for VXI-11 or SCPI-over-LAN setup.")
+            results['recommendations'].append(
+                "Check instrument manual for VXI-11 or SCPI-over-LAN setup."
+            )
             results['recommendations'].append("Verify firewall is not blocking the connection.")
         
         return results
@@ -745,7 +762,10 @@ class RemoteControlTab(QWidget):
             output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
             if 'host' in results:
                 output += f"\nHost: {results['host']}\n"
-                output += f"Port: {results['port']}\n\n"
+                output += f"Port: {results['port']}\n"
+                if 'resolved_addresses' in results:
+                    output += f"Resolved: {', '.join(results['resolved_addresses'])}\n"
+                output += "\n"
                 output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable: {'Yes' if results['host_reachable'] else 'No'}\n"
                 output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
             if results['recommendations']:
@@ -754,28 +774,22 @@ class RemoteControlTab(QWidget):
                 output += "=" * 60 + "\n\n"
                 for i, rec in enumerate(results['recommendations'], 1):
                     output += f"{i}. {rec}\n\n"
-            if 'ping_output' in results:
-                output += "\n" + "=" * 60 + "\n"
-                output += "PING OUTPUT:\n"
-                output += "=" * 60 + "\n"
-                output += results['ping_output']
             text_area.setText(output)
             # Log diagnostics
             if self.logger:
                 self.logger.info(f"Connection diagnostics completed for {visa_address}")
                 self.logger.debug(f"Diagnostics results: {results}")
-            # Clean up thread
+            # Signal-based cleanup: ask the thread to stop; deleteLater when it finishes
             thread.quit()
-            thread.wait()
 
         thread = QThread(self)
         worker = _DiagnosticsWorker(self, visa_address)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.finished.connect(on_results)
-        # Keep references alive until done
-        dialog._diag_thread = thread
-        dialog._diag_worker = worker
+        # Clean up worker/thread without blocking the GUI thread
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         thread.start()
         
     def _show_connection_error_with_diagnostics(self, error_message, visa_address):
