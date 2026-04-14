@@ -268,14 +268,25 @@ class InstrumentConfigDialog(QDialog):
         name_edit = QLineEdit(inst.get('instance_name', inst.get('name', '')))
         name_edit.textChanged.connect(lambda val: self.on_name_changed(val))
         form.addRow("Nome strumento", name_edit)
-        # Address editor
+        # Manual instrument checkbox
+        is_manual_chk = QCheckBox(self.translator.t('manual_instrument_label'))
+        is_manual_chk.setToolTip(self.translator.t('manual_instrument_tooltip'))
+        is_manual_chk.setChecked(inst.get('is_manual', False))
+        is_manual_chk.stateChanged.connect(lambda state: self.on_is_manual_changed(bool(state)))
+        form.addRow(self.translator.t('manual_instrument'), is_manual_chk)
+        self.is_manual_chk = is_manual_chk
+        # Address editor (hidden when manual mode is active)
         addr_btn = QPushButton("Address Editor")
         addr_btn.clicked.connect(self.open_address_editor)
         form.addRow("Indirizzo", addr_btn)
+        self.addr_btn = addr_btn
         # Mostra indirizzo attuale
         addr_label = QLabel(inst.get('visa_address', inst.get('address', '')))
         form.addRow("VISA Address", addr_label)
         self.addr_label = addr_label
+        # Hide address controls when manual mode is active
+        addr_btn.setVisible(not inst.get('is_manual', False))
+        addr_label.setVisible(not inst.get('is_manual', False))
         # Tipo strumento
         type_label = QLabel(inst.get('instrument_type', inst.get('type', '')))
         form.addRow("Tipo", type_label)
@@ -613,6 +624,16 @@ class InstrumentConfigDialog(QDialog):
             item = self.list_widget.currentItem()
             if item is not None:
                 item.setText(val)
+
+    def on_is_manual_changed(self, state):
+        if self.current_instrument is not None:
+            self.current_instrument['is_manual'] = state
+            # Show or hide address controls based on manual mode
+            if hasattr(self, 'addr_btn'):
+                self.addr_btn.setVisible(not state)
+            if hasattr(self, 'addr_label'):
+                self.addr_label.setVisible(not state)
+            self.save_instruments()
 
     def open_address_editor(self):
         if self.current_instrument is None:

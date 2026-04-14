@@ -122,6 +122,12 @@ class RemoteControlTab(QWidget):
         self.visa_connections = {}  # Stores active VISA connections
         self.meas_labels = {}  # Stores measurement labels for dataloggers
         self.connection_timers = {}  # Stores connection retry timers
+        # Initialize translator for manual instrument popups
+        try:
+            from frontend.core.Translator import Translator
+            self.translator = Translator()
+        except Exception:
+            self.translator = None
 
     def _reload_instruments_from_mainwindow(self):
         """Richiama la funzione di reload strumenti dal MainWindow se disponibile."""
@@ -862,6 +868,7 @@ class RemoteControlTab(QWidget):
         Update UI elements with translated text.
         :param translator: Translator instance for language translation.
         """
+        self.translator = translator
         self.label.setText(translator.t('remote_control'))
         self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter only)')
         # Optionally update channel group titles
@@ -1310,6 +1317,35 @@ class RemoteControlTab(QWidget):
                 self.logger.error(error_msg)
             # Error already logged - no popup needed
     
+    def _t(self, key, **kwargs):
+        """Helper to get a translated string, with optional format substitution."""
+        if self.translator and hasattr(self.translator, 't'):
+            text = self.translator.t(key)
+        else:
+            text = key
+        if kwargs:
+            try:
+                text = text.format(**kwargs)
+            except (KeyError, ValueError):
+                pass
+        return text
+
+    def _show_manual_prompt(self, message):
+        """
+        Show a popup for a manual instrument action.
+        Returns True if the user confirmed (OK), False if cancelled.
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        title = self._t('manual_instrument_title')
+        reply = QMessageBox.question(
+            self,
+            title,
+            message,
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Ok
+        )
+        return reply == QMessageBox.StandardButton.Ok
+
     def _create_channel_widget(self, inst, ch):
         """
         Crea un widget per un singolo canale di strumento.
@@ -1318,10 +1354,23 @@ class RemoteControlTab(QWidget):
         :return: QGroupBox contenente i controlli del canale
         """
         print(f"      → Creazione controlli per canale {ch.get('name', 'N/A')}")
-        group = QGroupBox(f"{inst.get('instance_name','')} - {ch.get('name','')}")
+        is_manual = inst.get('is_manual', False)
+        group_title = f"{inst.get('instance_name','')} - {ch.get('name','')}"
+        if is_manual:
+            group_title += f" ⚙ [{self._t('manual_instrument')}]"
+        group = QGroupBox(group_title)
         group.setProperty('instrument', inst)
         group.setProperty('channel', ch)
         vbox = QVBoxLayout()
+
+        # Manual mode indicator banner
+        if is_manual:
+            manual_label = QLabel(f"⚙ {self._t('manual_instrument_label')}")
+            manual_label.setStyleSheet(
+                "QLabel { background-color: #fff3cd; color: #856404; "
+                "border: 1px solid #ffc107; border-radius: 4px; padding: 4px; font-weight: bold; }"
+            )
+            vbox.addWidget(manual_label)
         
         # Voltage set with limits
         hbox_v = QHBoxLayout()
@@ -1378,19 +1427,21 @@ class RemoteControlTab(QWidget):
         output_btn.clicked.connect(lambda checked, i=inst, c=ch, b=output_btn: self.toggle_output(i, c, b, checked))
         hbox_controls.addWidget(output_btn)
         
-        # Add a read actual values button
-        read_btn = QPushButton('Read Values')
-        hbox_controls.addWidget(read_btn)
+        # Add a read actual values button (hidden for manual instruments - nothing to read)
+        if not is_manual:
+            read_btn = QPushButton('Read Values')
+            hbox_controls.addWidget(read_btn)
         
         vbox.addLayout(hbox_controls)
         
-        # Label for read values
-        read_lbl = QLabel('V: ...  I: ...')
-        read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
-        vbox.addWidget(read_lbl)
+        # Label for read values (hidden for manual instruments)
+        if not is_manual:
+            read_lbl = QLabel('V: ...  I: ...')
+            read_btn.clicked.connect(lambda _, i=inst, c=ch, l=read_lbl: self.read_actual(i, c, l))
+            vbox.addWidget(read_lbl)
         
         group.setLayout(vbox)
-        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')}")
+        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')} (manuale: {is_manual})")
         return group
 
     def get_visa_instrument(self, inst):
@@ -1398,9 +1449,14 @@ class RemoteControlTab(QWidget):
         Get the VISA instrument object for the given instance.
         Opens a new connection if not already open.
         :param inst: Instrument instance data.
-        :return: VISA instrument object or None if error.
+        :return: VISA instrument object or None if error (or if instrument is manual).
         """
         print(f"[DEBUG] get_visa_instrument chiamato per {inst.get('instance_name', 'N/A')}")
+
+        # Manual instruments do not use VISA connections
+        if inst.get('is_manual', False):
+            print(f"[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
+            return None
         
         if not self._ensure_visa_initialized():
             print("[DEBUG] VISA non inizializzato!")
@@ -1461,6 +1517,21 @@ class RemoteControlTab(QWidget):
             return
         
         print(f"[DEBUG] Valore validato: {value_float}V")
+
+        # Handle manual instruments with a confirmation popup
+        if inst.get('is_manual', False):
+            msg = self._t(
+                'manual_set_voltage_prompt',
+                instrument=inst.get('instance_name', ''),
+                channel=ch.get('name', ''),
+                value=value_float
+            )
+            confirmed = self._show_manual_prompt(msg)
+            if confirmed:
+                print(f"[ManualInstrument] Voltaggio confermato: {value_float}V per {inst.get('instance_name', 'N/A')}")
+            else:
+                print(f"[ManualInstrument] Impostazione voltaggio annullata dall'utente")
+            return
         
         instr = self.get_visa_instrument(inst)
         if not instr:
@@ -1511,6 +1582,21 @@ class RemoteControlTab(QWidget):
             return
         
         print(f"[DEBUG] Valore validato: {value_float}A")
+
+        # Handle manual instruments with a confirmation popup
+        if inst.get('is_manual', False):
+            msg = self._t(
+                'manual_set_current_prompt',
+                instrument=inst.get('instance_name', ''),
+                channel=ch.get('name', ''),
+                value=value_float
+            )
+            confirmed = self._show_manual_prompt(msg)
+            if confirmed:
+                print(f"[ManualInstrument] Corrente confermata: {value_float}A per {inst.get('instance_name', 'N/A')}")
+            else:
+                print("[ManualInstrument] Impostazione corrente annullata dall'utente")
+            return
         
         instr = self.get_visa_instrument(inst)
         if not instr:
@@ -1540,6 +1626,29 @@ class RemoteControlTab(QWidget):
         :param checked: Boolean state of the button (True=ON, False=OFF).
         """
         print(f"[DEBUG] toggle_output chiamato - Checked: {checked}")
+
+        # Handle manual instruments with a confirmation popup
+        if inst.get('is_manual', False):
+            prompt_key = 'manual_output_on_prompt' if checked else 'manual_output_off_prompt'
+            msg = self._t(
+                prompt_key,
+                instrument=inst.get('instance_name', ''),
+                channel=ch.get('name', '')
+            )
+            confirmed = self._show_manual_prompt(msg)
+            if confirmed:
+                if checked:
+                    button.setText('Output: ON')
+                    button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+                else:
+                    button.setText('Output: OFF')
+                    button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
+                print(f"[ManualInstrument] Output {'abilitato' if checked else 'disabilitato'} confermato")
+            else:
+                # Revert button state on cancel
+                button.setChecked(not checked)
+                print("[ManualInstrument] Toggle output annullato dall'utente")
+            return
         
         instr = self.get_visa_instrument(inst)
         if not instr:

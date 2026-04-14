@@ -299,5 +299,15 @@
   "experimental": "Experimental",
   "experimental_instrument": "Experimental (No probado)",
   "show_experimental_instruments": "Mostrar instrumentos experimentales",
-  "enable_experimental_instruments": "Habilitar instrumentos experimentales en la lista de instrumentos"
+  "enable_experimental_instruments": "Habilitar instrumentos experimentales en la lista de instrumentos",
+  "manual_instrument": "Instrumento manual",
+  "manual_instrument_tooltip": "Si está habilitado, el instrumento no se controla de forma remota. Se mostrará una ventana emergente para configurar los valores manualmente.",
+  "manual_instrument_label": "Modo manual (sin control remoto)",
+  "manual_set_voltage_prompt": "Establecer la tensión en '{instrument}' - Canal '{channel}' a {value} V",
+  "manual_set_current_prompt": "Establecer la corriente en '{instrument}' - Canal '{channel}' a {value} A",
+  "manual_output_on_prompt": "Habilitar la salida en '{instrument}' - Canal '{channel}'",
+  "manual_output_off_prompt": "Deshabilitar la salida en '{instrument}' - Canal '{channel}'",
+  "manual_instrument_title": "Instrumento Manual",
+  "manual_action_confirmed": "Acción confirmada. Se asume que el valor ha sido establecido.",
+  "manual_action_cancelled": "Acción cancelada por el usuario."
 }
