@@ -1326,8 +1326,9 @@ class RemoteControlTab(QWidget):
         if kwargs:
             try:
                 text = text.format(**kwargs)
-            except (KeyError, ValueError):
-                pass
+            except (KeyError, ValueError) as e:
+                print(f"[RemoteControlTab] Translation format error for key '{key}': {e}")
+                text = f"{key} [format error]"
         return text
 
     def _show_manual_prompt(self, message):
@@ -1353,11 +1354,12 @@ class RemoteControlTab(QWidget):
         :param ch: Dati del canale
         :return: QGroupBox contenente i controlli del canale
         """
+        _MANUAL_ICON = '\u2699'  # ⚙ gear icon for manual instruments
         print(f"      → Creazione controlli per canale {ch.get('name', 'N/A')}")
         is_manual = inst.get('is_manual', False)
         group_title = f"{inst.get('instance_name','')} - {ch.get('name','')}"
         if is_manual:
-            group_title += f" ⚙ [{self._t('manual_instrument')}]"
+            group_title += f" {_MANUAL_ICON} [{self._t('manual_instrument')}]"
         group = QGroupBox(group_title)
         group.setProperty('instrument', inst)
         group.setProperty('channel', ch)
@@ -1365,7 +1367,7 @@ class RemoteControlTab(QWidget):
 
         # Manual mode indicator banner
         if is_manual:
-            manual_label = QLabel(f"⚙ {self._t('manual_instrument_label')}")
+            manual_label = QLabel(f"{_MANUAL_ICON} {self._t('manual_instrument_label')}")
             manual_label.setStyleSheet(
                 "QLabel { background-color: #fff3cd; color: #856404; "
                 "border: 1px solid #ffc107; border-radius: 4px; padding: 4px; font-weight: bold; }"

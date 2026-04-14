@@ -285,8 +285,9 @@ class InstrumentConfigDialog(QDialog):
         form.addRow("VISA Address", addr_label)
         self.addr_label = addr_label
         # Hide address controls when manual mode is active
-        addr_btn.setVisible(not inst.get('is_manual', False))
-        addr_label.setVisible(not inst.get('is_manual', False))
+        show_address = not inst.get('is_manual', False)
+        addr_btn.setVisible(show_address)
+        addr_label.setVisible(show_address)
         # Tipo strumento
         type_label = QLabel(inst.get('instrument_type', inst.get('type', '')))
         form.addRow("Tipo", type_label)
