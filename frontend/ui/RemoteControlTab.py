@@ -35,7 +35,7 @@ class RemoteControlTab(QWidget):
         
         # Initialize logger and error handler
         try:
-            from core.logger import Logger
+            from frontend.core.logger import Logger
             self.logger = Logger()
             self.logger.info("RemoteControlTab initialization started")
         except Exception as e:
@@ -497,7 +497,9 @@ class RemoteControlTab(QWidget):
                 btn.setChecked(False)
                 # Log error using centralized error handler (no dialog for retry attempts)
                 self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}")
-                # Mantieni il timer per riprovare
+                # Restart the single-shot timer so the next retry is scheduled
+                if timer_key in self.connection_timers:
+                    self.connection_timers[timer_key].start(5000)
                     
         except Exception as e:
             # Gestisci qualsiasi errore inaspettato, inclusi crash UI
@@ -525,6 +527,8 @@ class RemoteControlTab(QWidget):
     def diagnose_connection(self, visa_address: str) -> dict:
         """
         Perform diagnostic tests on instrument connection.
+        Uses Python's built-in socket module for cross-platform host/port reachability
+        and platform-appropriate ping flags (no external Unix tools required).
         
         Args:
             visa_address: VISA address to diagnose (e.g., 'TCPIP0::192.168.1.100::INSTR')
@@ -532,8 +536,10 @@ class RemoteControlTab(QWidget):
         Returns:
             Dictionary with diagnostic results
         """
-        import subprocess
         import re
+        import socket
+        import subprocess
+        import platform
         
         results = {
             'visa_address': visa_address,
@@ -558,13 +564,20 @@ class RemoteControlTab(QWidget):
                 results['host'] = host
                 results['port'] = int(port)
                 
-                # Test 1: Ping host
+                # Test 1: Ping host (platform-aware flags)
                 try:
+                    is_windows = platform.system().lower() == 'windows'
+                    # Windows: ping -n 1 -w 2000 <host>  /  Unix: ping -c 1 -W 2 <host>
+                    ping_cmd = (
+                        ['ping', '-n', '1', '-w', '2000', host]
+                        if is_windows
+                        else ['ping', '-c', '1', '-W', '2', host]
+                    )
                     ping_result = subprocess.run(
-                        ['ping', '-c', '1', '-W', '2', host],
+                        ping_cmd,
                         capture_output=True,
                         text=True,
-                        timeout=3
+                        timeout=5
                     )
                     results['host_reachable'] = ping_result.returncode == 0
                     results['ping_output'] = ping_result.stdout
@@ -575,44 +588,31 @@ class RemoteControlTab(QWidget):
                         )
                 except subprocess.TimeoutExpired:
                     results['host_reachable'] = False
-                    results['recommendations'].append(f"Ping to {host} timed out. Network may be slow or host is blocking ICMP.")
+                    results['recommendations'].append(
+                        f"Ping to {host} timed out. Network may be slow or host is blocking ICMP."
+                    )
                 except Exception as e:
                     results['ping_error'] = str(e)
                     results['recommendations'].append(f"Could not ping host: {str(e)}")
                 
-                # Test 2: Check if port is open (using netcat or telnet)
-                if results['host_reachable']:
-                    try:
-                        # Try with nc (netcat) first
-                        nc_result = subprocess.run(
-                            ['nc', '-zv', '-w', '2', host, str(port)],
-                            capture_output=True,
-                            text=True,
-                            timeout=3
-                        )
-                        results['port_open'] = nc_result.returncode == 0
-                        
-                        if not results['port_open']:
-                            results['recommendations'].append(
-                                f"Port {port} on {host} is closed or filtered. "
-                                f"Verify VXI-11 service is running on instrument."
-                            )
-                    except FileNotFoundError:
-                        # nc not available, try with timeout command and telnet
-                        try:
-                            telnet_result = subprocess.run(
-                                ['timeout', '2', 'telnet', host, str(port)],
-                                capture_output=True,
-                                text=True
-                            )
-                            # If telnet connects, it usually returns 0 or gets timeout
-                            results['port_open'] = 'Connected' in telnet_result.stdout or telnet_result.returncode == 124
-                        except Exception:
-                            results['recommendations'].append(
-                                f"Could not test port {port}. Install 'nc' or 'telnet' for better diagnostics."
-                            )
-                    except Exception as e:
-                        results['port_test_error'] = str(e)
+                # Test 2: Check if port is open using Python's socket (cross-platform)
+                try:
+                    with socket.create_connection((host, int(port)), timeout=3):
+                        results['port_open'] = True
+                except (socket.timeout, TimeoutError):
+                    results['port_open'] = False
+                    results['recommendations'].append(
+                        f"Connection to {host}:{port} timed out. "
+                        f"Verify VXI-11 service is running on instrument."
+                    )
+                except OSError:
+                    results['port_open'] = False
+                    results['recommendations'].append(
+                        f"Port {port} on {host} is closed or filtered. "
+                        f"Verify VXI-11 service is running on instrument."
+                    )
+                except Exception as e:
+                    results['port_test_error'] = str(e)
             else:
                 results['recommendations'].append(
                     f"VISA address format not recognized: {visa_address}\n"
@@ -713,7 +713,17 @@ class RemoteControlTab(QWidget):
                 self._addr = addr
 
             def run(self):
-                results = self._tab.diagnose_connection(self._addr)
+                try:
+                    results = self._tab.diagnose_connection(self._addr)
+                except Exception as e:
+                    results = {
+                        'visa_address': self._addr,
+                        'address_valid': False,
+                        'host_reachable': False,
+                        'port_open': False,
+                        'visa_available': PYVISA_AVAILABLE,
+                        'recommendations': [f"Diagnostics failed unexpectedly: {e}"],
+                    }
                 self.finished.emit(results)
 
         def on_results(results):
@@ -1152,92 +1162,71 @@ class RemoteControlTab(QWidget):
                         self.visa_connections[visa_addr] = instr
                         btn.setStyleSheet('border: 2px solid green;')
                         btn.setChecked(True)
-                    except ConnectionRefusedError as e:
-                        btn.setStyleSheet('border: 2px solid red;')
-                        btn.setChecked(False)
-                        
-                        # Specific error for connection refused with diagnostics option
-                        error_msg = f"Connection refused to {visa_addr}\n\n"
-                        error_msg += "Possible causes:\n"
-                        error_msg += "• Instrument is powered off\n"
-                        error_msg += "• Wrong IP address or port\n"
-                        error_msg += "• VXI-11 service not running on instrument\n"
-                        error_msg += "• Network/firewall blocking connection\n"
-                        error_msg += f"\nTechnical details: {str(e)}"
-                        
-                        # Show error with diagnostics option
-                        self._show_connection_error_with_diagnostics(error_msg, visa_addr)
-                        
-                        # Safe timer management
-                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
-                        if timer_key in self.connection_timers:
-                            self.connection_timers[timer_key].stop()
-                            self.connection_timers[timer_key].deleteLater()
-                        
-                        timer = QTimer(self)
-                        timer.setSingleShot(True)
-                        timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
-                        self.connection_timers[timer_key] = timer
-                        timer.start(5000)
-                    except TimeoutError as e:
-                        btn.setStyleSheet('border: 2px solid red;')
-                        btn.setChecked(False)
-                        
-                        # Specific error for timeout
-                        error_msg = f"Connection timeout to {visa_addr}\n\n"
-                        error_msg += "Possible causes:\n"
-                        error_msg += "• Instrument is not responding\n"
-                        error_msg += "• Network latency too high\n"
-                        error_msg += "• Instrument is busy with another operation\n"
-                        error_msg += f"\nTechnical details: {str(e)}"
-                        
-                        self.error_handler.handle_visa_error(
-                            Exception(error_msg), 
-                            f"connection to {visa_addr}"
-                        )
-                        
-                        # Safe timer management
-                        timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
-                        if timer_key in self.connection_timers:
-                            self.connection_timers[timer_key].stop()
-                            self.connection_timers[timer_key].deleteLater()
-                        
-                        timer = QTimer(self)
-                        timer.setSingleShot(True)
-                        timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
-                        self.connection_timers[timer_key] = timer
-                        timer.start(5000)
                     except Exception as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)
-                        
-                        # Generic error with detailed message
-                        error_type = type(e).__name__
-                        error_msg = f"Failed to connect to {visa_addr}\n\n"
-                        error_msg += f"Error type: {error_type}\n"
-                        error_msg += f"Details: {str(e)}\n\n"
-                        error_msg += "Troubleshooting steps:\n"
-                        error_msg += "1. Verify instrument is powered on\n"
-                        error_msg += "2. Check VISA address is correct\n"
-                        error_msg += "3. Test network connectivity (ping)\n"
-                        error_msg += "4. Verify VISA backend is installed\n"
-                        error_msg += "5. Check instrument manual for remote control setup"
-                        
-                        # Log error using centralized error handler
-                        self.error_handler.handle_visa_error(
-                            Exception(error_msg), 
-                            f"connection to {visa_addr}"
+
+                        # Determine whether this is a connection-refused or timeout VISA error
+                        # to decide whether to show the diagnostics dialog.
+                        err_str = str(e).lower()
+                        is_visa_refused = (
+                            PYVISA_AVAILABLE
+                            and pyvisa is not None
+                            and isinstance(e, pyvisa.errors.VisaIOError)
+                            and ("can't connect" in err_str or "connection refused" in err_str
+                                 or "vi_error_rsrc_nfound" in err_str)
                         )
-                        
-                        # Gestione sicura del timer per evitare crash
+                        is_visa_timeout = (
+                            PYVISA_AVAILABLE
+                            and pyvisa is not None
+                            and isinstance(e, pyvisa.errors.VisaIOError)
+                            and "timeout" in err_str
+                        )
+
+                        if is_visa_refused:
+                            error_msg = f"Connection refused to {visa_addr}\n\n"
+                            error_msg += "Possible causes:\n"
+                            error_msg += "• Instrument is powered off\n"
+                            error_msg += "• Wrong IP address or port\n"
+                            error_msg += "• VXI-11 service not running on instrument\n"
+                            error_msg += "• Network/firewall blocking connection\n"
+                            error_msg += f"\nTechnical details: {str(e)}"
+                            self._show_connection_error_with_diagnostics(error_msg, visa_addr)
+                        elif is_visa_timeout:
+                            error_msg = f"Connection timeout to {visa_addr}\n\n"
+                            error_msg += "Possible causes:\n"
+                            error_msg += "• Instrument is not responding\n"
+                            error_msg += "• Network latency too high\n"
+                            error_msg += "• Instrument is busy with another operation\n"
+                            error_msg += f"\nTechnical details: {str(e)}"
+                            self.error_handler.handle_visa_error(
+                                Exception(error_msg),
+                                f"connection to {visa_addr}"
+                            )
+                        else:
+                            error_type = type(e).__name__
+                            error_msg = f"Failed to connect to {visa_addr}\n\n"
+                            error_msg += f"Error type: {error_type}\n"
+                            error_msg += f"Details: {str(e)}\n\n"
+                            error_msg += "Troubleshooting steps:\n"
+                            error_msg += "1. Verify instrument is powered on\n"
+                            error_msg += "2. Check VISA address is correct\n"
+                            error_msg += "3. Test network connectivity (ping)\n"
+                            error_msg += "4. Verify VISA backend is installed\n"
+                            error_msg += "5. Check instrument manual for remote control setup"
+                            self.error_handler.handle_visa_error(
+                                Exception(error_msg),
+                                f"connection to {visa_addr}"
+                            )
+
+                        # Safe timer management – schedule a retry regardless of error type
                         timer_key = f"{inst.get('instance_name', 'unknown')}_{id(btn)}"
                         if timer_key in self.connection_timers:
                             self.connection_timers[timer_key].stop()
                             self.connection_timers[timer_key].deleteLater()
-                        
+
                         timer = QTimer(self)
                         timer.setSingleShot(True)
-                        # Usa una connessione sicura che verifica se il button è ancora valido
                         timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
                         self.connection_timers[timer_key] = timer
                         timer.start(5000)
