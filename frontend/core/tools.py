@@ -249,5 +249,187 @@ def generate_unique_filename(base_path: str, extension: str = "") -> str:
     while os.path.exists(filename):
         filename = f"{base_path}_{counter}{extension}"
         counter += 1
-    
+
     return filename
+
+
+def diagnose_connection(visa_address: str) -> dict:
+    """
+    Perform diagnostic tests on an instrument TCP/IP connection.
+
+    Parses common TCPIP VISA address forms including VXI-11 (::inst0::INSTR),
+    HiSLIP (::hislip0::INSTR), and socket (::port::SOCKET) variants.
+    Uses Python's built-in ``socket`` module for cross-platform host/port
+    reachability – no external tools required.
+
+    Args:
+        visa_address: VISA address to diagnose (e.g.
+            ``'TCPIP0::192.168.1.100::inst0::INSTR'``).
+
+    Returns:
+        Dictionary with diagnostic results containing keys:
+        ``visa_address``, ``address_valid``, ``host_resolves``,
+        ``host_reachable``, ``port_open``, ``visa_available``,
+        ``recommendations``, and optionally ``host``, ``port``,
+        ``resolved_addresses``.
+    """
+    import re
+    import socket as _socket
+
+    try:
+        import pyvisa as _pv  # noqa: F401
+        visa_available = True
+    except ImportError:
+        visa_available = False
+
+    results: Dict[str, Any] = {
+        'visa_address': visa_address,
+        'address_valid': False,
+        'host_resolves': False,   # True when DNS resolution succeeds
+        'host_reachable': False,  # True only when an actual TCP connection succeeds
+        'port_open': False,
+        'visa_available': visa_available,
+        'recommendations': [],
+    }
+
+    # Parse VISA address to extract host and port.
+    # Accepts all common TCPIP forms:
+    #   TCPIP0::host::INSTR                      (VXI-11, port 111)
+    #   TCPIP0::host::inst0::INSTR               (VXI-11 named resource)
+    #   TCPIP0::host::hislip0[,port]::INSTR      (HiSLIP, port 4880)
+    #   TCPIP0::host::<numeric_port>::SOCKET      (raw socket)
+    #   TCPIP0::host::<numeric_port>::INSTR       (numeric port)
+    try:
+        tcpip_pattern = r'TCPIP\d*::([^:]+)(?:::([^:]+))?::(?:INSTR|SOCKET)'
+        match = re.match(tcpip_pattern, visa_address, re.IGNORECASE)
+
+        if match:
+            results['address_valid'] = True
+            host = match.group(1)
+            resource_seg = match.group(2) or ''  # e.g. 'inst0', 'hislip0', '5025', ''
+
+            # Determine port from resource segment
+            if re.match(r'^\d+$', resource_seg):
+                port = int(resource_seg)
+            elif resource_seg.lower().startswith('hislip'):
+                port = 4880  # HiSLIP default
+            else:
+                port = 111   # VXI-11 / portmapper default
+
+            results['host'] = host
+            results['port'] = port
+
+            # Test 1: Resolve host using Python's socket module (cross-platform)
+            try:
+                addr_info = _socket.getaddrinfo(host, None)
+                resolved = sorted({info[4][0] for info in addr_info if info[4]})
+                results['resolved_addresses'] = resolved
+                results['host_resolves'] = True
+            except _socket.gaierror as e:
+                results['host_resolves'] = False
+                results['reachability_error'] = str(e)
+                results['recommendations'].append(
+                    f"Host '{host}' could not be resolved. "
+                    f"Check the hostname/IP address and network configuration."
+                )
+            except Exception as e:
+                results['host_resolves'] = False
+                results['reachability_error'] = str(e)
+                results['recommendations'].append(
+                    f"Could not verify host reachability for '{host}': {e}"
+                )
+
+            # Test 2: Check if port is open using Python's socket (cross-platform)
+            if results['host_resolves']:
+                try:
+                    with _socket.create_connection((host, port), timeout=3):
+                        results['host_reachable'] = True
+                        results['port_open'] = True
+                except ConnectionRefusedError:
+                    # The host responded (TCP RST), so it is network-reachable,
+                    # but the port is refusing connections – treat as not fully
+                    # reachable so the output is not misleading.
+                    results['host_reachable'] = False
+                    results['port_open'] = False
+                    results['recommendations'].append(
+                        f"Host {host} responded (TCP RST), but port {port} is refusing connections. "
+                        f"Verify VXI-11 service is running on instrument."
+                    )
+                except (_socket.timeout, TimeoutError):
+                    results['port_open'] = False
+                    results['recommendations'].append(
+                        f"Connection to {host}:{port} timed out. "
+                        f"Verify VXI-11 service is running on instrument."
+                    )
+                except OSError:
+                    results['port_open'] = False
+                    results['recommendations'].append(
+                        f"Port {port} on {host} is closed or filtered. "
+                        f"Verify VXI-11 service is running on instrument."
+                    )
+                except Exception as e:
+                    results['port_test_error'] = str(e)
+        else:
+            results['recommendations'].append(
+                f"VISA address format not recognized: {visa_address}\n"
+                f"Expected formats:\n"
+                f"  TCPIP0::<host>::inst0::INSTR  (VXI-11)\n"
+                f"  TCPIP0::<host>::hislip0::INSTR  (HiSLIP)\n"
+                f"  TCPIP0::<host>::<port>::SOCKET  (raw socket)"
+            )
+
+    except Exception as e:
+        results['parse_error'] = str(e)
+        results['recommendations'].append(f"Error parsing VISA address: {e}")
+
+    # Add general recommendations
+    if not results['visa_available']:
+        results['recommendations'].append(
+            "PyVISA is not available. Install it with: pip install pyvisa pyvisa-py"
+        )
+
+    if results['address_valid'] and not results['host_resolves']:
+        host = results.get('host', '?')
+        results['recommendations'].append(
+            f"Host '{host}' is not reachable. Check:\n"
+            "  - Instrument is powered on\n"
+            "  - IP address/hostname is correct\n"
+            "  - Network cable is connected\n"
+            "  - Instrument and PC are on the same network"
+        )
+
+    if results['address_valid'] and results['host_reachable'] and not results['port_open']:
+        host = results.get('host', '?')
+        port = results.get('port', '?')
+        results['recommendations'].append(
+            f"Port {port} is closed on {host}. Common causes:\n"
+            f"  VXI-11 Protocol (port 111):\n"
+            f"    - Use format: TCPIP0::{host}::inst0::INSTR\n"
+            f"    - Enable VXI-11/LXI service on instrument\n"
+            f"    - Check firewall settings\n"
+            f"  HiSLIP Protocol (port 4880):\n"
+            f"    - Use format: TCPIP0::{host}::hislip0::INSTR\n"
+            f"    - Enable HiSLIP service on instrument\n"
+            f"  Socket Protocol (custom port):\n"
+            f"    - Use format: TCPIP0::{host}::{port}::SOCKET\n"
+            f"    - Verify correct port number in instrument settings\n"
+            "\n"
+            "Try changing the protocol in Address Editor if connection fails."
+        )
+
+    if results.get('port_open') and 'inst0' in visa_address.lower():
+        host = results.get('host', '?')
+        results['recommendations'].append(
+            f"Port is open but connection may still fail. If using VXI-11:\n"
+            f"  - Ensure RPC portmapper is running on instrument\n"
+            f"  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR"
+        )
+
+    if results['host_reachable'] and not results['port_open']:
+        results['recommendations'].append("Enable remote control/LXI interface on instrument.")
+        results['recommendations'].append(
+            "Check instrument manual for VXI-11 or SCPI-over-LAN setup."
+        )
+        results['recommendations'].append("Verify firewall is not blocking the connection.")
+
+    return results
