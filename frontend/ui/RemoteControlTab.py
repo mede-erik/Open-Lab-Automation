@@ -497,9 +497,19 @@ class RemoteControlTab(QWidget):
                 btn.setChecked(False)
                 # Log error using centralized error handler (no dialog for retry attempts)
                 self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}")
-                # Restart the single-shot timer so the next retry is scheduled
+                # Create a fresh single-shot timer for the next retry attempt.
+                # (The previous timer already fired and cannot be restarted.)
                 if timer_key in self.connection_timers:
-                    self.connection_timers[timer_key].start(5000)
+                    try:
+                        self.connection_timers[timer_key].stop()
+                        self.connection_timers[timer_key].deleteLater()
+                    except Exception:
+                        pass
+                new_timer = QTimer(self)
+                new_timer.setSingleShot(True)
+                new_timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
+                self.connection_timers[timer_key] = new_timer
+                new_timer.start(5000)
                     
         except Exception as e:
             # Gestisci qualsiasi errore inaspettato, inclusi crash UI
@@ -1168,20 +1178,41 @@ class RemoteControlTab(QWidget):
 
                         # Determine whether this is a connection-refused or timeout VISA error
                         # to decide whether to show the diagnostics dialog.
+                        # Prefer checking e.error_code (stable API) with string matching as fallback.
                         err_str = str(e).lower()
-                        is_visa_refused = (
+                        _is_visa_io = (
                             PYVISA_AVAILABLE
-                            and pyvisa is not None
                             and isinstance(e, pyvisa.errors.VisaIOError)
-                            and ("can't connect" in err_str or "connection refused" in err_str
-                                 or "vi_error_rsrc_nfound" in err_str)
                         )
-                        is_visa_timeout = (
-                            PYVISA_AVAILABLE
-                            and pyvisa is not None
-                            and isinstance(e, pyvisa.errors.VisaIOError)
-                            and "timeout" in err_str
-                        )
+
+                        def _visa_refused(exc, es):
+                            if hasattr(exc, 'error_code') and hasattr(pyvisa, 'constants'):
+                                try:
+                                    sc = pyvisa.constants.StatusCode
+                                    refused_codes = {
+                                        getattr(sc, 'error_resource_not_found', None),
+                                        getattr(sc, 'error_connection_lost', None),
+                                    }
+                                    if exc.error_code in refused_codes - {None}:
+                                        return True
+                                except Exception:
+                                    pass
+                            return ("can't connect" in es or "connection refused" in es
+                                    or "vi_error_rsrc_nfound" in es)
+
+                        def _visa_timeout(exc, es):
+                            if hasattr(exc, 'error_code') and hasattr(pyvisa, 'constants'):
+                                try:
+                                    sc = pyvisa.constants.StatusCode
+                                    timeout_code = getattr(sc, 'error_timeout', None)
+                                    if timeout_code is not None and exc.error_code == timeout_code:
+                                        return True
+                                except Exception:
+                                    pass
+                            return "timeout" in es
+
+                        is_visa_refused = _is_visa_io and _visa_refused(e, err_str)
+                        is_visa_timeout = _is_visa_io and _visa_timeout(e, err_str)
 
                         if is_visa_refused:
                             error_msg = f"Connection refused to {visa_addr}\n\n"
