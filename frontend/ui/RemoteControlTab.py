@@ -24,6 +24,7 @@ class RemoteControlTab(QWidget):
     On top, a single box shows all measurements from dataloggers/multimeters (oscilloscopes excluded).
     Uses pyvisa for direct communication, using SCPI commands from LoadInstruments.
     """
+    _MANUAL_ICON = '\u2699'  # ⚙ gear icon for manual instruments
     def __init__(self, load_instruments):
         """
         Initialize the RemoteControlTab.
@@ -791,15 +792,11 @@ class RemoteControlTab(QWidget):
         self.label.setText(translator.t('remote_control'))
         self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter only)')
         # Optionally update channel group titles
-        _MANUAL_ICON = '\u2699'
         for group in self.current_channel_widgets:
             inst = group.property('instrument')
             ch = group.property('channel')
             if inst and ch:
-                group_title = f"{inst.get('instance_name', '')} - {ch.get('name', '')}"
-                if inst.get('is_manual', False):
-                    group_title += f" {_MANUAL_ICON} [{self._t('manual_instrument')}]"
-                group.setTitle(group_title)
+                group.setTitle(self._format_channel_title(inst, ch))
 
     def load_instruments(self, inst_file_path):
         """
@@ -1264,6 +1261,13 @@ class RemoteControlTab(QWidget):
                 self.logger.error(error_msg)
             # Error already logged - no popup needed
     
+    def _format_channel_title(self, inst, ch):
+        """Build the channel group box title, including the manual-instrument badge when applicable."""
+        title = f"{inst.get('instance_name', '')} - {ch.get('name', '')}"
+        if inst.get('is_manual', False):
+            title += f" {self._MANUAL_ICON} [{self._t('manual_instrument')}]"
+        return title
+
     def _t(self, key, **kwargs):
         """Helper to get a translated string, with optional format substitution."""
         if self.translator and hasattr(self.translator, 't'):
@@ -1301,12 +1305,9 @@ class RemoteControlTab(QWidget):
         :param ch: Dati del canale
         :return: QGroupBox contenente i controlli del canale
         """
-        _MANUAL_ICON = '\u2699'  # ⚙ gear icon for manual instruments
         print(f"      → Creazione controlli per canale {ch.get('name', 'N/A')}")
         is_manual = inst.get('is_manual', False)
-        group_title = f"{inst.get('instance_name','')} - {ch.get('name','')}"
-        if is_manual:
-            group_title += f" {_MANUAL_ICON} [{self._t('manual_instrument')}]"
+        group_title = self._format_channel_title(inst, ch)
         group = QGroupBox(group_title)
         group.setProperty('instrument', inst)
         group.setProperty('channel', ch)
@@ -1314,7 +1315,7 @@ class RemoteControlTab(QWidget):
 
         # Manual mode indicator banner
         if is_manual:
-            manual_label = QLabel(f"{_MANUAL_ICON} {self._t('manual_instrument_label')}")
+            manual_label = QLabel(f"{self._MANUAL_ICON} {self._t('manual_instrument_label')}")
             manual_label.setStyleSheet(
                 "QLabel { background-color: #fff3cd; color: #856404; "
                 "border: 1px solid #ffc107; border-radius: 4px; padding: 4px; font-weight: bold; }"
