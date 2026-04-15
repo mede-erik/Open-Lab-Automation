@@ -10,8 +10,7 @@ except (ImportError, ValueError) as e:
     print(f"PyVISA non disponibile: {e}")
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
 from PyQt6.QtCore import QTimer, Qt
-from frontend.core.LoadInstruments import LoadInstruments
-from frontend.core.errorhandler import ErrorHandler, VISAError, UIError, ErrorCode
+from frontend.core.errorhandler import ErrorHandler
 
 
 # =========================
@@ -792,11 +791,15 @@ class RemoteControlTab(QWidget):
         self.label.setText(translator.t('remote_control'))
         self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter only)')
         # Optionally update channel group titles
+        _MANUAL_ICON = '\u2699'
         for group in self.current_channel_widgets:
             inst = group.property('instrument')
             ch = group.property('channel')
             if inst and ch:
-                group.setTitle(f"{inst.get('instance_name', '')} - {ch.get('name', '')}")
+                group_title = f"{inst.get('instance_name', '')} - {ch.get('name', '')}"
+                if inst.get('is_manual', False):
+                    group_title += f" {_MANUAL_ICON} [{self._t('manual_instrument')}]"
+                group.setTitle(group_title)
 
     def load_instruments(self, inst_file_path):
         """

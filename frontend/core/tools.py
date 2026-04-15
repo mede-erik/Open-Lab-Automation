@@ -300,19 +300,28 @@ def diagnose_connection(visa_address: str) -> dict:
     #   TCPIP0::host::<numeric_port>::SOCKET      (raw socket)
     #   TCPIP0::host::<numeric_port>::INSTR       (numeric port)
     try:
-        tcpip_pattern = r'TCPIP\d*::([^:]+)(?:::([^:]+))?::(?:INSTR|SOCKET)'
+        tcpip_pattern = (
+            r'^TCPIP\d*::([^:]+)'
+            r'(?:::((?:inst\d+)|(?:hislip\d+(?:,\d+)?)|(?:\d+)))?'
+            r'::(?:INSTR|SOCKET)$'
+        )
         match = re.match(tcpip_pattern, visa_address, re.IGNORECASE)
 
         if match:
             results['address_valid'] = True
             host = match.group(1)
-            resource_seg = match.group(2) or ''  # e.g. 'inst0', 'hislip0', '5025', ''
+            resource_seg = match.group(2) or ''  # e.g. 'inst0', 'hislip0', 'hislip0,4880', '5025', ''
 
             # Determine port from resource segment
             if re.match(r'^\d+$', resource_seg):
                 port = int(resource_seg)
             elif resource_seg.lower().startswith('hislip'):
-                port = 4880  # HiSLIP default
+                # HiSLIP may include an explicit port: hislip0,4880
+                hislip_match = re.match(r'^hislip\d+(?:,(\d+))?$', resource_seg, re.IGNORECASE)
+                if hislip_match and hislip_match.group(1):
+                    port = int(hislip_match.group(1))
+                else:
+                    port = 4880  # HiSLIP default
             else:
                 port = 111   # VXI-11 / portmapper default
 
