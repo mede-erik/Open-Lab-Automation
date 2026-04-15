@@ -25,6 +25,8 @@ class RemoteControlTab(QWidget):
     Uses pyvisa for direct communication, using SCPI commands from LoadInstruments.
     """
     _MANUAL_ICON = '\u2699'  # ⚙ gear icon for manual instruments
+    _MAX_RETRY_ATTEMPTS = 5   # Stop auto-retrying after this many failed attempts
+    _RETRY_BASE_DELAY_MS = 5000  # Initial retry delay in ms; doubles each attempt (capped at 60 s)
     def __init__(self, load_instruments):
         """
         Initialize the RemoteControlTab.
@@ -122,6 +124,7 @@ class RemoteControlTab(QWidget):
         self.visa_connections = {}  # Stores active VISA connections
         self.meas_labels = {}  # Stores measurement labels for dataloggers
         self.connection_timers = {}  # Stores connection retry timers
+        self.connection_retry_counts = {}  # Tracks per-timer retry attempt count
         # Translator is provided later via update_translation() by the shared application state
         self.translator = None
 
@@ -455,29 +458,48 @@ class RemoteControlTab(QWidget):
 
     def safe_retry_connection(self, inst, btn, timer_key):
         """
-        Metodo sicuro per ritentare la connessione che verifica se il button esiste ancora.
+        Background auto-retry for a failed VISA connection.
+
+        Retries are gated on the connect button remaining checked: if the user
+        unchecks it while a retry is pending the next call will bail out
+        without attempting to connect.  After _MAX_RETRY_ATTEMPTS consecutive
+        failures the retry loop stops and the button is left in the failed
+        (red/unchecked) state so the user must manually re-initiate.
         """
         try:
             # Verifica se il button è ancora valido
             if btn is None or not hasattr(btn, 'setStyleSheet'):
-                # Il button è stato eliminato, rimuovi il timer
+                # Button was destroyed – clean up and stop retrying.
                 if timer_key in self.connection_timers:
                     self.connection_timers[timer_key].stop()
                     self.connection_timers[timer_key].deleteLater()
                     del self.connection_timers[timer_key]
+                self.connection_retry_counts.pop(timer_key, None)
                 return
-            
+
+            # User opt-in gate: if the button is no longer checked the user
+            # has cancelled the auto-retry (by unchecking / reloading the tab).
+            if not btn.isChecked():
+                if timer_key in self.connection_timers:
+                    self.connection_timers[timer_key].stop()
+                    self.connection_timers[timer_key].deleteLater()
+                    del self.connection_timers[timer_key]
+                self.connection_retry_counts.pop(timer_key, None)
+                return
+
             # Prova a connetterti di nuovo
             if not self._ensure_visa_initialized():
                 btn.setStyleSheet('border: 2px solid orange;')
                 btn.setChecked(False)
                 btn.setToolTip("VISA non disponibile")
+                self.connection_retry_counts.pop(timer_key, None)
                 return
                 
             visa_addr = inst.get('visa_address', None)
             if not visa_addr:
                 btn.setStyleSheet('border: 2px solid red;')
                 btn.setChecked(False)
+                self.connection_retry_counts.pop(timer_key, None)
                 return
                 
             try:
@@ -496,17 +518,43 @@ class RemoteControlTab(QWidget):
                 self.visa_connections[visa_addr] = instr
                 btn.setStyleSheet('border: 2px solid green;')
                 btn.setChecked(True)
-                # Connessione riuscita, rimuovi il timer
+                # Connection succeeded – cancel timer and reset retry counter.
                 if timer_key in self.connection_timers:
                     timer = self.connection_timers[timer_key]
                     timer.stop()
                     timer.deleteLater()
                     del self.connection_timers[timer_key]
+                self.connection_retry_counts.pop(timer_key, None)
             except Exception as e:
-                btn.setStyleSheet('border: 2px solid red;')
-                btn.setChecked(False)
-                # Log error without showing a dialog during background retry attempts
+                # Log without showing a dialog during background retry attempts.
                 self.error_handler.handle_visa_error(e, f"retry connection to {visa_addr}", show_dialog=False)
+
+                attempt = self.connection_retry_counts.get(timer_key, 0) + 1
+                self.connection_retry_counts[timer_key] = attempt
+
+                if attempt >= self._MAX_RETRY_ATTEMPTS:
+                    # Reached the retry cap – give up and leave the button in the
+                    # failed state so the user can decide when to reconnect.
+                    btn.setStyleSheet('border: 2px solid red;')
+                    btn.setChecked(False)
+                    if timer_key in self.connection_timers:
+                        try:
+                            self.connection_timers[timer_key].stop()
+                            self.connection_timers[timer_key].deleteLater()
+                            del self.connection_timers[timer_key]
+                        except Exception:
+                            pass
+                    self.connection_retry_counts.pop(timer_key, None)
+                    return
+
+                # Keep button checked (orange = retrying) so the user can
+                # uncheck it to cancel the loop before the next attempt fires.
+                btn.setStyleSheet('border: 2px solid orange;')
+                btn.setChecked(True)
+
+                # Exponential back-off: 5 s, 10 s, 20 s, 40 s, 60 s (capped).
+                delay_ms = min(self._RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)), 60000)
+
                 # Create a fresh single-shot timer for the next retry attempt.
                 # (The previous timer already fired and cannot be restarted.)
                 if timer_key in self.connection_timers:
@@ -519,7 +567,7 @@ class RemoteControlTab(QWidget):
                 new_timer.setSingleShot(True)
                 new_timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
                 self.connection_timers[timer_key] = new_timer
-                new_timer.start(5000)
+                new_timer.start(delay_ms)
                     
         except Exception as e:
             # Gestisci qualsiasi errore inaspettato, inclusi crash UI
@@ -544,6 +592,7 @@ class RemoteControlTab(QWidget):
                     del self.connection_timers[timer_key]
                 except:
                     pass
+            self.connection_retry_counts.pop(timer_key, None)
     
     def diagnose_connection(self, visa_address: str) -> dict:
         """
@@ -658,9 +707,12 @@ class RemoteControlTab(QWidget):
             thread.quit()
 
         # Parent the thread to the dialog so it is cleaned up when the dialog
-        # is destroyed.  Also wire dialog.finished -> thread.quit() so that
-        # closing the dialog before diagnostics completes stops the worker and
-        # prevents on_results() from touching destroyed dialog widgets.
+        # is destroyed.  When the user closes the dialog, dialog.finished ->
+        # thread.quit() exits the thread's event loop *after* worker.run()
+        # returns (thread.quit() cannot interrupt a running synchronous call).
+        # on_results() is therefore guarded with a try/except RuntimeError so
+        # that any attempt to touch already-destroyed dialog widgets is
+        # silently ignored if the results arrive after the dialog is closed.
         thread = QThread(dialog)
         worker = _DiagnosticsWorker(self, visa_address)
         worker.moveToThread(thread)
@@ -669,7 +721,9 @@ class RemoteControlTab(QWidget):
         # Clean up worker/thread without blocking the GUI thread
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        # Stop the worker if the user closes the dialog before it completes
+        # Exit the thread event loop once the dialog is closed (worker.run()
+        # may still be running; it will finish naturally and on_results will
+        # handle the destroyed-widget case via RuntimeError guard).
         dialog.finished.connect(thread.quit)
         thread.start()
         
@@ -861,6 +915,7 @@ class RemoteControlTab(QWidget):
                 except:
                     pass
             self.connection_timers.clear()
+            self.connection_retry_counts.clear()
                 
             self.meas_labels.clear()
             # Close previous VISA connections
@@ -1172,7 +1227,13 @@ class RemoteControlTab(QWidget):
                                 f"connection to {visa_addr}"
                             )
 
-                        # Safe timer management – schedule a retry regardless of error type
+                        # Safe timer management – schedule a retry regardless of error type.
+                        # Keep the button checked (orange) to signal "retrying in progress";
+                        # the user can uncheck it to cancel future auto-retries.
+                        btn.setStyleSheet('border: 2px solid orange;')
+                        btn.setChecked(True)
+                        # Reset the retry counter for this instrument so the backoff starts fresh.
+                        self.connection_retry_counts.pop(timer_key, None)
                         if timer_key in self.connection_timers:
                             self.connection_timers[timer_key].stop()
                             self.connection_timers[timer_key].deleteLater()
@@ -1181,7 +1242,7 @@ class RemoteControlTab(QWidget):
                         timer.setSingleShot(True)
                         timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
                         self.connection_timers[timer_key] = timer
-                        timer.start(5000)
+                        timer.start(self._RETRY_BASE_DELAY_MS)
                 conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
                 
                 # Strategia di layout per strumento con molti canali (>3)
@@ -1835,14 +1896,13 @@ class RemoteControlTab(QWidget):
                 except:
                     pass
             self.connection_timers.clear()
-            
-            # Chiusura di tutte le connessioni VISA
             for addr, instr in self.visa_connections.items():
                 try:
                     instr.close()
                 except:
                     pass
             self.visa_connections.clear()
+            self.connection_retry_counts.clear()
             
             if self.logger:
                 self.logger.info("RemoteControlTab: Risorse pulite correttamente")
