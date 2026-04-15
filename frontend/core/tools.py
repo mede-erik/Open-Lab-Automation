@@ -279,7 +279,7 @@ def diagnose_connection(visa_address: str) -> dict:
     try:
         import pyvisa as _pv  # noqa: F401
         visa_available = True
-    except ImportError:
+    except (ImportError, ValueError):
         visa_available = False
 
     results: Dict[str, Any] = {

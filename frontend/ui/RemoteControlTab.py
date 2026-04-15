@@ -797,6 +797,12 @@ class RemoteControlTab(QWidget):
             ch = group.property('channel')
             if inst and ch:
                 group.setTitle(self._format_channel_title(inst, ch))
+            banner_label = group.property('manual_mode_banner_label')
+            if banner_label is not None:
+                try:
+                    banner_label.setText(f"{self._MANUAL_ICON} {self._t('manual_instrument_label')}")
+                except RuntimeError:
+                    pass  # widget was destroyed
 
     def load_instruments(self, inst_file_path):
         """
@@ -1311,6 +1317,7 @@ class RemoteControlTab(QWidget):
         group = QGroupBox(group_title)
         group.setProperty('instrument', inst)
         group.setProperty('channel', ch)
+        group.setProperty('manual_mode_banner_label', None)
         vbox = QVBoxLayout()
 
         # Manual mode indicator banner
@@ -1320,6 +1327,7 @@ class RemoteControlTab(QWidget):
                 "QLabel { background-color: #fff3cd; color: #856404; "
                 "border: 1px solid #ffc107; border-radius: 4px; padding: 4px; font-weight: bold; }"
             )
+            group.setProperty('manual_mode_banner_label', manual_label)
             vbox.addWidget(manual_label)
         
         # Voltage set with limits
