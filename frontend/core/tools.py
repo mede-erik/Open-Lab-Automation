@@ -286,7 +286,7 @@ def diagnose_connection(visa_address: str) -> dict:
         'visa_address': visa_address,
         'address_valid': False,
         'host_resolves': False,   # True when DNS resolution succeeds
-        'host_reachable': False,  # True only when an actual TCP connection succeeds
+        'host_reachable': False,  # True when the host responds on the network (TCP connect success or TCP RST/ConnectionRefusedError); port_open indicates whether the port accepted the connection
         'port_open': False,
         'visa_available': visa_available,
         'recommendations': [],

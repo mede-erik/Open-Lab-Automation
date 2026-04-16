@@ -715,12 +715,24 @@ class RemoteControlTab(QWidget):
         # silently ignored if the results arrive after the dialog is closed.
         thread = QThread(dialog)
         worker = _DiagnosticsWorker(self, visa_address)
+        # Keep strong references on dialog so neither object is
+        # garbage-collected while the background diagnostics are still running.
+        dialog._diagnostics_thread = thread
+        dialog._diagnostics_worker = worker
+
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.finished.connect(on_results)
+
+        def _cleanup_diagnostics_refs():
+            # Drop strong references once the thread has finished so the
+            # dialog doesn't hold onto them indefinitely.
+            dialog._diagnostics_worker = None
+            dialog._diagnostics_thread = None
+
         # Clean up worker/thread without blocking the GUI thread
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(_cleanup_diagnostics_refs)
         # Exit the thread event loop once the dialog is closed (worker.run()
         # may still be running; it will finish naturally and on_results will
         # handle the destroyed-widget case via RuntimeError guard).
