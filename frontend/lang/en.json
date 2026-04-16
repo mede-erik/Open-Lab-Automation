@@ -299,5 +299,15 @@
   "experimental": "Experimental",
   "experimental_instrument": "Experimental (Not Tested)",
   "show_experimental_instruments": "Show experimental instruments",
-  "enable_experimental_instruments": "Enable experimental instruments in the instrument list"
+  "enable_experimental_instruments": "Enable experimental instruments in the instrument list",
+  "manual_instrument": "Manual instrument",
+  "manual_instrument_tooltip": "If enabled, the instrument is not controlled remotely. A popup will be shown to set values manually.",
+  "manual_instrument_label": "Manual mode (no remote control)",
+  "manual_set_voltage_prompt": "Set voltage on '{instrument}' - Channel '{channel}' to {value} V",
+  "manual_set_current_prompt": "Set current on '{instrument}' - Channel '{channel}' to {value} A",
+  "manual_output_on_prompt": "Enable output on '{instrument}' - Channel '{channel}'",
+  "manual_output_off_prompt": "Disable output on '{instrument}' - Channel '{channel}'",
+  "manual_instrument_title": "Manual Instrument",
+  "manual_action_confirmed": "Action confirmed. The value is assumed to have been set.",
+  "manual_action_cancelled": "Action cancelled by user."
 }

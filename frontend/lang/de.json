@@ -299,5 +299,15 @@
   "experimental": "Experimentell",
   "experimental_instrument": "Experimentell (Nicht getestet)",
   "show_experimental_instruments": "Experimentelle Geräte anzeigen",
-  "enable_experimental_instruments": "Experimentelle Geräte in der Geräteliste aktivieren"
+  "enable_experimental_instruments": "Experimentelle Geräte in der Geräteliste aktivieren",
+  "manual_instrument": "Manuelles Gerät",
+  "manual_instrument_tooltip": "Wenn aktiviert, wird das Gerät nicht ferngesteuert. Ein Popup wird angezeigt, um Werte manuell einzustellen.",
+  "manual_instrument_label": "Manueller Modus (keine Fernsteuerung)",
+  "manual_set_voltage_prompt": "Spannung an '{instrument}' - Kanal '{channel}' auf {value} V einstellen",
+  "manual_set_current_prompt": "Strom an '{instrument}' - Kanal '{channel}' auf {value} A einstellen",
+  "manual_output_on_prompt": "Ausgang an '{instrument}' - Kanal '{channel}' aktivieren",
+  "manual_output_off_prompt": "Ausgang an '{instrument}' - Kanal '{channel}' deaktivieren",
+  "manual_instrument_title": "Manuelles Gerät",
+  "manual_action_confirmed": "Aktion bestätigt. Es wird angenommen, dass der Wert eingestellt wurde.",
+  "manual_action_cancelled": "Aktion vom Benutzer abgebrochen."
 }
