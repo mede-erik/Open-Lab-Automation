@@ -726,9 +726,11 @@ class RemoteControlTab(QWidget):
 
         def _cleanup_diagnostics_refs():
             # Drop strong references once the thread has finished so the
-            # dialog doesn't hold onto them indefinitely.
+            # dialog doesn't hold onto them indefinitely, and schedule the
+            # thread object for deletion.
             dialog._diagnostics_worker = None
             dialog._diagnostics_thread = None
+            thread.deleteLater()
 
         # Clean up worker/thread without blocking the GUI thread
         worker.finished.connect(worker.deleteLater)
