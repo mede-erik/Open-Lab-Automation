@@ -1274,8 +1274,12 @@ class RemoteControlTab(QWidget):
                         if v_addr and v_addr in self.visa_connections:
                             try:
                                 self.visa_connections[v_addr].close()
-                            except Exception:
-                                pass
+                            except Exception as close_err:
+                                self.error_handler.handle_visa_error(
+                                    close_err,
+                                    f"close connection to {v_addr} on user disconnect",
+                                    show_dialog=False
+                                )
                             self.visa_connections.pop(v_addr, None)
                         b.setStyleSheet('')
                         return
