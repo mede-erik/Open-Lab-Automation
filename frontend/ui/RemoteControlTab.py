@@ -1149,6 +1149,8 @@ class RemoteControlTab(QWidget):
                             self.connection_timers[timer_key].stop()
                             self.connection_timers[timer_key].deleteLater()
                             del self.connection_timers[timer_key]
+                        # Clear retry history so a future re-connect starts with a fresh counter
+                        self.connection_retry_counts.pop(timer_key, None)
                     except Exception as e:
                         btn.setStyleSheet('border: 2px solid red;')
                         btn.setChecked(False)
@@ -1243,7 +1245,44 @@ class RemoteControlTab(QWidget):
                         timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
                         self.connection_timers[timer_key] = timer
                         timer.start(self._RETRY_BASE_DELAY_MS)
-                conn_btn.clicked.connect(lambda _, i=inst, b=conn_btn: try_connect(i, b))
+
+                def handle_connect_clicked(checked, i=inst, b=conn_btn):
+                    """
+                    Handle connect-button clicks with full checked-state awareness.
+
+                    checked=True  → attempt VISA connection (delegates to try_connect).
+                    checked=False → user-initiated disconnect: cancel any pending retry
+                                    timer, clear the retry counter, and close the existing
+                                    VISA connection so resources are released immediately.
+                    """
+                    t_key = f"{i.get('instance_name', 'unknown')}_{id(b)}"
+                    if not checked:
+                        # Cancel pending retry timer
+                        timer = self.connection_timers.pop(t_key, None)
+                        if timer is not None:
+                            timer.stop()
+                            timer.deleteLater()
+                        # Clear retry history so re-connecting starts with a fresh counter
+                        self.connection_retry_counts.pop(t_key, None)
+                        # Close the VISA connection if one is open
+                        v_addr = (
+                            i.get('visa_address')
+                            or i.get('resource_name')
+                            or i.get('resource')
+                            or i.get('address')
+                        )
+                        if v_addr and v_addr in self.visa_connections:
+                            try:
+                                self.visa_connections[v_addr].close()
+                            except Exception:
+                                pass
+                            self.visa_connections.pop(v_addr, None)
+                        b.setStyleSheet('')
+                        return
+                    # checked=True → attempt connection
+                    try_connect(i, b)
+
+                conn_btn.clicked.connect(handle_connect_clicked)
                 
                 # Strategia di layout per strumento con molti canali (>3)
                 if channel_count > 3:
