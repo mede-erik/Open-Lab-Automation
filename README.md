@@ -30,6 +30,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 
 - **Backend Communication**
   - C backend for efficient, direct communication with instruments.
+  - Rust backend module for instrument library loading and query calls.
   - Designed to be easily extendable to new instruments and protocols.
 
 - **Error Handling & Validation**
@@ -50,7 +51,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 ## Project Structure
 
 - **Frontend:** Python (PyQt6) — Modern graphical interface with comprehensive instrument management and advanced sweep configuration
-- **Backend:** C — Fast, low-level communication layer for instrument control
+- **Backend:** C/Rust — Fast, low-level communication layer for instrument control and instrument-library access
 - **Instrument Library:** JSON (`Instruments_LIB/instruments_lib.json`) — Extensible database of supported instruments
 - **Configuration Files:**
   - `.inst` — Instrument configuration and channel setup
@@ -71,6 +72,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - `frontend/launcher.py` — Application launcher with environment setup
 - `frontend/main.py` — Main Python GUI application (PyQt6), instrument/project management dialogs
 - `backend/backend.c` — C backend for low-level instrument communication
+- `backend-rust/` — Rust module for loading and querying `Instruments_LIB/instruments_lib.json`
 
 ### Instrument Library & Configuration
 - `Instruments_LIB/instruments_lib.json` — Instrument library (JSON structure for all supported instruments)
@@ -123,7 +125,12 @@ Open Lab Automation is an open-source suite for automated electrical measurement
    gcc backend/backend.c -o backend/backend.exe
    ```
 
-4. Launch the application:
+4. Run the Rust instrument-library backend (optional):
+   ```bash
+   cargo run --manifest-path backend-rust/Cargo.toml -- types
+   ```
+
+5. Launch the application:
    ```bash
    python frontend/launcher.py
    ```
@@ -169,4 +176,3 @@ See the LICENSE file for details.
 For bug reports and feature requests, please use the [GitHub Issues](https://github.com/mede-erik/Open-Lab-Automation/issues) page.
 
 When reporting errors, please include the error code (e.g., [DL-001]) shown in the error message for faster troubleshooting.
-
