@@ -15,7 +15,8 @@
           "max_voltage": 10.0
         }
       ],
-      "visa_address": "TCPIP0::192.168.1.100::INSTR"
+      "visa_address": "TCPIP0::192.168.1.100::INSTR",
+      "is_manual": true
     },
     {
       "instrument_type": "power_supply",
