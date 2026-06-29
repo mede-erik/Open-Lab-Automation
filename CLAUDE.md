@@ -2,23 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
 ## Common Development Commands
 
 | Task | Command | Notes |
 |------|---------|-------|
-| **Install Python dependencies** | `pip install -r requirements.txt` | Installs all runtime and optional dev dependencies (pytest, black, flake8, sphinx). |
-| **Compile the C backend** | `gcc backend/backend.c -o backend/backend.exe` | Required for direct instrument communication. Skip if you only run the GUI in a simulated environment. |
-| **Run the application** | `python frontend/launcher.py` | Launches the PyQt6 GUI with the correct `PYTHONPATH` set. |
-| **Run the GUI module directly** | `python -m frontend.main` | Equivalent to the launcher; useful for debugging import paths. |
-| **Run the full test suite** | `pytest` | Discovers tests under `frontend/tests` and the top‑level test files. |
-| **Run a single test file** | `pytest test_database_menu.py` | Replace the filename with any other test module. |
-| **Run a single test function** | `pytest test_database_menu.py::test_save_project` | Use the `::` syntax to target a specific test function. |
-| **Lint the code** | `flake8 .` | Checks for PEP8 violations across the repository. |
+| **Install Python dependencies** | `pip install -r requirements.txt` | Installs runtime and optional dev packages (pytest, black, flake8, sphinx). |
+| **Compile the C backend** | `gcc backend/backend.c -o backend/backend.exe` | Required for direct instrument communication; skip for GUI‑only simulation. |
+| **Run the application** | `python frontend/launcher.py` | Launches the PyQt6 GUI with the correct `PYTHONPATH`. |
+| **Run the GUI module directly** | `python -m frontend.main` | Useful for debugging import paths. |
+| **Run the full test suite** | `pytest` | Discovers tests under `frontend/tests` and top‑level test files. |
+| **Run a single test file** | `pytest path/to/test_file.py` | Replace `path/to/test_file.py` with the file you need. |
+| **Run a single test function** | `pytest path/to/test_file.py::test_name` | Use the `::` syntax to target a specific test. |
+| **Lint the code** | `flake8 .` | Checks PEP‑8 compliance across the repository. |
 | **Auto‑format the code** | `black .` | Reformats all Python files in place. |
-| **Generate documentation** | `sphinx-build -b html docs docs/_build/html` | Assumes a `docs/` directory with a Sphinx `conf.py`. |
-| **Clean build artifacts** | `git clean -fdx` | Removes compiled Python files, `__pycache__`, and the compiled C binary. |
+| **Generate documentation** | `sphinx-build -b html docs docs/_build/html` | Assumes a `docs/` directory with a `conf.py`. |
+| **Clean build artefacts** | `git clean -fdx` | Removes compiled Python files, `__pycache__`, and the compiled C binary. |
+| **Quick launch (dev shortcut)** | `! python frontend/launcher.py` | Use the `!` prefix in Claude Code to run the command directly from the chat. |
 
-> **Tip**: Most CI pipelines in this project run the commands above in the order: install deps → compile backend → lint → test.
+> **Tip** – Most CI pipelines run the commands above in this order: install → compile → lint → test.
+
+---
 
 ## High‑Level Architecture
 
@@ -28,61 +33,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 +-------------------+        +-------------------+        +-------------------+
 ```
 
-* **Frontend** (`frontend/`)
-  * Entry points: `frontend/launcher.py` and `frontend/main.py`.
-  * Built with **PyQt6** – UI code lives under `frontend/ui/`.
-  * Each window/dialog is isolated in its own module (e.g., `ui/main_window.py`, `ui/InstrumentConfigDialog.py`).
-  * UI modules contain only widget layout, signal connections, and UI‑specific callbacks. No business logic is embedded here.
-* **Core Library** (`frontend/core/`)
-  * **`DatabaseManager.py` / `ProjectDatabaseManager.py`** – Handles project JSON, `.inst`, `.eff`, `.was` files and persists configuration.
-  * **`LoadInstruments.py`** – Loads the instrument definitions from `Instruments_LIB/instruments_lib.json` and provides lookup utilities.
-  * **`validator.py`** – Central validation functions; used by UI dialogs to ensure user input conforms to expected formats.
-  * **`errorhandler.py`** – Standardized error‑code system (`[RESOURCE-XXX]`) and UI error presentation.
-  * **`tools.py`** – General‑purpose utilities (file I/O, CSV export, date formatting) that are deliberately stateless.
-  * **`Translator.py`** – Internationalisation layer; translation files live in `frontend/lang/*.json`.
-  * **`logger.py`** – Structured logging (JSON) used across the app for debugging and audit trails.
-* **Backend** (`backend/backend.c`)
-  * Provides low‑latency, direct instrument communication via VISA, USB, LAN, GPIB, or serial.
-  * Exposes a simple C API that the Python core calls through `ctypes`/`cffi` wrappers (see `frontend/core/tools.py`).
-  * Designed to be extensible: add new protocol handlers by implementing the C interface and rebuilding the binary.
+* **Frontend** (`frontend/`) – PyQt6 GUI. Entry points are `frontend/launcher.py` and `frontend/main.py`. UI code lives under `frontend/ui/`; each dialog/window occupies its own file and contains only layout and signal wiring.
+* **Core Library** (`frontend/core/`) – Business logic, validation, error handling, and utilities. Key modules:
+  * `DatabaseManager.py / ProjectDatabaseManager.py` – Handles project JSON, `.inst`, `.eff`, `.was` files.
+  * `LoadInstruments.py` – Reads `Instruments_LIB/instruments_lib.json` and provides lookup helpers.
+  * `validator.py` – Central validation functions; raises `ValidationError` on failure.
+  * `errorhandler.py` – Standardised `[RESOURCE‑XXX]` error‑code system and UI presentation.
+  * `tools.py` – Stateless helpers (file I/O, CSV export, date formatting, etc.).
+  * `Translator.py` – Internationalisation; translation files live in `frontend/lang/`.
+  * `logger.py` – Structured JSON logging used throughout the app.
+* **Backend** (`backend/backend.c`) – Low‑latency C layer exposing a simple API (via `ctypes`/`cffi` wrappers in `core/tools.py`) for VISA, USB, LAN, GPIB, or serial instrument communication. Adding a new protocol means implementing the C interface and rebuilding the binary.
 
-### Data Flow Overview
-1. **User Interaction** – UI dialog emits a signal (e.g., *Save* button).
-2. **UI Layer** – Calls a validation function from `core/validator.py`.
-3. **Core Layer** – If valid, `core/tools.py` writes the JSON configuration or triggers a measurement.
-4. **Backend Call** – For real‑time instrument actions, the core uses the C backend functions to send SCPI commands.
-5. **Result Handling** – Responses are logged via `core/logger.py` and displayed in the UI.
+### Data Flow (simplified)
+
+1. **User interacts** with a dialog → emits a Qt signal.
+2. **UI layer** calls a validation routine from `core/validator.py`.
+3. On success, **core/tools.py** writes configuration files or triggers a measurement.
+4. For real‑time actions the core calls the **C backend**, which sends SCPI commands to the instrument.
+5. Responses are logged via **core/logger.py** and shown in the UI.
 
 ### Error‑Handling Strategy
-* All exceptions are wrapped in custom types defined in `core/errorhandler.py`.
-* Each error carries a standardized code (`[FILE-001]`, `[DL-003]`, …) that is shown to the user and logged with a stack trace.
-* UI modules invoke `errorhandler.handle_error(exc, user_message)` rather than raw `try/except` blocks.
+
+All exceptions are wrapped in custom types defined in `core/errorhandler.py`. Each error includes a standardized code (`[RESOURCE‑XXX]`) that is displayed to the user and recorded in the log with a full stack trace. UI modules should call `errorhandler.handle_error(exc, user_message)` instead of ad‑hoc try/except blocks.
 
 ### Internationalisation
-* Translation strings are loaded from `frontend/lang/<locale>.json`.
-* UI modules retrieve strings via `Translator.translate(key)`; new keys should be added to every locale file.
 
-## Important Project‑Specific Files
-* **`ERROR_CODES.md`** – Full reference of all `[RESOURCE‑XXX]` codes used throughout the app.
-* **`Instruments_LIB/instruments_lib.json`** – Master catalog of supported instruments; the UI builds its three‑level selector (type → series → model) from this file.
-* **`.github/copilot-instructions.md`** – Provides Copilot style guidelines; Claude Code should respect the same separation‑of‑concerns rules when generating new code.
-* **`README.md`** – High‑level feature description and quick‑start instructions (already mirrored above).
+Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via `Translator.translate(key)`. When adding a new key, ensure it exists in every locale file.
 
-## Development Conventions (derived from Copilot instructions)
-* **One file per UI component** – All `ui/*.py` files contain a single `QMainWindow`/`QDialog` subclass.
-* **No business logic in UI** – Keep calculations, DB access, and protocol handling in `frontend/core/*`.
-* **Signal wiring** – Connect PyQt signals to methods of the same class or to functions imported from core modules.
-* **Utility functions** – Place generic helpers in `core/tools.py`; keep them stateless.
-* **Validation** – All user‑entered data passes through `core/validator.py`; raise `ValidationError` on failure.
-* **Error handling** – Use `core/errorhandler.handle_error` for any UI‑visible error.
-* **Translation** – Access UI strings via `Translator.translate`; add missing keys across all language files.
+---
+
+## Project‑Specific Guidance
+
+* **Instrument library** – The JSON file `Instruments_LIB/instruments_lib.json` drives the three‑level selector (type → series → model). Adding support for a new instrument means extending this JSON and, if necessary, providing a C‑level command implementation.
+* **Project files** – `.inst` (instrument config), `.eff` (efficiency sweep), `.was` (oscilloscope settings), and generic `.json` metadata are all managed by the `ProjectDatabaseManager`. Keep their schemas in sync with the UI editors.
+* **Pulse Generator Tool** – Located in `frontend/ui/PulseGeneratorDialog.py`. It validates user parameters against the instrument’s capabilities and visualises the waveform with matplotlib. No manual SCPI commands should be constructed here; rely on the library‑defined commands.
+* **Error‑Code Reference** – See `ERROR_CODES.md` for the complete list of `[RESOURCE‑XXX]` codes. When adding new error types, follow the same prefix convention.
+* **Copilot / Claude Code Style Rules** – The file `.github/copilot-instructions.md` encodes the same separation‑of‑concerns rules already reflected in this CLAUDE.md. Claude Code should respect those guidelines when generating new code.
+
+---
 
 ## Frequently Used Shortcuts for Claude Code
+
 * **Run tests** – `! pytest` or `! pytest path/to/test_file.py`.
 * **Lint** – `! flake8 .`.
 * **Build backend** – `! gcc backend/backend.c -o backend/backend.exe`.
 * **Launch app** – `! python frontend/launcher.py`.
-* **Open a file** – `! code path/to/file.py` (if VS Code is installed).
+* **Open a file in VS Code** – `! code path/to/file.py` (if VS Code is installed).
 
 ---
 
