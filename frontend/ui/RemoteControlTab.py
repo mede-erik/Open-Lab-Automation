@@ -261,7 +261,8 @@ class RemoteControlTab(QWidget):
             return
         
         # Carica i comandi SCPI specifici per questo modello dalla libreria
-        scpi_commands = self._get_oscilloscope_scpi_commands(osc_model)
+        scpi_commands = self._get_oscilloscope_scpi_commands(
+            osc_inst.get('model_id', osc_model))
         if not scpi_commands:
             print(f"[RemoteControlTab] Comandi SCPI non trovati per modello {osc_model}")
             return
@@ -298,7 +299,9 @@ class RemoteControlTab(QWidget):
             
             for series in osc_series:
                 for model in series.get('models', []):
-                    if model.get('id') == model_id or model.get('model') == model_id:
+                    if (model.get('id') == model_id
+                            or model.get('model') == model_id
+                            or model.get('name') == model_id):
                         # Combina comandi comuni della serie con quelli specifici del modello
                         common_commands = series.get('common_scpi_commands', {})
                         model_commands = model.get('scpi_commands', {})
