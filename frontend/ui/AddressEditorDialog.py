@@ -1,8 +1,11 @@
 import json
+import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLabel, QLineEdit, QDialogButtonBox, QWidget, QFormLayout
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 from frontend.core.LoadInstruments import LoadInstruments
+
+logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 
 
 class AddressEditorDialog(QDialog):
@@ -22,7 +25,7 @@ class AddressEditorDialog(QDialog):
         series_id = self.instrument.get('series', '')
         model_id = self.instrument.get('model_id', self.instrument.get('model', ''))
         
-        print(f"[AddressEditor] Cercando templates per: type={t}, series={series_id}, model={model_id}")
+        logger.debug(f"Looking for templates: type={t}, series={series_id}, model={model_id}")
         
         # Cerca nella libreria strumenti i tipi di comunicazione supportati
         instrument_data = self.load_instruments.find_instrument(type_name=t, series_id=series_id, model_id=model_id)
@@ -52,15 +55,14 @@ class AddressEditorDialog(QDialog):
                         templates[conn_name] = template
                 
                 if templates:
-                    print(f"[AddressEditor] Templates trovati: {templates}")
+                    logger.debug(f"Templates found: {list(templates.keys())}")
                     return templates
             
-            # Fallback per formato legacy 'visa_templates'
             if 'visa_templates' in interface_data:
-                print(f"[AddressEditor] Usando templates legacy")
+                logger.debug("Using legacy templates")
                 return interface_data['visa_templates']
         
-        print(f"[AddressEditor] Nessun template trovato, usando default")
+        logger.debug("No templates found, using defaults")
         # Default con tutte le opzioni disponibili
         return {
             'LXI (VXI-11)': 'TCPIP0::{ip}::inst0::INSTR',
@@ -184,7 +186,7 @@ class AddressEditorDialog(QDialog):
                         self.fields['serial'].setText(match.group(3))
                         
         except Exception as e:
-            print(f"[AddressEditor] Errore nel parsing dell'indirizzo esistente: {e}")
+            logger.error(f"Error parsing existing address: {e}")
 
     def get_address(self):
         # Compila la stringa secondo il template
@@ -216,10 +218,10 @@ class AddressEditorDialog(QDialog):
                     return None
             
             addr = template.format(**vals)
-            print(f"[AddressEditor] Indirizzo generato: {addr}")
+            logger.debug(f"Generated address: {addr}")
             return addr
             
         except Exception as e:
-            print(f"[AddressEditor] Errore nella formattazione: {e}")
+            logger.error(f"Address format error: {e}")
             QMessageBox.warning(self, "Errore", f"Errore nella formattazione dell'indirizzo: {e}")
             return None

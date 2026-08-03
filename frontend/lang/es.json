@@ -196,6 +196,7 @@
   "select_measured_variable": "Seleziona variabile misurata",
   "sweep_variable_label": "Variabile di scansione",
   "select_sweep_variable": "Seleziona variabile di scansione",
+  "no_variables_available": "Nessuna variabile disponibile",
   "hex_dec_converter": "Convertitore Hex/Dec",
   "database_configuration": "Configurazione Database",
   "instrument_library": "Libreria Strumenti",

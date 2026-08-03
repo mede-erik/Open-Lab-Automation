@@ -225,20 +225,11 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,c
 
-# Test files and testing directory
-tests
-*test*.py
-*Test*.py
-
-check_*.py
-
-*_tests.py
-test_*.py
+# Old/backup/test artifacts
+*_old.py
 *_debug.py
 debug_*.py
-
-*_old.py
-
+check_*.py
 *.backup
 *.bak
 

@@ -1,14 +1,14 @@
 import json
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QPushButton, QLabel, QLineEdit, QComboBox, QTextEdit, QFormLayout, QSizePolicy
 from PyQt6.QtCore import Qt
-from AddressEditorDialog import AddressEditorDialog
-from Translator import Translator
-from PowerSupplyConfigDialog import PowerSupplyConfigDialog
-from ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
-from DataloggerConfigDialog import DataloggerConfigDialog
-from OscilloscopeConfigDialog import OscilloscopeConfigDialog
 from PyQt6.QtWidgets import QListWidgetItem, QHBoxLayout, QWidget
-from LoadInstruments import LoadInstruments
+from frontend.ui.AddressEditorDialog import AddressEditorDialog
+from frontend.core.Translator import Translator
+from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
+from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
+from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
+from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
+from frontend.core.LoadInstruments import LoadInstruments
 
 # =========================
 # InstFileDialog

@@ -27,7 +27,7 @@ from frontend.core.errorhandler import ErrorHandler, ErrorCode
 try:
     import matplotlib
     matplotlib.use('Qt5Agg')
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
     from matplotlib.figure import Figure
     MATPLOTLIB_AVAILABLE = True
 except ImportError:

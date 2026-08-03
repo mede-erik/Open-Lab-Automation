@@ -347,9 +347,9 @@ class ErrorHandler(QObject):
             
             msg_box.exec()
         except Exception as e:
-            # Fallback if GUI is not available
-            print(f"Error displaying dialog: {e}")
-            print(f"Original error: {error_code} {user_message} - {technical_message}")
+            logging.getLogger('frontend.core.errorhandler').error(
+                f"Error displaying dialog: {e} | Original: {error_code} {user_message} - {technical_message}"
+            )
     
     def handle_visa_error(self, exception, context="VISA operation", show_dialog=True):
         """

@@ -22,6 +22,7 @@ Architettura:
 [ERROR-PJDB-XXX] per codici errore standardizzati
 """
 
+import logging
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import execute_values, Json
@@ -29,6 +30,8 @@ from typing import List, Dict, Any, Optional, Tuple
 import json
 from datetime import datetime
 import re
+
+logger = logging.getLogger('frontend.core.ProjectDatabaseManager')
 
 
 class ProjectDatabaseManager:
@@ -178,11 +181,9 @@ class ProjectDatabaseManager:
                         sql.Identifier(self.db_name)
                     )
                 )
-                print(f"Database created: {manager.db_name}")
-        
-        # Create the table
+                logger.info(f"Database created: {manager.db_name}")
             else:
-                print(f"[INFO] Database '{self.db_name}' già esistente")
+                logger.info(f"Database '{self.db_name}' already exists")
             
             cursor.close()
             return True
@@ -315,7 +316,7 @@ class ProjectDatabaseManager:
             cursor.close()
             conn.close()
             
-            print(f"[INFO] Tabella '{table_name}' creata con successo")
+            logger.info(f"Table '{table_name}' created successfully")
             return table_name
             
         except Exception as e:
@@ -380,7 +381,7 @@ class ProjectDatabaseManager:
             cursor.close()
             conn.close()
             
-            print(f"[INFO] {rows_inserted} righe inserite in '{table_name}'")
+            logger.info(f"{rows_inserted} rows inserted in '{table_name}'")
             return rows_inserted
             
         except Exception as e:
@@ -508,7 +509,7 @@ class ProjectDatabaseManager:
             )
             
             cursor.close()
-            print(f"[WARNING] Database '{self.db_name}' eliminato")
+            logger.warning(f"Database '{self.db_name}' deleted")
             return True
             
         except Exception as e:
@@ -520,21 +521,16 @@ class ProjectDatabaseManager:
 
 # Esempio di utilizzo
 if __name__ == "__main__":
-    # Configurazione
+    import os
     db_config = {
-        'host': 'localhost',
-        'port': 5432,
-        'user': 'postgres',
-        'password': 'your_password'
+        'host': os.environ.get('DB_HOST', 'localhost'),
+        'port': int(os.environ.get('DB_PORT', 5432)),
+        'user': os.environ.get('DB_USER', 'postgres'),
+        'password': os.environ.get('DB_PASSWORD', '')
     }
     
-    # Crea manager per il progetto
-    manager = ProjectDatabaseManager(
-        **db_config,
-        project_name="Test DC-DC Converter"
-    )
-    
-    print(f"Nome database sanitizzato: {manager.db_name}")
+    manager = ProjectDatabaseManager(**db_config, project_name="Test DC-DC Converter")
+    print(f"Database name: {manager.db_name}")
     
     # Crea il database del progetto
     manager.create_project_database()

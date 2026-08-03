@@ -439,7 +439,7 @@ class DataloggerSlotConfigDialog(QDialog):
             self.error_handler.handle_error(e, f"Error updating attenuation for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
             try:
                 self.slots[slot_idx]['channels'][row]['attenuation'] = 1.0
-            except:
+            except (IndexError, KeyError):
                 pass
     
     def _on_channel_unit_changed(self, slot_idx, row, val):

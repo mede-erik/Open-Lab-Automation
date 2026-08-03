@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "open-lab-automation"
+version = "0.0.2"
+description = "Open-source suite for automated electrical measurements"
+readme = "README.md"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Erik Medeossi" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.0.0",
+    "psycopg2-binary>=2.9.0",
+    "cryptography>=41.0.0",
+    "pyvisa>=1.11.0",
+    "pyvisa-py>=0.5.0",
+    "numpy>=1.21.0",
+    "matplotlib>=3.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0.0",
+    "pytest-qt>=4.0.0",
+    "black>=21.0.0",
+    "flake8>=3.9.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["frontend*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

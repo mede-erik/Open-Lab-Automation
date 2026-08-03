@@ -1,6 +1,9 @@
-"""  
-Database management module for Lab Automation PostgreSQL integration.This module provides connection management, schema creation, and data access
-operations for the DC-DC converter measurement system.
+"""
+Database connection management for PostgreSQL integration.
+
+Provides DatabaseManager with context-managed connections.
+This is the low-level connection layer used by ProjectDatabaseManager
+and database_config_dialog. Not deprecated — use for direct connection needs.
 """
 
 import psycopg2

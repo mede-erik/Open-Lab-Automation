@@ -1,4 +1,8 @@
-import json 
+import json
+import logging
+
+logger = logging.getLogger('frontend.core.LoadInstruments')
+
 
 class LoadInstruments:
     """
@@ -25,9 +29,9 @@ class LoadInstruments:
                     # fallback: accept directly the expected dictionary structure
                     self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
-            print(f"File not found: {file_path}")
+            logger.error(f"File not found: {file_path}")
         except json.JSONDecodeError:
-            print(f"Error decoding JSON from file: {file_path}")
+            logger.error(f"Error decoding JSON from file: {file_path}")
 
     def get_powersupplys_series(self):
         """

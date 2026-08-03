@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import traceback
 try:
     import pyvisa
@@ -7,7 +8,9 @@ try:
 except (ImportError, ValueError) as e:
     pyvisa = None
     PYVISA_AVAILABLE = False
-    print(f"PyVISA non disponibile: {e}")
+    logging.getLogger('frontend.ui.RemoteControlTab').warning(f"PyVISA not available: {e}")
+
+logger = logging.getLogger('frontend.ui.RemoteControlTab')
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
@@ -543,7 +546,7 @@ class RemoteControlTab(QWidget):
                             self.connection_timers[timer_key].deleteLater()
                             del self.connection_timers[timer_key]
                         except Exception:
-                            pass
+                            logger.debug("Failed to clean up connection timer %s", timer_key)
                     self.connection_retry_counts.pop(timer_key, None)
                     return
 
@@ -562,7 +565,7 @@ class RemoteControlTab(QWidget):
                         self.connection_timers[timer_key].stop()
                         self.connection_timers[timer_key].deleteLater()
                     except Exception:
-                        pass
+                        logger.debug("Failed to stop/delete old timer %s", timer_key)
                 new_timer = QTimer(self)
                 new_timer.setSingleShot(True)
                 new_timer.timeout.connect(lambda: self.safe_retry_connection(inst, btn, timer_key))
@@ -577,20 +580,16 @@ class RemoteControlTab(QWidget):
                     self.error_handler.handle_ui_error(e, "retry connection timer")
                 else:
                     self.error_handler.handle_error(e, "Unexpected error in connection retry", show_dialog=False)
-            except:
-                # Fallback se anche l'error handler fallisce
+            except Exception as e:
                 if self.logger:
                     self.logger.error(f"Errore in safe_retry_connection: {e}")
-                else:
-                    print(f"Errore in safe_retry_connection: {e}")
                     
-            # Rimuovi il timer in caso di errore grave
             if timer_key in self.connection_timers:
                 try:
                     self.connection_timers[timer_key].stop()
                     self.connection_timers[timer_key].deleteLater()
                     del self.connection_timers[timer_key]
-                except:
+                except RuntimeError:
                     pass
             self.connection_retry_counts.pop(timer_key, None)
     
@@ -921,12 +920,11 @@ class RemoteControlTab(QWidget):
             if hasattr(self, 'measurement_timer'):
                 self.measurement_timer.stop()
                 
-            # Clear connection timers to prevent crashes
             for timer_key, timer in self.connection_timers.items():
                 try:
                     timer.stop()
                     timer.deleteLater()
-                except:
+                except RuntimeError:
                     pass
             self.connection_timers.clear()
             self.connection_retry_counts.clear()
@@ -937,7 +935,7 @@ class RemoteControlTab(QWidget):
                 try:
                     inst.close()
                 except Exception:
-                    pass
+                    logger.debug("Failed to close VISA connection during refresh")
             self.visa_connections = {}
             if not inst_file_path or not os.path.isfile(inst_file_path):
                 return
@@ -1189,7 +1187,7 @@ class RemoteControlTab(QWidget):
                                     if exc.error_code in refused_codes - {None}:
                                         return True
                                 except Exception:
-                                    pass
+                                    logger.debug("Failed to check VISA refused error code")
                             return ("can't connect" in es or "connection refused" in es
                                     or "vi_error_rsrc_nfound" in es)
 
@@ -1201,7 +1199,7 @@ class RemoteControlTab(QWidget):
                                     if timeout_code is not None and exc.error_code == timeout_code:
                                         return True
                                 except Exception:
-                                    pass
+                                    logger.debug("Failed to check VISA timeout error code")
                             return "timeout" in es
 
                         is_visa_refused = _is_visa_io and _visa_refused(e, err_str)
@@ -1695,139 +1693,111 @@ class RemoteControlTab(QWidget):
     def toggle_output(self, inst, ch, button, checked):
         """
         Enable or disable the output for the given instrument and channel.
-        Verifica lo stato effettivo dell'uscita e riprova in caso di fallimento.
-        :param inst: Instrument instance data.
-        :param ch: Channel data.
-        :param button: QPushButton that was clicked.
-        :param checked: Boolean state of the button (True=ON, False=OFF).
+        Usa QTimer per non bloccare il thread GUI durante i tentativi.
         """
-        print(f"[DEBUG] toggle_output chiamato - Checked: {checked}")
-
-        # Handle manual instruments with a confirmation popup
         if inst.get('is_manual', False):
-            prompt_key = 'manual_output_on_prompt' if checked else 'manual_output_off_prompt'
-            msg = self._t(
-                prompt_key,
-                instrument=inst.get('instance_name', ''),
-                channel=ch.get('name', '')
-            )
-            confirmed = self._show_manual_prompt(msg)
-            if confirmed:
-                if checked:
-                    button.setText('Output: ON')
-                    button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
-                else:
-                    button.setText('Output: OFF')
-                    button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
-                print(f"[ManualInstrument] Output {'abilitato' if checked else 'disabilitato'} confermato")
-            else:
-                # Revert button state on cancel
-                button.setChecked(not checked)
-                print("[ManualInstrument] Toggle output annullato dall'utente")
+            self._toggle_output_manual(inst, ch, button, checked)
             return
-        
+
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
-            # Reset button state if connection failed
             button.setChecked(False)
             button.setText('Output: OFF')
             return
-        
-        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
-        
-        # Numero massimo di tentativi
-        max_attempts = 2
-        success = False
-        
-        for attempt in range(1, max_attempts + 1):
-            try:
-                if checked:
-                    # Turn output ON
-                    cmd = self.get_scpi_cmd(inst, ch, 'output_on')
-                    print(f"[DEBUG] Tentativo {attempt}/{max_attempts} - Comando ON: '{cmd}'")
-                    instr.write(cmd)
-                else:
-                    # Turn output OFF
-                    cmd = self.get_scpi_cmd(inst, ch, 'output_off')
-                    print(f"[DEBUG] Tentativo {attempt}/{max_attempts} - Comando OFF: '{cmd}'")
-                    instr.write(cmd)
-                
-                # Attendi un momento per permettere allo strumento di rispondere
-                import time
-                time.sleep(0.2)
-                
-                # Verifica lo stato effettivo dell'uscita
-                verify_cmd = self.get_scpi_cmd(inst, ch, 'output_state_query')
-                if verify_cmd:
-                    print(f"[DEBUG] Verifica stato con comando: '{verify_cmd}'")
-                    response = instr.query(verify_cmd).strip()
-                    print(f"[DEBUG] Risposta strumento: '{response}'")
-                    
-                    # Analizza la risposta (può essere "1", "ON", "0", "OFF", etc.)
-                    is_on = response in ['1', 'ON', 'on', 'On']
-                    is_off = response in ['0', 'OFF', 'off', 'Off']
-                    
-                    # Verifica che lo stato corrisponda a quello richiesto
-                    if (checked and is_on) or (not checked and is_off):
-                        success = True
-                        print(f"[DEBUG] ✓ Verifica stato riuscita al tentativo {attempt}")
-                        break
-                    else:
-                        print(f"[DEBUG] ✗ Stato non corrispondente - Richiesto: {'ON' if checked else 'OFF'}, Ottenuto: {response}")
-                        if attempt < max_attempts:
-                            print(f"[DEBUG] Riprovo...")
-                            time.sleep(0.3)
-                        continue
-                else:
-                    # Se non c'è comando di verifica, assumiamo successo
-                    print(f"[DEBUG] ⚠ Nessun comando di verifica disponibile, assumo successo")
-                    success = True
-                    break
-                    
-            except Exception as e:
-                error_msg = f'Toggle Output Error (tentativo {attempt}/{max_attempts}): {str(e)}'
-                print(f"ERRORE: {error_msg}")
-                if self.logger:
-                    self.logger.error(error_msg)
-                
+
+        self._toggle_output_attempt(instr, inst, ch, button, checked, attempt=1, max_attempts=2)
+
+    def _toggle_output_attempt(self, instr, inst, ch, button, checked, attempt, max_attempts):
+        """Tenta di impostare l'output e programma la verifica via QTimer."""
+        try:
+            if checked:
+                cmd = self.get_scpi_cmd(inst, ch, 'output_on')
+                instr.write(cmd)
+            else:
+                cmd = self.get_scpi_cmd(inst, ch, 'output_off')
+                instr.write(cmd)
+
+            QTimer.singleShot(200, lambda: self._verify_output_state(
+                instr, inst, ch, button, checked, attempt, max_attempts))
+
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Toggle Output Error (tentativo {attempt}/{max_attempts}): {e}")
+            if attempt < max_attempts:
+                QTimer.singleShot(300, lambda: self._toggle_output_attempt(
+                    instr, inst, ch, button, checked, attempt + 1, max_attempts))
+            else:
+                self._toggle_output_failed(inst, ch, button, checked)
+
+    def _verify_output_state(self, instr, inst, ch, button, checked, attempt, max_attempts):
+        """Verifica lo stato dell'uscita dopo aver inviato il comando."""
+        verify_cmd = self.get_scpi_cmd(inst, ch, 'output_state_query')
+        if not verify_cmd:
+            self._toggle_output_success(inst, ch, button, checked)
+            return
+
+        try:
+            response = instr.query(verify_cmd).strip()
+            is_on = response in ['1', 'ON', 'on', 'On']
+            is_off = response in ['0', 'OFF', 'off', 'Off']
+
+            if (checked and is_on) or (not checked and is_off):
+                self._toggle_output_success(inst, ch, button, checked)
+            else:
                 if attempt < max_attempts:
-                    print(f"[DEBUG] Riprovo dopo l'errore...")
-                    import time
-                    time.sleep(0.3)
-                continue
-        
-        # Gestisci il risultato finale
-        if success:
+                    QTimer.singleShot(300, lambda: self._toggle_output_attempt(
+                        instr, inst, ch, button, checked, attempt + 1, max_attempts))
+                else:
+                    self._toggle_output_failed(inst, ch, button, checked)
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Toggle Verify Error: {e}")
+            if attempt < max_attempts:
+                QTimer.singleShot(300, lambda: self._toggle_output_attempt(
+                    instr, inst, ch, button, checked, attempt + 1, max_attempts))
+            else:
+                self._toggle_output_failed(inst, ch, button, checked)
+
+    def _toggle_output_success(self, inst, ch, button, checked):
+        """Aggiorna UI dopo toggle riuscito."""
+        if checked:
+            button.setText('Output: ON')
+            button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+        else:
+            button.setText('Output: OFF')
+            button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
+        if self.logger:
+            self.logger.info(f"Output {'abilitato' if checked else 'disabilitato'} "
+                             f"per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+
+    def _toggle_output_failed(self, inst, ch, button, checked):
+        """Mostra errore e resetta UI dopo fallimento del toggle."""
+        from PyQt6.QtWidgets import QMessageBox
+        error_title = "Errore attivazione output"
+        error_text = (f"Impossibile {'abilitare' if checked else 'disabilitare'} l'output "
+                      f"del canale {ch.get('name', 'N/A')} dello strumento "
+                      f"{inst.get('instance_name', 'N/A')}.")
+        QMessageBox.critical(self, error_title, error_text)
+        button.setChecked(not checked)
+        button.setText('Output: ON' if not checked else 'Output: OFF')
+        button.setStyleSheet('')
+
+    def _toggle_output_manual(self, inst, ch, button, checked):
+        """Conferma manuale per strumenti non connessi via VISA."""
+        prompt_key = 'manual_output_on_prompt' if checked else 'manual_output_off_prompt'
+        msg = self._t(prompt_key,
+                      instrument=inst.get('instance_name', ''),
+                      channel=ch.get('name', ''))
+        confirmed = self._show_manual_prompt(msg)
+        if confirmed:
             if checked:
                 button.setText('Output: ON')
                 button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
-                print(f"[RemoteControlTab] ✓ Output abilitato con successo per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
             else:
                 button.setText('Output: OFF')
                 button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
-                print(f"[RemoteControlTab] ✓ Output disabilitato con successo per {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
         else:
-            # Fallimento dopo tutti i tentativi
-            print(f"[RemoteControlTab] ✗ ERRORE: Impossibile {'abilitare' if checked else 'disabilitare'} l'output dopo {max_attempts} tentativi")
-            
-            # Mostra messaggio di errore all'utente
-            from PyQt6.QtWidgets import QMessageBox
-            error_title = "Errore attivazione output"
-            error_text = f"Impossibile {'abilitare' if checked else 'disabilitare'} l'output del canale {ch.get('name', 'N/A')} " \
-                        f"dello strumento {inst.get('instance_name', 'N/A')}.\n\n" \
-                        f"Sono stati effettuati {max_attempts} tentativi senza successo.\n\n" \
-                        f"Verificare:\n" \
-                        f"• La connessione allo strumento\n" \
-                        f"• Lo stato fisico dello strumento\n" \
-                        f"• I comandi SCPI nella libreria strumenti"
-            
-            QMessageBox.critical(self, error_title, error_text)
-            
-            # Reset button to previous state on error
             button.setChecked(not checked)
-            button.setText('Output: ON' if not checked else 'Output: OFF')
-            button.setStyleSheet('')  # Reset style
 
     def read_actual(self, inst, ch, label):
         """
@@ -1945,19 +1915,18 @@ class RemoteControlTab(QWidget):
             if hasattr(self, 'measurement_timer'):
                 self.measurement_timer.stop()
             
-            # Pulizia di tutti i timer di connessione
             for timer_key, timer in self.connection_timers.items():
                 try:
                     timer.stop()
                     timer.deleteLater()
-                except:
+                except RuntimeError:
                     pass
             self.connection_timers.clear()
             for addr, instr in self.visa_connections.items():
                 try:
                     instr.close()
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to close VISA connection %s during cleanup", addr)
             self.visa_connections.clear()
             self.connection_retry_counts.clear()
             

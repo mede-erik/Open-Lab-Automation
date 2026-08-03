@@ -1,4 +1,6 @@
 import json
+import logging
+logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QMessageBox
 from PyQt6.QtCore import Qt
 
@@ -283,7 +285,7 @@ class WasFileDialog(QDialog):
             self.data = json.loads(self.data_edit.toPlainText())
             self.populate_params_from_json()
         except Exception:
-            pass
+            logger.warning("Failed to sync params from JSON (invalid JSON in editor)")
 
     def save_changes(self):
         """

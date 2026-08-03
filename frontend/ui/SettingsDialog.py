@@ -1,6 +1,9 @@
 import os
+import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QLabel, QPushButton
 from PyQt6.QtCore import Qt, QSettings
+
+logger = logging.getLogger('frontend.ui.SettingsDialog')
 
 # =========================
 # SettingsDialog
@@ -19,35 +22,24 @@ class SettingsDialog(QDialog):
         
         self.translator = translator
         
-        print("[SettingsDialog DEBUG] Creating helper function t()...")
-        # Helper function for safe translations
+        logger.debug("Creating helper function t()...")
         def t(key, default=None):
             if self.translator and hasattr(self.translator, 't'):
                 return self.translator.t(key)
             return default or key
-        print("[SettingsDialog DEBUG] Helper t() creato")
         
-        print("[SettingsDialog DEBUG] Impostazione titolo finestra...")
+        logger.debug("Setting up settings dialog")
         self.setWindowTitle(t('settings', 'Settings'))
-        print(f"[SettingsDialog DEBUG] Titolo impostato: {self.windowTitle()}")
-        
-        print("[SettingsDialog DEBUG] Impostazione modale...")
         self.setModal(True)
-        print("[SettingsDialog DEBUG] Dialog impostato come modale")
         
-        print("[SettingsDialog DEBUG] Creazione layout principale...")
         layout = QVBoxLayout()
-        print("[SettingsDialog DEBUG] Layout creato")
         
-        print("[SettingsDialog DEBUG] Creazione theme selector...")
-        # Theme selector
         theme_layout = QHBoxLayout()
-        self.theme_label = QLabel(t('theme', 'Theme')+':')
+        self.theme_label = QLabel(t('theme', 'Theme') + ':')
         self.theme_combo = QComboBox()
         self.theme_combo.addItem(t('theme_system', 'System'), 'system')
         self.theme_combo.addItem(t('theme_dark', 'Dark'), 'dark')
         self.theme_combo.addItem(t('theme_light', 'Light'), 'light')
-        print(f"[SettingsDialog DEBUG] Theme combo creato con {self.theme_combo.count()} opzioni")
         # Non collegare il segnale qui - il tema verrà applicato solo quando si clicca Applica
         theme_layout.addWidget(self.theme_label)
         theme_layout.addWidget(self.theme_combo)
@@ -179,7 +171,7 @@ class SettingsDialog(QDialog):
         
         # Apply theme
         theme = self.theme_combo.currentData()
-        print(f"[SettingsDialog DEBUG] Applicazione tema: {theme}")
+        logger.debug(f"Applying theme: {theme}")
         parent = self.parent()
         if parent is not None and hasattr(parent, 'apply_theme'):
             parent.apply_theme(theme)

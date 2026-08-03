@@ -10,6 +10,9 @@ import os
 import json
 import uuid
 import datetime
+import logging
+
+logger = logging.getLogger('frontend.ui.main_window')
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, 
     QPushButton, QHBoxLayout, QComboBox, QFileDialog, QListWidget, 
@@ -375,8 +378,7 @@ class MainWindow(QMainWindow):
         Apply the selected theme (system, dark, light, modern_dark, dark_modern, ultra_modern, ultra_modern_dark).
         :param theme_option: 'system', 'dark', 'light', 'modern_dark', 'dark_modern', 'ultra_modern', 'ultra_modern_dark'
         """
-        self.logger.debug(f"[apply_theme] Ricevuto theme_option: {theme_option}")
-        print(f"[MainWindow DEBUG] apply_theme chiamato con: {theme_option}")
+        logger.debug(f"apply_theme({theme_option})")
         
         # Map theme names to QSS files
         theme_files = {
@@ -387,46 +389,38 @@ class MainWindow(QMainWindow):
         }
         
         if theme_option == 'system':
-            print("[MainWindow DEBUG] Applicazione tema DI SISTEMA")
-            # Try to detect system theme
             try:
                 from PyQt6.QtGui import QGuiApplication
                 from PyQt6.QtCore import Qt
-                if hasattr(Qt, 'ColorScheme'):  # Qt 6.5+
+                if hasattr(Qt, 'ColorScheme'):
                     color_scheme = QGuiApplication.styleHints().colorScheme()
-                    print(f"[MainWindow DEBUG] Color scheme sistema: {color_scheme}")
+                    logger.debug(f"System color scheme: {color_scheme}")
                     if color_scheme == Qt.ColorScheme.Dark:
                         self.load_theme_file('dark_theme.qss')
                     else:
                         self.load_theme_file('light_theme.qss')
                 else:
-                    # Fallback: default to dark if Qt version doesn't support ColorScheme
-                    self.logger.warning("System theme detection not supported, defaulting to dark theme.")
-                    print("[MainWindow DEBUG] ColorScheme non supportato, uso tema scuro")
+                    logger.warning("System theme detection not supported, defaulting to dark")
                     self.load_theme_file('dark_theme.qss')
             except Exception as e:
-                self.logger.error(f"Error detecting system theme: {e}, defaulting to dark theme.")
-                print(f"[MainWindow DEBUG] Errore rilevamento tema sistema: {e}")
+                logger.error(f"System theme detection failed: {e}, defaulting to dark")
                 self.load_theme_file('dark_theme.qss')
         elif theme_option in theme_files:
-            print(f"[MainWindow DEBUG] Applicazione tema: {theme_option}")
+            logger.debug(f"Applying theme: {theme_option}")
             self.load_theme_file(theme_files[theme_option])
         else:
-            print(f"[MainWindow DEBUG] Tema sconosciuto: {theme_option}, uso tema scuro")
+            logger.warning(f"Unknown theme: {theme_option}, defaulting to dark")
             self.load_theme_file('dark_theme.qss')
         
-        # Save the theme preference
         settings = QSettings('LabAutomation', 'App')
         settings.setValue('theme', theme_option)
-        print(f"[MainWindow DEBUG] Salvato tema '{theme_option}' in QSettings")
 
     def load_theme_file(self, theme_filename):
         """
         Load and apply a QSS theme file from the assets/styles directory.
         :param theme_filename: Name of the QSS file (e.g., 'dark_theme.qss')
         """
-        self.logger.debug(f"Loading theme file: {theme_filename}")
-        print(f"[MainWindow DEBUG] Caricamento file tema: {theme_filename}")
+        logger.debug(f"Loading theme file: {theme_filename}")
         
         # Build path to theme file
         styles_dir = os.path.join(
@@ -435,23 +429,18 @@ class MainWindow(QMainWindow):
         )
         theme_path = os.path.join(styles_dir, theme_filename)
         
-        print(f"[MainWindow DEBUG] Percorso completo tema: {theme_path}")
-        
         # Load and apply the stylesheet
         try:
             if os.path.exists(theme_path):
                 with open(theme_path, 'r', encoding='utf-8') as f:
                     stylesheet = f.read()
                     self.setStyleSheet(stylesheet)
-                    print(f"[MainWindow DEBUG] Tema '{theme_filename}' applicato con successo ({len(stylesheet)} caratteri)")
-                    self.logger.info(f"Theme '{theme_filename}' applied successfully")
+                    logger.info(f"Theme '{theme_filename}' applied ({len(stylesheet)} chars)")
             else:
-                self.logger.warning(f"Theme file not found: {theme_path}, using default theme")
-                print(f"[MainWindow DEBUG] File tema non trovato: {theme_path}")
+                logger.warning(f"Theme file not found: {theme_path}, using defaults")
                 self.setStyleSheet("")
         except Exception as e:
-            self.logger.error(f"Error loading theme file {theme_filename}: {e}", exc_info=True)
-            print(f"[MainWindow DEBUG] Errore caricamento tema: {e}")
+            logger.error(f"Error loading theme file {theme_filename}: {e}")
             self.setStyleSheet("")
     
     def set_dark_theme(self):

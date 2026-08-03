@@ -113,6 +113,7 @@
   "select_measured_variable": "Sélectionner la variable mesurée",
   "sweep_variable_label": "Variable de balayage",
   "select_sweep_variable": "Sélectionner la variable de balayage",
+  "no_variables_available": "Aucune variable disponible",
   "hex_dec_converter": "Convertisseur Hex/Déc",
   "database_configuration": "Configuration de la base de données",
   "instrument_library": "Bibliothèque d'instruments",

@@ -1,42 +1,32 @@
 # GUI Framework
-PyQt5>=5.15.0
+PyQt6>=6.11.0
 
 # Database connectivity
-psycopg2-binary>=2.9.0
+psycopg2-binary>=2.9.12
 
 # Security and encryption
-cryptography>=41.0.0
+cryptography>=49.0.0
 
 # Instrument communication
-pyvisa>=1.11.0
-pyvisa-py>=0.5.0
+pyvisa>=1.16.2
+pyvisa-py>=0.8.1
 
 # Scientific computing and data processing
-numpy>=1.21.0
+numpy>=2.5.1
 
 # Plotting and visualization
-matplotlib>=3.5.0
-
-# Logging (optional, could use built-in logging)
-# Custom logger module is included in the project
+matplotlib>=3.11.0
 
 # Standard library modules used (no installation needed):
-# - json
-# - os
-# - uuid  
-# - datetime
-# - sys
-# - typing
-# - contextlib
-# - decimal
+# - json, os, uuid, datetime, sys, typing, contextlib, decimal
 
 # Development and testing (optional)
-pytest>=6.0.0
-pytest-qt>=4.0.0
+pytest>=9.0.0
+pytest-qt>=4.5.0
 
 # Code formatting and linting (optional)
-black>=21.0.0
-flake8>=3.9.0
+black>=25.0.0
+flake8>=7.3.0
 
 # Documentation (optional)
-sphinx>=4.0.0
+sphinx>=8.0.0

@@ -1,4 +1,6 @@
 import json
+import logging
+logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox
 )
@@ -79,8 +81,7 @@ class InstrumentConfigDialog(QDialog):
             try:
                 self.instruments_changed.emit(self.inst_file_path)
             except Exception:
-                # Ignora se il segnale non è connesso o in caso di errori di runtime
-                pass
+                logger.debug("Failed to emit instruments_changed signal (no connected slot or deleted receiver)")
         except Exception as e:
             print(f"[DEBUG] Errore durante il salvataggio strumenti: {e}")
             QMessageBox.warning(self, "Errore salvataggio", str(e))
@@ -717,12 +718,12 @@ class InstrumentConfigDialog(QDialog):
                         try:
                             inst.timeout = 1000
                         except Exception:
-                            pass
+                            logger.debug("Could not set VISA timeout on resource %s", addr)
                         try:
                             setattr(inst, 'write_termination', '\n')
                             setattr(inst, 'read_termination', '\n')
                         except Exception:
-                            pass
+                            logger.debug("Could not set terminations on resource %s", addr)
                         try:
                             q = getattr(inst, 'query', None)
                             if callable(q):
@@ -734,17 +735,17 @@ class InstrumentConfigDialog(QDialog):
                                     try:
                                         w("*IDN?")
                                     except Exception:
-                                        pass
+                                        logger.debug("VISA write(*IDN?) failed on %s", addr)
                                 if callable(r):
                                     try:
                                         idn = r()
                                     except Exception:
-                                        pass
+                                        logger.debug("VISA read() failed on %s", addr)
                         except Exception:
-                            pass
+                            logger.debug("VISA *IDN? query failed on %s", addr)
                         inst.close()
                     except Exception:
-                        pass
+                        logger.debug("Could not open VISA resource %s", addr)
                     idn_cache[addr] = (idn, iface)
         except Exception as e:
             QMessageBox.warning(self, "Errore scansione", str(e))

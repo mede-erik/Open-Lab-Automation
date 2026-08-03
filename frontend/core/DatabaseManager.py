@@ -1,3 +1,16 @@
+"""
+DEPRECATED — Use ProjectDatabaseManager instead.
+
+This module duplicates ProjectDatabaseManager functionality.
+It is kept for reference but will be removed in a future version.
+"""
+
+import warnings
+warnings.warn(
+    "DatabaseManager is deprecated. Use ProjectDatabaseManager instead.",
+    DeprecationWarning, stacklevel=2,
+)
+
 import psycopg2
 from psycopg2.extras import execute_values
 from typing import List, Dict, Any, Optional
@@ -5,7 +18,7 @@ import numpy as np
 from datetime import datetime
 
 class DatabaseManager:
-    """Manages connection and operations on PostgreSQL database."""
+    """DEPRECATED — Use ProjectDatabaseManager instead."""
     
     def __init__(self, host: str, port: int, dbname: str, user: str, password: str):
         """Inizializza il gestore database con i parametri di connessione."""

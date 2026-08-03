@@ -12,6 +12,10 @@ from typing import Dict, Any, Optional
 from cryptography.fernet import Fernet
 import base64
 import hashlib
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfigManager:
@@ -226,7 +230,7 @@ class DatabaseConfigManager:
             if os.path.exists(old_path):
                 return old_path
         except Exception:
-            pass
+            logger.debug("Could not locate old config path for migration")
         
         return None
     
@@ -269,19 +273,17 @@ class DatabaseConfigManager:
         return self.config_file
     
     def test_encryption(self) -> bool:
-        """
-        Test encryption/decryption functionality.
-        
-        Returns:
-            bool: True if encryption works correctly
-        """
-        test_password = "test_password_123!@#"
-        
+        """Test encryption/decryption with a dynamically generated password."""
+        import os
+        test_password = os.urandom(16).hex()
+
         try:
             encrypted = self._encrypt_password(test_password)
             decrypted = self._decrypt_password(encrypted)
             return decrypted == test_password
-        except Exception:
+        except Exception as e:
+            logging.getLogger('frontend.core.database_config').warning(
+                f"Encryption test failed: {e}")
             return False
     
     def get_connection_params(self, config: Dict[str, Any]) -> Dict[str, Any]:

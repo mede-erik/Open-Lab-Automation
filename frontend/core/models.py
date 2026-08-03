@@ -1,4 +1,17 @@
 """
+DEPRECATED — Use ProjectDatabaseManager instead.
+
+This module provides an ORM-like layer over database.py, but is unused.
+It is kept for reference but will be removed in a future version.
+"""
+
+import warnings
+warnings.warn(
+    "models module is deprecated. Use ProjectDatabaseManager instead.",
+    DeprecationWarning, stacklevel=2,
+)
+
+"""
 Data models for DC-DC converter measurement system.
 
 This module provides object-oriented interfaces for database operations,
