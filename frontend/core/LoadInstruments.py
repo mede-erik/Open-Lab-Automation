@@ -498,22 +498,14 @@ class LoadInstruments:
         Returns:
             list: Lista dei tipi di connessione supportati dal modello specificato.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['interface']['supported_connection_types']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['interface']['supported_connection_types']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                for model in series.get('models', []):
+                    if model.get('id') == model_id:
+                        interface = model.get('interface', {})
+                        return interface.get('supported_connection_types')
+        return None
 
     def get_channel_info(self, type_name, series_id, model_id):
         """
@@ -525,22 +517,16 @@ class LoadInstruments:
         Returns:
             list: Lista di dizionari contenenti info dettagliate sui canali del modello specificato.
         """
-        if type_name == 'power_supply':
-            power_supplies = self.get_powersupplys_series()
-            for series in power_supplies:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['channels']
-        elif type_name == 'datalogger':
-            dataloggers = self.get_dataloggers_series()
-            for series in dataloggers:
-                if series['series_id'] == series_id:
-                    for model in series['models']:
-                        if model['id'] == model_id:
-                            return model['channels']
-        else:
-            return None
+        series_list = self.get_series(type_name) or []
+        for series in series_list:
+            if series.get('series_id') == series_id:
+                for model in series.get('models', []):
+                    if model.get('id') == model_id:
+                        channels = model.get('channels')
+                        if not channels:
+                            channels = model.get('capabilities', {}).get('channels')
+                        return channels or None
+        return None
 
     def find_instrument(self, type_name=None, series_id=None, model_id=None):
         """

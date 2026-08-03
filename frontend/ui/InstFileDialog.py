@@ -31,6 +31,8 @@ class InstFileDialog(QDialog):
         self.type_map = {
             'power_supply': (self.translator.t('power_supply') if hasattr(self.translator, 't') else 'Alimentatore', 'power_supply'),
             'datalogger': (self.translator.t('datalogger') if hasattr(self.translator, 't') else 'Datalogger', 'datalogger'),
+            'oscilloscope': (self.translator.t('oscilloscope') if hasattr(self.translator, 't') else 'Oscilloscopio', 'oscilloscope'),
+            'electronic_load': (self.translator.t('electronic_load') if hasattr(self.translator, 't') else 'Carico elettronico', 'electronic_load'),
         }
         # Carica dati file .inst
         try:
@@ -94,10 +96,10 @@ class InstFileDialog(QDialog):
         self.channels_widget = QListWidget()
         self.channels_widget.setMinimumHeight(120)
         self.channels_widget.setMaximumHeight(200)
-        self.channels_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.channels_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         channel_box.addWidget(self.channels_widget)
         form.addRow(self.translator.t('channel_assignments') if hasattr(self.translator, 't') else 'Assegnazione canali', QWidget())
-        form.itemAt(form.rowCount()-1, QFormLayout.FieldRole).widget().setLayout(channel_box)
+        form.itemAt(form.rowCount()-1, QFormLayout.ItemRole.FieldRole).widget().setLayout(channel_box)
         self.model_combo.currentIndexChanged.connect(self.update_channels_widget)
         layout.addLayout(form)
         add_btn = QPushButton(self.translator.t('add_instrument') if hasattr(self.translator, 't') else 'Aggiungi strumento')
@@ -120,7 +122,7 @@ class InstFileDialog(QDialog):
         Abilita tutti i canali nella lista canali.
         """
         for i in range(self.channels_widget.count()):
-            ch_conf = self.channels_widget.item(i).data(Qt.UserRole)
+            ch_conf = self.channels_widget.item(i).data(Qt.ItemDataRole.UserRole)
             ch_conf['used'] = True
             # Aggiorna label
             label = self.channels_widget.item(i).text()
@@ -133,7 +135,7 @@ class InstFileDialog(QDialog):
         Disabilita tutti i canali nella lista canali.
         """
         for i in range(self.channels_widget.count()):
-            ch_conf = self.channels_widget.item(i).data(Qt.UserRole)
+            ch_conf = self.channels_widget.item(i).data(Qt.ItemDataRole.UserRole)
             ch_conf['used'] = False
             # Aggiorna label
             label = self.channels_widget.item(i).text()
@@ -222,7 +224,7 @@ class InstFileDialog(QDialog):
         type_name = self.type_map[type_key][1]
         channels = self.load_instruments.get_channel_info(type_name, series_id, model_id)
         n_channels = len(channels) if channels else 0
-        channel_labels = [ch.get('label', f"Ch{i+1}") for i, ch in enumerate(channels)] if channels else []
+        channel_labels = [ch.get('label', ch.get('channel_id', f"Ch{i+1}")) for i, ch in enumerate(channels)] if channels else []
         # Cerca se esiste già una configurazione per questo strumento
         instance_name = self.instance_name_edit.text().strip()
         existing = None
@@ -231,12 +233,13 @@ class InstFileDialog(QDialog):
                 existing = inst
                 break
         used_channels = existing.get('channels', []) if existing else []
+        norm_type = self._normalize_type(type_key)
         for ch_idx in range(n_channels):
             # Cerca se già configurato
             ch_conf = next((c for c in used_channels if c.get('index', -1) == ch_idx), None)
             if not ch_conf:
                 ch_conf = {'index': ch_idx, 'used': False}  # Di default disattivato
-                if type_key == 'dataloggers':
+                if norm_type == 'datalogger':
                     ch_conf['measured_variable'] = ''
                     ch_conf['attenuation'] = 1.0
                     ch_conf['measure_type'] = 'voltage'
@@ -246,12 +249,12 @@ class InstFileDialog(QDialog):
             label = channel_labels[ch_idx] if ch_idx < len(channel_labels) else f"Ch{ch_idx+1}"
             if not ch_conf.get('used', False):
                 label = '[DIS] ' + label
-            if type_key == 'dataloggers':
+            if norm_type == 'datalogger':
                 label += f" ({ch_conf.get('measured_variable','')})"
-            elif type_key in ['power_supplies', 'electronic_loads']:
+            elif norm_type in ['power_supply', 'electronic_load']:
                 label += f" ({ch_conf.get('variable','')})"
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, ch_conf)
+            item.setData(Qt.ItemDataRole.UserRole, ch_conf)
             self.channels_widget.addItem(item)
 
     def add_instrument_to_inst(self):
@@ -267,7 +270,7 @@ class InstFileDialog(QDialog):
         # Raccogli configurazione canali dalla QListWidget
         channels = []
         for i in range(self.channels_widget.count()):
-            ch_conf = self.channels_widget.item(i).data(Qt.UserRole)
+            ch_conf = self.channels_widget.item(i).data(Qt.ItemDataRole.UserRole)
             # Salva solo se usato
             if ch_conf.get('used', True):
                 channels.append(ch_conf)
@@ -299,19 +302,33 @@ class InstFileDialog(QDialog):
         self.save_instruments()
         self.update_channels_widget()
 
+    def _normalize_type(self, type_key):
+        """
+        Normalizza la chiave tipo strumento gestendo singolare/plurale
+        (es. 'oscilloscopes' -> 'oscilloscope', 'power_supplies' -> 'power_supply').
+        """
+        aliases = {
+            'power_supplies': 'power_supply',
+            'dataloggers': 'datalogger',
+            'oscilloscopes': 'oscilloscope',
+            'electronic_loads': 'electronic_load',
+        }
+        return aliases.get(type_key, type_key)
+
     def edit_instrument_channels(self, item):
         """
         Apre la ChannelConfigDialog specializzata per modificare i canali e l'indirizzo VISA dello strumento selezionato.
         """
-        inst = item.data(Qt.UserRole)
+        inst = item.data(Qt.ItemDataRole.UserRole)
         # Scegli il dialog corretto in base al tipo di strumento
-        if inst.get('instrument_type') == 'power_supply':
+        inst_type = self._normalize_type(inst.get('instrument_type', ''))
+        if inst_type == 'power_supply':
             dlg = PowerSupplyConfigDialog(inst, self)
-        elif inst.get('instrument_type') == 'electronic_load':
+        elif inst_type == 'electronic_load':
             dlg = ElectronicLoadConfigDialog(inst, self)
-        elif inst.get('instrument_type') == 'datalogger':
+        elif inst_type == 'datalogger':
             dlg = DataloggerConfigDialog(inst, self)
-        elif inst.get('instrument_type') == 'oscilloscopes':
+        elif inst_type == 'oscilloscope':
             dlg = OscilloscopeConfigDialog(inst, self.translator, self)
         else:
             from PyQt6.QtWidgets import QMessageBox
@@ -356,16 +373,16 @@ class InstFileDialog(QDialog):
             type_key = inst.get('instrument_type', '')
             model = inst.get('model', '')
             channels = inst.get('channels', [])
-            # Mostra solo i canali abilitati
-            enabled_channels = [ch for ch in channels if ch.get('used', True)]
+            # Mostra solo i canali abilitati (gestisce sia 'used' che 'enabled')
+            enabled_channels = [ch for ch in channels if ch.get('used', ch.get('enabled', True))]
             ch_descr = ', '.join(
-                ch.get('measured_variable', ch.get('variable', f"Ch{ch.get('index', '?')+1}"))
+                ch.get('measured_variable', ch.get('variable', ch.get('name', ch.get('channel_id', f"Ch{ch.get('index', -1)+1}"))))
                 for ch in enabled_channels
             )
             label = f"{instance_name} [{type_key}] {model} | Canali: {ch_descr}"
             item = QListWidgetItem(label)
             # Salva l'intero dict per doppio click/modifica
-            item.setData(Qt.UserRole, inst)
+            item.setData(Qt.ItemDataRole.UserRole, inst)
             self.instruments_list_widget.addItem(item)
 
     def remove_selected_instrument(self):
