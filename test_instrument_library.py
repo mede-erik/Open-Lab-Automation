@@ -59,6 +59,10 @@ def test_get_channel_limits(lib):
     limits = lib.get_channel_limits('power_supply', 'OWON_ODP_Series', 'PSU_OWON_ODP3033', '1')
     assert limits['max_current'] == 3
     assert limits['max_voltage'] == 30
+    default = lib.get_channel_limits(
+        'power_supply', 'OWON_ODP_Series', 'PSU_OWON_ODP3033')
+    assert default['max_current'] == 3
+    assert default['max_voltage'] == 30
     limits = lib.get_channel_limits('electronic_load', 'Siglent_SDL1000X_E_Series', 'EL_Siglent_SDL1030X_E')
     assert limits['max_current'] == 30
     assert limits['max_voltage'] == 150
@@ -105,6 +109,99 @@ def test_remote_control_get_scpi_cmd_strings():
         assert isinstance(cmd, str), f'{action}: {cmd!r}'
     cmd = tab.get_scpi_cmd(inst, None, 'set_voltage').replace('{value}', '5.0')
     assert cmd == 'VOLT 5.0'
+
+
+def test_trigger_slope_in_library(lib):
+    """set_trigger_slope ora presente nella libreria (submodule aggiornato)."""
+    expected = {
+        'Tektronix_5_Series_MSO': (
+            'TRIGger:A:EDGE:SLOpe {slope}', ('RISe', 'FALL', 'EITher')),
+        'Rigol_DS1000Z_Series': (
+            ':TRIGger:EDGe:SLOPe {slope}', ('POSitive', 'NEGative', 'RFALl')),
+        'Siglent_SDS_HD_Series': (
+            ':TRIGger:EDGE:SLOPe {slope}', ('RISing', 'FALLing', 'ALTernate')),
+    }
+    for series_id, (syntax, values) in expected.items():
+        series = next(s for s in lib.get_series('oscilloscope')
+                      if s.get('series_id') == series_id)
+        model_id = series['models'][0]['id']
+        scpi = lib.get_model_scpi('oscilloscope', series_id, model_id)
+        slope = scpi.get('set_trigger_slope')
+        assert slope is not None, f'{series_id}: set_trigger_slope mancante'
+        assert slope['set']['syntax'] == syntax
+        assert tuple(slope['parameters']['slope']['values']) == values
+
+
+def test_trigger_slope_semantic_mapping():
+    """RISE/FALL/EITHER del .was mappati sui valori accettati per serie."""
+    from frontend.ui.RemoteControlTab import RemoteControlTab as R
+    tektronix = ['RISe', 'FALL', 'EITher']
+    rigol = ['POSitive', 'NEGative', 'RFALl']
+    siglent = ['RISing', 'FALLing', 'ALTernate']
+    assert R._map_trigger_slope_value('RISE', tektronix) == 'RISe'
+    assert R._map_trigger_slope_value('FALL', tektronix) == 'FALL'
+    assert R._map_trigger_slope_value('EITHER', tektronix) == 'EITher'
+    assert R._map_trigger_slope_value('RISE', rigol) == 'POSitive'
+    assert R._map_trigger_slope_value('FALL', rigol) == 'NEGative'
+    assert R._map_trigger_slope_value('EITHER', rigol) == 'RFALl'
+    assert R._map_trigger_slope_value('RISE', siglent) == 'RISing'
+    assert R._map_trigger_slope_value('FALL', siglent) == 'FALLing'
+    assert R._map_trigger_slope_value('EITHER', siglent) == 'ALTernate'
+    assert R._map_trigger_slope_value('RISing', siglent) == 'RISing'
+    assert R._map_trigger_slope_value('RISE', None) == 'RISE'
+
+
+def test_trigger_slope_syntax_formatting(lib):
+    """La syntax usa placeholder {slope}: la formattazione deve funzionare."""
+    from frontend.ui.RemoteControlTab import RemoteControlTab as R
+    series_ids = ('Tektronix_5_Series_MSO', 'Rigol_DS1000Z_Series',
+                  'Siglent_SDS_HD_Series')
+    for series_id in series_ids:
+        series = next(s for s in lib.get_series('oscilloscope')
+                      if s.get('series_id') == series_id)
+        model_id = series['models'][0]['id']
+        slope_cmd = lib.get_model_scpi('oscilloscope', series_id, model_id)
+        slope = slope_cmd['set_trigger_slope']
+        syntax = slope['set']['syntax']
+        values = slope['parameters']['slope']['values']
+        value = R._map_trigger_slope_value('RISE', values)
+        assert '{slope}' in syntax
+        cmd = syntax.format(slope=value)
+        assert '{' not in cmd
+
+
+def test_trigger_slope_fallback():
+    """
+    Senza set_trigger_slope in libreria (il submodule non va modificato),
+    la sintassi viene derivata da set_trigger_source e il valore normalizzato.
+    """
+    from frontend.ui.RemoteControlTab import RemoteControlTab
+    # Tek-style: TRIGger:A:EDGE:SOUrce CH{n}
+    s = RemoteControlTab._get_trigger_slope_syntax_fallback(
+        'TRIGger:A:EDGE:SOUrce CH{channel_number}')
+    assert s == 'TRIGger:A:EDGE:SLOPe {value}'
+    # Rigol/Siglent-style: :TRIGger:EDGE:SOURce C{n}
+    s = RemoteControlTab._get_trigger_slope_syntax_fallback(
+        ':TRIGger:EDGE:SOURce C{channel_number}')
+    assert s == ':TRIGger:EDGE:SLOPe {value}'
+    assert RemoteControlTab._get_trigger_slope_syntax_fallback(None) == \
+        ':TRIGger:EDGE:SLOPe {value}'
+    assert RemoteControlTab._get_trigger_slope_syntax_fallback(':NOPE x') is None
+    # Normalizzazione valore (RISE non accettato da Siglent: -> RIS)
+    assert RemoteControlTab._normalize_trigger_slope('RISE') == 'RIS'
+    assert RemoteControlTab._normalize_trigger_slope('RISing') == 'RIS'
+    assert RemoteControlTab._normalize_trigger_slope('FALL') == 'FALL'
+    assert RemoteControlTab._normalize_trigger_slope('falling') == 'FALL'
+
+
+def test_trigger_slope_mapping():
+    """Il file .was usa RISE/FALL generici: mapping verso i valori accettati."""
+    from frontend.ui.RemoteControlTab import RemoteControlTab
+    assert RemoteControlTab._map_enum_value('RISE', ['RIS', 'FALL']) == 'RIS'
+    assert RemoteControlTab._map_enum_value('RISE', ['RISe', 'FALL']) == 'RISe'
+    assert RemoteControlTab._map_enum_value('FALL', ['RISE', 'FALL']) == 'FALL'
+    assert RemoteControlTab._map_enum_value('FALL', ['RIS', 'FALLing']) == 'FALLing'
+    assert RemoteControlTab._map_enum_value('RISE', None) == 'RISE'
 
 
 def test_was_applier_parsing():

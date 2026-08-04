@@ -637,12 +637,13 @@ class LoadInstruments:
                     None
                 )
             if channel is None:
-                channel = channels[0] if len(channels) == 1 else None
-            if channel is not None:
-                vout = channel.get('voltage_output') or {}
-                cout = channel.get('current_output') or {}
-                limits['max_current'] = cout.get('max', limits['max_current'])
-                limits['max_voltage'] = vout.get('max', limits['max_voltage'])
+                # Senza channel_id specifico usa il primo canale come default
+                # (valido anche per strumenti multi-canale omogenei).
+                channel = channels[0]
+            vout = channel.get('voltage_output') or {}
+            cout = channel.get('current_output') or {}
+            limits['max_current'] = cout.get('max', limits['max_current'])
+            limits['max_voltage'] = vout.get('max', limits['max_voltage'])
         return limits
 
     def find_instrument(self, type_name=None, series_id=None, model_id=None):

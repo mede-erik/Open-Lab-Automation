@@ -40,6 +40,9 @@ class WasFileDialog(QDialog):
         
         # --- Sezione Tempo/Div ---
         self.setup_timing_section(left_layout)
+
+        # --- Sezione Trigger ---
+        self.setup_trigger_section(left_layout)
         
         # Pulsante per applicare i parametri al JSON
         self.apply_params_btn = QPushButton(self.translator.t('apply_to_data'))
@@ -79,79 +82,141 @@ class WasFileDialog(QDialog):
         # Sincronizza i parametri se il JSON viene modificato manualmente
         self.data_edit.textChanged.connect(self.sync_params_from_json)
 
-    def get_oscilloscope_channels(self):
+    def get_oscilloscopes(self):
         """
-        Recupera i canali dell'oscilloscopio dal file .inst del progetto.
-        Ritorna una lista di dict con info sui canali.
+        Recupera gli oscilloscopi configurati nel file .inst del progetto.
+        Ritorna una lista di dict: {'instance_name', 'model_id', 'channels'}.
+        Accetta sia il tipo singolare ('oscilloscope') che plurale ('oscilloscopes').
         """
         if not self.project_data:
             return []
-        
-        # Il project_data è il file .json del progetto
-        # Dobbiamo caricare il file .inst per avere gli strumenti
+
         inst_file = self.project_data.get('inst_file')
         if not inst_file:
             return []
-        
-        # Costruisci il percorso completo del file .inst
+
         import os
         project_dir = os.path.dirname(self.file_path)
         inst_file_path = os.path.join(project_dir, inst_file)
-        
-        # Carica il file .inst
+
         try:
             with open(inst_file_path, 'r', encoding='utf-8') as f:
                 inst_data = json.load(f)
-            
-            # Cerca l'oscilloscopio negli strumenti
             instruments = inst_data.get('instruments', [])
+            scopes = []
             for inst in instruments:
-                if inst.get('instrument_type') == 'oscilloscopes':
-                    return inst.get('channels', [])
+                if inst.get('instrument_type') in ('oscilloscope', 'oscilloscopes'):
+                    scopes.append({
+                        'instance_name': inst.get('instance_name', 'OSC'),
+                        'model_id': inst.get('model_id', inst.get('model', '')),
+                        'channels': inst.get('channels', []),
+                    })
+            return scopes
         except Exception as e:
             print(f"Errore nel caricamento file .inst: {e}")
             return []
-        
-        return []
+
+    def get_oscilloscope_channels(self, instance_name=None):
+        """
+        Recupera i canali di un oscilloscopio dal file .inst del progetto.
+        :param instance_name: Nome istanza dell'oscilloscopio (opzionale; usa il primo).
+        :return: Lista di dict con info sui canali.
+        """
+        scopes = self.get_oscilloscopes()
+        if not scopes:
+            return []
+        if instance_name is not None:
+            scope = next((s for s in scopes if s['instance_name'] == instance_name), None)
+            if scope:
+                return scope['channels']
+        return scopes[0]['channels']
 
     def setup_channels_section(self, layout):
         """
         Crea la sezione per configurare i canali dell'oscilloscopio.
+        Permette di selezionare l'oscilloscopio quando il progetto ne ha più di uno.
         """
-        from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QCheckBox, QLabel, QComboBox, QFormLayout
-        
+        from PyQt6.QtWidgets import QGroupBox, QComboBox, QHBoxLayout
+
+        self.scopes = self.get_oscilloscopes()
+        self.channel_widgets = []
+
         group = QGroupBox(self.translator.t('oscilloscope_channels'))
         group_layout = QVBoxLayout()
-        
-        # Recupera i canali dall'oscilloscopio nel progetto
-        osc_channels = self.get_oscilloscope_channels()
-        
-        if not osc_channels:
+
+        if self.scopes:
+            # Selettore oscilloscopio
+            selector_layout = QHBoxLayout()
+            selector_label = QLabel(self.translator.t('select_oscilloscope'))
+            self.scope_combo = QComboBox()
+            for s in self.scopes:
+                label = s['instance_name']
+                if s['model_id']:
+                    label += f" ({s['model_id']})"
+                self.scope_combo.addItem(label, s['instance_name'])
+            self.scope_combo.currentIndexChanged.connect(self.on_scope_changed)
+            selector_layout.addWidget(selector_label)
+            selector_layout.addWidget(self.scope_combo, 1)
+            group_layout.addLayout(selector_layout)
+        else:
             # Nessun oscilloscopio configurato - mostra canali di default
             info_label = QLabel(self.translator.t('no_oscilloscope_configured'))
             info_label.setWordWrap(True)
             info_label.setStyleSheet("color: orange; padding: 5px;")
             group_layout.addWidget(info_label)
-            
-            # Crea canali di default
-            osc_channels = [
-                {'channel_id': f'CH{i+1}', 'name': f'CH{i+1}', 'enabled': False, 
+
+        self.channels_group_layout = group_layout
+        self._channel_layouts = []
+        group.setLayout(group_layout)
+        layout.addWidget(group)
+
+        # Crea i widget canali per l'oscilloscopio selezionato (o default)
+        channels = self.get_oscilloscope_channels() or []
+        if not channels:
+            channels = [
+                {'channel_id': f'CH{i+1}', 'name': f'CH{i+1}', 'enabled': False,
                  'volt_per_div': '1V', 'probe_attenuation': 1.0}
                 for i in range(4)
             ]
-        
-        # Crea widget per ogni canale
+        self._rebuild_channel_widgets(channels)
+
+    def on_scope_changed(self, index):
+        """Ricostruisce i widget canali quando cambia l'oscilloscopio selezionato."""
+        instance_name = self.scope_combo.itemData(index) if self.scopes else None
+        channels = self.get_oscilloscope_channels(instance_name)
+        if not channels:
+            channels = []
+        self._rebuild_channel_widgets(channels)
+        # Aggiorna i canali disponibili per la sorgente trigger
+        self._update_trigger_source_combo()
+        # Riapplica i valori del file .was sui nuovi widget
+        if hasattr(self, 'data'):
+            self.populate_params_from_json()
+
+    def _rebuild_channel_widgets(self, channels):
+        """Rigenera i widget dei canali nel layout del gruppo."""
+        from PyQt6.QtWidgets import QVBoxLayout, QCheckBox, QLabel, QComboBox
+
+        # Rimuove i layout dei canali precedentemente creati (selettore/info restano)
+        for sub in self._channel_layouts:
+            while sub.count():
+                sub_item = sub.takeAt(0)
+                if sub_item.widget():
+                    sub_item.widget().deleteLater()
+            self.channels_group_layout.removeItem(sub)
+            if hasattr(sub, 'deleteLater'):
+                sub.deleteLater()
+        self._channel_layouts = []
+
         self.channel_widgets = []
-        form = QFormLayout()
-        
-        for ch in osc_channels:
+        for ch in channels:
             ch_layout = QVBoxLayout()
-            
+
             # Checkbox per abilitare il canale
             ch_enable = QCheckBox(f"{ch.get('channel_id', 'CH?')} - {ch.get('name', 'Signal')}")
             ch_enable.setChecked(ch.get('enabled', False))
             ch_layout.addWidget(ch_enable)
-            
+
             # Combobox per Volt/div
             volt_label = QLabel(self.translator.t('volt_per_div'))
             volt_combo = QComboBox()
@@ -162,10 +227,10 @@ class WasFileDialog(QDialog):
             idx = volt_combo.findText(current_vdiv)
             if idx >= 0:
                 volt_combo.setCurrentIndex(idx)
-            
+
             ch_layout.addWidget(volt_label)
             ch_layout.addWidget(volt_combo)
-            
+
             # Salva riferimenti ai widget
             self.channel_widgets.append({
                 'channel_id': ch.get('channel_id', f'CH{len(self.channel_widgets)+1}'),
@@ -174,11 +239,9 @@ class WasFileDialog(QDialog):
                 'volt_div_widget': volt_combo,
                 'probe_attenuation': ch.get('probe_attenuation', 1.0)
             })
-            
-            group_layout.addLayout(ch_layout)
-        
-        group.setLayout(group_layout)
-        layout.addWidget(group)
+
+            self.channels_group_layout.addLayout(ch_layout)
+            self._channel_layouts.append(ch_layout)
 
     def setup_timing_section(self, layout):
         """
@@ -196,6 +259,91 @@ class WasFileDialog(QDialog):
         
         group.setLayout(form)
         layout.addWidget(group)
+
+    def setup_trigger_section(self, layout):
+        """
+        Crea la sezione per configurare il trigger: sorgente (canale), fronte
+        (rise/fall), livello e modalità.
+        """
+        from PyQt6.QtWidgets import QGroupBox, QFormLayout, QComboBox, QLineEdit
+        from PyQt6.QtGui import QDoubleValidator
+
+        group = QGroupBox(self.translator.t('trigger_settings'))
+        form = QFormLayout()
+
+        # Sorgente trigger (canali dell'oscilloscopio selezionato)
+        self.trigger_source_combo = QComboBox()
+        form.addRow(self.translator.t('trigger_source'), self.trigger_source_combo)
+
+        # Fronte trigger (rise/fall)
+        self.trigger_slope_combo = QComboBox()
+        self.trigger_slope_combo.addItem(self.translator.t('trigger_rise'), 'RISE')
+        self.trigger_slope_combo.addItem(self.translator.t('trigger_fall'), 'FALL')
+        form.addRow(self.translator.t('trigger_slope'), self.trigger_slope_combo)
+
+        # Livello trigger (volt)
+        self.trigger_level_edit = QLineEdit()
+        self.trigger_level_edit.setPlaceholderText("1.5")
+        validator = QDoubleValidator(-10000.0, 10000.0, 3, self.trigger_level_edit)
+        self.trigger_level_edit.setValidator(validator)
+        form.addRow(self.translator.t('trigger_level'), self.trigger_level_edit)
+
+        # Modalità trigger
+        self.trigger_mode_combo = QComboBox()
+        self.trigger_mode_combo.addItem('AUTO', 'AUTO')
+        self.trigger_mode_combo.addItem('NORM', 'NORM')
+        form.addRow(self.translator.t('trigger_mode'), self.trigger_mode_combo)
+
+        group.setLayout(form)
+        layout.addWidget(group)
+
+        # Popola la combo sorgente con i canali dell'oscilloscopio selezionato
+        self._update_trigger_source_combo()
+
+    def _update_trigger_source_combo(self):
+        """
+        Aggiorna la combo sorgente trigger con i canali dell'oscilloscopio selezionato.
+        Preserva la selezione se il canale è ancora disponibile.
+        """
+        if not hasattr(self, 'trigger_source_combo'):
+            return
+        current = self.trigger_source_combo.currentData()
+        self.trigger_source_combo.blockSignals(True)
+        self.trigger_source_combo.clear()
+        channel_ids = [w['channel_id'] for w in getattr(self, 'channel_widgets', [])]
+        if not channel_ids:
+            channel_ids = ['CH1', 'CH2', 'CH3', 'CH4']
+        for cid in channel_ids:
+            self.trigger_source_combo.addItem(cid, cid)
+        if current and self.trigger_source_combo.findData(current) >= 0:
+            self.trigger_source_combo.setCurrentIndex(self.trigger_source_combo.findData(current))
+        self.trigger_source_combo.blockSignals(False)
+
+    def _parse_voltage(self, s):
+        """Converte una stringa livello trigger ('1,5' -> 1.5) in float o None."""
+        try:
+            return float(str(s).strip().replace(',', '.'))
+        except (ValueError, TypeError):
+            return None
+
+    def trigger_values(self):
+        """
+        Ritorna il dict trigger {source, slope, level, mode} dai widget della sezione.
+        Level è incluso solo se valorizzato correttamente.
+        """
+        source = self.trigger_source_combo.currentData()
+        if not source:
+            return None
+        values = {
+            'source': source,
+            'slope': self.trigger_slope_combo.currentData(),
+            'mode': self.trigger_mode_combo.currentData(),
+        }
+        level_edit = getattr(self, 'trigger_level_edit', None)
+        level = self._parse_voltage(level_edit.text()) if level_edit else None
+        if level is not None:
+            values['level'] = level
+        return values
 
 
     def parse_time(self, s):
@@ -246,10 +394,27 @@ class WasFileDialog(QDialog):
                     if idx >= 0:
                         ch_widget['volt_div_widget'].setCurrentIndex(idx)
 
+        # Popola la sezione trigger se presente
+        trigger = self.data.get('trigger', {})
+        if hasattr(self, 'trigger_source_combo'):
+            src = trigger.get('source')
+            if src and self.trigger_source_combo.findData(src) >= 0:
+                self.trigger_source_combo.setCurrentIndex(self.trigger_source_combo.findData(src))
+            slope = trigger.get('slope', 'RISE')
+            idx = self.trigger_slope_combo.findData(slope)
+            if idx >= 0:
+                self.trigger_slope_combo.setCurrentIndex(idx)
+            if 'level' in trigger:
+                self.trigger_level_edit.setText(str(trigger['level']))
+            mode = trigger.get('mode', 'AUTO')
+            idx = self.trigger_mode_combo.findData(mode)
+            if idx >= 0:
+                self.trigger_mode_combo.setCurrentIndex(idx)
+
     def apply_params_to_json(self):
         """
         Aggiorna il JSON a destra in base ai parametri inseriti a sinistra.
-        Converte i valori e aggiorna il dizionario settings e channels.
+        Converte i valori e aggiorna il dizionario settings, channels e trigger.
         """
         # Tempo/div globale
         tdiv = self.parse_time(self.time_div_edit.text()) if hasattr(self, 'time_div_edit') else None
@@ -273,6 +438,11 @@ class WasFileDialog(QDialog):
                     })
             
             self.data['channels'] = channels
+
+        # Trigger
+        trigger = self.trigger_values() if hasattr(self, 'trigger_values') else None
+        if trigger:
+            self.data['trigger'] = trigger
         
         # Aggiorna il visualizzatore JSON
         self.data_edit.setText(json.dumps(self.data, indent=2))

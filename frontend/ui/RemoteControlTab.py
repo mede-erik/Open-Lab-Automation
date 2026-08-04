@@ -397,14 +397,54 @@ class RemoteControlTab(QWidget):
                             instr.write(cmd)
                             print(f"[RemoteControlTab] Trigger source: {source}")
 
-                # Livello trigger
+                # Livello trigger (alcuni modelli richiedono il canale nella syntax)
                 if 'level' in trigger and 'set_trigger_level' in scpi_commands:
                     level_value = trigger['level']
                     syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_level'))
                     if syntax:
-                        cmd = syntax.format(value=level_value)
+                        if '{channel_number}' in syntax:
+                            trigger_ch = self._extract_channel_number(trigger.get('source', ''))
+                            cmd = syntax.format(channel_number=trigger_ch, value=level_value)
+                        else:
+                            cmd = syntax.format(value=level_value)
                         instr.write(cmd)
                         print(f"[RemoteControlTab] Trigger level: {level_value}")
+
+                # Fronte trigger (rise/fall). Il file .was usa valori vendor-agnostici
+                # RISE/FALL/EITHER: la libreria definisce sintassi (placeholder
+                # {slope} o {value}) e valori accettati; mappa per significato.
+                if 'slope' in trigger:
+                    slope_cmd = scpi_commands.get('set_trigger_slope')
+                    syntax = None
+                    slope_values = None
+                    if slope_cmd:
+                        syntax = self._get_scpi_set_syntax(slope_cmd)
+                        slope_params = (slope_cmd.get('parameters') or {})
+                        for param_name in ('slope', 'value'):
+                            pvals = None
+                            if param_name in slope_params:
+                                pvals = (slope_params[param_name] or {})
+                                pvals = pvals.get('values')
+                            if pvals:
+                                slope_values = pvals
+                                break
+                    else:
+                        src_syntax = self._get_scpi_set_syntax(
+                            scpi_commands.get('set_trigger_source'))
+                        syntax = self._get_trigger_slope_syntax_fallback(src_syntax)
+                    if syntax:
+                        slope_value = trigger['slope']
+                        if slope_values:
+                            slope_value = self._map_trigger_slope_value(
+                                slope_value, slope_values)
+                        else:
+                            slope_value = self._normalize_trigger_slope(slope_value)
+                        if '{slope}' in syntax:
+                            cmd = syntax.format(slope=slope_value)
+                        else:
+                            cmd = syntax.format(value=slope_value)
+                        instr.write(cmd)
+                        print(f"[RemoteControlTab] Trigger slope: {slope_value}")
 
                 # Modalità trigger
                 if 'mode' in trigger and 'set_trigger_mode' in scpi_commands:
@@ -462,6 +502,76 @@ class RemoteControlTab(QWidget):
             return float(s)
         except ValueError:
             return None
+
+    @staticmethod
+    def _map_enum_value(value, accepted_values):
+        """
+        Mappa un valore generico su un valore accettato dallo strumento.
+        Se 'value' è già tra gli accettati (o la lista è vuota) ritorna invariato;
+        altrimenti cerca una corrispondenza semantica per sottostringa
+        (es. 'RISE' -> 'RIS' o 'RISing', 'FALL' -> 'FALL'/'FALLing').
+        """
+        if value is None or not accepted_values:
+            return value
+        if value in accepted_values:
+            return value
+        key = str(value).lower()
+        for candidate in accepted_values:
+            if key in str(candidate).lower() or str(candidate).lower() in key:
+                return candidate
+        return value
+
+    @staticmethod
+    def _map_trigger_slope_value(slope, accepted_values):
+        """
+        Mappa il fronte del .was (RISE/FALL/EITHER) sui valori accettati dallo
+        strumento, con corrispondenza semantica cross-vendor:
+          RISE   -> RISe | RISing | POSitive
+          FALL   -> FALL | FALLing | NEGative
+          EITHER -> EITHer | ALTernate | RFALl
+        """
+        if slope is None or not accepted_values:
+            return slope
+        if slope in accepted_values:
+            return slope
+        key = str(slope).lower()
+        if 'fall' in key or 'neg' in key:
+            needles = ('neg', 'fall')
+        elif 'rise' in key or 'ris' in key or 'pos' in key:
+            needles = ('ris', 'pos')
+        else:
+            needles = ('eith', 'rfal', 'alt', 'both')
+        for needle in needles:
+            for candidate in accepted_values:
+                if needle in str(candidate).lower():
+                    return candidate
+        return slope
+
+    @staticmethod
+    def _get_trigger_slope_syntax_fallback(source_syntax):
+        """
+        Deriva la sintassi SCPI standard per il fronte edge trigger dalla syntax
+        di set_trigger_source della libreria (fallback quando la libreria non
+        definisce set_trigger_slope). Es. ':TRIGger:EDGE:SOURce C{...}' ->
+        ':TRIGger:EDGE:SLOPe {value}'.
+        """
+        if not source_syntax:
+            return ':TRIGger:EDGE:SLOPe {value}'
+        idx = source_syntax.lower().find('sour')
+        if idx == -1:
+            return None
+        return source_syntax[:idx] + 'SLOPe {value}'
+
+    @staticmethod
+    def _normalize_trigger_slope(slope):
+        """
+        Normalizza il fronte del .was (RISE/FALL, ma accetta anche RIS/RISing/
+        FALLing) sulle abbreviazioni SCPI standard: 'RIS' (valida anche su
+        Siglent, che rifiuta 'RISE') e 'FALL'.
+        """
+        if 'fall' in str(slope).lower():
+            return 'FALL'
+        return 'RIS'
 
     def _get_scpi_set_syntax(self, command_def):
         """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""

@@ -25,6 +25,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - Create and manage measurement projects with associated configuration files (.json, .inst, .eff, .was).
   - Advanced naming options for files and instances.
   - Dedicated editors for instruments, efficiency, and oscilloscope settings.
+  - **Oscilloscope Trigger Configuration**: `.was` editor supports trigger setup (source channel, slope rise/fall, level, mode) with vendor-agnostic values mapped to instrument-specific SCPI via the instrument library.
   - **Advanced Efficiency Sweeps**: Multi-variable nested sweep system with configurable order, list/range modes, and timing parameters.
   - **Automatic Measurement**: All project variables (control and measure) are automatically measured during sweeps.
 
@@ -55,7 +56,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - **Configuration Files:**
   - `.inst` — Instrument configuration and channel setup
   - `.eff` — Efficiency measurement sweeps with nested variable support
-  - `.was` — Oscilloscope waveform acquisition settings
+  - `.was` — Oscilloscope waveform acquisition and trigger settings
   - `.json` — Project metadata and variable definitions
 
 ## Requirements
@@ -135,7 +136,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
    - For dataloggers with slots: use the "Configure Datalogger Slots" button to select modules
    - For other instruments: configure channels, variables, and measurement settings
 4. Set up efficiency sweeps with nested variables in the `.eff` file editor
-5. Configure oscilloscope acquisition in the `.was` file editor
+5. Configure oscilloscope acquisition and trigger in the `.was` file editor
 6. Start measurements and monitor results
 
 ### Example Projects

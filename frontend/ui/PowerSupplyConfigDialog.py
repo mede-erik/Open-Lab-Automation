@@ -18,6 +18,8 @@ class PowerSupplyConfigDialog(QDialog):
         if n <= 0 and self.load_instruments and self.instrument.get('model_id'):
             n = len(self._get_channel_ids(capabilities))
         channel_ids = self._get_channel_ids(capabilities)
+        # Limiti: nuovo formato capabilities.channels[].voltage_output/current_output
+        # o flat legacy 'max_current'/'max_voltage'
         max_current = capabilities.get('max_current', None)
         max_voltage = capabilities.get('max_voltage', None)
         channels = instrument.get('channels', [])
@@ -26,6 +28,17 @@ class PowerSupplyConfigDialog(QDialog):
             ch = channels[i] if i < len(channels) else {}
             ch['enabled'] = ch.get('enabled', False)
             ch['name'] = ch.get('name', channel_ids[i] if i < len(channel_ids) else f'CH{i+1}')
+            has_limits = (self.load_instruments
+                          and self.instrument.get('model_id')
+                          and ch.get('max_current') is None)
+            if has_limits:
+                limits = self.load_instruments.get_channel_limits(
+                    self.instrument.get('instrument_type', 'power_supply'),
+                    self.instrument.get('series', ''),
+                    self.instrument.get('model_id'),
+                    channel_ids[i] if i < len(channel_ids) else None)
+                max_current = max_current if max_current is not None else limits.get('max_current')
+                max_voltage = max_voltage if max_voltage is not None else limits.get('max_voltage')
             ch['max_current'] = ch.get('max_current', max_current if max_current is not None else 0.0)
             ch['max_voltage'] = ch.get('max_voltage', max_voltage if max_voltage is not None else 0.0)
             new_channels.append(ch)
