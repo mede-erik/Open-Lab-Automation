@@ -222,7 +222,7 @@ class DataloggerInstrumentDialog(QDialog):
     def load_existing_series(self):
         """Carica le serie esistenti di datalogger"""
         try:
-            series_list = self.load_instruments.get_series("dataloggers") or []
+            series_list = self.load_instruments.get_series("datalogger") or []
             self.existing_series_combo.clear()
             
             for series in series_list:

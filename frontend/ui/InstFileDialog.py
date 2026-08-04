@@ -323,13 +323,13 @@ class InstFileDialog(QDialog):
         # Scegli il dialog corretto in base al tipo di strumento
         inst_type = self._normalize_type(inst.get('instrument_type', ''))
         if inst_type == 'power_supply':
-            dlg = PowerSupplyConfigDialog(inst, self)
+            dlg = PowerSupplyConfigDialog(inst, self, self.load_instruments)
         elif inst_type == 'electronic_load':
-            dlg = ElectronicLoadConfigDialog(inst, self)
+            dlg = ElectronicLoadConfigDialog(inst, self, self.load_instruments)
         elif inst_type == 'datalogger':
-            dlg = DataloggerConfigDialog(inst, self)
+            dlg = DataloggerConfigDialog(inst, self, self.load_instruments)
         elif inst_type == 'oscilloscope':
-            dlg = OscilloscopeConfigDialog(inst, self.translator, self)
+            dlg = OscilloscopeConfigDialog(inst, self.translator, self, self.load_instruments)
         else:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, self.translator.t('error'), self.translator.t('unknown_instrument_type') if hasattr(self.translator, 't') else 'Tipo strumento sconosciuto')

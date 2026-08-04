@@ -141,7 +141,7 @@ class AddInstrumentDialog(QDialog):
         
         # Find or create series
         type_key = instrument_data["type"]
-        series_key = f"{type_key}_series"
+        series_key = self.load_instruments.get_series_key(type_key) or f"{type_key}_series"
         
         if series_key not in library_data["instrument_library"]:
             library_data["instrument_library"][series_key] = []

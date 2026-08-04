@@ -32,13 +32,13 @@ class InstrumentTypeSelectionDialog(QDialog):
         type_group = QGroupBox(self.translator.t("instrument_type"))
         type_layout = QVBoxLayout()
 
-        # ComboBox for type selection
+        # ComboBox for type selection (chiavi singolari, come get_all_types())
         self.type_combo = QComboBox()
-        self.type_combo.addItem("Alimentatore", "power_supplies")
-        self.type_combo.addItem("Datalogger", "dataloggers")
-        self.type_combo.addItem("Oscilloscopio", "oscilloscopes")
-        self.type_combo.addItem("Carico Elettronico", "electronic_loads")
-        self.type_combo.addItem("Multimetro", "multimeters")
+        self.type_combo.addItem("Alimentatore", "power_supply")
+        self.type_combo.addItem("Datalogger", "datalogger")
+        self.type_combo.addItem("Oscilloscopio", "oscilloscope")
+        self.type_combo.addItem("Carico Elettronico", "electronic_load")
+        self.type_combo.addItem("Multimetro", "multimeter")
 
         # Connect signal to update description
         self.type_combo.currentTextChanged.connect(self.update_description)

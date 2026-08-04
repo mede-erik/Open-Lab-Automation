@@ -1,7 +1,23 @@
 import json
 import logging
+import warnings
 
 logger = logging.getLogger('frontend.core.LoadInstruments')
+
+
+def deprecated(func):
+    """Segna un metodo come deprecato, avvisando all'uso."""
+    def wrapper(*args, **kwargs):
+        warnings.warn(
+            f"{func.__name__} è deprecato: usare i metodi generici "
+            f"(get_series, get_models, get_model_scpi, ...).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return func(*args, **kwargs)
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    return wrapper
 
 
 class LoadInstruments:
@@ -33,6 +49,7 @@ class LoadInstruments:
         except json.JSONDecodeError:
             logger.error(f"Error decoding JSON from file: {file_path}")
 
+    @deprecated
     def get_powersupplys_series(self):
         """
         Retrieves the available power supply series.
@@ -43,6 +60,7 @@ class LoadInstruments:
         power_supplies_series = self.instruments.get('power_supplies_series', [])
         return power_supplies_series
     
+    @deprecated
     def get_dataloggers_series(self):
         """
         Retrieves the available datalogger series.
@@ -53,6 +71,7 @@ class LoadInstruments:
         dataloggers_series = self.instruments.get('dataloggers_series', [])
         return dataloggers_series
 
+    @deprecated
     def get_powersupply_list_id(self):
         """
         Recupera la lista degli ID degli alimentatori disponibili.
@@ -65,6 +84,7 @@ class LoadInstruments:
             series_id.append(series['series_id'])
         return series_id
 
+    @deprecated
     def get_datalogger_list_id(self):
         """
         Recupera la lista degli ID dei datalogger disponibili.
@@ -77,6 +97,7 @@ class LoadInstruments:
             series_id.append(series['series_id'])
         return series_id
     
+    @deprecated
     def get_powersupply_models(self, series_id):
         """
         Recupera i modelli di alimentatori per una serie specifica.
@@ -91,6 +112,7 @@ class LoadInstruments:
                 return series.get('models')
         return None
 
+    @deprecated
     def get_datalogger_models(self, series_id):
         """
         Recupera i modelli di datalogger per una serie specifica.
@@ -105,6 +127,7 @@ class LoadInstruments:
                 return series.get('models')
         return None
     
+    @deprecated
     def get_powersupply_series_name(self, series_id):
         """
         Recupera il nome della serie di alimentatori per un ID specifico.
@@ -119,6 +142,7 @@ class LoadInstruments:
                 return series.get('series_name')
         return None
 
+    @deprecated
     def get_datalogger_series_name(self, series_id):
         """
         Recupera il nome della serie di datalogger per un ID specifico.
@@ -133,6 +157,7 @@ class LoadInstruments:
                 return series.get('series_name')
         return None
 
+    @deprecated
     def get_powersupply_series_name_list(self):
         """
         Recupera la lista dei nomi delle serie di alimentatori disponibili.
@@ -143,6 +168,7 @@ class LoadInstruments:
         series_names = [series['series_name'] for series in power_supplies]
         return series_names
     
+    @deprecated
     def get_datalogger_series_name_list(self):
         """
         Recupera la lista dei nomi delle serie di datalogger disponibili.
@@ -153,6 +179,7 @@ class LoadInstruments:
         series_names = [series['series_name'] for series in dataloggers]
         return series_names
     
+    @deprecated
     def get_powersupply_model_name(self, series_id, model_id):
         """
         Recupera il nome del modello di alimentatore per un ID specifico.
@@ -168,6 +195,7 @@ class LoadInstruments:
                     return model['name']
         return None
     
+    @deprecated
     def get_datalogger_model_name(self, series_id, model_id):
         """
         Recupera il nome del modello di datalogger per un ID specifico.
@@ -183,6 +211,7 @@ class LoadInstruments:
                     return model['name']
         return None
 
+    @deprecated
     def get_powersupply_common_scpi(self, series_id):
         """
         Recupera i comandi SCPI comuni per una serie specifica di alimentatori.
@@ -199,6 +228,7 @@ class LoadInstruments:
     
     # Note: get_datalogger_common_scpi is already defined above; avoid duplicates
 
+    @deprecated
     def get_powersupply_capabilities(self, model_id):
         """
         Recupera le capacità di un modello di alimentatore specifico.
@@ -214,6 +244,7 @@ class LoadInstruments:
                     return model['capabilities']
         return None
 
+    @deprecated
     def get_powersupply_number_channels(self, model_id):
         """
         Recupera il numero di canali di un modello di alimentatore specifico.
@@ -224,9 +255,10 @@ class LoadInstruments:
         """
         capabilities = self.get_powersupply_capabilities(model_id)
         if capabilities:
-            return capabilities['number_of_channels']
+            return capabilities.get('number_of_channels', capabilities.get('number_of_slots'))
         return None
 
+    @deprecated
     def get_powersupply_model_scpi_commands(self, model_id):
         """
         Recupera i comandi SCPI specifici per un modello di alimentatore specifico.
@@ -242,6 +274,7 @@ class LoadInstruments:
                     return model['scpi_commands']
         return None
     
+    @deprecated
     def get_powersupply_supported_connection(self, model_id):
         """
         Recupera i tipi di connessione supportati per un modello di alimentatore specifico.
@@ -257,6 +290,7 @@ class LoadInstruments:
                     return model['interface']['supported_connection_types']
         return None
     
+    @deprecated
     def get_powersupply_supported_connection_type_list(self, model_id):
         """
         Recupera l'elenco dei tipi di connessione supportati per un modello di alimentatore specifico.
@@ -272,6 +306,7 @@ class LoadInstruments:
                     return [connection['type'] for connection in model['interface']['supported_connection_types']]
         return None
     
+    @deprecated
     def get_datalogger_common_scpi(self, series_id):
         """
         Recupera i comandi SCPI comuni per una serie specifica di datalogger.
@@ -286,6 +321,7 @@ class LoadInstruments:
                 return series['common_scpi_commands']
         return None
 
+    @deprecated
     def get_datalogger_capabilities(self, model_id):
         """
         Recupera le capacità di un modello di datalogger specifico.
@@ -301,6 +337,7 @@ class LoadInstruments:
                     return model['capabilities']
         return None
 
+    @deprecated
     def get_datalogger_number_channels(self, model_id):
         """
         Recupera il numero di canali di un modello di datalogger specifico.
@@ -311,9 +348,13 @@ class LoadInstruments:
         """
         capabilities = self.get_datalogger_capabilities(model_id)
         if capabilities:
-            return capabilities['channels']
+            channels = capabilities.get('channels', capabilities.get('number_of_slots'))
+            if isinstance(channels, list):
+                return len(channels)
+            return channels
         return None
 
+    @deprecated
     def get_datalogger_model_scpi_commands(self, model_id):
         """
         Recupera i comandi SCPI specifici per un modello di datalogger specifico.
@@ -329,6 +370,7 @@ class LoadInstruments:
                     return model['scpi_commands']
         return None
 
+    @deprecated
     def get_datalogger_supported_connection(self, model_id):
         """
         Recupera i tipi di connessione supportati per un modello di datalogger specifico.
@@ -344,6 +386,7 @@ class LoadInstruments:
                     return model['interface']['supported_connection_types']
         return None
 
+    @deprecated
     def get_datalogger_supported_connection_list(self):
         """
         Recupera l'elenco dei tipi di connessione supportati per tutti i modelli di datalogger.
@@ -357,6 +400,7 @@ class LoadInstruments:
                 supported_connections.extend(model['interface']['supported_connection_types'])
         return supported_connections
 
+    @deprecated
     def get_datalogger_supported_connection_type_list(self, model_id):
         """
         Recupera l'elenco dei tipi di connessione supportati per un modello di datalogger specifico.
@@ -372,6 +416,24 @@ class LoadInstruments:
                     return [connection['type'] for connection in model['interface']['supported_connection_types']]
         return None
     
+    @staticmethod
+    def get_series_key(type_name):
+        """
+        Restituisce la chiave della libreria (pluralizzata) per un tipo di strumento.
+        Args:
+            type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger',
+                             'oscilloscope', 'electronic_load').
+        Returns:
+            str | None: Chiave della libreria (es. 'power_supplies_series') o None.
+        """
+        key_by_type = {
+            'power_supply': 'power_supplies_series',
+            'datalogger': 'dataloggers_series',
+            'oscilloscope': 'oscilloscopes_series',
+            'electronic_load': 'electronic_loads_series',
+        }
+        return key_by_type.get(type_name)
+
     def get_series(self, type_name):
         """
         Recupera tutte le serie disponibili per un tipo di strumento specifico.
@@ -380,13 +442,7 @@ class LoadInstruments:
         Returns:
             list | None: Lista delle serie disponibili per il tipo di strumento specificato.
         """
-        key_by_type = {
-            'power_supply': 'power_supplies_series',
-            'datalogger': 'dataloggers_series',
-            'oscilloscope': 'oscilloscopes_series',
-            'electronic_load': 'electronic_loads_series',
-        }
-        key = key_by_type.get(type_name)
+        key = self.get_series_key(type_name)
         if not key:
             return None
         return self.instruments.get(key)
@@ -528,6 +584,67 @@ class LoadInstruments:
                         return channels or None
         return None
 
+    def get_channel_ids(self, type_name, series_id, model_id):
+        """
+        Restituisce la lista degli ID dei canali di un modello.
+        Supporta il nuovo formato 'capabilities.channels[].channel_id' e i legacy
+        ('channel_ids', 'capabilities.channel_ids'). Fallback: CH1..CHn.
+        Args:
+            type_name (str): Tipo di strumento (es. 'power_supply').
+            series_id (str): ID della serie di strumenti.
+            model_id (str): ID del modello di strumenti.
+        Returns:
+            list: Lista di ID canali (es. ['1', '2', '3']).
+        """
+        caps = self.get_model_capabilities(type_name, series_id, model_id) or {}
+        channels = caps.get('channels') if isinstance(caps.get('channels'), list) else None
+        if channels:
+            return [ch.get('channel_id', f'CH{i+1}') for i, ch in enumerate(channels)]
+        channel_ids = caps.get('channel_ids')
+        if isinstance(channel_ids, list) and channel_ids:
+            return list(channel_ids)
+        num = caps.get('number_of_channels', caps.get('number_of_slots', 0))
+        if isinstance(num, list):
+            num = len(num)
+        return [f'CH{i+1}' for i in range(int(num or 0))]
+
+    def get_channel_limits(self, type_name, series_id, model_id, channel_id=None):
+        """
+        Restituisce i limiti elettrici di un modello (o di un singolo canale).
+        Cerca prima in 'capabilities.channels[]', poi nei campi flat
+        ('max_current_a', 'max_voltage_v', 'max_power_w').
+        Args:
+            type_name (str): Tipo di strumento (es. 'power_supply').
+            series_id (str): ID della serie di strumenti.
+            model_id (str): ID del modello di strumenti.
+            channel_id (str): ID del canale (opzionale).
+        Returns:
+            dict: {'max_current': float|None, 'max_voltage': float|None, 'max_power': float|None}.
+        """
+        caps = self.get_model_capabilities(type_name, series_id, model_id) or {}
+        limits = {
+            'max_current': caps.get('max_current_a'),
+            'max_voltage': caps.get('max_voltage_v'),
+            'max_power': caps.get('max_power_w'),
+        }
+        channels = caps.get('channels') if isinstance(caps.get('channels'), list) else None
+        if channels:
+            channel = None
+            if channel_id is not None:
+                channel = next(
+                    (ch for ch in channels
+                     if str(ch.get('channel_id')) == str(channel_id)),
+                    None
+                )
+            if channel is None:
+                channel = channels[0] if len(channels) == 1 else None
+            if channel is not None:
+                vout = channel.get('voltage_output') or {}
+                cout = channel.get('current_output') or {}
+                limits['max_current'] = cout.get('max', limits['max_current'])
+                limits['max_voltage'] = vout.get('max', limits['max_voltage'])
+        return limits
+
     def find_instrument(self, type_name=None, series_id=None, model_id=None):
         """
         Ricerca avanzata per trovare uno strumento dato tipo, serie, modello.
@@ -565,7 +682,6 @@ class LoadInstruments:
             series = self.instruments.get(key)
             if isinstance(series, list) and len(series) > 0:
                 available.append(tname)
-
         # Assicura che tutte le categorie siano disponibili nella GUI di aggiunta
         # anche quando la libreria non contiene ancora serie per quel tipo.
         all_types = [tname for _, tname in mapping]
@@ -625,9 +741,26 @@ class LoadInstruments:
         """
         modules = self.get_all_datalogger_modules()
         for module in modules:
-            if module.get('module_id') == module_id:
+            if module.get('id') == module_id:
                 return module
         return None
+
+    def get_module_channels(self, module_id):
+        """
+        Restituisce il numero di canali di un modulo datalogger specifico.
+        Args:
+            module_id (str): ID del modulo (es. '34901A', '34902A').
+        Returns:
+            int: Numero di canali del modulo, o 0 se non trovato.
+        """
+        module = self.get_module_info(module_id)
+        if not module:
+            return 0
+        capabilities = module.get('capabilities', {})
+        channels = capabilities.get('number_of_channels', 0)
+        if isinstance(channels, list):
+            return len(channels)
+        return int(channels or 0)
 
     def get_compatible_modules(self, type_name, series_id, model_id):
         """
@@ -663,7 +796,7 @@ class LoadInstruments:
         
         enabled_modules = []
         for module in all_modules:
-            module_id = module.get('module_id')
+            module_id = module.get('id', module.get('module_id'))
             # Controlla se il modulo è nella lista dei compatibili e non è disabilitato
             if module_id in compatible_ids and not module.get('not_enabled', False):
                 enabled_modules.append(module)

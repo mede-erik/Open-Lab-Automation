@@ -112,13 +112,13 @@ class InstrumentLibraryDialog(QDialog):
         
         # Apri il dialog specifico in base al tipo
         dialog = None
-        if instrument_type == "power_supplies":
+        if instrument_type == "power_supply":
             from frontend.ui.PowerSupplyInstrumentDialog import PowerSupplyInstrumentDialog
             dialog = PowerSupplyInstrumentDialog(self.load_instruments, self.translator, self)
-        elif instrument_type == "dataloggers":
+        elif instrument_type == "datalogger":
             from frontend.ui.DataloggerInstrumentDialog import DataloggerInstrumentDialog
             dialog = DataloggerInstrumentDialog(self.load_instruments, self.translator, self)
-        elif instrument_type == "oscilloscopes":
+        elif instrument_type == "electronic_load":
             from frontend.ui.AddInstrumentDialog import AddInstrumentDialog
             dialog = AddInstrumentDialog(self.load_instruments, self.translator, self)
         else:

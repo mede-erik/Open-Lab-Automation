@@ -186,9 +186,9 @@ class DataloggerSlotConfigDialog(QDialog):
         
         # Add compatible modules
         for module in self.compatible_modules:
-            module_id = module.get('module_id')
+            module_id = module.get('id', module.get('module_id'))
             module_name = module.get('name', module_id)
-            num_channels = module.get('number_of_channels', 0)
+            num_channels = module.get('capabilities', {}).get('number_of_channels', 0)
             module_combo.addItem(
                 f"{module_id} - {module_name} ({num_channels} {self.translator.t('channels')})",
                 module_id
@@ -250,15 +250,15 @@ class DataloggerSlotConfigDialog(QDialog):
                 )
             
             info_parts = []
-            info_parts.append(f"📊 {self.translator.t('channels')}: {module_info.get('number_of_channels', 0)}")
-            
-            if 'max_voltage' in module_info:
-                info_parts.append(f"⚡ Max: {module_info['max_voltage']}V")
-            
-            if 'speed' in module_info:
-                info_parts.append(f"⚙️ {self.translator.t('speed')}: {module_info['speed']} ch/s")
-            
             capabilities = module_info.get('capabilities', {})
+            info_parts.append(f"📊 {self.translator.t('channels')}: {capabilities.get('number_of_channels', 0)}")
+            
+            if 'max_voltage' in capabilities:
+                info_parts.append(f"⚡ Max: {capabilities['max_voltage']}V")
+            
+            if 'speed' in capabilities:
+                info_parts.append(f"⚙️ {self.translator.t('speed')}: {capabilities['speed']} ch/s")
+            
             meas_types = capabilities.get('measurement_types', [])
             if meas_types:
                 info_parts.append(f"📈 {self.translator.t('types')}: {', '.join(meas_types)}")
@@ -320,7 +320,7 @@ class DataloggerSlotConfigDialog(QDialog):
                     f"Module {module_id} not found in library"
                 )
             
-            num_channels = module_info.get('number_of_channels', 0)
+            num_channels = module_info.get('capabilities', {}).get('number_of_channels', 0)
             capabilities = module_info.get('capabilities', {})
             meas_types = capabilities.get('measurement_types', ['VOLT:DC'])
             

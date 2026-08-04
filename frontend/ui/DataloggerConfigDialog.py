@@ -4,14 +4,19 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetIte
 from PyQt6.QtGui import QDoubleValidator
 
 class DataloggerConfigDialog(QDialog):
-    def __init__(self, instrument, parent=None):
+    def __init__(self, instrument, parent=None, load_instruments=None):
         super().__init__(parent)
         self.setWindowTitle("Configurazione canali datalogger/multimetro")
         self.instrument = instrument
+        self.load_instruments = load_instruments
         # --- Sincronizza canali con capabilities ---
         capabilities = instrument.get('capabilities', {})
-        n = capabilities.get('number_of_channel', instrument.get('num_channels', 0))
-        channel_ids = capabilities.get('channel_ids', [])
+        n = capabilities.get('number_of_channels',
+                             capabilities.get('number_of_channel',
+                                              instrument.get('num_channels', 0)))
+        if n <= 0 and self.load_instruments and self.instrument.get('model_id'):
+            n = len(self._get_channel_ids(capabilities))
+        channel_ids = self._get_channel_ids(capabilities)
         measurement_types = capabilities.get('measurement_types', [])
         channels = instrument.get('channels', [])
         new_channels = []
@@ -27,6 +32,21 @@ class DataloggerConfigDialog(QDialog):
         self.channels = new_channels
         self.instrument['channels'] = self.channels
         self.init_ui()
+
+    def _get_channel_ids(self, capabilities):
+        """Deriva gli ID canali dal nuovo formato capabilities.channels[] o dai legacy."""
+        channel_ids = capabilities.get('channel_ids', [])
+        if channel_ids:
+            return list(channel_ids)
+        channels = capabilities.get('channels')
+        if isinstance(channels, list) and channels:
+            return [ch.get('channel_id', f'CH{i+1}') for i, ch in enumerate(channels)]
+        if self.load_instruments and self.instrument.get('model_id'):
+            return self.load_instruments.get_channel_ids(
+                self.instrument.get('instrument_type', 'datalogger'),
+                self.instrument.get('series', ''),
+                self.instrument.get('model_id'))
+        return []
 
     def init_ui(self):
         layout = QVBoxLayout(self)

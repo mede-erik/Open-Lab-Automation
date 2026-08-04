@@ -9,16 +9,21 @@ class OscilloscopeConfigDialog(QDialog):
     Dialog per configurare i canali dell'oscilloscopio.
     Permette di abilitare/disabilitare canali, assegnare nomi ai segnali e impostare Volt/div.
     """
-    def __init__(self, instrument, translator=None, parent=None):
+    def __init__(self, instrument, translator=None, parent=None, load_instruments=None):
         super().__init__(parent)
         self.translator = translator
         self.setWindowTitle(self.translator.t('oscilloscope_channel_config') if self.translator else "Configurazione Canali Oscilloscopio")
         self.instrument = instrument
+        self.load_instruments = load_instruments
         
         # --- Sync channels with capabilities ---
         capabilities = instrument.get('capabilities', {})
-        n = capabilities.get('number_of_channel', instrument.get('num_channels', 4))
-        channel_ids = capabilities.get('channel_ids', [f'CH{i+1}' for i in range(n)])
+        n = capabilities.get('number_of_channels',
+                             capabilities.get('number_of_channel',
+                                              instrument.get('num_channels', 4)))
+        if n <= 0 and self.load_instruments and self.instrument.get('model_id'):
+            n = len(self._get_channel_ids(capabilities, n))
+        channel_ids = self._get_channel_ids(capabilities, n)
         
         channels = instrument.get('channels', [])
         new_channels = []
@@ -45,6 +50,21 @@ class OscilloscopeConfigDialog(QDialog):
         self.channels = new_channels
         self.instrument['channels'] = self.channels
         self.init_ui()
+
+    def _get_channel_ids(self, capabilities, n):
+        """Deriva gli ID canali dal nuovo formato capabilities.channels[] o dai legacy."""
+        channel_ids = capabilities.get('channel_ids', [])
+        if channel_ids:
+            return list(channel_ids)
+        channels = capabilities.get('channels')
+        if isinstance(channels, list) and channels:
+            return [ch.get('channel_id', f'CH{i+1}') for i, ch in enumerate(channels)]
+        if self.load_instruments and self.instrument.get('model_id'):
+            return self.load_instruments.get_channel_ids(
+                self.instrument.get('instrument_type', 'oscilloscope'),
+                self.instrument.get('series', ''),
+                self.instrument.get('model_id'))
+        return [f'CH{i+1}' for i in range(n)]
 
     def init_ui(self):
         layout = QVBoxLayout(self)

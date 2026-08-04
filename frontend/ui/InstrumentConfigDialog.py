@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QLocale
 from PyQt6.QtGui import QAction, QDoubleValidator
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
-from frontend.core.Translator import Translator   
+from frontend.core.Translator import Translator
 from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
 from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
@@ -27,7 +27,7 @@ except Exception:
 class InstrumentConfigDialog(QDialog):
     # Emesso ogni volta che la configurazione strumenti viene salvata
     instruments_changed = pyqtSignal(str)  # arg: percorso del file .inst
-    
+
     def __init__(self, inst_file_path, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurazione strumenti")
@@ -136,7 +136,7 @@ class InstrumentConfigDialog(QDialog):
         item = self.list_widget.itemAt(position)
         if item is None:
             return
-            
+
         menu = QMenu(self)
         # Azione duplica strumento
         duplicate_action = QAction("Duplica strumento", self)
@@ -157,51 +157,51 @@ class InstrumentConfigDialog(QDialog):
         current_row = self.list_widget.currentRow()
         if current_row < 0 or current_row >= len(self.instruments):
             return
-            
+
         # Copia profonda dello strumento corrente per includere canali
         import copy
         original_instrument = copy.deepcopy(self.instruments[current_row])
-        
+
         # Modifica il nome per evitare duplicati
         original_name = original_instrument.get('name', 'Strumento')
         new_name = f"{original_name} - Copia"
-        
+
         # Assicurati che il nome sia unico
         counter = 1
         while any(inst.get('name') == new_name for inst in self.instruments):
             new_name = f"{original_name} - Copia ({counter})"
             counter += 1
-            
+
         original_instrument['name'] = new_name
-        
+
         # Se ha un instance_name, aggiorna anche quello
         if 'instance_name' in original_instrument:
             original_instance = original_instrument.get('instance_name', '')
             new_instance = f"{original_instance}_copy"
-            
+
             # Assicura unicità dell'instance_name
             counter = 1
             while any(inst.get('instance_name') == new_instance for inst in self.instruments):
                 new_instance = f"{original_instance}_copy{counter}"
                 counter += 1
-                
+
             original_instrument['instance_name'] = new_instance
-        
+
         # Aggiorna i nomi dei canali se presenti
         if 'channels' in original_instrument and isinstance(original_instrument['channels'], list):
             for i, channel in enumerate(original_instrument['channels']):
                 if isinstance(channel, dict) and 'name' in channel:
                     channel['name'] = f"{channel['name']}_copy"
-        
+
         # Aggiungi il nuovo strumento
         self.instruments.append(original_instrument)
-        
+
         # Aggiorna la lista UI
         self.list_widget.addItem(new_name)
-        
+
         # Seleziona il nuovo strumento
         self.list_widget.setCurrentRow(len(self.instruments) - 1)
-        
+
         # Salva automaticamente
         self.save_instruments()
 
@@ -210,12 +210,12 @@ class InstrumentConfigDialog(QDialog):
         current_row = self.list_widget.currentRow()
         if current_row < 0 or current_row >= len(self.instruments):
             return
-            
+
         instrument_name = self.instruments[current_row].get('instance_name', self.instruments[current_row].get('name', 'Strumento'))
-        
+
         # Chiedi conferma
         reply = QMessageBox.question(
-            self, 
+            self,
             'Conferma cancellazione',
             f'Sei sicuro di voler cancellare lo strumento "{instrument_name}"?',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -225,10 +225,10 @@ class InstrumentConfigDialog(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             # Rimuovi dalla lista dati
             del self.instruments[current_row]
-            
+
             # Rimuovi dalla lista UI
             self.list_widget.takeItem(current_row)
-            
+
             # Aggiorna la selezione
             if self.instruments:
                 if current_row >= len(self.instruments):
@@ -237,7 +237,7 @@ class InstrumentConfigDialog(QDialog):
                     self.list_widget.setCurrentRow(current_row)
             else:
                 self.show_empty_editor()
-            
+
             # Salva automaticamente
             self.save_instruments()
 
@@ -318,7 +318,7 @@ class InstrumentConfigDialog(QDialog):
             try:
                 capabilities = self.load_instruments.get_model_capabilities(t, series_id, model_id)
                 num_slots = capabilities.get('number_of_slots', 0) if capabilities else 0
-                
+
                 if num_slots > 0:
                     # Datalogger with slots - show slot configuration button
                     self.show_datalogger_slot_config_button(inst)
@@ -341,13 +341,13 @@ class InstrumentConfigDialog(QDialog):
         info_label.setWordWrap(True)
         info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #f0f0f0; border-radius: 5px; }")
         self.editor_layout.addWidget(info_label)
-        
+
         # Pulsante per aprire OscilloscopeConfigDialog
         config_btn = QPushButton("⚙️ Configura Canali Oscilloscopio")
         config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
         config_btn.clicked.connect(lambda: self.open_oscilloscope_config_dialog(inst))
         self.editor_layout.addWidget(config_btn)
-        
+
         # Mostra riepilogo canali configurati
         channels = inst.get('channels', [])
         if channels:
@@ -356,11 +356,11 @@ class InstrumentConfigDialog(QDialog):
             summary_label.setText(f"📊 Canali configurati: {len(channels)} totali, {enabled_count} abilitati")
             summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
             self.editor_layout.addWidget(summary_label)
-            
+
             # Lista canali abilitati
             if enabled_count > 0:
                 enabled_list = QLabel("Canali abilitati: " + ", ".join([
-                    f"{ch.get('channel_id', '?')} ({ch.get('name', 'N/A')})" 
+                    f"{ch.get('channel_id', '?')} ({ch.get('name', 'N/A')})"
                     for ch in channels if ch.get('enabled', False)
                 ]))
                 enabled_list.setWordWrap(True)
@@ -369,7 +369,7 @@ class InstrumentConfigDialog(QDialog):
 
     def open_oscilloscope_config_dialog(self, inst):
         """Apre il dialog di configurazione canali oscilloscopio"""
-        dlg = OscilloscopeConfigDialog(inst, self.translator, self)
+        dlg = OscilloscopeConfigDialog(inst, self.translator, self, self.load_instruments)
         if dlg.exec():
             # Aggiorna l'interfaccia dopo la configurazione
             self.save_instruments()
@@ -383,20 +383,20 @@ class InstrumentConfigDialog(QDialog):
         info_label.setWordWrap(True)
         info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #e3f2fd; border-radius: 5px; }")
         self.editor_layout.addWidget(info_label)
-        
+
         # Button to open DataloggerSlotConfigDialog
         config_btn = QPushButton("⚙️ " + self.translator.t('configure_datalogger_slots'))
         config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
         config_btn.clicked.connect(lambda: self.open_datalogger_slot_config_dialog(inst))
         self.editor_layout.addWidget(config_btn)
-        
+
         # Show summary of configured slots
         slots = inst.get('slots', [])
         if slots:
             configured_slots = sum(1 for slot in slots if slot.get('module_id'))
             total_channels = sum(
-                len(slot.get('channels', [])) 
-                for slot in slots 
+                len(slot.get('channels', []))
+                for slot in slots
                 if slot.get('module_id')
             )
             enabled_channels = sum(
@@ -404,7 +404,7 @@ class InstrumentConfigDialog(QDialog):
                 for slot in slots
                 if slot.get('module_id')
             )
-            
+
             summary_label = QLabel(
                 f"📊 {self.translator.t('configured_slots')}: {configured_slots}/{len(slots)} | "
                 f"{self.translator.t('total_channels')}: {total_channels} | "
@@ -412,7 +412,7 @@ class InstrumentConfigDialog(QDialog):
             )
             summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
             self.editor_layout.addWidget(summary_label)
-            
+
             # List configured modules
             if configured_slots > 0:
                 module_list_parts = []
@@ -422,7 +422,7 @@ class InstrumentConfigDialog(QDialog):
                         slot_num = slot.get('slot_number', '?')
                         num_ch = len(slot.get('channels', []))
                         module_list_parts.append(f"{self.translator.t('slot')} {slot_num}: {module_id} ({num_ch} ch)")
-                
+
                 modules_list = QLabel(self.translator.t('configured_modules') + ": " + ", ".join(module_list_parts))
                 modules_list.setWordWrap(True)
                 modules_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
@@ -443,33 +443,34 @@ class InstrumentConfigDialog(QDialog):
         model_id = inst.get('model_id')
         type_name = inst.get('instrument_type', inst.get('type', '')).lower()
         series_id = inst.get('series', '')
-        
+
         try:
             model_caps = self.load_instruments.get_model_capabilities(type_name, series_id, model_id)
         except Exception:
             model_caps = None
-            
+
         n = 0
         if model_caps:
             n = model_caps.get('number_of_channels', inst.get('num_channels', 0))
         else:
             n = inst.get('num_channels', 0)
-            
+
         if n <= 0:
             # Mostra messaggio informativo invece di non mostrare nulla
             info_label = QLabel("ℹ️ Nessun canale configurato per questo strumento.\nVerifica le capabilities del modello nella libreria strumenti.")
             info_label.setStyleSheet("QLabel { color: #888; padding: 10px; }")
             self.editor_layout.addWidget(info_label)
             return
-            
+
         # Ottieni o crea lista canali
         channels = inst.get('channels', [])
-        
+
         # Sincronizza canali con il numero previsto
+        # (channel_ids dal nuovo formato capabilities.channels)
         channel_ids = []
         if model_caps:
-            channel_ids = model_caps.get('channel_ids', [])
-            
+            channel_ids = self.load_instruments.get_channel_ids(type_name, series_id, model_id)
+
         while len(channels) < n:
             idx = len(channels)
             ch_id = channel_ids[idx] if idx < len(channel_ids) else f'CH{idx+1}'
@@ -478,8 +479,9 @@ class InstrumentConfigDialog(QDialog):
                 'name': ch_id,
             }
             if is_power:
-                new_ch['max_current'] = model_caps.get('max_current', 0.0) if model_caps else 0.0
-                new_ch['max_voltage'] = model_caps.get('max_voltage', 0.0) if model_caps else 0.0
+                limits = self.load_instruments.get_channel_limits(type_name, series_id, model_id)
+                new_ch['max_current'] = limits.get('max_current', 0.0)
+                new_ch['max_voltage'] = limits.get('max_voltage', 0.0)
             elif is_multimeter:
                 new_ch['meas_type'] = 'DC_V'
                 new_ch['attenuation'] = 1.0
@@ -490,61 +492,61 @@ class InstrumentConfigDialog(QDialog):
                 new_ch['meas_type'] = 'DC_V'
                 new_ch['unit'] = 'V'
             channels.append(new_ch)
-            
+
         inst['channels'] = channels[:n]
-        
+
         # Crea tabella
         if is_power:
             # Power supply / Electronic load
             table = QTableWidget(n, 4)
             table.setHorizontalHeaderLabels(["Abilita", "Nome", "Corrente max (A)", "Tensione max (V)"])
-            
+
             for row, ch in enumerate(inst['channels']):
                 # Abilita
                 chk = QCheckBox()
                 chk.setChecked(ch.get('enabled', False))
                 chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
                 table.setCellWidget(row, 0, chk)
-                
+
                 # Nome
                 name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
                 name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
                 table.setCellWidget(row, 1, name_edit)
-                
+
                 # Corrente max
                 curr_edit = QLineEdit(str(ch.get('max_current', 0.0)))
                 curr_edit.textChanged.connect(lambda val, r=row: self.on_channel_current_changed(r, val))
                 table.setCellWidget(row, 2, curr_edit)
-                
+
                 # Tensione max
                 volt_edit = QLineEdit(str(ch.get('max_voltage', 0.0)))
                 volt_edit.textChanged.connect(lambda val, r=row: self.on_channel_voltage_changed(r, val))
                 table.setCellWidget(row, 3, volt_edit)
-                
+
         elif is_multimeter:
             # Multimetro
             table = QTableWidget(n, 6)
             table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Attenuazione", "Unità", "Tempo integrazione"])
-            
+
             for row, ch in enumerate(inst['channels']):
                 # Abilita
                 chk = QCheckBox()
                 chk.setChecked(ch.get('enabled', False))
                 chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
                 table.setCellWidget(row, 0, chk)
-                
+
                 # Nome
                 name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
                 name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
                 table.setCellWidget(row, 1, name_edit)
-                
+
                 # Tipo misura
                 meas_combo = QComboBox()
                 meas_combo.addItems(['DC_V', 'DC_A', 'AC_V', 'AC_A', 'RES', 'FREQ'])
                 meas_combo.setCurrentText(ch.get('meas_type', 'DC_V'))
                 meas_combo.currentTextChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
                 table.setCellWidget(row, 2, meas_combo)
-                
+
                 # Attenuazione
                 # Forza la visualizzazione attenuazione in formato decimale con punto
                 att_val = ch.get('attenuation', 1.0)
@@ -565,12 +567,12 @@ class InstrumentConfigDialog(QDialog):
                                   "• Default: 1.0 (nessuna attenuazione)")
                 att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
                 table.setCellWidget(row, 3, att_edit)
-                
+
                 # Unità
                 unit_edit = QLineEdit(ch.get('unit', 'V'))
                 unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
                 table.setCellWidget(row, 4, unit_edit)
-                
+
                 # Tempo integrazione
                 tint_edit = QLineEdit(str(ch.get('integration_time', 0.0)))
                 tint_edit.setValidator(QDoubleValidator(0.0, 1e6, 3, tint_edit))
@@ -582,26 +584,26 @@ class InstrumentConfigDialog(QDialog):
             # Aggiunta colonna Attenuazione per permettere l'inserimento di shunt/guadagni
             table = QTableWidget(n, 5)
             table.setHorizontalHeaderLabels(["Abilita", "Nome", "Tipo misura", "Attenuazione", "Unità"])
-            
+
             for row, ch in enumerate(inst['channels']):
                 # Abilita
                 chk = QCheckBox()
                 chk.setChecked(ch.get('enabled', False))
                 chk.stateChanged.connect(lambda state, r=row: self.on_channel_enabled_changed(r, state))
                 table.setCellWidget(row, 0, chk)
-                
+
                 # Nome
                 name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
                 name_edit.textChanged.connect(lambda val, r=row: self.on_channel_name_changed(r, val))
                 table.setCellWidget(row, 1, name_edit)
-                
+
                 # Tipo misura
                 meas_combo = QComboBox()
                 meas_combo.addItems(['DC_V', 'DC_A', 'AC_V', 'AC_A', 'RES', 'FREQ', 'TEMP'])
                 meas_combo.setCurrentText(ch.get('meas_type', 'DC_V'))
                 meas_combo.currentTextChanged.connect(lambda val, r=row: self.on_channel_meas_type_changed(r, val))
                 table.setCellWidget(row, 2, meas_combo)
-                
+
                 # Attenuazione (supporta 10 cifre decimali) - visualizzazione forzata decimale con punto
                 att_val = ch.get('attenuation', 1.0)
                 if isinstance(att_val, float):
@@ -621,12 +623,12 @@ class InstrumentConfigDialog(QDialog):
                                   "• Default: 1.0 (nessuna attenuazione)")
                 att_edit.textChanged.connect(lambda val, r=row: self.on_channel_attenuation_changed(r, val))
                 table.setCellWidget(row, 3, att_edit)
-                
+
                 # Unità
                 unit_edit = QLineEdit(ch.get('unit', 'V'))
                 unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
                 table.setCellWidget(row, 4, unit_edit)
-                
+
         table.resizeColumnsToContents()
         self.editor_layout.addWidget(table)
         self.channel_table = table
@@ -672,22 +674,22 @@ class InstrumentConfigDialog(QDialog):
         if not PYVISA_AVAILABLE or pyvisa is None:
             QMessageBox.information(self, "Scansione non disponibile", "PyVISA non è installato o il backend non è disponibile.")
             return
-        
+
         dlg = QDialog(self)
         dlg.setWindowTitle("Strumenti trovati in rete (VISA)")
         vbox = QVBoxLayout(dlg)
-        
+
         # Barra filtro: Solo USB
         filter_bar = QHBoxLayout()
         usb_only_cb = QCheckBox("Solo USB")
         filter_bar.addWidget(usb_only_cb)
         filter_bar.addStretch(1)
         vbox.addLayout(filter_bar)
-        
+
         table = QTableWidget(0, 3)
         table.setHorizontalHeaderLabels(["Indirizzo", "IDN", "Interfaccia"])
         vbox.addWidget(table)
-        
+
         btns = QDialogButtonBox()
         btn_copy = QPushButton("Copia indirizzo")
         btn_apply = QPushButton("Imposta su strumento selezionato")

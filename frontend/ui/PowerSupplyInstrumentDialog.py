@@ -170,7 +170,7 @@ class PowerSupplyInstrumentDialog(QDialog):
     def load_existing_series(self):
         """Carica le serie esistenti di alimentatori"""
         try:
-            series_list = self.load_instruments.get_series("power_supplies") or []
+            series_list = self.load_instruments.get_series("power_supply") or []
             self.existing_series_combo.clear()
             
             for series in series_list:
