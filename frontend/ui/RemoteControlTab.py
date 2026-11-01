@@ -968,6 +968,11 @@ class RemoteControlTab(QWidget):
         series_id = inst.get('series', '')
         model_id = inst.get('model_id', inst.get('model', ''))
 
+        # Dataloggers have no 'read_measurement' call: the reading of the scan
+        # list is done with 'read_scan' (READ?).
+        if action == 'read_measurement' and type_name in ('datalogger', 'dataloggers'):
+            action = 'read_scan'
+
         # Check if instruments_manager is available
         if self.instruments_manager is None:
             scpi_dict = None
@@ -990,6 +995,8 @@ class RemoteControlTab(QWidget):
                 return 'MEAS:CURR?'
             if action == 'read_measurement':
                 return 'MEAS?'
+            if action == 'read_scan':
+                return 'READ?'
             if action == 'output_on':
                 return 'OUTP ON'
             if action == 'output_off':
@@ -1006,6 +1013,7 @@ class RemoteControlTab(QWidget):
             'read_voltage': ['read_voltage', 'MEAS:VOLT?'],
             'read_current': ['read_current', 'MEAS:CURR?'],
             'read_measurement': ['read_measurement', 'MEAS?'],
+            'read_scan': ['read_scan', 'READ?'],
             'output_on': ['output_on', 'OUTP ON'],
             'output_off': ['output_off', 'OUTP OFF'],
             'output_state_query': ['output_state_query', 'OUTP?']
@@ -1023,6 +1031,7 @@ class RemoteControlTab(QWidget):
             'read_voltage': 'MEAS:VOLT?',
             'read_current': 'MEAS:CURR?',
             'read_measurement': 'MEAS?',
+            'read_scan': 'READ?',
             'output_on': 'OUTP ON',
             'output_off': 'OUTP OFF',
             'output_state_query': 'OUTP?'
@@ -2021,6 +2030,10 @@ class RemoteControlTab(QWidget):
         if not hasattr(self, 'meas_vars'):
             return
 
+        # Dataloggers answer READ? with all the readings of the scan list: query
+        # once per instrument and per refresh, then pick the channel's value.
+        scan_cache = {}
+
         for inst, ch in self.meas_vars:
             instr = self.get_visa_instrument(inst)
             var_name = ch.get('measured_variable', ch.get('name', 'Unknown'))
@@ -2054,7 +2067,20 @@ class RemoteControlTab(QWidget):
                     label.setText(f"{var_name} = N/A {unit}")
                     continue
 
-                raw_val = instr.query(cmd)
+                if inst.get('instrument_type', '') in ('datalogger', 'dataloggers'):
+                    inst_key = inst.get('instance_name', '')
+                    if inst_key not in scan_cache:
+                        scan_cache[inst_key] = instr.query(cmd)
+                    raw_val = scan_cache[inst_key]
+                    if ',' in raw_val:
+                        # Readings follow the order of the enabled channels (scan list order)
+                        siblings = [c for i, c in self.meas_vars
+                                    if i.get('instance_name', '') == inst_key]
+                        values = raw_val.strip().split(',')
+                        idx = next((n for n, c in enumerate(siblings) if c is ch), 0)
+                        raw_val = values[idx] if idx < len(values) else ''
+                else:
+                    raw_val = instr.query(cmd)
                 # Pulisce il valore e applica attenuazione
                 try:
                     numeric_val = float(raw_val.strip())

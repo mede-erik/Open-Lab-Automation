@@ -86,6 +86,7 @@
   "electronic_load": "Electronic load",
   "power_supply": "Power supply",
   "datalogger": "Datalogger",
+  "switch_unit": "Switch Unit",
   "oscilloscope": "Oscilloscope",
   "compose_visa_address": "Compose VISA address",
   "composed_address": "Composed address",

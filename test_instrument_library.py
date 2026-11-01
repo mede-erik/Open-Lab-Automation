@@ -22,11 +22,11 @@ def test_library_structure(lib):
     keys = set(lib.instruments.keys())
     assert {'power_supplies_series', 'dataloggers_series',
             'oscilloscopes_series', 'electronic_loads_series',
-            'datalogger_modules'} <= keys
+            'datalogger_modules', 'switch_units_series'} <= keys
 
 
 def test_get_all_types(lib):
-    assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load']
+    assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load', 'switch_unit']
 
 
 def test_get_series_key(lib):

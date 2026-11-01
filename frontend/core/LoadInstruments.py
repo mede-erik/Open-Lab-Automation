@@ -422,7 +422,7 @@ class LoadInstruments:
         Restituisce la chiave della libreria (pluralizzata) per un tipo di strumento.
         Args:
             type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger',
-                             'oscilloscope', 'electronic_load').
+                             'oscilloscope', 'electronic_load', 'switch_unit').
         Returns:
             str | None: Chiave della libreria (es. 'power_supplies_series') o None.
         """
@@ -431,6 +431,7 @@ class LoadInstruments:
             'datalogger': 'dataloggers_series',
             'oscilloscope': 'oscilloscopes_series',
             'electronic_load': 'electronic_loads_series',
+            'switch_unit': 'switch_units_series',
         }
         return key_by_type.get(type_name)
 
@@ -677,6 +678,7 @@ class LoadInstruments:
             ('dataloggers_series', 'datalogger'),
             ('oscilloscopes_series', 'oscilloscope'),
             ('electronic_loads_series', 'electronic_load'),
+            ('switch_units_series', 'switch_unit'),
         ]
         available = []
         for key, tname in mapping:

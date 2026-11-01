@@ -86,6 +86,7 @@
   "electronic_load": "Elektronische Last",
   "power_supply": "Netzgerät",
   "datalogger": "Datenlogger",
+  "switch_unit": "Schalteinheit",
   "oscilloscope": "Oszilloskop",
   "compose_visa_address": "VISA-Adresse zusammensetzen",
   "composed_address": "Zusammengesetzte Adresse",

@@ -86,6 +86,7 @@
   "electronic_load": "Charge électronique",
   "power_supply": "Alimentation",
   "datalogger": "Enregistreur de données",
+  "switch_unit": "Unité de commutation",
   "oscilloscope": "Oscilloscope",
   "compose_visa_address": "Composer l'adresse VISA",
   "composed_address": "Adresse composée",

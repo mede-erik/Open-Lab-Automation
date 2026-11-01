@@ -93,6 +93,7 @@
   "electronic_load": "Carico elettronico",
   "power_supply": "Alimentatore",
   "datalogger": "Datalogger",
+  "switch_unit": "Unidad de conmutación",
   "oscilloscope": "Oscilloscopio",
   "compose_visa_address": "Componi indirizzo VISA",
   "composed_address": "Indirizzo composto",
