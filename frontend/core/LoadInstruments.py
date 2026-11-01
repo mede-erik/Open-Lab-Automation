@@ -36,7 +36,7 @@ class LoadInstruments:
             file_path (str): Path to the instruments JSON file.
         """
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 # Normalize to dictionary with 'instrument_library' key
                 if isinstance(data, dict) and 'instrument_library' in data:
@@ -46,8 +46,10 @@ class LoadInstruments:
                     self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
             logger.error(f"File not found: {file_path}")
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             logger.error(f"Error decoding JSON from file: {file_path}")
+        except OSError as e:
+            logger.error(f"Cannot read instrument library {file_path}: {e}")
 
     @deprecated
     def get_powersupplys_series(self):
@@ -802,4 +804,4 @@ class LoadInstruments:
             if module_id in compatible_ids and not module.get('not_enabled', False):
                 enabled_modules.append(module)
         
-        return enabled_modules
+        return enabled_modules

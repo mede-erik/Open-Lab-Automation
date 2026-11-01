@@ -318,5 +318,15 @@
   "manual_output_off_prompt": "Deshabilitar la salida en '{instrument}' - Canal '{channel}'",
   "manual_instrument_title": "Instrumento Manual",
   "manual_action_confirmed": "Acción confirmada. Se asume que el valor ha sido establecido.",
-  "manual_action_cancelled": "Acción cancelada por el usuario."
+  "manual_action_cancelled": "Acción cancelada por el usuario.",
+  "close": "Cerrar",
+  "confirm": "Confirmar",
+  "inst_file_not_found": "Archivo de instrumentos no encontrado",
+  "no_inst_file_in_project": "No se encontró ningún archivo .inst en el proyecto",
+  "no_instrument_selected": "Ningún instrumento seleccionado",
+  "no_project_file_found": "No se encontró ningún archivo de proyecto",
+  "project_open_failed": "No se pudo abrir el proyecto",
+  "select_series": "Seleccionar serie",
+  "unsupported_file_type": "Tipo de archivo no compatible",
+  "volt_per_div": "Voltios/div"
 }

@@ -1067,7 +1067,7 @@ class DatabaseDialog(QDialog):
         self.logger.debug("Loading database settings from QSettings.")
         settings = QSettings('LabAutomation', 'App')
         self.host.setText(settings.value('db_host', 'localhost'))
-        self.port.setText(settings.value('db_port', '9090'))
+        self.port.setText(settings.value('db_port', '5432'))
         self.user.setText(settings.value('db_user', ''))
         self.password.setText(settings.value('db_password', ''))
         self.dbname.setText(settings.value('db_name', 'prometheus'))

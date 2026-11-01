@@ -15,12 +15,13 @@ from PyQt6.QtCore import QSettings
 # Allows running this script from outside the frontend folder,
 # for example: `python frontend/main.py` from the repository root.
 # In this case Python only adds the repo root to sys.path and the
-# "ui" package wouldn't be found. So we add this file's directory.
+# "frontend" package wouldn't be found. So we add the repository root
+# (the parent of this file's directory) to sys.path.
 # ---------------------------------------------------------------------------
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-if _THIS_DIR not in sys.path:
-    sys.path.insert(0, _THIS_DIR)
-del _THIS_DIR
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+del _PROJECT_ROOT
 
 from frontend.ui.main_window import MainWindow
 from frontend.core.Translator import Translator

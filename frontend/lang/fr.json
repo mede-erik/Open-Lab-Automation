@@ -317,5 +317,15 @@
   "manual_output_off_prompt": "Désactiver la sortie sur '{instrument}' - Canal '{channel}'",
   "manual_instrument_title": "Instrument Manuel",
   "manual_action_confirmed": "Action confirmée. Il est supposé que la valeur a été définie.",
-  "manual_action_cancelled": "Action annulée par l'utilisateur."
+  "manual_action_cancelled": "Action annulée par l'utilisateur.",
+  "close": "Fermer",
+  "confirm": "Confirmer",
+  "inst_file_not_found": "Fichier d'instruments introuvable",
+  "no_inst_file_in_project": "Aucun fichier .inst trouvé dans le projet",
+  "no_instrument_selected": "Aucun instrument sélectionné",
+  "no_project_file_found": "Aucun fichier de projet trouvé",
+  "project_open_failed": "Impossible d'ouvrir le projet",
+  "select_series": "Sélectionner la série",
+  "unsupported_file_type": "Type de fichier non pris en charge",
+  "volt_per_div": "Volts/div"
 }

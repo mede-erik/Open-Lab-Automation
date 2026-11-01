@@ -112,6 +112,14 @@ class CBackend:
         ]
         lib.be_receive_int.restype = ctypes.c_int
 
+        lib.be_sweep_run.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_double),
+            ctypes.POINTER(ctypes.c_double),
+            _PROGRESS_CB,
+        ]
+        lib.be_sweep_run.restype = ctypes.c_int
+
     @classmethod
     def unload(cls) -> None:
         if cls._lib is not None:
@@ -176,7 +184,7 @@ class CBackend:
             raise CBackendError(
                 f"Receive failed: {msg.decode('utf-8') if msg else f'error {ret}'}"
             )
-        return buf.value.decode("utf-8").strip()
+        return buf.value.decode("utf-8", errors="replace").strip()
 
     @classmethod
     def query(
@@ -230,10 +238,10 @@ class CBackend:
             n_instruments, n_points, settling_time_s,
         )
 
-        c_cb = _PROGRESS_CB(progress_cb) if progress_cb else None
+        c_cb = _PROGRESS_CB(progress_cb) if progress_cb else _PROGRESS_CB()
 
         ret = cls._lib.be_sweep_run(
-            ctypes.byref(cfg),
+            ctypes.cast(ctypes.byref(cfg), ctypes.c_void_p),
             c_voltages,
             c_currents,
             c_cb,

@@ -3,15 +3,7 @@ Project Database Manager - PostgreSQL
 ======================================
 
 Gestisce database PostgreSQL per progetti di automazione laboratorio.
-Ogni p            # Check if database exists
-            cursor.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s",
-                (self.db_name,)
-            )
-            exists = cursor.fetchone() is not None
-            
-            if not exists:
-                # Create the databasea il proprio database.
+Ogni progetto ha il proprio database.
 Ogni file .eff genera tabelle con numero incrementale per ogni esecuzione.
 
 Architettura:
@@ -25,9 +17,9 @@ Architettura:
 import logging
 import psycopg2
 from psycopg2 import sql
-from psycopg2.extras import execute_values, Json
-from typing import List, Dict, Any, Optional, Tuple
-import json
+import psycopg2.extras
+from psycopg2.extras import execute_values
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import re
 
@@ -181,7 +173,7 @@ class ProjectDatabaseManager:
                         sql.Identifier(self.db_name)
                     )
                 )
-                logger.info(f"Database created: {manager.db_name}")
+                logger.info(f"Database created: {self.db_name}")
             else:
                 logger.info(f"Database '{self.db_name}' already exists")
             
@@ -268,37 +260,36 @@ class ProjectDatabaseManager:
         table_number = self.get_next_table_number(base_name)
         table_name = f"{base_name}_{table_number}"
         
+        conn = None
         try:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
-            # Build table columns
-            columns = []
-            
-            # Auto-increment ID
-            columns.append("id SERIAL PRIMARY KEY")
-            
+            # Build table columns (identifiers are quoted; types are whitelisted)
+            type_pattern = re.compile(r'^[A-Za-z]+(\s[A-Za-z]+)?(\(\d+(,\s*\d+)?\))?$')
+            columns = [sql.SQL("id SERIAL PRIMARY KEY")]
+
             # Measurement variables (strings/timestamps)
             for var_name, var_type in measurement_vars.items():
-                columns.append(f"{var_name} {var_type}")
-            
-            # Sweep variables (DOUBLE PRECISION)
-            for sweep_var in sweep_variables:
-                columns.append(f"{sweep_var} DOUBLE PRECISION")
-            
-            # Data columns (DOUBLE PRECISION)
-            for data_col in data_columns:
-                columns.append(f"{data_col} DOUBLE PRECISION")
-            
+                if not type_pattern.match(var_type):
+                    raise ValueError(f"Tipo SQL non valido per '{var_name}': {var_type}")
+                columns.append(sql.SQL("{} ").format(sql.Identifier(var_name)) + sql.SQL(var_type))
+
+            # Sweep variables and data columns (DOUBLE PRECISION)
+            for col_name in list(sweep_variables) + list(data_columns):
+                columns.append(
+                    sql.SQL("{} DOUBLE PRECISION").format(sql.Identifier(col_name))
+                )
+
             # Record creation timestamp
-            columns.append("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-            
+            columns.append(sql.SQL("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+
             # Create the table
             create_query = sql.SQL("CREATE TABLE {} ({})").format(
                 sql.Identifier(table_name),
-                sql.SQL(", ".join(columns))
+                sql.SQL(", ").join(columns)
             )
-            
+
             cursor.execute(create_query)
             
             # Create indexes to improve queries
@@ -347,19 +338,22 @@ class ProjectDatabaseManager:
         Raises:
             Exception: [PJDB-006] Errore inserimento dati
         """
+        conn = None
         try:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
             # Prepare data to insert
             data_to_insert = []
-            for point in measurement_points:
+            for point in data_rows:
                 # Combine measurement_info with point data
                 point_data = {**measurement_info, **point}
                 data_to_insert.append(point_data)
-            
+
             if not data_to_insert:
-                return
+                cursor.close()
+                conn.close()
+                return 0
             
             # Extract columns (excluding 'id' and 'created_at' which are auto-generated)
             columns = [k for k in data_to_insert[0].keys() if k not in ('id', 'created_at')]
@@ -371,7 +365,7 @@ class ProjectDatabaseManager:
             )
             
             # Prepara i valori
-            values = [[row[col] for col in columns] for row in insert_data]
+            values = [[row[col] for col in columns] for row in data_to_insert]
             
             # Esegue l'inserimento batch
             execute_values(cursor, insert_query.as_string(conn), values)
