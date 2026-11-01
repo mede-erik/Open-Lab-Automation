@@ -130,9 +130,10 @@ class InstrumentLibraryDialog(QDialog):
             # Ricarica la libreria strumenti
             try:
                 import os
-                base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                library_path = os.path.join(base_path, 'Instruments_LIB', 'instruments_lib.json')
-                self.load_instruments.load_instruments(library_path)
+                from frontend.core.LoadInstruments import get_library_path
+                library_path = get_library_path()
+                if not self.load_instruments.load_instruments(library_path):
+                    raise ValueError(library_path)
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.information(self, self.translator.get("success", "Successo"), self.translator.get("instrument_added_success", "Strumento aggiunto con successo alla libreria!"))
             except Exception as e:

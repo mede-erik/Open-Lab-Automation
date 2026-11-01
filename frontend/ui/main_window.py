@@ -32,7 +32,7 @@ from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
-from frontend.core.LoadInstruments import LoadInstruments
+from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler, ErrorCode, ValidationError
 from frontend.core.tools import read_json, save_json
@@ -93,8 +93,9 @@ class MainWindow(QMainWindow):
         self.logger.debug("Initializing LoadInstruments...")
         try:
             self.load_instruments = LoadInstruments()
-            lib_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'Instruments_LIB', 'instruments_lib.json')
-            self.load_instruments.load_instruments(lib_path)
+            lib_path = get_library_path()
+            if not self.load_instruments.load_instruments(lib_path):
+                raise FileNotFoundError(f"Instrument library not found or invalid: {lib_path}")
             self.logger.debug(f"LoadInstruments initialized successfully with library: {lib_path}")
         except Exception as e:
             self.logger.error(f"Error initializing LoadInstruments: {e}", exc_info=True)

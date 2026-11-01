@@ -150,3 +150,33 @@ def test_backend_query_and_sweep(backend, fake_instrument):
         assert amps == pytest.approx([0.1, 0.2, 0.3])
     finally:
         backend.disconnect(handle)
+
+
+# ------------------------------------------------------- instrument library
+def test_library_path_points_to_repo_root_and_loads():
+    from frontend.core.LoadInstruments import LoadInstruments, get_library_path
+
+    path = get_library_path()
+    assert path == os.path.join(ROOT, "Instruments_LIB", "instruments_lib.json")
+    if not os.path.isfile(path):
+        pytest.skip("Instruments_LIB submodule not initialised")
+    lib = LoadInstruments()
+    assert lib.load_instruments() is True
+    for type_name in lib.get_all_types():
+        for series in lib.get_series(type_name):
+            for model in series["models"]:
+                assert lib.get_channel_ids(type_name, series["series_id"], model["id"])
+
+
+def test_library_load_failure_returns_false(tmp_path):
+    from frontend.core.LoadInstruments import LoadInstruments
+
+    lib = LoadInstruments()
+    assert lib.load_instruments(str(tmp_path / "missing.json")) is False
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert lib.load_instruments(str(bad)) is False
+    wrong = tmp_path / "wrong.json"
+    wrong.write_text('{"foo": 1}', encoding="utf-8")
+    assert lib.load_instruments(str(wrong)) is False
+    assert lib.instruments == {}

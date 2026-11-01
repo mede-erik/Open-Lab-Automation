@@ -1,8 +1,15 @@
 import json
 import logging
+import os
 import warnings
 
 logger = logging.getLogger('frontend.core.LoadInstruments')
+
+
+def get_library_path():
+    """Absolute path of Instruments_LIB/instruments_lib.json (repository root)."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(repo_root, 'Instruments_LIB', 'instruments_lib.json')
 
 
 def deprecated(func):
@@ -29,27 +36,42 @@ class LoadInstruments:
         """Inizializza la lista strumenti vuota."""
         self.instruments = {}
 
-    def load_instruments(self, file_path):
+    def load_instruments(self, file_path=None):
         """
         Loads the instrument list from a JSON file.
         Args:
-            file_path (str): Path to the instruments JSON file.
+            file_path (str): Path to the instruments JSON file (default: repository library).
+        Returns:
+            bool: True if the library was loaded and has a valid structure.
         """
+        file_path = file_path or get_library_path()
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # Normalize to dictionary with 'instrument_library' key
-                if isinstance(data, dict) and 'instrument_library' in data:
-                    self.instruments = data['instrument_library']
-                else:
-                    # fallback: accept directly the expected dictionary structure
-                    self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
-            logger.error(f"File not found: {file_path}")
+            logger.error(f"File not found: {file_path} "
+                         f"(is the Instruments_LIB submodule initialised? "
+                         f"run: git submodule update --init)")
+            self.instruments = {}
+            return False
         except (json.JSONDecodeError, UnicodeDecodeError):
             logger.error(f"Error decoding JSON from file: {file_path}")
+            self.instruments = {}
+            return False
         except OSError as e:
             logger.error(f"Cannot read instrument library {file_path}: {e}")
+            self.instruments = {}
+            return False
+
+        # Normalize to dictionary with 'instrument_library' key
+        if isinstance(data, dict) and 'instrument_library' in data:
+            data = data['instrument_library']
+        if not isinstance(data, dict) or not any(k.endswith('_series') for k in data):
+            logger.error(f"Invalid instrument library structure in {file_path}")
+            self.instruments = {}
+            return False
+        self.instruments = data
+        return True
 
     @deprecated
     def get_powersupplys_series(self):
@@ -608,7 +630,11 @@ class LoadInstruments:
         num = caps.get('number_of_channels', caps.get('number_of_slots', 0))
         if isinstance(num, list):
             num = len(num)
-        return [f'CH{i+1}' for i in range(int(num or 0))]
+        ids = [f'CH{i+1}' for i in range(int(num or 0))]
+        if not ids and type_name == 'electronic_load':
+            # Single-input electronic loads may omit any channel definition
+            ids = ['CH1']
+        return ids
 
     def get_channel_limits(self, type_name, series_id, model_id, channel_id=None):
         """
