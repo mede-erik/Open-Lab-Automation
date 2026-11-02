@@ -154,6 +154,13 @@ class Shell:
             )
         except Exception as exc:
             self.say(f"cannot connect: {type(exc).__name__}: {exc}")
+            if kind == "visa":
+                self.say("\nVISA diagnostics:")
+                self.say(tester.visa_diagnostics())
+                self.say(
+                    "Check: the address above is in the list of resources; the user can "
+                    "open the port (Linux: group 'dialout'); no other program uses it."
+                )
             return None
 
     def serial_settings_dialog(self, model_id):

@@ -83,7 +83,11 @@ def open_visa(
     from ._visa import VisaConnection
     from .serial_config import apply_serial_settings
 
-    resource = pyvisa.ResourceManager().open_resource(address)
+    try:
+        resource = pyvisa.ResourceManager().open_resource(address)
+    except pyvisa.errors.VisaIOError:
+        # the default backend (e.g. NI-VISA) may not know this resource: try pyvisa-py
+        resource = pyvisa.ResourceManager("@py").open_resource(address)
     resource.timeout = timeout_ms
     connection = VisaConnection(resource, address, timeout_ms, pyvisa)
     if address.upper().startswith("ASRL"):
@@ -94,6 +98,32 @@ def open_visa(
             cfg.get("write_termination", "\n"), cfg.get("read_termination", "\n")
         )
     return connection
+
+
+def visa_diagnostics() -> str:
+    """What is available for VISA connections: pyserial, backends and the resources they see."""
+    lines = []
+    try:
+        import serial
+
+        lines.append(f"pyserial {serial.__version__}: installed")
+    except ImportError:
+        lines.append(
+            "pyserial is NOT installed: serial ports (ASRL) do not work with pyvisa-py "
+            "(pip install pyserial)"
+        )
+    try:
+        import pyvisa
+    except ImportError:
+        return "\n".join(lines + ["pyvisa is NOT installed (pip install pyvisa pyvisa-py)"])
+    for backend in ("", "@py"):
+        label = backend or "default"
+        try:
+            rm = pyvisa.ResourceManager(backend)
+            lines.append(f"backend {label} ({rm.visalib}): {list(rm.list_resources())}")
+        except Exception as exc:
+            lines.append(f"backend {label}: {type(exc).__name__}: {exc}")
+    return "\n".join(lines)
 
 
 def open_raw_socket(host: str, port: int, timeout_ms: int = 5000):

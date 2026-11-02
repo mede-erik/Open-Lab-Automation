@@ -10,6 +10,8 @@ cryptography>=49.0.0
 # Instrument communication
 pyvisa>=1.16.2
 pyvisa-py>=0.8.1
+# Serial (RS-232 / USB-serial) ports for pyvisa-py
+pyserial>=3.5
 
 # Scientific computing and data processing
 numpy>=2.5.1
