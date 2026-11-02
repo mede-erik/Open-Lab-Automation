@@ -13,6 +13,7 @@ a refused connection is reported (as TRN-001) by the first read/write, not by ``
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 from typing import Optional
@@ -20,6 +21,10 @@ from typing import Optional
 from .errors import TransportClosed, TransportError, TransportTimeout
 
 MAX_RESPONSE = 256 * 1024 * 1024
+
+
+def _term_bytes(value) -> bytes:
+    return value.encode("latin-1") if isinstance(value, str) else b""
 
 
 def _b(x) -> bytes:
@@ -32,10 +37,11 @@ class VisaConnection:
         self._peer = peer
         self._pv = pyvisa_module
         self._timeout_ms = timeout_ms
-        self._wterm = b"\n"
-        self._rterm = b"\n"
+        # Adopt the terminators already set on the resource (it may be shared with other code);
+        # the resource itself is never left modified, see _applied().
+        self._wterm = _term_bytes(getattr(resource, "write_termination", None)) or b"\n"
+        self._rterm = _term_bytes(getattr(resource, "read_termination", None)) or b"\n"
         self._lock = threading.RLock()
-        self._apply_terminators()
 
     # ----- construction -----------------------------------------------------------------
     @staticmethod
@@ -68,20 +74,29 @@ class VisaConnection:
 
     @timeout_ms.setter
     def timeout_ms(self, value: int) -> None:
-        self._timeout_ms = value
-        if self._res is not None:
-            self._res.timeout = value
+        self._timeout_ms = value  # applied per operation, the resource is left untouched
 
     def set_terminators(self, write_term, read_term) -> None:
         if not _b(read_term):
             raise TransportError("[TRN-006] invalid argument: read terminator must not be empty")
         self._wterm, self._rterm = _b(write_term), _b(read_term)
-        self._apply_terminators()
 
-    def _apply_terminators(self) -> None:
-        # The adapter appends / strips terminators itself so that block reads stay exact.
-        self._res.write_termination = ""
-        self._res.read_termination = None
+    @contextlib.contextmanager
+    def _applied(self, res, timeout_ms=None, read_termination=None):
+        """Temporarily set the timeout (and, optionally, the read termination character) on the
+        resource and restore its previous settings afterwards, so a resource shared with other
+        code is never left changed. Writes use write_raw and read_bytes ignores the termchar, so
+        the resource's own write/read termination never interferes."""
+        old_timeout, old_term = res.timeout, res.read_termination
+        try:
+            res.timeout = max(1, int(self._timeout_ms if timeout_ms is None else timeout_ms))
+            if read_termination is not None:
+                res.read_termination = read_termination
+            yield res
+        finally:
+            if self._res is not None:
+                res.read_termination = old_term
+                res.timeout = old_timeout
 
     def close(self) -> None:
         with self._lock:
@@ -117,17 +132,13 @@ class VisaConnection:
     def flush_input(self) -> None:
         with self._lock:
             res = self._need()
-            old = res.timeout
-            try:
-                res.timeout = 1
+            with self._applied(res, timeout_ms=1):
                 while True:
                     try:
                         if not res.read_bytes(1):
                             break
                     except Exception:
                         break
-            finally:
-                res.timeout = old
 
     def read_until(self, term, timeout_ms: Optional[int] = None) -> bytes:
         term = _b(term)
@@ -146,25 +157,19 @@ class VisaConnection:
                     raise TransportTimeout("[TRN-003] timeout waiting for the instrument")
                 if len(buf) >= MAX_RESPONSE:
                     raise TransportError("[TRN-005] protocol error: response exceeds the limit")
-                res.timeout = max(1, int(remaining * 1000))
-                try:
-                    buf += res.read_bytes(1)  # multi-byte terminator: exact but slow path
-                except Exception as e:
-                    self._fail(e)
-            res.timeout = self._timeout_ms
+                with self._applied(res, timeout_ms=remaining * 1000):
+                    try:
+                        buf += res.read_bytes(1)  # multi-byte terminator: exact but slow path
+                    except Exception as e:
+                        self._fail(e)
             return bytes(buf[: -len(term)])
 
     def _read_until_char(self, res, term: bytes, total_ms: int) -> bytes:
-        res.timeout = max(1, int(total_ms))
-        res.read_termination = term.decode("latin-1")
-        try:
-            data = res.read_raw()
-        except Exception as e:
-            self._fail(e)
-        finally:
-            if self._res is not None:
-                res.read_termination = None
-                res.timeout = self._timeout_ms
+        with self._applied(res, timeout_ms=total_ms, read_termination=term.decode("latin-1")):
+            try:
+                data = res.read_raw()
+            except Exception as e:
+                self._fail(e)
         return bytes(data[:-1]) if data.endswith(term) else bytes(data)
 
     def read_line(self, timeout_ms: Optional[int] = None) -> str:
@@ -224,26 +229,20 @@ class VisaConnection:
         res = self._need()
         if n == 0:
             return b""
-        res.timeout = self._timeout_ms if timeout_ms is None else timeout_ms
-        try:
-            return bytes(res.read_bytes(n, break_on_termchar=False))
-        except Exception as e:
-            self._fail(e)
-        finally:
-            if self._res is not None:
-                res.timeout = self._timeout_ms
+        with self._applied(res, timeout_ms=timeout_ms):
+            try:
+                return bytes(res.read_bytes(n, break_on_termchar=False))
+            except Exception as e:
+                self._fail(e)
 
     def _drop_terminator(self) -> None:
         """Consume the terminator an instrument appends after a block (short wait)."""
         res = self._need()
-        old = res.timeout
-        try:
-            res.timeout = 20
-            res.read_bytes(len(self._rterm), break_on_termchar=False)
-        except Exception:
-            pass
-        finally:
-            res.timeout = old
+        with self._applied(res, timeout_ms=20):
+            try:
+                res.read_bytes(len(self._rterm), break_on_termchar=False)
+            except Exception:
+                pass
 
     def _fail(self, e: Exception):
         VisaIOError = getattr(self._pv.errors, "VisaIOError", None)
