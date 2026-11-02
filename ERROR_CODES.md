@@ -1510,6 +1510,98 @@ Errors related to the instrument library database.
 
 ---
 
+## CALL - Instrument Call Errors (CALL-XXX)
+
+Errors of the call layer: a logical call (for example `set_channel_scale`) is translated into the commands of one instrument model and executed. They are raised by `ola.call_planner` / `ola.instrument` and shown with the same code.
+
+### CALL-001: Call Not Supported
+**Description**: The call is not defined for this instrument model (or the model has no connection/driver)  
+**Common Cause**:
+- The instrument manual does not document the command
+- The model disables the call in the library
+- The instrument is not connected
+
+**Solution**:
+1. Check the model in the instrument library
+2. Use another call, or add the call to the library if the manual documents it
+3. Connect the instrument
+
+**Log Example**:
+```
+[13:50:00] ERROR-CALL-001-call 'query_waveform_all' is not supported by OSC_Siglent_SDS824X_HD
+```
+
+---
+
+### CALL-002: Value Not Handled
+**Description**: The value of an argument is not handled for this model  
+**Common Cause**:
+- The library has no translation (`map`) for this value
+- The instrument does not offer this option (for example GND coupling)
+
+**Solution**:
+1. Choose a value the model supports
+2. Add the translation to the library if the manual documents it
+
+**Log Example**:
+```
+[13:51:00] ERROR-CALL-002-value 'EITHER' of argument 'slope' is not handled by model OSC_Siglent_SDS824X_HD
+```
+
+---
+
+### CALL-003: Invalid Argument
+**Description**: A call argument is missing, unknown, of the wrong type or out of range  
+**Common Cause**:
+- Missing or misspelled argument name
+- Number out of the allowed range
+- Value not in the list of logical values
+
+**Solution**:
+1. Check the argument names and types in the call schema (`schema/`)
+2. Correct the value
+
+**Log Example**:
+```
+[13:52:00] ERROR-CALL-003-argument 'channel_number' of 'set_channel_scale': 9 > maximum 4
+```
+
+---
+
+### CALL-004: Step Failed
+**Description**: A step of the call failed while it was executed (the step index is reported)  
+**Common Cause**:
+- Transport error or timeout (see TRN codes)
+- The instrument closed the connection
+
+**Solution**:
+1. Check the connection and the instrument state
+2. Retry; the input buffer is flushed before the next call
+
+**Log Example**:
+```
+[13:53:00] ERROR-CALL-004-call 'acquire_single' failed at step 1: TransportTimeout
+```
+
+---
+
+### CALL-005: Response Not Recognised
+**Description**: The answer of the instrument cannot be interpreted as the logical value of the call  
+**Common Cause**:
+- The answer is not in the library `response_map`
+- The answer is not a number/boolean as expected
+
+**Solution**:
+1. Check the instrument answer against the manual
+2. Add the missing entry to the `response_map` of the library
+
+**Log Example**:
+```
+[13:54:00] ERROR-CALL-005-answer 'Trig'd' is not in the response map of OSC_Tek_MSO54
+```
+
+---
+
 ## SCPI - SCPI Command Errors (SCPI-XXX)
 
 Errors specific to SCPI command operations (distinct from general VISA errors).
@@ -2229,6 +2321,7 @@ To add a new error code:
 | **CFG** | 001-099 | Application configuration errors |
 | **LIB** | 001-099 | Instrument library errors |
 | **SCPI** | 001-099 | SCPI command specific errors |
+| **CALL** | 001-099 | Instrument call (planner/executor) errors |
 | **DATA** | 001-099 | Data acquisition/processing errors |
 | **PJDB** | 001-099 | Project database errors |
 | **SYS** | 001-099 | System-level errors |
