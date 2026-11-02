@@ -737,10 +737,13 @@ class RemoteControlTab(QWidget):
 
     def get_scpi_cmd(self, inst, ch, action):
         """
-        Get the SCPI command for the given instrument/channel/action from the library.
-        action: 'set_voltage', 'set_current', 'read_voltage', 'read_current',
-                'read_measurement', 'output_on', 'output_off', 'output_state_query'
-        Returns the syntax string (con placeholder come '{value}') o '' se non disponibile.
+        Get the SCPI command of a measurement read for datalogger/multimeter channels.
+        action: 'read_measurement' (multimeters) or 'read_scan' (dataloggers, chosen
+                automatically for the 'read_measurement' of a datalogger).
+        Power supplies, loads and oscilloscopes no longer use this method: they run
+        logical calls through run_call(). It goes away when multimeters and dataloggers
+        are moved to the call planner too.
+        Returns the syntax string or '' if not available.
         """
         type_name = inst.get('instrument_type', '')
         series_id = inst.get('series', '')
@@ -750,71 +753,22 @@ class RemoteControlTab(QWidget):
         # list is done with 'read_scan' (READ?).
         if action == 'read_measurement' and type_name in ('datalogger', 'dataloggers'):
             action = 'read_scan'
+        fallback = {'read_measurement': 'MEAS?', 'read_scan': 'READ?'}
+        if action not in fallback:
+            return ''
 
-        # Check if instruments_manager is available
-        if self.instruments_manager is None:
-            scpi_dict = None
-        else:
+        scpi_dict = None
+        if self.instruments_manager is not None:
             try:
                 scpi_dict = self.instruments_manager.get_model_scpi(type_name, series_id, model_id)
             except Exception as e:
                 if self.logger:
                     self.logger.error(f"Errore get_model_scpi: {str(e)}")
-                scpi_dict = None
-        if not scpi_dict:
-            # Fallback standard
-            if action == 'set_voltage':
-                return 'VOLT {value}'
-            if action == 'set_current':
-                return 'CURR {value}'
-            if action == 'read_voltage':
-                return 'MEAS:VOLT?'
-            if action == 'read_current':
-                return 'MEAS:CURR?'
-            if action == 'read_measurement':
-                return 'MEAS?'
-            if action == 'read_scan':
-                return 'READ?'
-            if action == 'output_on':
-                return 'OUTP ON'
-            if action == 'output_off':
-                return 'OUTP OFF'
-            if action == 'output_state_query':
-                return 'OUTP?'
-            return ''
-        # Le azioni di lettura usano la sintassi 'query', le altre la sintassi 'set'
-        is_query = action.endswith('_query') or action.startswith('read_')
-        # Mappa azione → chiavi SCPI (nome libreria, nome generico standard)
-        action_map = {
-            'set_voltage': ['set_voltage', 'VOLT'],
-            'set_current': ['set_current', 'CURR'],
-            'read_voltage': ['read_voltage', 'MEAS:VOLT?'],
-            'read_current': ['read_current', 'MEAS:CURR?'],
-            'read_measurement': ['read_measurement', 'MEAS?'],
-            'read_scan': ['read_scan', 'READ?'],
-            'output_on': ['output_on', 'OUTP ON'],
-            'output_off': ['output_off', 'OUTP OFF'],
-            'output_state_query': ['output_state_query', 'OUTP?']
-        }
-        for key in action_map.get(action, []):
-            if key in scpi_dict:
-                command_def = scpi_dict[key]
-                syntax = self._get_scpi_syntax(command_def, is_query)
-                if syntax:
-                    return syntax
-        # Fallback standard se la chiave esiste ma senza sintassi richiesta
-        fallback = {
-            'set_voltage': 'VOLT {value}',
-            'set_current': 'CURR {value}',
-            'read_voltage': 'MEAS:VOLT?',
-            'read_current': 'MEAS:CURR?',
-            'read_measurement': 'MEAS?',
-            'read_scan': 'READ?',
-            'output_on': 'OUTP ON',
-            'output_off': 'OUTP OFF',
-            'output_state_query': 'OUTP?'
-        }
-        return fallback.get(action, '')
+        if scpi_dict and action in scpi_dict:
+            syntax = self._get_scpi_syntax(scpi_dict[action], True)
+            if syntax:
+                return syntax
+        return fallback[action]
 
     @staticmethod
     def _get_scpi_syntax(command_def, is_query=False):
@@ -1496,6 +1450,41 @@ class RemoteControlTab(QWidget):
         print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')} (manuale: {is_manual})")
         return group
 
+    def run_call(self, inst, ch, call, **args):
+        """
+        Run one logical call (same name and arguments for every brand) on an instrument.
+        The planner translates it into the commands of the model, the executor sends them.
+        Args:
+            inst: Instrument instance data (.inst entry).
+            ch: Channel data (its 'channel_id' gives channel_number) or None.
+            call: Logical call name, e.g. 'set_voltage'.
+            **args: Logical arguments of the call.
+        Returns:
+            The logical result of the call (None for calls without result).
+        Raises:
+            ola.call_errors.CallError: call not supported, value not handled, invalid argument,
+            step failed, answer not recognised.
+        """
+        from ola.call_errors import CallNotSupportedError
+        from ola.call_planner import plan_call
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        if not model_id:
+            raise CallNotSupportedError(f"model {model_key!r} is not in the library", call=call)
+        instr = self.get_visa_instrument(inst)
+        if instr is None:
+            raise CallNotSupportedError(
+                f"instrument {inst.get('instance_name', '?')!r} is not connected", call=call)
+        visa_addr = inst.get('visa_address', '')
+        executor = self._get_instrument_executor(visa_addr, instr, inst.get('instance_name', visa_addr))
+        if ch is not None and 'channel_number' not in args:
+            number = self._extract_channel_number(ch.get('channel_id'))
+            if number is not None:
+                args['channel_number'] = number
+        plan = plan_call(library, model_id, call, args)
+        return plan.interpret(executor.run(plan))
+
     def get_visa_instrument(self, inst):
         """
         Get the VISA instrument object for the given instance.
@@ -1593,9 +1582,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value_str)
-            print(f"[DEBUG] Comando SCPI: '{cmd}'")
-            instr.write(cmd)
+            self.run_call(inst, ch, 'set_voltage', value=value_float)
             print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Voltage Error: {str(e)}'
@@ -1658,9 +1645,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value_str)
-            print(f"[DEBUG] Comando SCPI: '{cmd}'")
-            instr.write(cmd)
+            self.run_call(inst, ch, 'set_current', value=value_float)
             print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Current Error: {str(e)}'
@@ -1688,12 +1673,7 @@ class RemoteControlTab(QWidget):
     def _toggle_output_attempt(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Tenta di impostare l'output e programma la verifica via QTimer."""
         try:
-            if checked:
-                cmd = self.get_scpi_cmd(inst, ch, 'output_on')
-                instr.write(cmd)
-            else:
-                cmd = self.get_scpi_cmd(inst, ch, 'output_off')
-                instr.write(cmd)
+            self.run_call(inst, ch, 'output_on' if checked else 'output_off')
 
             QTimer.singleShot(200, lambda: self._verify_output_state(
                 instr, inst, ch, button, checked, attempt, max_attempts))
@@ -1709,17 +1689,16 @@ class RemoteControlTab(QWidget):
 
     def _verify_output_state(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Verifica lo stato dell'uscita dopo aver inviato il comando."""
-        verify_cmd = self.get_scpi_cmd(inst, ch, 'output_state_query')
-        if not verify_cmd:
-            self._toggle_output_success(inst, ch, button, checked)
-            return
-
+        from ola.call_errors import CallNotSupportedError
         try:
-            response = instr.query(verify_cmd).strip()
-            is_on = response in ['1', 'ON', 'on', 'On']
-            is_off = response in ['0', 'OFF', 'off', 'Off']
+            try:
+                is_on = self.run_call(inst, ch, 'output_state_query')
+            except CallNotSupportedError:
+                # the model cannot report the output state: trust the command
+                self._toggle_output_success(inst, ch, button, checked)
+                return
 
-            if (checked and is_on) or (not checked and is_off):
+            if is_on == checked:
                 self._toggle_output_success(inst, ch, button, checked)
             else:
                 if attempt < max_attempts:
@@ -1784,15 +1763,12 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param label: QLabel widget to update with the read values.
         """
-        instr = self.get_visa_instrument(inst)
-        if not instr:
+        if not self.get_visa_instrument(inst):
             return
         try:
-            v_cmd = self.get_scpi_cmd(inst, ch, 'read_voltage')
-            c_cmd = self.get_scpi_cmd(inst, ch, 'read_current')
-            v = instr.query(v_cmd)
-            c = instr.query(c_cmd)
-            label.setText(f'V: {v.strip()}  I: {c.strip()}')
+            v = self.run_call(inst, ch, 'read_voltage')
+            c = self.run_call(inst, ch, 'read_current')
+            label.setText(f'V: {v:.6g}  I: {c:.6g}')
         except Exception as e:
             label.setText(f'Error: {e}')
 

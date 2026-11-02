@@ -87,28 +87,6 @@ def test_get_enabled_compatible_modules(lib):
     assert '34901A' in ids and '34902A' in ids
 
 
-def test_remote_control_get_scpi_cmd_strings():
-    """get_scpi_cmd deve restituire stringhe (non dict) e formattabili."""
-    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
-    from frontend.core.LoadInstruments import LoadInstruments
-    from frontend.ui.RemoteControlTab import RemoteControlTab
-
-    li = LoadInstruments()
-    li.load_instruments(LIB_PATH)
-    tab = RemoteControlTab.__new__(RemoteControlTab)
-    tab.instruments_manager = li
-    tab.logger = None
-
-    inst = {'instrument_type': 'power_supply', 'series': 'OWON_ODP_Series',
-            'model_id': 'PSU_OWON_ODP3033'}
-    for action in ['set_voltage', 'set_current', 'read_voltage', 'read_current',
-                   'output_on', 'output_off', 'output_state_query']:
-        cmd = tab.get_scpi_cmd(inst, None, action)
-        assert isinstance(cmd, str), f'{action}: {cmd!r}'
-    cmd = tab.get_scpi_cmd(inst, None, 'set_voltage').replace('{value}', '5.0')
-    assert cmd == 'VOLT 5.0'
 
 
 def test_trigger_slope_in_library(lib):
