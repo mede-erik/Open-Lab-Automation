@@ -340,3 +340,59 @@ def test_over_real_transport(Conn):
     assert psu.run(
         plan({"op": "write", "text": "INST:NSEL 3"}, {"op": "query", "text": "VOLT?"})
     ) == [None, "ch3"]
+
+
+# ---- read steps (answer without sending a command) ----------------------------------------
+
+
+def test_read_step_sends_nothing_and_returns_the_pending_answer():
+    t = SimTransport()
+    t._inbox.append(b"+1.234E+00\n")  # the instrument talks when addressed
+    inst = Instrument("hp3478a", t)
+    out = inst.run(plan({"op": "read", "returns": "float"}))
+    assert out == [1.234] and t.log == []
+
+
+@pytest.mark.parametrize(
+    "returns,reply,expected",
+    [
+        ("string", b"hello\n", "hello"),
+        ("int", b"3\n", 3),
+        ("float", b"2.5\n", 2.5),
+        ("binary", bytes(range(50)), bytes(range(50))),
+    ],
+)
+def test_read_return_types(returns, reply, expected):
+    t = SimTransport()
+    t._inbox.append(reply)
+    assert Instrument("x", t).run(plan({"op": "read", "returns": returns})) == [expected]
+
+
+def test_read_after_write_in_one_call():
+    t = SimTransport(lambda c: b"+9.9E+00\n" if c == "F1R7T3" else None)
+    out = Instrument("x", t).run(
+        plan({"op": "write", "text": "F1R7T3"}, {"op": "read", "returns": "float"})
+    )
+    assert out == [None, 9.9] and t.log == ["F1R7T3"]
+
+
+def test_read_timeout_is_a_step_failure_with_index():
+    t = SimTransport()
+    with pytest.raises(StepFailedError) as e:
+        Instrument("x", t).run(plan({"op": "write", "text": "A"}, {"op": "read", "timeout_ms": 50}))
+    assert e.value.step_index == 1 and e.value.cause.code == "TRN-003"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"op": "read", "text": "X?"},
+        {"op": "read", "ms": 5},
+        {"op": "read", "returns": "complex"},
+        {"op": "read", "timeout_ms": 0},
+        {"op": "read", "typo": 1},
+    ],
+)
+def test_invalid_read_steps(bad):
+    with pytest.raises(ValueError):
+        Step.from_dict(bad)

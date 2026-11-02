@@ -105,8 +105,9 @@ class Instrument:
         if step.op == "write":
             self.transport.send(step.text)
             return None
-        # query
-        self.transport.send(step.text)
+        if step.op == "query":
+            self.transport.send(step.text)
+        # query and read: collect the answer
         if step.returns == "binary":
             return self.transport.read_block(step.timeout_ms)
         line = self.transport.read_line(step.timeout_ms)
