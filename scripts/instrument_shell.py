@@ -231,13 +231,7 @@ class Shell:
     @staticmethod
     def format_result(value):
         """Short text of a result: long data (waveforms) is summarised, not printed whole."""
-        if value is None:
-            return "  done"
-        if isinstance(value, (bytes, bytearray)):
-            return f"  result: {len(value)} bytes, starts with {bytes(value[:48])!r}"
-        if isinstance(value, list) and len(value) > 12:
-            return f"  result: {len(value)} values, first 8: {value[:8]!r}"
-        return f"  result: {value!r}"
+        return "  done" if value is None else f"  result: {tester.summarise(value)}"
 
     def show_calls(self):
         for c in tester.model_calls(self.library, self.model_id):

@@ -331,13 +331,24 @@ def self_test(
             continue
         try:
             value = handle.call(name, **call_args)
-            results.append(TestResult(name, "ok", "" if value is None else repr(value)))
+            results.append(TestResult(name, "ok", summarise(value)))
         except CallError as exc:
             results.append(TestResult(name, "fail", str(exc)))
         except Exception as exc:  # transport problems etc.
             results.append(TestResult(name, "fail", f"{type(exc).__name__}: {exc}"))
         log(f"{name}: {results[-1].status} {results[-1].detail}")
     return results
+
+
+def summarise(value: Any) -> str:
+    """Short text of a result: long data (waveforms) is summarised instead of printed whole."""
+    if value is None:
+        return ""
+    if isinstance(value, (bytes, bytearray)):
+        return f"{len(value)} bytes, starts with {bytes(value[:24])!r}"
+    if isinstance(value, list) and len(value) > 12:
+        return f"{len(value)} values, first 8: {value[:8]!r}"
+    return repr(value)
 
 
 def describe_plan(

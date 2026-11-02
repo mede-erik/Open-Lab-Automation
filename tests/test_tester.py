@@ -279,3 +279,21 @@ def test_long_results_are_summarised():
     assert "14000 bytes" in fmt(bytes(14000))
     assert "100 values" in fmt(list(range(100)))
     assert fmt([1, 2]) == "  result: [1, 2]"
+
+
+def test_waveform_calls_read_binary_blocks(library):
+    from ola.call_planner import plan_call
+
+    for model, call in (
+        ("OSC_Siglent_SDS824X_HD", "query_waveform_preamble"),
+        ("OSC_Siglent_SDS824X_HD", "query_waveform_data"),
+        ("OSC_Rigol_DS1054Z", "query_waveform_data"),
+        ("OSC_Tek_MSO54", "query_waveform_data"),
+    ):
+        assert plan_call(library, model, call).steps[0]["returns"] == "binary"
+    # text preambles stay text lines
+    assert (
+        plan_call(library, "OSC_Tek_MSO54", "query_waveform_preamble").steps[0]["returns"]
+        == "string"
+    )
+    assert tester.summarise(bytes(346)).startswith("346 bytes")
