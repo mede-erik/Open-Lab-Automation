@@ -260,7 +260,8 @@ Priorità bassa / futuro:
 
 ### Categorie da aggiungere alla libreria (✅ elenco approvato)
 
-Oggi: alimentatore, datalogger, oscilloscopio, carico elettronico. Proposta di nuove
+Oggi la libreria ha: `power_supplies`, `dataloggers` (+ `datalogger_modules`), `switch_units`,
+`multimeters`, `oscilloscopes`, `electronic_loads` (chiavi `*_series`). Proposta di nuove
 categorie, ciascuna con il proprio **insieme di azioni generiche** (i "verbi" che
 i moduli useranno, mappati a SCPI nella libreria) e i propri **limiti** dichiarati:
 
@@ -274,7 +275,8 @@ i moduli useranno, mappati a SCPI nella libreria) e i propri **limiti** dichiara
 | `smu` | forza V/I, compliance, misura V/I, sweep | V/I/P max |
 
 A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
-`ac_source`, `frequency_counter`, `switch_matrix`.
+`ac_source`, `frequency_counter`. (`multimeter` e `switch_matrix` esistono già nella
+libreria come `multimeters_series` e `switch_units_series`.)
 
 **Per ora solo categorie, nessuno strumento nella libreria:** le categorie nascono
 vuote. Eccezioni, come banco di prova (§7.1): il **LiteVNA67** (categoria `vna`) e,
@@ -420,6 +422,50 @@ Il piano usa i due strumenti reali dell'autore come validazione dell'architettur
    (+ `psu`/voltmetro) → permette di provare **Bode**, **ripple** e **transitorio**
    senza altro hardware.
 
+### 7.2 La libreria esistente definisce già i "verbi" (branch `claude/charming-bell-768j4j`)
+
+Lettura del lavoro in corso su `instruments_lib` (un altro agente + l'autore; **non
+modifico quel repo finché il lavoro non è unito**). Cosa implica per questo piano:
+
+- **I verbi generici sono i nomi di chiamata della libreria** (`COMMAND_NAMES.md`):
+  `set_voltage`, `read_voltage`, `output_on`, `set_mode`, `set_trigger_level`,
+  `query_waveform_data`… con chiamate *obbligatorie* e *opzionali* per categoria.
+  Non serve inventare un secondo vocabolario: i contratti Python delle categorie
+  (`PowerSupply`, `Scope`, …) sono uno strato sottile sopra questi nomi, e per i
+  `driver` (AD2/AD3) dovranno implementare gli stessi nomi.
+- **Regola della libreria, da rispettare nel codice:** il software non costruisce mai
+  stringhe SCPI; una chiamata assente significa "non supportata da questo strumento",
+  mai sostituita con una stringa ipotizzata. Si traduce in un errore esplicito
+  `[INST-xxx]` ("chiamata non supportata"), non in un tentativo.
+- **Struttura di una chiamata:** `set` / `query` con `syntax` (segnaposto `{nome}`),
+  `args`, `return_type` (`string|int|float|binary`) e `parameters` (`type`, `values`).
+  `return_type: binary` corrisponde a `read_block()` del trasporto.
+- **Override per modello** (`replace` / `null` = rimossa / `{"patch": …}` deep-merge):
+  la risoluzione è in `LoadInstruments.resolve_model_commands()`. Lo strato strumento
+  deve usare quella risoluzione, non duplicarla. Oggi sta in `frontend/core`, che
+  importa PyQt6: va estratta in un modulo senza Qt (es. `ola/library.py`) con
+  `LoadInstruments` come wrapper sottile.
+- **Limiti** letti da `capabilities` (es. `voltage_output.min/max` per canale, per gli
+  alimentatori; `max_voltage_v`, `max_current_a`, `max_power_w` per i carichi): base
+  del controllo "20 V su un alimentatore da 15 V".
+- **Chiamate con più comandi** (in corso nell'altro branch: alcuni strumenti ne
+  richiedono due per una stessa azione): l'esecutore deve trattare una chiamata come
+  una **sequenza di passi**, non come una stringa. Punti da definire con l'altro
+  agente: (a) schema esatto (lista di passi? passi con `query`?); (b) i passi vanno
+  inviati **in modo atomico** (es. `INST:NSEL 2` poi `VOLT 5`: un altro thread non
+  deve poter cambiare canale nel mezzo → lock per strumento nello strato generico,
+  non solo per singola query); (c) se la libreria può indicare che i passi si
+  possono unire in un solo messaggio (separatore `;`) per ridurre la latenza, o se
+  vanno sempre inviati separatamente (default sicuro: separati).
+  Nota: `backend/sweep.c` oggi fa già questo a mano (`INST:NSEL` + `VOLT`).
+- **Tipi di connessione** della libreria: `LXI`, `USB-TMC`, `SERIAL`, `GPIB`, con
+  indirizzi in stile VISA. Il trasporto Rust copre oggi **TCP raw (porta 5025) e
+  seriale**. Lacune da chiudere: **USB-TMC** e **GPIB** (via `pyvisa` come
+  implementazione alternativa di `Transport`, o `rusb` per USB-TMC), e il fatto che
+  `TCPIP0::ip::inst0::INSTR` è **VXI-11**, non socket raw: non tutti gli strumenti
+  LXI accettano il socket 5025 (alcuni solo VXI-11/HiSLIP). La libreria dovrebbe
+  indicare quale modalità/porta usare per ogni modello.
+
 Per le categorie esistenti va fatto lo stesso lavoro: elencare i verbi generici che
 oggi sono sparsi in `RemoteControlTab` e in `sweep.c`.
 
@@ -505,8 +551,11 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   libreria JSON solo dati. Da confermare.
 - ❓ **LiteVNA67**: l'autore invierà VID/PID, protocollo e specifiche (in arrivo).
 - ❓ **Modello dei dispositivi compositi** nel `.inst` e nella libreria (§7.1).
-- ❓ **Verbi generici** per ogni categoria (§7): da definire insieme alla libreria,
-  partendo dalle categorie esistenti.
+- ✅ Verbi generici = nomi di chiamata della libreria (§7.2); restano da definire
+  solo quelli delle categorie nuove, nel repo della libreria.
+- ❓ **Chiamate a più comandi** (§7.2): schema, atomicità, eventuale unione con `;`.
+- ❓ **Connessioni**: USB-TMC/GPIB (pyvisa o rusb) e modalità LXI (socket raw vs VXI-11).
+- ❓ **Estrazione** di `resolve_model_commands()` in un modulo senza Qt.
 - ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
   le nuove categorie vanno create lì in coordinamento con questo repo.
 - ❓ **Moduli utente**: solo Python nella prima versione (proposta); API stabile
