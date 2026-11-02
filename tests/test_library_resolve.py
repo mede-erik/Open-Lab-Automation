@@ -50,3 +50,28 @@ def test_library_find_model():
     assert ref.category == "cat" and ref.series["series_id"] == "S"
     assert lib.find_model("nope") is None
     assert "set_a" in lib.commands("M")
+
+
+def test_serial_settings_from_the_interface_block():
+    model = {
+        "id": "M",
+        "interface": {
+            "supported_connection_types": [
+                {"type": "GPIB"},
+                {
+                    "type": "SERIAL",
+                    "transports": [
+                        {
+                            "kind": "serial",
+                            "baud": 9600,
+                            "flow_control": "dtr_dsr",
+                            "factory_defaults": True,
+                        }
+                    ],
+                },
+            ]
+        },
+    }
+    lib = Library({"cat": [{"series_id": "S", **_series(), "models": [model, {"id": "N"}]}]})
+    assert lib.serial_settings("M") == {"baud": 9600, "flow_control": "dtr_dsr"}
+    assert lib.serial_settings("N") == {} and lib.serial_settings("nope") == {}

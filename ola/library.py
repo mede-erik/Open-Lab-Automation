@@ -135,6 +135,20 @@ class Library:
                             return model.get("id")
         return None
 
+    def serial_settings(self, model_id: str) -> Dict[str, Any]:
+        """Serial (RS-232) settings the library gives for a model: baud, data_bits, parity,
+        stop_bits, flow_control, write/read termination. Empty if the library has none."""
+        ref = self.find_model(model_id)
+        if ref is None:
+            return {}
+        for conn in ref.model.get("interface", {}).get("supported_connection_types", []):
+            for transport in conn.get("transports", []) or []:
+                if transport.get("kind") == "serial":
+                    return {
+                        k: v for k, v in transport.items() if k not in ("kind", "factory_defaults")
+                    }
+        return {}
+
     def commands(self, model_id: str) -> Optional[Dict[str, Any]]:
         ref = self.find_model(model_id)
         return resolve_model_commands(ref.series, ref.model) if ref else None

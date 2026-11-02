@@ -279,6 +279,7 @@ class RemoteControlTab(QWidget):
                 instr = self.visa_connections[visa_addr]
             else:
                 instr = self.rm.open_resource(visa_addr)
+                self._configure_serial(instr, visa_addr, osc_inst)
                 self.visa_connections[visa_addr] = instr
 
             print(f"[RemoteControlTab] Connesso a {osc_name} su {visa_addr}")
@@ -290,6 +291,45 @@ class RemoteControlTab(QWidget):
         except Exception as e:
             print(f"[RemoteControlTab] Errore connessione a {osc_name}: {e}")
 
+    def _configure_serial(self, instr, visa_addr, inst):
+        """
+        Serial (ASRL) resources: set baud rate, data bits, parity, stop bits and flow control
+        on the pyvisa resource before the first command. Values come from the instrument
+        library (factory settings of the manual) and can be overridden per instrument by a
+        'serial' entry in the project's .inst file. They must match the instrument's own
+        front-panel RS-232 settings.
+        """
+        if not str(visa_addr).upper().startswith('ASRL'):
+            return
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        cfg = dict(library.serial_settings(model_id)) if model_id else {}
+        cfg.update(inst.get('serial') or {})
+        self.__dict__.setdefault('_serial_cfg', {})[visa_addr] = cfg
+        if not cfg:
+            return
+        from pyvisa import constants as c
+        parity = {'N': c.Parity.none, 'E': c.Parity.even, 'O': c.Parity.odd}
+        stop_bits = {1: c.StopBits.one, 1.5: c.StopBits.one_and_half, 2: c.StopBits.two}
+        flow = {'none': c.ControlFlow.none, 'xon_xoff': c.ControlFlow.xon_xoff,
+                'rts_cts': c.ControlFlow.rts_cts, 'dtr_dsr': c.ControlFlow.dtr_dsr}
+        try:
+            if 'baud' in cfg:
+                instr.baud_rate = int(cfg['baud'])
+            if 'data_bits' in cfg:
+                instr.data_bits = int(cfg['data_bits'])
+            if 'parity' in cfg:
+                instr.parity = parity[str(cfg['parity']).upper()]
+            if 'stop_bits' in cfg:
+                instr.stop_bits = stop_bits[float(cfg['stop_bits'])]
+            if 'flow_control' in cfg:
+                instr.flow_control = flow[str(cfg['flow_control']).lower()]
+            print(f"[RemoteControlTab] Seriale {visa_addr}: {cfg}")
+        except (KeyError, ValueError, AttributeError) as exc:
+            if self.logger:
+                self.logger.error(f"Serial settings for {visa_addr} not applied: {exc}")
+
     def _get_instrument_executor(self, visa_addr, instr, name):
         """Executor (ola.instrument.Instrument) of one instrument, one per VISA resource."""
         from ola._visa import VisaConnection
@@ -298,7 +338,12 @@ class RemoteControlTab(QWidget):
         entry = executors.get(visa_addr)
         if entry is None or entry[0] is not instr:
             timeout_ms = int(getattr(instr, 'timeout', None) or 5000)
-            entry = (instr, Instrument(name, VisaConnection(instr, visa_addr, timeout_ms, pyvisa)))
+            connection = VisaConnection(instr, visa_addr, timeout_ms, pyvisa)
+            cfg = self.__dict__.get('_serial_cfg', {}).get(visa_addr)
+            if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
+                connection.set_terminators(
+                    cfg.get('write_termination', '\n'), cfg.get('read_termination', '\n'))
+            entry = (instr, Instrument(name, connection))
             executors[visa_addr] = entry
         return entry[1]
 
@@ -449,6 +494,7 @@ class RemoteControlTab(QWidget):
                         )
                     self.visa_connections.pop(visa_addr, None)
                 instr = self.rm.open_resource(visa_addr)
+                self._configure_serial(instr, visa_addr, inst)
                 self.visa_connections[visa_addr] = instr
                 btn.setStyleSheet('border: 2px solid green;')
                 btn.setChecked(True)
@@ -1029,6 +1075,7 @@ class RemoteControlTab(QWidget):
                                 )
                             self.visa_connections.pop(visa_addr, None)
                         instr = self.rm.open_resource(visa_addr)
+                        self._configure_serial(instr, visa_addr, inst)
                         self.visa_connections[visa_addr] = instr
                         btn.setStyleSheet('border: 2px solid green;')
                         btn.setChecked(True)
@@ -1482,6 +1529,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Tentativo apertura nuova connessione a {visa_addr}")
         try:
             instr = self.rm.open_resource(visa_addr)
+            self._configure_serial(instr, visa_addr, inst)
             self.visa_connections[visa_addr] = instr
             print(f"[DEBUG] Connessione aperta con successo: {instr}")
             return instr
