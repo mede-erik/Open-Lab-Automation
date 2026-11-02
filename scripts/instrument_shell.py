@@ -86,6 +86,15 @@ class Shell:
         self.connection = connection
         self.handle = tester.make_handle(self.library, model_id, connection, model_id)
         self.say(f"\nConnected to {model_id}.")
+        if getattr(connection, "peer", "").upper().startswith("ASRL") and self.handle.supports(
+            "set_remote"
+        ):
+            # over RS-232 many instruments only listen once they are in remote mode
+            try:
+                self.handle.call("set_remote")
+                self.say("  sent set_remote (RS-232)")
+            except Exception as exc:
+                self.say(f"  set_remote not accepted: {exc}")
         if self.handle.supports("identification_query"):
             self.run_call("identification_query", [])
         return True
