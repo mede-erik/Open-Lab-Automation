@@ -8,7 +8,6 @@ It should remain as simple as possible, handling only application startup.
 import sys
 import os
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QSettings
 
 # ---------------------------------------------------------------------------
 # Dynamic import path bootstrap
@@ -24,7 +23,6 @@ if _PROJECT_ROOT not in sys.path:
 del _PROJECT_ROOT
 
 from frontend.ui.main_window import MainWindow
-from frontend.core.Translator import Translator
 from frontend.core.logger import Logger
 
 
@@ -48,15 +46,8 @@ def main():
     app.setApplicationName('Open Lab Automation')
     logger.debug("Organization and AppName set for QSettings.")
     
-    # Load language from settings
-    settings = QSettings('LabAutomation', 'App')
-    lang = settings.value('language', 'it')  # Default to Italian
-    logger.debug(f"Loaded language from settings: '{lang}'")
-    
-    # Create Translator instance
-    translator = Translator(default_lang=lang)
-    logger.debug("Translator instance created.")
-    
+    # Language: MainWindow creates the Translator and applies the saved language
+
     # Create and show the main window
     try:
         logger.debug("Creating main window...")

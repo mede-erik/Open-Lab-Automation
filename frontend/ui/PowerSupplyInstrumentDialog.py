@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-import os
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
@@ -75,7 +74,7 @@ class PowerSupplyInstrumentDialog(QDialog):
         self.existing_series_radio.toggled.connect(self.toggle_series_controls)
 
         series_group.setLayout(series_layout)
-        main_layout.addWidget(series_group)
+        container_layout.addWidget(series_group)
 
         # === SEZIONE INFORMAZIONI MODELLO ===
         model_group = QGroupBox(self.translator.t("model_info"))
@@ -90,7 +89,7 @@ class PowerSupplyInstrumentDialog(QDialog):
         model_layout.addRow(self.translator.t("model_id_label"), self.model_id)
 
         model_group.setLayout(model_layout)
-        main_layout.addWidget(model_group)
+        container_layout.addWidget(model_group)
 
         # === SEZIONE CANALI ===
         channels_group = QGroupBox(self.translator.t("channels_config"))
@@ -111,7 +110,7 @@ class PowerSupplyInstrumentDialog(QDialog):
 
         channels_layout.addRow(self.translator.t("configuration_label"), self.channels_container)
         channels_group.setLayout(channels_layout)
-        main_layout.addWidget(channels_group)
+        container_layout.addWidget(channels_group)
 
         # Inizializza con un canale
         self.update_channels_config()
@@ -132,7 +131,7 @@ class PowerSupplyInstrumentDialog(QDialog):
         interface_layout.addWidget(self.gpib_checkbox)
 
         interface_group.setLayout(interface_layout)
-        main_layout.addWidget(interface_group)
+        container_layout.addWidget(interface_group)
 
         # === SEZIONE DOCUMENTAZIONE ===
         docs_group = QGroupBox(self.translator.t("documentation_group"))
@@ -146,7 +145,7 @@ class PowerSupplyInstrumentDialog(QDialog):
         docs_layout.addRow(self.translator.t("notes_label"), self.notes)
 
         docs_group.setLayout(docs_layout)
-        main_layout.addWidget(docs_group)
+        container_layout.addWidget(docs_group)
 
         # === PULSANTI ===
         button_layout = QHBoxLayout()
@@ -164,7 +163,7 @@ class PowerSupplyInstrumentDialog(QDialog):
 
         main_layout.addLayout(button_layout)
         # Il layout principale è già stato creato e usato, non serve ricrearlo né ridefinirlo.
-        # Lo scroll_area è già aggiunto a main_layout all'inizio del metodo.
+        # The groups live in container_layout (inside scroll_area); buttons stay outside.
         self.setLayout(main_layout)
         
     def load_existing_series(self):

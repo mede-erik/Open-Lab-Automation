@@ -124,7 +124,6 @@ class AddInstrumentDialog(QDialog):
 
     def save_to_library(self):
         """Save the new instrument to instruments_lib.json"""
-        import os
         # Costruisci il percorso della libreria strumenti
         from frontend.core.LoadInstruments import get_library_path
         library_path = get_library_path()

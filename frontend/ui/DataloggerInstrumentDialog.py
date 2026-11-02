@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-import os
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
