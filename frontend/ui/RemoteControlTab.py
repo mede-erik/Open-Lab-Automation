@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, 
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
 from ola.call_errors import CallNotSupportedError
+from ola.datalogger_setup import datalogger_calls, scan_order
+from ola.datalogger_setup import signature as datalogger_signature
 
 
 # =========================
@@ -1463,6 +1465,22 @@ class RemoteControlTab(QWidget):
         plan = plan_call(library, model_id, call, args)
         return plan.interpret(executor.run(plan))
 
+    def _configure_datalogger(self, inst, channels):
+        """
+        Configure a datalogger from its .inst entry: the function of every enabled channel
+        (configure_dc_voltage, ...) and the scan list (select_channels), so that read_scan
+        returns exactly the channels of the project. It is sent again only when the
+        configuration in the .inst file changes.
+        """
+        key = inst.get('instance_name', '')
+        done = self.__dict__.setdefault('_datalogger_signature', {})
+        sig = datalogger_signature(channels)
+        if done.get(key) == sig:
+            return
+        for name, args in datalogger_calls(channels):
+            self.run_call(inst, None, name, **args)
+        done[key] = sig
+
     def _set_remote_once(self, library, model_id, visa_addr, executor):
         """
         Serial (RS-232) instruments ignore commands until they are put in remote mode
@@ -1818,11 +1836,12 @@ class RemoteControlTab(QWidget):
             try:
                 if inst_type in ('datalogger', 'dataloggers'):
                     inst_key = inst.get('instance_name', '')
+                    siblings = scan_order([c for i, c in self.meas_vars
+                                           if i.get('instance_name', '') == inst_key])
                     if inst_key not in scan_cache:
+                        self._configure_datalogger(inst, siblings)
                         scan_cache[inst_key] = self.run_call(inst, None, 'read_scan')
                     readings = scan_cache[inst_key]
-                    siblings = [c for i, c in self.meas_vars
-                                if i.get('instance_name', '') == inst_key]
                     idx = next((n for n, c in enumerate(siblings) if c is ch), 0)
                     if idx >= len(readings):
                         label.setText(f"{var_name} = N/A {unit}")
