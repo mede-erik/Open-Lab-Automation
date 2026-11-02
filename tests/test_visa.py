@@ -104,3 +104,67 @@ def test_closed():
     c.close()
     with pytest.raises(TransportClosed):
         c.send("X?")
+
+
+# ---- wrapping a resource that other code keeps using ---------------------------------------------
+
+
+def _shared_resource(inst, timeout_ms=7000):
+    import pyvisa
+
+    rm = pyvisa.ResourceManager("@py")
+    res = rm.open_resource(f"TCPIP0::127.0.0.1::{inst.port}::SOCKET")
+    res.read_termination = "\n"
+    res.write_termination = "\n"
+    res.timeout = timeout_ms
+    return res, pyvisa
+
+
+def _settings(res):
+    return (res.read_termination, res.write_termination, res.timeout)
+
+
+def test_wrapping_does_not_change_the_shared_resource():
+    """The app keeps using its pyvisa resource after the adapter wrapped it."""
+    payload = bytes(range(64))
+
+    def h(conn):
+        while True:
+            data = conn.recv(256)
+            if not data:
+                return
+            if data.startswith(b"CURV"):
+                conn.sendall(b"#2%02d" % len(payload) + payload + b"\n")
+            else:
+                conn.sendall(b"1.5\n")
+
+    inst = FakeTcpInstrument(h)
+    res, pyvisa = _shared_resource(inst)
+    before = _settings(res)
+    c = VisaConnection(res, "visa://shared", 1000, pyvisa)
+    assert _settings(res) == before  # constructing it changes nothing
+
+    assert c.query("X?") == "1.5"
+    c.send("CURV?")
+    assert c.read_block() == payload
+    c.set_terminators(b"\r", b"\n")
+    c.timeout_ms = 2000
+    c.flush_input()
+    c.send("X?")
+    assert c.read_exact(4) == b"1.5\n"
+    c.send("X?")
+    with pytest.raises(TransportTimeout):
+        c.read_until(b">>", timeout_ms=100)  # multi-byte terminator never arrives
+    assert _settings(res) == before  # nothing left modified by any operation
+
+    res.timeout = 1000
+    res.write("X?")
+    assert res.read() == "1.5"  # the application's own pyvisa call still works
+
+
+def test_adopts_the_terminators_of_the_resource():
+    inst = FakeTcpInstrument(line_server(lambda c: b"ok\n"))
+    res, pyvisa = _shared_resource(inst)
+    res.write_termination = "\r\n"
+    c = VisaConnection(res, "visa://shared", 1000, pyvisa)
+    assert c._wterm == b"\r\n" and c._rterm == b"\n"

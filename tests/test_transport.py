@@ -105,7 +105,8 @@ def test_ieee_block_split_and_terminator_dropped(Conn):
         conn.recv(64)
         msg = b"#4%04d" % len(payload) + payload + b"\n" + b"next\n"
         for i in range(0, len(msg), 777):
-            conn.sendall(msg[i : i + 777])
+            end = i + 777
+            conn.sendall(msg[i:end])
             time.sleep(0.002)
         time.sleep(0.3)
 

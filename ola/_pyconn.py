@@ -204,8 +204,9 @@ class PyConnection:
             self._strip_pending()
             self._ensure(2, deadline)
             if self._rbuf[0:1] != b"#":
+                got = self._rbuf[0]
                 raise TransportError(
-                    f"[TRN-005] protocol error: block header must start with '#', got 0x{self._rbuf[0]:02x}"
+                    f"[TRN-005] protocol error: block header must start with '#', got 0x{got:02x}"
                 )
             c = self._rbuf[1:2]
             if c == b"0":
@@ -217,18 +218,20 @@ class PyConnection:
                     f"[TRN-005] protocol error: bad block length digit count 0x{c[0]:02x}"
                 )
             digits = int(c)
-            self._ensure(2 + digits, deadline)
+            body = 2 + digits  # offset of the first data byte
+            self._ensure(body, deadline)
             try:
-                length = int(bytes(self._rbuf[2 : 2 + digits]))
+                length = int(bytes(self._rbuf[2:body]))
             except ValueError as e:
                 raise TransportError("[TRN-005] protocol error: non-numeric block length") from e
             if length > MAX_RESPONSE:
                 raise TransportError(
                     f"[TRN-005] protocol error: block of {length} bytes exceeds the limit"
                 )
-            self._ensure(2 + digits + length, deadline)
-            data = bytes(self._rbuf[2 + digits : 2 + digits + length])
-            del self._rbuf[: 2 + digits + length]
+            end = body + length
+            self._ensure(end, deadline)
+            data = bytes(self._rbuf[body:end])
+            del self._rbuf[:end]
             self._pending_term = True
             self._strip_pending()
             return data
