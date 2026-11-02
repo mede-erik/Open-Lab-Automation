@@ -118,3 +118,64 @@ def test_serial_settings_helper():
     assert res.stop_bits == c.StopBits.two and res.flow_control == c.ControlFlow.dtr_dsr
     with pytest.raises(ValueError):
         apply_serial_settings(res, {"flow_control": "bogus"})
+
+
+def test_serial_settings_all_stop_bits_and_flow_names():
+    """Every value the library may use maps to a pyvisa constant (names differ between versions)."""
+    pytest.importorskip("pyvisa")
+    from ola.serial_config import apply_serial_settings
+
+    class Resource:
+        pass
+
+    for stop in (1, 1.5, 2):
+        for flow in ("none", "xon_xoff", "rts_cts", "dtr_dsr"):
+            for parity in ("N", "E", "O"):
+                apply_serial_settings(
+                    Resource(), {"stop_bits": stop, "flow_control": flow, "parity": parity}
+                )
+
+
+def test_open_visa_serial_on_a_pseudo_terminal(library):
+    """Whole serial path (settings, terminators, set_remote, queries) against a fake RS-232
+    instrument on a pseudo-terminal."""
+    pytest.importorskip("pyvisa_py")
+    pty = pytest.importorskip("pty")
+    import threading
+    import tty
+
+    master, slave = pty.openpty()
+    tty.setraw(master)
+    seen = []
+
+    def instrument():
+        buf = b""
+        while True:
+            try:
+                buf += os.read(master, 256)
+            except OSError:
+                return
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                cmd = line.decode().strip()
+                seen.append(cmd)
+                reply = {
+                    "*IDN?": b"HEWLETT-PACKARD,34970A,0,13-2-2\r\n",
+                    "READ?": b"+1.5E+00,+2.0E-01\r\n",
+                }.get(cmd)
+                if reply:
+                    os.write(master, reply)
+
+    threading.Thread(target=instrument, daemon=True).start()
+    model = "DL_Agilent_34970A"
+    connection = tester.open_visa(
+        f"ASRL{os.ttyname(slave)}::INSTR", library, model, timeout_ms=2000
+    )
+    try:
+        handle = tester.make_handle(library, model, connection, model)
+        handle.call("set_remote")
+        assert handle.call("identification_query").startswith("HEWLETT-PACKARD,34970A")
+        assert handle.call("read_scan") == [1.5, 0.2]
+        assert seen == ["SYST:REM", "*IDN?", "READ?"]
+    finally:
+        connection.close()

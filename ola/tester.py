@@ -83,8 +83,10 @@ def open_visa(
     from ._visa import VisaConnection
     from .serial_config import apply_serial_settings
 
+    # 'ASRL/dev/ttyUSB0::INSTR' is a pyvisa-py style address (NI-VISA numbers its ports ASRL1...)
+    first = "@py" if address.upper().startswith("ASRL/") else ""
     try:
-        resource = pyvisa.ResourceManager().open_resource(address)
+        resource = pyvisa.ResourceManager(first).open_resource(address)
     except pyvisa.errors.VisaIOError:
         # the default backend (e.g. NI-VISA) may not know this resource: try pyvisa-py
         resource = pyvisa.ResourceManager("@py").open_resource(address)
@@ -120,7 +122,11 @@ def visa_diagnostics() -> str:
         label = backend or "default"
         try:
             rm = pyvisa.ResourceManager(backend)
-            lines.append(f"backend {label} ({rm.visalib}): {list(rm.list_resources())}")
+            # serial and USB only: scanning GPIB with some backends prints a lot of noise
+            found = list(rm.list_resources("ASRL?*::INSTR")) + list(
+                rm.list_resources("USB?*::INSTR")
+            )
+            lines.append(f"backend {label} ({rm.visalib}): {found}")
         except Exception as exc:
             lines.append(f"backend {label}: {type(exc).__name__}: {exc}")
     return "\n".join(lines)

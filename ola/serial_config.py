@@ -16,7 +16,7 @@ def apply_serial_settings(resource, cfg: Dict[str, Any]) -> None:
     from pyvisa import constants as c
 
     parity = {"N": c.Parity.none, "E": c.Parity.even, "O": c.Parity.odd}
-    stop_bits = {1.0: c.StopBits.one, 1.5: c.StopBits.one_and_half, 2.0: c.StopBits.two}
+    stop_bits = {1.0: c.StopBits.one, 1.5: c.StopBits.one_and_a_half, 2.0: c.StopBits.two}
     flow = {
         "none": c.ControlFlow.none,
         "xon_xoff": c.ControlFlow.xon_xoff,
