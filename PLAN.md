@@ -232,7 +232,7 @@ non lasciati al modulo.
 
 Candidate successive (a basso costo, riusano gli stessi mattoni): regolazione
 di linea e di carico, PSRR, impedenza di uscita, curva I-V, sequenza di
-accensione/spegnimento, curva di derating termico.
+accensione/spegnimento.
 
 ## 7. Nuovi strumenti da aggiungere alla libreria
 
@@ -248,7 +248,6 @@ Priorità media:
 - **Power meter / power analyzer** (Yokogawa WT, ecc.): misura di potenza vera
   per un'efficienza più accurata, soprattutto lato AC/forme d'onda distorte.
 - **Source-Measure Unit (SMU)**: curve I-V, caratterizzazione.
-- **Camera climatica / forno**: logging termico e derating con temperatura controllata.
 
 Priorità bassa / futuro:
 
@@ -271,14 +270,31 @@ i moduli useranno, mappati a SCPI nella libreria) e i propri **limiti** dichiara
 | `multimeter` | funzione (V/I/R…), range, NPLC, trigger, lettura | range per funzione |
 | `power_analyzer` | V/I/P/PF, integrazione, range, filtro | V/I max |
 | `smu` | forza V/I, compliance, misura V/I, sweep | V/I/P max |
-| `thermal_chamber` | setpoint, rampa, lettura T | T min/max |
 
 A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
 `ac_source`, `frequency_counter`, `switch_matrix`.
 
 **Per ora solo categorie, nessuno strumento nella libreria:** le categorie nascono
-vuote. Unica eccezione: un **VNA** reale (quello in possesso dell'autore), da usare
-come primo strumento di test della categoria `vna`.
+vuote. Unica eccezione: il **LiteVNA** dell'autore (assunto LiteVNA64), primo
+strumento della categoria `vna`.
+
+### 7.1 Conseguenza: il livello strumento non può assumere SCPI
+
+Il LiteVNA è un VNA portatile in stile NanoVNA: si collega via **USB seriale**, non
+via LAN, e parla un **protocollo proprio** (shell testuale in stile NanoVNA e/o
+protocollo binario), non SCPI. (Da verificare sul manuale/firmware: non lo do per
+certo.) Quindi il livello strumento si divide in due parti indipendenti:
+
+| Parte | Esempi |
+|---|---|
+| **Transport** | TCP/LXI, seriale/USB-CDC, (poi) VISA/GPIB |
+| **Protocol** | `scpi` (la maggior parte degli strumenti), `nanovna` (LiteVNA), eventuali altri |
+
+La libreria dichiara per ogni strumento transport + protocol e mappa i **verbi
+generici** (es. `vna.set_sweep(f_start, f_stop, points)`, `vna.read_sparam("S21")`)
+sul protocollo giusto: stringhe SCPI per gli uni, comandi shell/binari per l'altro.
+I moduli restano identici. Impatto sul Rust: il crate dovrà gestire anche la seriale
+(prima di quanto previsto) e le letture binarie.
 Per le categorie esistenti va fatto lo stesso lavoro: elencare i verbi generici che
 oggi sono sparsi in `RemoteControlTab` e in `sweep.c`.
 
@@ -342,8 +358,8 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ✅ Rust per lo strato nativo (trasporto).
 - ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
 - ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
-- ❓ **`thermal_chamber`**: tenere o togliere? (tenuta in tabella in attesa di conferma)
-- ❓ **Modello del VNA** posseduto, per scrivere la voce di libreria e i comandi.
+- ✅ `thermal_chamber` tolta dalle categorie.
+- ❓ **LiteVNA**: confermare il modello (assunto LiteVNA64) e il protocollo (§7.1).
 - ❓ **Verbi generici** per ogni categoria (§7): da definire insieme alla libreria,
   partendo dalle categorie esistenti.
 - ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
