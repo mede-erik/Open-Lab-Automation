@@ -59,6 +59,10 @@ class Plan:
                 f"call '{self.call}' has no result at step {idx}", call=self.call, step_index=idx
             )
         resp = self.response
+        if resp.get("as_list"):
+            text = str(value).strip()
+            parts = [x.strip() for x in text.split(resp.get("split", ","))] if text else []
+            return [_convert(x, resp.get("return_type", "string"), self.call, idx) for x in parts]
         if "split" in resp:
             parts = str(value).strip().split(resp["split"])
             i = resp.get("index", 0)
@@ -144,6 +148,21 @@ def _logical_value(
             if isinstance(value, bool):
                 raise ValueError
             value = float(value)
+        elif t == "number_or_keyword":
+            if isinstance(value, bool):
+                raise ValueError
+            if isinstance(value, (int, float)):
+                value = float(value)
+            else:
+                word = str(value).strip().upper()
+                keywords = [k.upper() for k in arg_spec.get("keywords", [])]
+                if word not in keywords:
+                    raise InvalidArgumentError(
+                        f"argument '{name}' of '{call}': {value!r} is neither a number nor one of "
+                        f"{arg_spec.get('keywords', [])}",
+                        call=call,
+                    )
+                value = word
         elif t == "string":
             value = str(value)
         elif kind == "bool":
@@ -411,7 +430,7 @@ def plan_call(
         if half_name == "query":
             rt = half.get("return_type", "string")
             returns = rt if rt in _RETURNS else "string"
-            if "split" in half:
+            if "split" in half or half.get("as_list"):
                 returns = "string"
             steps.append(_validated({"op": "query", "text": text, "returns": returns}, call))
         else:
@@ -420,8 +439,10 @@ def plan_call(
     # ---- which step carries the answer, and how to interpret it
     query_idx = [i for i, s in enumerate(steps) if s["op"] == "query"]
     from_step = half.get("result_step", query_idx[-1] if query_idx else None)
-    response = {k: half[k] for k in ("response_map", "bool", "split", "index") if k in half}
-    if "split" in response:
+    response = {
+        k: half[k] for k in ("response_map", "bool", "split", "index", "as_list") if k in half
+    }
+    if "split" in response or response.get("as_list"):
         response["return_type"] = half.get("return_type", "string")
     logical_values = None
     result_spec = spec.get("result") if (spec and half_name == "query") else None

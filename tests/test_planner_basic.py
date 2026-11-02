@@ -367,3 +367,54 @@ def test_expression_parameters_and_defaults():
     assert texts == ["T1 0.005S", "T2 0.005S"]
     with pytest.raises(InvalidArgumentError):
         plan_call(lib, "M", "set_timing", {"frequency": 0})
+
+
+def test_answer_as_list_of_numbers():
+    series = {
+        "series_id": "S",
+        "common_scpi_commands": {
+            "read_scan": {
+                "query": {"syntax": "READ?", "return_type": "float", "split": ",", "as_list": True}
+            }
+        },
+        "models": [{"id": "M"}],
+    }
+    lib = Library({"c": [series]}, {})
+    plan = plan_call(lib, "M", "read_scan")
+    assert plan.steps[0]["returns"] == "string"
+    assert plan.interpret(["+1.5E+00, -2.0E-01,3"]) == [1.5, -0.2, 3.0]
+    assert plan.interpret([""]) == []
+    with pytest.raises(ResponseNotRecognisedError):
+        plan.interpret(["1,abc"])
+
+
+def test_number_or_keyword_argument():
+    schema = {
+        "schema_version": 1,
+        "category": "c",
+        "types": {},
+        "calls": {
+            "set_range": {
+                "requirement": "optional",
+                "kind": "set",
+                "args": {
+                    "range": {"type": "number_or_keyword", "keywords": ["AUTO", "MIN", "MAX"]}
+                },
+            }
+        },
+    }
+    series = {
+        "series_id": "S",
+        "common_scpi_commands": {
+            "set_range": {
+                "set": {"syntax": "RANG {range}"},
+                "parameters": {"range": {"type": "float", "values": ["AUTO", "MIN", "MAX"]}},
+            }
+        },
+        "models": [{"id": "M"}],
+    }
+    lib = Library({"c": [series]}, {"c": schema})
+    assert plan_call(lib, "M", "set_range", {"range": 10}).steps[0]["text"] == "RANG 10"
+    assert plan_call(lib, "M", "set_range", {"range": "auto"}).steps[0]["text"] == "RANG AUTO"
+    with pytest.raises(InvalidArgumentError):
+        plan_call(lib, "M", "set_range", {"range": "huge"})

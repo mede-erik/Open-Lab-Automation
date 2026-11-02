@@ -14,6 +14,7 @@ logger = logging.getLogger('frontend.ui.RemoteControlTab')
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
+from ola.call_errors import CallNotSupportedError
 
 
 # =========================
@@ -350,16 +351,6 @@ class RemoteControlTab(QWidget):
         """Volts from '2V', '2', '0.5V', '100mV' (None if not parsable)."""
         from ola.was_calls import parse_voltage_value
         return parse_voltage_value(value)
-
-    def _get_scpi_set_syntax(self, command_def):
-        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
-        if isinstance(command_def, str):
-            return command_def
-        if isinstance(command_def, dict):
-            set_def = command_def.get('set')
-            if isinstance(set_def, dict):
-                return set_def.get('syntax')
-        return None
 
     def _ensure_visa_initialized(self):
         """
@@ -734,53 +725,6 @@ class RemoteControlTab(QWidget):
             self.logger.error(f"Connection error for {visa_address}: {error_message}")
 
         dialog.exec()
-
-    def get_scpi_cmd(self, inst, ch, action):
-        """
-        Get the SCPI command of a measurement read for datalogger/multimeter channels.
-        action: 'read_measurement' (multimeters) or 'read_scan' (dataloggers, chosen
-                automatically for the 'read_measurement' of a datalogger).
-        Power supplies, loads and oscilloscopes no longer use this method: they run
-        logical calls through run_call(). It goes away when multimeters and dataloggers
-        are moved to the call planner too.
-        Returns the syntax string or '' if not available.
-        """
-        type_name = inst.get('instrument_type', '')
-        series_id = inst.get('series', '')
-        model_id = inst.get('model_id', inst.get('model', ''))
-
-        # Dataloggers have no 'read_measurement' call: the reading of the scan
-        # list is done with 'read_scan' (READ?).
-        if action == 'read_measurement' and type_name in ('datalogger', 'dataloggers'):
-            action = 'read_scan'
-        fallback = {'read_measurement': 'MEAS?', 'read_scan': 'READ?'}
-        if action not in fallback:
-            return ''
-
-        scpi_dict = None
-        if self.instruments_manager is not None:
-            try:
-                scpi_dict = self.instruments_manager.get_model_scpi(type_name, series_id, model_id)
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Errore get_model_scpi: {str(e)}")
-        if scpi_dict and action in scpi_dict:
-            syntax = self._get_scpi_syntax(scpi_dict[action], True)
-            if syntax:
-                return syntax
-        return fallback[action]
-
-    @staticmethod
-    def _get_scpi_syntax(command_def, is_query=False):
-        """Estrae la stringa di sintassi (query o set) da una definizione comando libreria."""
-        if isinstance(command_def, str):
-            return command_def
-        if not isinstance(command_def, dict):
-            return None
-        section = command_def.get('query' if is_query else 'set')
-        if isinstance(section, dict):
-            return section.get('syntax')
-        return None
 
     def update_translation(self, translator):
         """
@@ -1465,7 +1409,6 @@ class RemoteControlTab(QWidget):
             ola.call_errors.CallError: call not supported, value not handled, invalid argument,
             step failed, answer not recognised.
         """
-        from ola.call_errors import CallNotSupportedError
         from ola.call_planner import plan_call
         library = self.instruments_manager.get_library() if self.instruments_manager else None
         model_key = inst.get('model_id', inst.get('model', ''))
@@ -1689,7 +1632,6 @@ class RemoteControlTab(QWidget):
 
     def _verify_output_state(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Verifica lo stato dell'uscita dopo aver inviato il comando."""
-        from ola.call_errors import CallNotSupportedError
         try:
             try:
                 is_on = self.run_call(inst, ch, 'output_state_query')
@@ -1784,8 +1726,9 @@ class RemoteControlTab(QWidget):
         if not hasattr(self, 'meas_vars'):
             return
 
-        # Dataloggers answer READ? with all the readings of the scan list: query
-        # once per instrument and per refresh, then pick the channel's value.
+        # Dataloggers answer one list with all the readings of the scan list: ask once per
+        # instrument and per refresh, then pick the value of each channel by its position
+        # (readings follow the order of the enabled channels = scan list order).
         scan_cache = {}
 
         for inst, ch in self.meas_vars:
@@ -1816,47 +1759,40 @@ class RemoteControlTab(QWidget):
                 continue
 
             try:
-                cmd = self.get_scpi_cmd(inst, ch, 'read_measurement')
-                if not cmd:
-                    label.setText(f"{var_name} = N/A {unit}")
-                    continue
-
-                if inst.get('instrument_type', '') in ('datalogger', 'dataloggers'):
+                if inst_type in ('datalogger', 'dataloggers'):
                     inst_key = inst.get('instance_name', '')
                     if inst_key not in scan_cache:
-                        scan_cache[inst_key] = instr.query(cmd)
-                    raw_val = scan_cache[inst_key]
-                    if ',' in raw_val:
-                        # Readings follow the order of the enabled channels (scan list order)
-                        siblings = [c for i, c in self.meas_vars
-                                    if i.get('instance_name', '') == inst_key]
-                        values = raw_val.strip().split(',')
-                        idx = next((n for n, c in enumerate(siblings) if c is ch), 0)
-                        raw_val = values[idx] if idx < len(values) else ''
+                        scan_cache[inst_key] = self.run_call(inst, None, 'read_scan')
+                    readings = scan_cache[inst_key]
+                    siblings = [c for i, c in self.meas_vars
+                                if i.get('instance_name', '') == inst_key]
+                    idx = next((n for n, c in enumerate(siblings) if c is ch), 0)
+                    if idx >= len(readings):
+                        label.setText(f"{var_name} = N/A {unit}")
+                        continue
+                    numeric_val = readings[idx]
                 else:
-                    raw_val = instr.query(cmd)
-                # Pulisce il valore e applica attenuazione
-                try:
-                    numeric_val = float(raw_val.strip())
-                    final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
+                    numeric_val = float(self.run_call(inst, ch, 'read_measurement'))
 
-                    # Formatta il valore con precisione appropriata
-                    if abs(final_val) >= 1000:
-                        formatted_val = f"{final_val:.2f}"
-                    elif abs(final_val) >= 1:
-                        formatted_val = f"{final_val:.3f}"
-                    else:
-                        formatted_val = f"{final_val:.6f}"
+                final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
 
-                    label.setText(f"{var_name} = {formatted_val} {unit}")
-                    label.setProperty("state", "normal")
+                # Formatta il valore con precisione appropriata
+                if abs(final_val) >= 1000:
+                    formatted_val = f"{final_val:.2f}"
+                elif abs(final_val) >= 1:
+                    formatted_val = f"{final_val:.3f}"
+                else:
+                    formatted_val = f"{final_val:.6f}"
 
-                except ValueError:
-                    # Il valore non è numerico, mostra così com'è
-                    clean_val = raw_val.strip()
-                    label.setText(f"{var_name} = {clean_val} {unit}")
+                label.setText(f"{var_name} = {formatted_val} {unit}")
+                label.setProperty("state", "normal")
 
+            except CallNotSupportedError:
+                # the model has no such call: not available, not an instrument error
+                label.setText(f"{var_name} = N/A {unit}")
             except Exception as e:
+                if self.logger:
+                    self.logger.error(f"Measurement error {var_name}: {e}")
                 label.setText(f"{var_name} = ERR {unit}")
                 label.setProperty("state", "error")
 
