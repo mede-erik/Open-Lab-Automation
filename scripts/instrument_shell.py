@@ -44,8 +44,9 @@ def default_library():
 
 
 class Shell:
-    def __init__(self, library, input_fn=input, print_fn=print, simulate=False):
+    def __init__(self, library, input_fn=input, print_fn=print, simulate=False, source=""):
         self.library = library
+        self.source = source
         self.ask = input_fn
         self.say = print_fn
         self.simulate = simulate
@@ -68,7 +69,23 @@ class Shell:
                 return options[int(text) - 1][0]
             self.say("  not a valid choice")
 
+    def describe_library(self):
+        cats = tester.categories(self.library)
+        n_models = sum(len(tester.models_of(self.library, k)) for k, _ in cats)
+        version = self.library.schema_version
+        self.say(f"Library: {self.source or '(in memory)'}")
+        self.say(
+            f"  schema_version {version}, {len(cats)} categories, {n_models} models, "
+            f"{len(self.library.schemas)} call schemas"
+        )
+        if not self.library.schemas:
+            self.say(
+                "  WARNING: no 'schema' folder found next to the library file: the library is "
+                "probably an old version (update the Instruments_LIB submodule)"
+            )
+
     def select_and_connect(self):
+        self.describe_library()
         cats = tester.categories(self.library)
         category = self.choose("Instrument type:", [(k, f"{label} ({k})") for k, label in cats])
         if category is None:
@@ -267,7 +284,7 @@ def main():
     args = ap.parse_args()
     if not os.path.isfile(args.library):
         sys.exit(f"library not found: {args.library}")
-    Shell(Library.load(args.library), simulate=args.sim).run()
+    Shell(Library.load(args.library), simulate=args.sim, source=os.path.abspath(args.library)).run()
 
 
 if __name__ == "__main__":
