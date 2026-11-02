@@ -9,10 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Task | Command | Notes |
 |------|---------|-------|
 | **Install Python dependencies** | `pip install -r requirements.txt` | Installs runtime and optional dev packages (pytest, black, flake8, sphinx). |
-| **Compile the C backend** | `gcc backend/backend.c -o backend/backend.exe` | Required for direct instrument communication; skip for GUI‑only simulation. |
+| **Get the instrument library** | `git submodule update --init` | `Instruments_LIB` is a git submodule; without it no instrument is available. |
+| **Compile the C backend** | `bash backend/build.sh` | Builds the shared library (`backend/libbackend.so`, `backend/backend.dll` on Windows) loaded by `frontend/core/c_backend.py`. |
 | **Run the application** | `python frontend/launcher.py` | Launches the PyQt6 GUI with the correct `PYTHONPATH`. |
 | **Run the GUI module directly** | `python -m frontend.main` | Useful for debugging import paths. |
-| **Run the full test suite** | `pytest` | Discovers tests under `frontend/tests` and top‑level test files. |
+| **Run the full test suite** | `pytest` | Discovers the tests under `tests/` and the top‑level `test_*.py` files. |
 | **Run a single test file** | `pytest path/to/test_file.py` | Replace `path/to/test_file.py` with the file you need. |
 | **Run a single test function** | `pytest path/to/test_file.py::test_name` | Use the `::` syntax to target a specific test. |
 | **Lint the code** | `flake8 .` | Checks PEP‑8 compliance across the repository. |
@@ -76,7 +77,7 @@ Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via 
 
 * **Run tests** – `! pytest` or `! pytest path/to/test_file.py`.
 * **Lint** – `! flake8 .`.
-* **Build backend** – `! gcc backend/backend.c -o backend/backend.exe`.
+* **Build backend** – `! bash backend/build.sh`.
 * **Launch app** – `! python frontend/launcher.py`.
 * **Open a file in VS Code** – `! code path/to/file.py` (if VS Code is installed).
 

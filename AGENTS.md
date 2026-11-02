@@ -89,10 +89,13 @@ See `backend/backend.h` for the full API and `frontend/core/c_backend.py` for th
 
 ## Testing
 
-Only one test exists: `test_basic_import.py` at repo root. It verifies core modules import cleanly.
+Unit tests live in `tests/` (Qt-free code under `ola/`); `test_basic_import.py` and
+`test_instrument_library.py` at the repo root cover the core imports and the instrument library
+(`git submodule update --init` is needed for the latter).
 
 ```bash
-pytest                          # discovers test_basic_import.py + any test*.py at root
+pytest                          # everything (tests/ + test_*.py at root)
+pytest tests -q                 # Qt-free unit tests only
 pytest test_basic_import.py     # focused
 ```
 
