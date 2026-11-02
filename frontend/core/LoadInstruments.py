@@ -848,4 +848,4 @@ class LoadInstruments:
             if module_id in compatible_ids and not module.get('not_enabled', False):
                 enabled_modules.append(module)
         
-        return enabled_modules
+        return enabled_modules
