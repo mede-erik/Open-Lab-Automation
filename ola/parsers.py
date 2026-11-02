@@ -56,6 +56,11 @@ def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str 
     n = min(count, len(data)) if count > 0 else len(data)
     codes = array("b")
     codes.frombytes(data[:n])
+    if code_per_div >= 256:
+        # SDS HD scopes report the 16-bit scale (30 codes/div * 256 = 7680) in the descriptor even
+        # when the data are bytes (verified on an SDS824X HD with a 3 V probe-compensation signal):
+        # a byte code is worth 256 times more than the descriptor says.
+        code_per_div = code_per_div / 256.0
     scale = gain / code_per_div
     start = delay - timebase * SIGLENT_GRID / 2.0
     try:

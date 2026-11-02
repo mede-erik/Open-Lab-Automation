@@ -53,6 +53,15 @@ def test_values_of_the_guide_example():
     assert wave["sample_interval"] == pytest.approx(2e-10, rel=1e-5)
 
 
+def test_descriptor_with_16_bit_scale_and_byte_data():
+    # SDS824X HD, 0.5 V/div, offset -1.4833 V, 7680 codes/div in the descriptor, byte data:
+    # codes -89 and +89 are 0 V and 2.97 V (3 V probe-compensation square wave)
+    desc = descriptor(2, gain=0.5, offset=-1.4833333, code_per_div=7680.0)
+    wave = siglent_waveform(desc, bytes([(-89) & 0xFF, 89]), 5e-4)
+    assert wave["voltage"][0] == pytest.approx(0.0, abs=0.01)
+    assert wave["voltage"][1] == pytest.approx(2.967, abs=0.01)
+
+
 def test_extra_bytes_after_the_samples_are_ignored():
     wave = siglent_waveform(descriptor(2), bytes([1, 2, 10, 10]), 1e-3)
     assert wave["points"] == 2 and len(wave["voltage"]) == 2
