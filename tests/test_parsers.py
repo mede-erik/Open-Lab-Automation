@@ -62,6 +62,15 @@ def test_descriptor_with_16_bit_scale_and_byte_data():
     assert wave["voltage"][1] == pytest.approx(2.967, abs=0.01)
 
 
+def test_word_format_uses_the_16_bit_scale_as_is():
+    desc = descriptor(2, gain=0.5, offset=-1.4833333, code_per_div=7680.0, comm_type=1)
+    data = struct.pack("<hh", -89 * 256, 89 * 256 + 128)
+    wave = siglent_waveform(desc, data, 5e-4)
+    assert wave["points"] == 2
+    assert wave["voltage"][0] == pytest.approx(0.0, abs=1e-3)
+    assert wave["voltage"][1] == pytest.approx(2.967 + 128 * 0.5 / 7680, abs=1e-3)
+
+
 def test_extra_bytes_after_the_samples_are_ignored():
     wave = siglent_waveform(descriptor(2), bytes([1, 2, 10, 10]), 1e-3)
     assert wave["points"] == 2 and len(wave["voltage"]) == 2
@@ -71,7 +80,7 @@ def test_not_a_descriptor_and_unsupported_format():
     with pytest.raises(ResponseNotRecognisedError):
         siglent_waveform(b"short", b"", 1e-3)
     with pytest.raises(ResponseNotRecognisedError):
-        siglent_waveform(descriptor(2, comm_type=1), bytes(4), 1e-3)
+        siglent_waveform(descriptor(2, comm_type=2), bytes(4), 1e-3)
 
 
 @pytest.mark.skipif(LIB is None, reason="library not available")
@@ -102,3 +111,14 @@ def test_trigger_mode_after_a_forced_trigger_is_forced():
     library = Library.load(LIB)
     plan = plan_call(library, "OSC_Siglent_SDS824X_HD", "query_trigger_mode")
     assert plan.interpret(["FTRIG"]) == "FORCED" and plan.interpret(["NORMal"]) == "NORMAL"
+
+
+@pytest.mark.skipif(LIB is None, reason="library not available")
+def test_read_waveform_resolution_argument():
+    library = Library.load(LIB)
+    plan8 = plan_call(library, "OSC_Siglent_SDS824X_HD", "read_waveform", {"channel_number": 1})
+    plan16 = plan_call(
+        library, "OSC_Siglent_SDS824X_HD", "read_waveform", {"channel_number": 1, "bits": 16}
+    )
+    assert plan8.steps[1]["text"] == ":WAVeform:WIDTh BYTE"
+    assert plan16.steps[1]["text"] == ":WAVeform:WIDTh WORD"

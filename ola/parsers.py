@@ -9,6 +9,7 @@ Parsers are pure functions, no I/O; they receive the raw results of the listed s
 from __future__ import annotations
 
 import struct
+import sys
 from array import array
 from typing import Any, Callable, Dict
 
@@ -37,11 +38,14 @@ def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str 
             call=call,
         )
     comm_type = struct.unpack_from("<h", descriptor, 32)[0]
-    if comm_type != 0:
+    if comm_type not in (0, 1):
         raise ResponseNotRecognisedError(
-            f"call '{call}': only the BYTE format (COMM_TYPE 0) is supported, got {comm_type}",
+            f"call '{call}': only the BYTE (COMM_TYPE 0) and WORD (1) formats are supported, "
+            f"got {comm_type}",
             call=call,
         )
+    word = comm_type == 1
+    big_endian = struct.unpack_from("<h", descriptor, 34)[0] == 1  # COMM_ORDER: 0 = LSB first
     count = struct.unpack_from("<i", descriptor, 116)[0]
     gain = struct.unpack_from("<f", descriptor, 156)[0]
     offset = struct.unpack_from("<f", descriptor, 160)[0]
@@ -53,10 +57,13 @@ def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str 
             f"call '{call}': invalid descriptor (code_per_div={code_per_div}, interval={interval})",
             call=call,
         )
-    n = min(count, len(data)) if count > 0 else len(data)
-    codes = array("b")
-    codes.frombytes(data[:n])
-    if code_per_div >= 256:
+    width = 2 if word else 1
+    n = min(count, len(data) // width) if count > 0 else len(data) // width
+    codes = array("h" if word else "b")
+    codes.frombytes(data[: n * width])
+    if word and big_endian != (sys.byteorder == "big"):
+        codes.byteswap()
+    if code_per_div >= 256 and not word:
         # SDS HD scopes report the 16-bit scale (30 codes/div * 256 = 7680) in the descriptor even
         # when the data are bytes (verified on an SDS824X HD with a 3 V probe-compensation signal):
         # a byte code is worth 256 times more than the descriptor says.
@@ -66,7 +73,7 @@ def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str 
     try:
         import numpy as np
 
-        c = np.frombuffer(codes, dtype=np.int8).astype(np.float64)
+        c = np.frombuffer(codes, dtype=np.int16 if word else np.int8).astype(np.float64)
         voltage = array("d")
         voltage.frombytes((c * scale - offset).tobytes())
         time = array("d")
