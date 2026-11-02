@@ -170,7 +170,7 @@ def test_adopts_the_terminators_of_the_resource():
     assert c._wterm == b"\r\n" and c._rterm == b"\n"
 
 
-# ---- RS-232 (ASRL) resource, as used for bench instruments without a network port -----------------
+# ---- RS-232 (ASRL) resource, as used for bench instruments without a network port ----------
 
 
 def test_asrl_resource_with_default_pyvisa_settings():
