@@ -230,6 +230,7 @@ pyrightconfig.json
 *_debug.py
 debug_*.py
 check_*.py
+!scripts/check_*.py
 *.backup
 *.bak
 

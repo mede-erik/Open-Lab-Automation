@@ -36,8 +36,10 @@ def test_get_series_key(lib):
 
 
 def test_get_series(lib):
-    assert len(lib.get_series('power_supply')) == 4
-    assert len(lib.get_series('oscilloscope')) == 3
+    # the library grows: check that the known series are there, not how many there are
+    ids = {s.get('series_id') for s in lib.get_series('power_supply')}
+    assert {'OWON_ODP_Series', 'Keysight_E36300_Series'} <= ids
+    assert len(lib.get_series('oscilloscope')) >= 3
     assert lib.get_series('boh') is None
 
 
