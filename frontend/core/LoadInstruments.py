@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import warnings
@@ -538,12 +539,55 @@ class LoadInstruments:
         series_list = self.get_series(type_name) or []
         for series in series_list:
             if series.get('series_id') == series_id:
-                common = series.get('common_scpi_commands', {})
                 for model in series.get('models', []):
                     if model.get('id') == model_id:
-                        specific = model.get('scpi_commands', {})
-                        return {**common, **specific}
+                        return self.resolve_model_commands(series, model)
         return None
+
+    @staticmethod
+    def _deep_merge(base, patch):
+        """Recursively merge `patch` into a copy of `base` (dicts merge, anything else is replaced)."""
+        if not isinstance(base, dict) or not isinstance(patch, dict):
+            return copy.deepcopy(patch)
+        merged = copy.deepcopy(base)
+        for key, value in patch.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = LoadInstruments._deep_merge(merged[key], value)
+            else:
+                merged[key] = copy.deepcopy(value)
+        return merged
+
+    @staticmethod
+    def resolve_model_commands(series, model):
+        """
+        Build the SCPI command set of one model from its series.
+
+        Starts from the series `common_scpi_commands` and applies the model
+        `scpi_commands`, one entry per call name:
+          * a full command definition (has "set" and/or "query") replaces the series command;
+          * `null` removes the call: the model does not support it;
+          * {"patch": {...}} deep-merges the given fields into the series command
+            (e.g. only the allowed values of one parameter); the call must exist in the series.
+        Args:
+            series (dict): Series dict from the library.
+            model (dict): Model dict belonging to the series.
+        Returns:
+            dict: Call name -> command definition for this model.
+        """
+        commands = copy.deepcopy(series.get('common_scpi_commands', {}))
+        for name, definition in (model.get('scpi_commands') or {}).items():
+            if definition is None:
+                commands.pop(name, None)
+            elif (isinstance(definition, dict) and 'patch' in definition
+                  and 'set' not in definition and 'query' not in definition):
+                if name in commands:
+                    commands[name] = LoadInstruments._deep_merge(commands[name], definition['patch'])
+                else:
+                    logging.warning("Model %s: cannot patch '%s', not defined in the series",
+                                    model.get('id'), name)
+            else:
+                commands[name] = copy.deepcopy(definition)
+        return commands
 
     def get_supported_connections(self, type_name, series_id, model_id):
         """

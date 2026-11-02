@@ -302,12 +302,9 @@ class RemoteControlTab(QWidget):
                     if (model.get('id') == model_id
                             or model.get('model') == model_id
                             or model.get('name') == model_id):
-                        # Combina comandi comuni della serie con quelli specifici del modello
-                        common_commands = series.get('common_scpi_commands', {})
-                        model_commands = model.get('scpi_commands', {})
-
-                        # Merge dei comandi
-                        combined_commands = {**common_commands, **model_commands}
+                        # Series commands + model overrides/removals/patches
+                        from frontend.core.LoadInstruments import LoadInstruments
+                        combined_commands = LoadInstruments.resolve_model_commands(series, model)
                         print(f"[RemoteControlTab] Trovati {len(combined_commands)} comandi SCPI per {model_id}")
                         return combined_commands
 

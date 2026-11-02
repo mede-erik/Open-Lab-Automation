@@ -215,3 +215,32 @@ def test_was_applier_parsing():
     assert RemoteControlTab._parse_voltage_value('100mV') == 0.1
     assert RemoteControlTab._parse_voltage_value('0.5') == 0.5
     assert RemoteControlTab._parse_voltage_value('zzz') is None
+
+
+def test_resolve_model_commands_override_remove_patch():
+    """Model scpi_commands: full definition replaces, null removes, patch deep-merges."""
+    from frontend.core.LoadInstruments import LoadInstruments
+    series = {
+        'common_scpi_commands': {
+            'set_a': {'set': {'syntax': 'A {value}'}, 'parameters': {'value': {'type': 'float'}}},
+            'set_b': {'set': {'syntax': 'B {mode}'},
+                      'parameters': {'mode': {'type': 'string', 'values': ['X', 'Y']}}},
+            'set_c': {'set': {'syntax': 'C'}},
+            'set_d': {'set': {'syntax': 'D'}},
+        }
+    }
+    model = {'id': 'M', 'scpi_commands': {
+        'set_a': {'set': {'syntax': 'A2 {value}'}, 'parameters': {'value': {'type': 'float'}}},
+        'set_b': {'patch': {'parameters': {'mode': {'values': ['X', 'Y', 'Z']}}}},
+        'set_c': None,
+        'set_x': {'patch': {'set': {'syntax': 'ignored'}}},
+    }}
+    out = LoadInstruments.resolve_model_commands(series, model)
+    assert out['set_a']['set']['syntax'] == 'A2 {value}'
+    assert out['set_b']['set']['syntax'] == 'B {mode}'
+    assert out['set_b']['parameters']['mode'] == {'type': 'string', 'values': ['X', 'Y', 'Z']}
+    assert 'set_c' not in out
+    assert out['set_d'] == {'set': {'syntax': 'D'}}
+    assert 'set_x' not in out
+    # the series must not be modified
+    assert series['common_scpi_commands']['set_b']['parameters']['mode']['values'] == ['X', 'Y']
