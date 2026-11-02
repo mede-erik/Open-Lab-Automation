@@ -45,6 +45,12 @@ class InstrumentHandle:
         plan = plan_call(self._library, self.model_id, name, args, readback=True)
         return plan.interpret(self._instrument.run(plan, cancel=self._cancel))
 
+    def read_waveform_full(self, channel_number: int, bits: int = 8, stop: bool = True) -> Any:
+        """The whole acquisition memory of a channel (blocks joined); see ``ola.waveform``."""
+        from .waveform import read_waveform_full
+
+        return read_waveform_full(self, channel_number, bits=bits, stop=stop)
+
     def supports(self, name: str) -> bool:
         """True if the model defines the call (the call may still reject some values)."""
         commands = self._library.commands(self.model_id)

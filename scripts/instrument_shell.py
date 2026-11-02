@@ -21,6 +21,7 @@ Commands once connected (type 'help'):
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
     loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
+    fullwave CH [bits=16] read the whole memory of channel CH (stops the acquisition, blocks joined)
     save FILE.csv [N]     save the last waveform to CSV, keeping 1 point in N (default 1)
     stats                 min, max, peak-to-peak, mean and RMS of the last waveform
     reconnect             open the connection again
@@ -52,7 +53,7 @@ def default_library():
 
 
 COMMANDS = (
-    "help calls missing call plan readback test serial raw probe loopback save stats "
+    "help calls missing call plan readback test serial raw probe loopback save stats fullwave "
     "reconnect quit"
 ).split()
 HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".ola_instrument_shell_history")
@@ -356,6 +357,8 @@ class Shell:
                 self.probe("all" in rest)
             elif cmd == "save" and rest:
                 self.save(rest[0], int(rest[1]) if len(rest) > 1 else 1)
+            elif cmd == "fullwave" and rest:
+                self.fullwave(rest)
             elif cmd == "stats":
                 self.stats()
             elif cmd == "loopback" and self.address:
@@ -400,6 +403,18 @@ class Shell:
             writer.writerow(["time_s", "voltage_V"])
             writer.writerows(zip(wave["time"][::step], wave["voltage"][::step]))
         self.say(f"  saved {len(wave['time'][::step])} points to {path}")
+
+    def fullwave(self, words):
+        """Read the whole acquisition memory of a channel (blocks joined, acquisition stopped)."""
+        try:
+            args = dict(w.split("=", 1) for w in words[1:])
+            bits = int(args.get("bits", 8))
+            wave = self.handle.read_waveform_full(int(words[0]), bits=bits)
+        except (ValueError, CallError) as exc:
+            self.say(f"  {exc}")
+            return
+        self.last_result = wave
+        self.say(self.format_result(wave))
 
     def stats(self):
         """Print the main figures of the last waveform."""
