@@ -533,6 +533,20 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ✅ **Benchmark** (`benchmarks/bench_transport.py`), mediana su loopback: backend C
   attuale 44 ms; Python 55 µs; Rust 34 µs (p99 101 µs); trasferimento di 1 MB: Python
   552 MB/s, Rust 2124 MB/s.
+- ✅ **Esecutore dei passi** (`ola/instrument.py`, `ola/steps.py`): una chiamata è una
+  lista di passi `write`/`query`/`delay` (+ `timeout_ms`, `returns` float|int|string|binary)
+  eseguita sotto **un lock per strumento** per tutta la chiamata; stop al primo errore
+  → `CALL-004` con indice del passo; dopo un errore l'input pendente viene scartato;
+  annullamento (`cancel`) anche durante un `delay`; dispatcher per i piani `driver`
+  (AD2/AD3). Le mappe e l'interpretazione delle risposte restano nel planner
+  (altra sessione). Strumento simulato: `ola/sim.py`.
+- ✅ **Adattatore pyvisa** (`ola/_visa.py`): stessa interfaccia del trasporto, per
+  USB-TMC, GPIB e VXI-11. Testato con `pyvisa-py` su socket; **non** testato con una
+  libreria VISA reale né su hardware.
+- ✅ **Accordo con la sessione "libreria/planner"** (branch `claude/charming-bell-768j4j`):
+  planner e risoluzione della libreria vivono in `ola/` (senza Qt); un solo trasporto;
+  formato dei passi e del piano concordati; item 14 (export del piano) rimandato.
+  L'ordine di merge dei due branch lo decide l'autore.
 - ⏳ Non ancora fatto: collegare `ola.transport` al resto dell'app (il backend C e
   `c_backend.py` sono ancora in uso e non sono stati toccati), strato strumento
   generico, strumenti simulati, pipeline Python → CI per le wheel.
