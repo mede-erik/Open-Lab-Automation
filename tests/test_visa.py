@@ -168,3 +168,31 @@ def test_adopts_the_terminators_of_the_resource():
     res.write_termination = "\r\n"
     c = VisaConnection(res, "visa://shared", 1000, pyvisa)
     assert c._wterm == b"\r\n" and c._rterm == b"\n"
+
+
+# ---- RS-232 (ASRL) resource, as used for bench instruments without a network port -----------------
+
+
+def test_asrl_resource_with_default_pyvisa_settings():
+    """A plain rm.open_resource("ASRL...") has read_termination None and write_termination CRLF.
+    The adapter must still read lines (fallback terminator LF), strip a CRLF reply and leave the
+    resource exactly as the application configured it."""
+    pytest.importorskip("serial")
+    import pyvisa
+
+    from tests.fake_instrument import FakePtyInstrument
+
+    inst = FakePtyInstrument(
+        lambda cmd: b"HEWLETT-PACKARD,E3631A\r\n" if cmd == b"*IDN?" else None, eol=b"\n"
+    )
+    try:
+        res = pyvisa.ResourceManager("@py").open_resource(f"ASRL{inst.slave_path}::INSTR")
+        assert res.read_termination is None
+        before = (res.read_termination, res.write_termination, res.timeout, res.baud_rate)
+        c = VisaConnection(res, "visa://asrl", 1000, pyvisa)
+        c.set_terminators(b"\n", b"\n")  # explicit terminators, as the library will provide
+        assert c.query("*IDN?") == "HEWLETT-PACKARD,E3631A"
+        assert (res.read_termination, res.write_termination, res.timeout, res.baud_rate) == before
+        c.close()
+    finally:
+        inst.close()
