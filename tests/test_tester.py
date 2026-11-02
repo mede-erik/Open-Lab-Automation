@@ -264,3 +264,18 @@ def test_self_test_runs_fetch_readings_after_read_scan(library):
     handle = tester.make_handle(library, model, tester.open_simulated("1.5"), model)
     order = [r.call for r in tester.self_test(library, model, handle)]
     assert order.index("fetch_readings") == order.index("read_scan") + 1
+
+
+def test_long_results_are_summarised():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "instrument_shell", os.path.join(HERE, "scripts", "instrument_shell.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fmt = module.Shell.format_result
+    assert fmt(None) == "  done"
+    assert "14000 bytes" in fmt(bytes(14000))
+    assert "100 values" in fmt(list(range(100)))
+    assert fmt([1, 2]) == "  result: [1, 2]"

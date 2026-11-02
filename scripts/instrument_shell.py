@@ -222,11 +222,22 @@ class Shell:
                 return
         try:
             value = (self.handle.readback if readback else self.handle.call)(name, **args)
-            self.say(f"  result: {value!r}" if value is not None else "  done")
+            self.say(self.format_result(value))
         except CallError as exc:
             self.say(f"  {exc}")
         except Exception as exc:
             self.say(f"  {type(exc).__name__}: {exc}")
+
+    @staticmethod
+    def format_result(value):
+        """Short text of a result: long data (waveforms) is summarised, not printed whole."""
+        if value is None:
+            return "  done"
+        if isinstance(value, (bytes, bytearray)):
+            return f"  result: {len(value)} bytes, starts with {bytes(value[:48])!r}"
+        if isinstance(value, list) and len(value) > 12:
+            return f"  result: {len(value)} values, first 8: {value[:8]!r}"
+        return f"  result: {value!r}"
 
     def show_calls(self):
         for c in tester.model_calls(self.library, self.model_id):
