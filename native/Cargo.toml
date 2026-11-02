@@ -1,0 +1,24 @@
+[package]
+name = "ola_native"
+version = "0.1.0"
+edition = "2021"
+description = "Low-latency instrument transport (TCP/LXI, serial) for Open Lab Automation"
+license = "Proprietary"
+
+[lib]
+name = "ola_native"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dependencies]
+# default-features = false: no libudev dependency on Linux (port enumeration is done in Python)
+serialport = { version = "4", default-features = false }
+pyo3 = { version = "0.30", optional = true, features = ["abi3-py310"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
