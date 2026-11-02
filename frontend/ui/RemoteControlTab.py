@@ -309,24 +309,11 @@ class RemoteControlTab(QWidget):
         self.__dict__.setdefault('_serial_cfg', {})[visa_addr] = cfg
         if not cfg:
             return
-        from pyvisa import constants as c
-        parity = {'N': c.Parity.none, 'E': c.Parity.even, 'O': c.Parity.odd}
-        stop_bits = {1: c.StopBits.one, 1.5: c.StopBits.one_and_half, 2: c.StopBits.two}
-        flow = {'none': c.ControlFlow.none, 'xon_xoff': c.ControlFlow.xon_xoff,
-                'rts_cts': c.ControlFlow.rts_cts, 'dtr_dsr': c.ControlFlow.dtr_dsr}
+        from ola.serial_config import apply_serial_settings
         try:
-            if 'baud' in cfg:
-                instr.baud_rate = int(cfg['baud'])
-            if 'data_bits' in cfg:
-                instr.data_bits = int(cfg['data_bits'])
-            if 'parity' in cfg:
-                instr.parity = parity[str(cfg['parity']).upper()]
-            if 'stop_bits' in cfg:
-                instr.stop_bits = stop_bits[float(cfg['stop_bits'])]
-            if 'flow_control' in cfg:
-                instr.flow_control = flow[str(cfg['flow_control']).lower()]
+            apply_serial_settings(instr, cfg)
             print(f"[RemoteControlTab] Seriale {visa_addr}: {cfg}")
-        except (KeyError, ValueError, AttributeError) as exc:
+        except (ValueError, AttributeError) as exc:
             if self.logger:
                 self.logger.error(f"Serial settings for {visa_addr} not applied: {exc}")
 
