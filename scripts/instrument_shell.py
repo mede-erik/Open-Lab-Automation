@@ -21,7 +21,8 @@ Commands once connected (type 'help'):
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
     loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
-    save FILE.csv         save the last waveform (time, voltage) to a CSV file
+    save FILE.csv [N]     save the last waveform to CSV, keeping 1 point in N (default 1)
+    stats                 min, max, peak-to-peak, mean and RMS of the last waveform
     reconnect             open the connection again
     quit
 """
@@ -297,7 +298,9 @@ class Shell:
             elif cmd == "probe" and self.address:
                 self.probe("all" in rest)
             elif cmd == "save" and rest:
-                self.save(rest[0])
+                self.save(rest[0], int(rest[1]) if len(rest) > 1 else 1)
+            elif cmd == "stats":
+                self.stats()
             elif cmd == "loopback" and self.address:
                 self.loopback()
             elif cmd in {c["name"] for c in tester.model_calls(self.library, self.model_id)}:
@@ -327,7 +330,7 @@ class Shell:
         if self.connection is not None and hasattr(self.connection, "close"):
             self.connection.close()
 
-    def save(self, path):
+    def save(self, path, step=1):
         """Write the last waveform result (a dict with 'time' and 'voltage') as CSV."""
         import csv
 
@@ -338,8 +341,23 @@ class Shell:
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["time_s", "voltage_V"])
-            writer.writerows(zip(wave["time"], wave["voltage"]))
-        self.say(f"  saved {len(wave['time'])} points to {path}")
+            writer.writerows(zip(wave["time"][::step], wave["voltage"][::step]))
+        self.say(f"  saved {len(wave['time'][::step])} points to {path}")
+
+    def stats(self):
+        """Print the main figures of the last waveform."""
+        wave = self.last_result
+        if not (isinstance(wave, dict) and "voltage" in wave):
+            self.say("  no waveform: run 'call read_waveform channel_number=1' first")
+            return
+        v = wave["voltage"]
+        lo, hi = min(v), max(v)
+        mean = sum(v) / len(v)
+        rms = (sum(x * x for x in v) / len(v)) ** 0.5
+        self.say(
+            f"  {len(v)} points  min {lo:.6g} V  max {hi:.6g} V  pk-pk {hi - lo:.6g} V  "
+            f"mean {mean:.6g} V  rms {rms:.6g} V"
+        )
 
     def reconnect(self):
         """Close the connection and open it again with the current serial settings."""
