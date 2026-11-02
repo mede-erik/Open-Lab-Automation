@@ -24,6 +24,7 @@ from .call_errors import (
     ValueNotHandledError,
 )
 from .library import Library, resolve_model_commands
+from .parsers import get_parser
 from .steps import Step
 
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
@@ -46,9 +47,21 @@ class Plan:
     response: Dict[str, Any] = field(default_factory=dict)
     logical_result: Optional[Dict[str, Any]] = None
     logical_values: Optional[List[str]] = None
+    # named parser: several raw results -> one logical value (see ola.parsers)
+    parse: Optional[Dict[str, Any]] = None
 
     def interpret(self, raw_results: List[Any]) -> Any:
         """Turn the executor's raw results into the logical value of the call."""
+        if self.parse:
+            try:
+                values = [raw_results[i] for i in self.parse["from_steps"]]
+            except (IndexError, TypeError):
+                raise ResponseNotRecognisedError(
+                    f"call '{self.call}': the answers needed by parser '{self.parse['name']}' "
+                    "are missing",
+                    call=self.call,
+                )
+            return get_parser(self.parse["name"], self.call)(*values, call=self.call)
         idx = self.result.get("from_step")
         if idx is None:
             return None
@@ -444,6 +457,7 @@ def plan_call(
     }
     if "split" in response or response.get("as_list"):
         response["return_type"] = half.get("return_type", "string")
+    parse = half.get("parse")
     logical_values = None
     result_spec = spec.get("result") if (spec and half_name == "query") else None
     if result_spec and types.get(result_spec.get("type"), {}).get("kind") == "enum":
@@ -457,6 +471,7 @@ def plan_call(
         response=response,
         logical_result=result_spec,
         logical_values=logical_values,
+        parse=parse,
     )
 
 

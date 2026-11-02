@@ -21,6 +21,7 @@ Commands once connected (type 'help'):
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
     loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
+    save FILE.csv         save the last waveform (time, voltage) to a CSV file
     reconnect             open the connection again
     quit
 """
@@ -59,6 +60,7 @@ class Shell:
         self.handle = None
         self.connection = None
         self.address = None
+        self.last_result = None
         self.serial_override = {}
 
     # ---- selection ----------------------------------------------------------------
@@ -222,6 +224,7 @@ class Shell:
                 return
         try:
             value = (self.handle.readback if readback else self.handle.call)(name, **args)
+            self.last_result = value
             self.say(self.format_result(value))
         except CallError as exc:
             self.say(f"  {exc}")
@@ -293,6 +296,8 @@ class Shell:
                 self.raw(" ".join(rest))
             elif cmd == "probe" and self.address:
                 self.probe("all" in rest)
+            elif cmd == "save" and rest:
+                self.save(rest[0])
             elif cmd == "loopback" and self.address:
                 self.loopback()
             elif cmd in {c["name"] for c in tester.model_calls(self.library, self.model_id)}:
@@ -321,6 +326,20 @@ class Shell:
                 self.say(f"  unknown command.{hint} (type 'help')")
         if self.connection is not None and hasattr(self.connection, "close"):
             self.connection.close()
+
+    def save(self, path):
+        """Write the last waveform result (a dict with 'time' and 'voltage') as CSV."""
+        import csv
+
+        wave = self.last_result
+        if not (isinstance(wave, dict) and "time" in wave and "voltage" in wave):
+            self.say("  nothing to save: run 'call read_waveform channel_number=1' first")
+            return
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["time_s", "voltage_V"])
+            writer.writerows(zip(wave["time"], wave["voltage"]))
+        self.say(f"  saved {len(wave['time'])} points to {path}")
 
     def reconnect(self):
         """Close the connection and open it again with the current serial settings."""

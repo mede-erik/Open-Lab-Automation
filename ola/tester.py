@@ -346,6 +346,19 @@ def summarise(value: Any) -> str:
         return ""
     if isinstance(value, (bytes, bytearray)):
         return f"{len(value)} bytes, starts with {bytes(value[:24])!r}"
+    if isinstance(value, dict):
+        return (
+            "{"
+            + ", ".join(
+                (
+                    f"{k}: {len(v)} values"
+                    if hasattr(v, "__len__") and not isinstance(v, str)
+                    else f"{k}: {v!r}"
+                )
+                for k, v in value.items()
+            )
+            + "}"
+        )
     if isinstance(value, list) and len(value) > 12:
         return f"{len(value)} values, first 8: {value[:8]!r}"
     return repr(value)
