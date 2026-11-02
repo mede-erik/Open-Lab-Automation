@@ -300,9 +300,11 @@ si dividono in due casi diversi:
 
 #### Due modalità di accesso
 
+(Vocabolario concordato con la sessione libreria/planner: `access` = `scpi` | `driver`. `scpi` significa "piano a passi di testo eseguito dall'esecutore generico" e vale anche per protocolli testuali non-SCPI come il LiteVNA.)
+
 | `access` | Chi sa parlare con lo strumento | Cosa descrive la libreria | Esempi |
 |---|---|---|---|
-| `commands` | Traduttore generico di OpenLab | Tabella verbo → stringa da inviare (SCPI o no), trasporto (LAN, seriale, …), come interpretare le risposte, limiti | Strumenti SCPI, datalogger HP seriale, **LiteVNA67** |
+| `scpi` | Traduttore generico di OpenLab | Tabella verbo → stringa da inviare (SCPI o no), trasporto (LAN, seriale, …), come interpretare le risposte, limiti | Strumenti SCPI, datalogger HP seriale, **LiteVNA67** |
 | `driver` | **Un driver** (codice, uno per famiglia) | Identità, capability, limiti, rilevamento, **nome del driver** | **Analog Discovery 2/3** (famiglia WaveForms) |
 
 Il punto chiave: **in entrambi i casi il modulo di misura vede la stessa interfaccia**.
@@ -323,7 +325,7 @@ LiteVNA per il VNA); il driver dell'AD2 chiama l'SDK. Il modulo scrive
 
 - **Libreria (JSON, solo dati, nessun codice):** identità, categorie/capability,
   limiti dichiarati, regole di rilevamento (VID/PID USB, nome porta) e, per `driver`,
-  l'**id del driver**. Per `commands`: le stringhe e le regole di interpretazione delle risposte. Un repo di dati non deve poter eseguire codice sul PC
+  l'**id del driver**. Per `scpi`: le stringhe e le regole di interpretazione delle risposte. Un repo di dati non deve poter eseguire codice sul PC
   dell'utente.
 - **Driver (codice Python), solo per gli strumenti che li richiedono:** in questo repo (`frontend/drivers/`, integrati) o in
   una cartella utente. Usano lo **stesso meccanismo dei moduli di misura**
@@ -332,11 +334,11 @@ LiteVNA per il VNA); il driver dell'AD2 chiama l'SDK. Il modulo scrive
 - Se la libreria cita un driver non installato, lo strumento compare come **non
   supportato** con un messaggio chiaro, non come errore a runtime.
 
-Esempio di voce `commands` (LiteVNA67 su seriale, schema indicativo):
+Esempio di voce `scpi` (LiteVNA67 su seriale, schema indicativo):
 
 ```json
 {
-  "id": "litevna_67", "name": "LiteVNA67", "access": "commands",
+  "id": "litevna_67", "name": "LiteVNA67", "access": "scpi",
   "connection": {"transport": "serial", "usb": {"vid": "TODO", "pid": "TODO"},
                  "baud": "TODO", "terminator": "TODO"},
   "capabilities": {
@@ -363,7 +365,7 @@ Esempio di voce `driver` (Analog Discovery, schema indicativo):
 }
 ```
 
-Limite del modello `commands`: se le risposte del LiteVNA sono **binarie** o richiedono
+Limite del modello `scpi`: se le risposte del LiteVNA sono **binarie** o richiedono
 un parsing non descrivibile con le regole standard (float, lista di float, righe di
 numeri complessi, blocco binario con header), serve un'estensione del formato di
 risposta, o in ultima istanza un piccolo driver. Si decide quando si vedono le risposte
@@ -405,7 +407,7 @@ associano i ruoli delle misure. Ne seguono due regole:
 
 #### Impatto sul Rust
 
-- Il trasporto Rust serve tutti gli strumenti `commands` (seriale del LiteVNA,
+- Il trasporto Rust serve tutti gli strumenti `scpi` (seriale del LiteVNA,
   TCP/LXI, seriale del datalogger HP): seriale e letture binarie sono nel perimetro
   dall'inizio.
 - I driver **che usano un SDK di terzi** (AD2/AD3, WaveForms) lo chiamano
@@ -416,7 +418,7 @@ associano i ruoli delle misure. Ne seguono due regole:
 
 Il piano usa i due strumenti reali dell'autore come validazione dell'architettura:
 
-1. **LiteVNA67** → primo strumento `vna` in modalità `commands` su seriale (valida
+1. **LiteVNA67** → primo strumento `vna` in modalità `scpi` su seriale (valida
    il formato delle risposte e il trasporto seriale).
 2. **Analog Discovery 2** (poi 3) → primo `driver`: strumento composito: `scope` + `function_generator`
    (+ `psu`/voltmetro) → permette di provare **Bode**, **ripple** e **transitorio**
@@ -557,7 +559,7 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
 - ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
 - ✅ `thermal_chamber` tolta dalle categorie.
-- ✅ LiteVNA67: modalità `commands` su seriale, come gli strumenti attuali (§7.1).
+- ✅ LiteVNA67: modalità `scpi` su seriale, come gli strumenti attuali (§7.1).
 - ✅ AD2/AD3: categoria `driver` con runtime WaveForms obbligatorio.
 - ❓ **Progetto del sistema driver** (interfaccia, ciclo di vita della sessione,
   rilevamento, installazione del runtime): da discutere.

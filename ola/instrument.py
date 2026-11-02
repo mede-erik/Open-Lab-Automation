@@ -1,6 +1,6 @@
 """Instrument: runs plans on one instrument.
 
-A *plan* (produced by the call planner, no I/O there) is a list of steps for `scpi`/`commands`
+A *plan* (produced by the call planner, no I/O there) is a list of steps for `scpi`
 instruments, or a driver function + arguments for `driver` instruments (Analog Discovery...).
 This module only executes; it knows nothing about maps, enums or vendors.
 
@@ -58,7 +58,7 @@ class Instrument:
         access = _attr(plan, "access", "scpi")
         if access == "driver":
             return self._run_driver(call, _attr(plan, "driver"), cancel)
-        if access not in ("scpi", "commands"):
+        if access != "scpi":
             raise ValueError(f"unknown plan access {access!r}")
         return self.execute_steps(call, _attr(plan, "steps") or [], cancel)
 
