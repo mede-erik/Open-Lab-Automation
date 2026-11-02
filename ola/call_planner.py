@@ -295,6 +295,11 @@ def plan_call(
             n: {"type": p.get("type", "string")}
             for n, p in (definition.get("parameters") or {}).items()
         }
+    kind = spec["kind"] if spec else None
+    if kind == "query" or readback or (spec is None and not definition.get("set")):
+        half_name = "query"
+    else:
+        half_name = "set"
     unknown = set(args) - set(schema_args)
     if unknown:
         raise InvalidArgumentError(
@@ -304,7 +309,7 @@ def plan_call(
     for name, aspec in schema_args.items():
         if name in args and args[name] is not None:
             logical[name] = _logical_value(name, aspec, args[name], types, call)
-        elif aspec.get("required", True) and _uses_arg(definition, name):
+        elif aspec.get("required", True) and _uses_arg(definition, name, half_name):
             raise InvalidArgumentError(f"call '{call}' needs argument '{name}'", call=call)
 
     # ---- driver calls are delegated, with the logical (validated) arguments
@@ -321,13 +326,7 @@ def plan_call(
             f"call '{call}' has no driver implementation in {model_id}", call=call
         )
 
-    # ---- choose the half
-    kind = spec["kind"] if spec else None
-    half_name = (
-        "query"
-        if (kind == "query" or readback or (spec is None and not definition.get("set")))
-        else "set"
-    )
+    # ---- the chosen half
     half = definition.get(half_name)
     if not half:
         raise CallNotSupportedError(
@@ -395,16 +394,13 @@ def plan_call(
     )
 
 
-def _uses_arg(definition: Dict[str, Any], name: str) -> bool:
-    """True if the library definition of the call uses placeholder ``name`` in a syntax or step."""
-    for half in ("set", "query"):
-        h = definition.get(half)
-        if not h:
-            continue
-        texts = [h.get("syntax", "")] + [s.get("text", "") for s in h.get("steps", [])]
-        if any(name in _PLACEHOLDER.findall(t or "") for t in texts):
-            return True
-    return False
+def _uses_arg(definition: Dict[str, Any], name: str, half_name: str) -> bool:
+    """True if the chosen half of the library definition uses placeholder ``name``."""
+    h = definition.get(half_name)
+    if not h:
+        return False
+    texts = [h.get("syntax", "")] + [s.get("text", "") for s in h.get("steps", [])]
+    return any(name in _PLACEHOLDER.findall(t or "") for t in texts)
 
 
 def _validated(step: Dict[str, Any], call: str) -> Dict[str, Any]:
