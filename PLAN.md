@@ -280,26 +280,31 @@ A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
 vuote. Eccezioni, come banco di prova (§7.1): il **LiteVNA67** (categoria `vna`) e,
 in seguito, l'**Analog Discovery 2** (dispositivo composito).
 
-### 7.1 Strumenti "a driver" (proprietari): LiteVNA67, Analog Discovery 2
+### 7.1 Strumenti non SCPI: LiteVNA67 (comandi su seriale) e Analog Discovery 2/3 (driver)
 
-Molti strumenti da hobbista non sono SCPI: il **LiteVNA67** (VNA USB portatile; per
-indicazione dell'autore stesso protocollo del LiteVNA64) e l'**Analog Discovery 2**
-(Digilent; si pilota con la libreria **WaveForms SDK**, non con comandi testuali).
-Questi strumenti sono un target primario del progetto, non un'eccezione. Il piano
-introduce quindi una seconda modalità di accesso, accanto a SCPI.
+Molti strumenti da hobbista non sono SCPI. Sono un target primario del progetto e
+si dividono in due casi diversi:
 
-> Da verificare sul campo: protocollo reale del LiteVNA67 (shell testuale e/o
-> binario) e funzioni esatte dell'SDK dell'AD2. Non li do per certi.
+1. **LiteVNA67** (stesso protocollo del LiteVNA64): si comanda con **stringhe su
+   seriale**. È compatibile con la struttura attuale della libreria (come il
+   datalogger HP con interfaccia seriale): per ogni azione la libreria contiene la
+   stringa da inviare. Non serve un driver.
+2. **Analog Discovery 2 e 3** (Digilent): si pilotano solo con l'**SDK WaveForms**
+   (runtime installato sul PC), non con comandi testuali. Per questi serve un
+   **driver**. Stessa famiglia di driver per AD2 e AD3.
+
+> Da verificare sul campo: protocollo reale del LiteVNA67 (testuale e/o binario;
+> l'autore invierà VID/PID e informazioni) e funzioni dell'SDK WaveForms.
 
 #### Due modalità di accesso
 
-| `access` | Chi sa parlare con lo strumento | Cosa descrive la libreria |
-|---|---|---|
-| `scpi` | Traduttore generico di OpenLab | Tabella verbo → stringa SCPI, trasporto, limiti |
-| `driver` | **Un driver** (codice, uno per famiglia di strumenti) | Identità, capability, limiti, come trovarlo, **nome del driver** |
+| `access` | Chi sa parlare con lo strumento | Cosa descrive la libreria | Esempi |
+|---|---|---|---|
+| `commands` | Traduttore generico di OpenLab | Tabella verbo → stringa da inviare (SCPI o no), trasporto (LAN, seriale, …), come interpretare le risposte, limiti | Strumenti SCPI, datalogger HP seriale, **LiteVNA67** |
+| `driver` | **Un driver** (codice, uno per famiglia) | Identità, capability, limiti, rilevamento, **nome del driver** | **Analog Discovery 2/3** (famiglia WaveForms) |
 
 Il punto chiave: **in entrambi i casi il modulo di misura vede la stessa interfaccia**.
-Il traduttore SCPI e i driver implementano gli stessi contratti per categoria
+Il traduttore a comandi e i driver implementano gli stessi contratti per categoria
 (`PowerSupply`, `Scope`, `FunctionGenerator`, `Vna`, …):
 
 ```python
@@ -308,35 +313,59 @@ class Vna(Protocol):                       # contratto della categoria "vna"
     def read_sparam(self, name: str) -> ComplexTrace: ...   # "S11", "S21", ...
 ```
 
-Il traduttore SCPI genera stringhe; il driver del LiteVNA parla il suo protocollo;
-il driver dell'AD2 chiama l'SDK. Il modulo scrive `vna.read_sparam("S21")` e basta.
+Il traduttore a comandi genera stringhe (SCPI per un oscilloscopio, comandi del
+LiteVNA per il VNA); il driver dell'AD2 chiama l'SDK. Il modulo scrive
+`vna.read_sparam("S21")` e basta.
 
 #### Dove vive cosa
 
 - **Libreria (JSON, solo dati, nessun codice):** identità, categorie/capability,
   limiti dichiarati, regole di rilevamento (VID/PID USB, nome porta) e, per `driver`,
-  l'**id del driver**. Un repo di dati non deve poter eseguire codice sul PC
+  l'**id del driver**. Per `commands`: le stringhe e le regole di interpretazione delle risposte. Un repo di dati non deve poter eseguire codice sul PC
   dell'utente.
-- **Driver (codice Python):** in questo repo (`frontend/drivers/`, integrati) o in
+- **Driver (codice Python), solo per gli strumenti che li richiedono:** in questo repo (`frontend/drivers/`, integrati) o in
   una cartella utente. Usano lo **stesso meccanismo dei moduli di misura**
   (manifest, `api_version`, registro, avviso per codice di terzi): il sistema ha due
   tipi di modulo, *measurement* e *driver*.
 - Se la libreria cita un driver non installato, lo strumento compare come **non
   supportato** con un messaggio chiaro, non come errore a runtime.
 
-Esempio di voce di libreria (schema indicativo):
+Esempio di voce `commands` (LiteVNA67 su seriale, schema indicativo):
 
 ```json
 {
-  "id": "litevna_67", "name": "LiteVNA67", "access": "driver",
-  "driver": "litevna",
-  "connection": {"transport": "serial", "usb": {"vid": "TODO", "pid": "TODO"}},
+  "id": "litevna_67", "name": "LiteVNA67", "access": "commands",
+  "connection": {"transport": "serial", "usb": {"vid": "TODO", "pid": "TODO"},
+                 "baud": "TODO", "terminator": "TODO"},
   "capabilities": {
-    "vna": {"f_min_hz": "TODO", "f_max_hz": "TODO", "points_max": "TODO",
-            "power_dbm_max": "TODO", "sparams": ["S11", "S21"]}
+    "vna": {"f_min_hz": "TODO", "f_max_hz": "TODO", "points_max": "TODO"}
+  },
+  "commands": {
+    "vna.set_sweep": "TODO  (comando con segnaposto {f_start} {f_stop} {points})",
+    "vna.read_sparam": {"send": "TODO", "parse": "complex_lines"}
   }
 }
 ```
+
+Esempio di voce `driver` (Analog Discovery, schema indicativo):
+
+```json
+{
+  "id": "analog_discovery_2", "name": "Analog Discovery 2", "access": "driver",
+  "driver": "digilent_waveforms",
+  "requires": ["WaveForms runtime"],
+  "capabilities": {
+    "scope": {"channels": 2, "...": "da datasheet"},
+    "function_generator": {"channels": 2, "...": "da datasheet"}
+  }
+}
+```
+
+Limite del modello `commands`: se le risposte del LiteVNA sono **binarie** o richiedono
+un parsing non descrivibile con le regole standard (float, lista di float, righe di
+numeri complessi, blocco binario con header), serve un'estensione del formato di
+risposta, o in ultima istanza un piccolo driver. Si decide quando si vedono le risposte
+reali del dispositivo.
 
 I valori reali (VID/PID, range, punti) vanno presi dal dispositivo e dal manuale;
 qui sono segnaposto.
@@ -374,18 +403,20 @@ associano i ruoli delle misure. Ne seguono due regole:
 
 #### Impatto sul Rust
 
-- Il trasporto Rust è un servizio per i driver **a flusso di byte** (seriale del
-  LiteVNA, TCP/LXI): seriale e letture binarie sono nel perimetro dall'inizio.
-- I driver **che usano un SDK di terzi** (AD2/WaveForms) lo chiamano direttamente
-  (ctypes/binding Python) e non passano dal trasporto Rust: non c'è un flusso di byte
-  da gestire. Per questo `Transport` è una scelta del driver, non un obbligo.
+- Il trasporto Rust serve tutti gli strumenti `commands` (seriale del LiteVNA,
+  TCP/LXI, seriale del datalogger HP): seriale e letture binarie sono nel perimetro
+  dall'inizio.
+- I driver **che usano un SDK di terzi** (AD2/AD3, WaveForms) lo chiamano
+  direttamente (ctypes/binding Python) e non passano dal trasporto Rust: non c'è un
+  flusso di byte da gestire.
 
 #### Banco di prova
 
 Il piano usa i due strumenti reali dell'autore come validazione dell'architettura:
 
-1. **LiteVNA67** → primo `driver` e primo strumento `vna` (misura S-param).
-2. **Analog Discovery 2** → strumento composito: `scope` + `function_generator`
+1. **LiteVNA67** → primo strumento `vna` in modalità `commands` su seriale (valida
+   il formato delle risposte e il trasporto seriale).
+2. **Analog Discovery 2** (poi 3) → primo `driver`: strumento composito: `scope` + `function_generator`
    (+ `psu`/voltmetro) → permette di provare **Bode**, **ripple** e **transitorio**
    senza altro hardware.
 
@@ -453,11 +484,13 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
 - ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
 - ✅ `thermal_chamber` tolta dalle categorie.
-- ✅ Strumenti non SCPI: modalità `access: "driver"` con driver in Python (§7.1).
+- ✅ LiteVNA67: modalità `commands` su seriale, come gli strumenti attuali (§7.1).
+- ✅ AD2/AD3: categoria `driver` con runtime WaveForms obbligatorio.
+- ❓ **Progetto del sistema driver** (interfaccia, ciclo di vita della sessione,
+  rilevamento, installazione del runtime): da discutere.
 - ❓ **Dove vivono i driver**: proposta = codice nel repo OpenLab / cartella utente,
   libreria JSON solo dati. Da confermare.
-- ❓ **AD2**: richiede WaveForms (Digilent) installato sul PC; accettabile?
-- ❓ **LiteVNA67**: protocollo, VID/PID e specifiche reali da rilevare sul dispositivo.
+- ❓ **LiteVNA67**: l'autore invierà VID/PID, protocollo e specifiche (in arrivo).
 - ❓ **Modello dei dispositivi compositi** nel `.inst` e nella libreria (§7.1).
 - ❓ **Verbi generici** per ogni categoria (§7): da definire insieme alla libreria,
   partendo dalle categorie esistenti.
