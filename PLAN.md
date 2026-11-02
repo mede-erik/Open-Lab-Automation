@@ -1,6 +1,6 @@
 # PLAN – Open Lab Automation come piattaforma di misura generica
 
-Stato: **bozza** (2026-11-01). I punti marcati ❓ sono ancora da decidere.
+Stato: **bozza** (2026-11-02). I punti marcati ❓ sono ancora da decidere.
 
 ## 1. Obiettivo
 
@@ -21,7 +21,7 @@ Decisioni già prese:
 - Architettura modulare: moduli base integrati + moduli utente.
 - **Un'estensione file per ogni tipo di misura** (facile da riconoscere, copiare, eliminare).
 - **Latenza minima**: valutata con un benchmark (vedi §4); orchestrazione in Python,
-  strato nativo (Rust) per trasporto e sequenze critiche.
+  strato nativo (Rust) per il trasporto.
 - **I moduli non parlano mai SCPI**: chiedono azioni a uno strumento generico
   ("alimentatore → 20 V, ON") e il software le traduce nei comandi corretti,
   con controllo dei limiti (§5).
@@ -88,24 +88,49 @@ Conclusioni:
    esistono nel backend, e i comandi SCPI del sweep sono hardcoded invece di venire
    dalla libreria. Lo stato è globale e non thread-safe.
 
-### 4.2 Scelta: ibrido Python + Rust (❓ conferma)
+### 4.2 Scelta: ibrido Python + Rust (✅ deciso)
 
 | Livello | Linguaggio | Compito |
 |---|---|---|
 | Moduli di misura, runner, UI | Python | Logica della misura, nessun vincolo di tempo stretto |
 | Strumento generico + traduzione SCPI + limiti | Python (prima versione) | Guidato dalla libreria, facile da estendere |
 | Trasporto (TCP/LXI, poi USB, seriale, GPIB/VISA) | **Rust** | `TCP_NODELAY`, un solo write, letture bufferizzate, timeout, thread-safe |
-| Esecutore di sequenze | **Rust**, solo se i benchmark lo richiedono | Sequenza compilata (set → attesa → misura…) eseguita in un thread nativo senza GIL |
+| Esecutore di sequenze | **Rust**, *non previsto* (vedi §4.3) | Sequenza compilata eseguita in un thread nativo senza GIL; da riconsiderare solo se emerge un caso reale |
 
 Perché Rust invece di C: il codice C esistente è poco (≈430 righe) e va comunque
 riscritto; Rust dà sicurezza di memoria e thread, crate pronte per seriale/USB, e
 wheel precompilate (maturin/PyO3) che evitano all'utente di installare un compilatore
 (oggi serve `gcc`). Costo: i contributori devono saper leggere Rust.
-Alternativa se non va bene: lo stesso schema in C, correggendo il trasporto.
+Il backend C esistente verrà sostituito dal trasporto Rust (`backend/` rimosso a
+migrazione finita); fino ad allora resta in uso.
 
 Fino a quando il livello nativo non c'è, il trasporto può essere Python (`socket`
 con `TCP_NODELAY`, o `pyvisa` per USB/GPIB). L'interfaccia `Transport` è unica, quindi
 la sostituzione è trasparente per i moduli.
+
+### 4.3 Caso critico: test a impulsi di carico
+
+L'unico caso con timing stretto, per ora, è il test di impulsi/step di carico
+(modulo transitorio, `.ltr`, e Pulse Generator). Ragionamento:
+
+- L'impulso **non lo genera l'host**: il carico elettronico lo produce internamente
+  (modo dinamico: livelli, frequenza, duty, rise/fall). L'host non deve commutare
+  nulla a tempo, quindi il jitter di Python non incide sulla forma dell'impulso.
+- Il timing che conta è tra **carico e scope**. Si ottiene con il trigger
+  dell'oscilloscopio sul fronte (tensione di uscita, sonda di corrente o uscita di
+  trigger del carico), non con la sincronizzazione software.
+- All'host resta solo l'**ordine delle operazioni**, che tollera latenze di ms:
+  configura carico (dinamico, ancora spento) → configura e arma lo scope →
+  attendi "armato" → abilita il carico → attendi l'acquisizione → leggi la forma
+  d'onda.
+- Per un singolo step (non periodico) il metodo è lo stesso: scope in
+  single-shot armato, poi step. Se il carico non ha un modo step/dinamico adatto,
+  è un limite dello strumento, da dichiarare nella libreria come capability mancante
+  (e il modulo rifiuta la misura con un errore chiaro).
+
+Conclusione: **non serve un esecutore di sequenze nativo**. Il Rust si limita al
+trasporto (bassa latenza per query/waveform, thread-safe). Si riconsidera solo se
+un modulo futuro richiede davvero azioni software a tempo controllato.
 
 **Regola di sviluppo:** si ottimizza con i numeri. Si aggiunge un benchmark di
 latenza e jitter al repo (come quello sopra, più uno strumento simulato) e si porta
@@ -232,7 +257,7 @@ Priorità bassa / futuro:
 - **Frequenzimetro / contatore**.
 - **Matrice di relè / multiplexer** (più punti di misura con un solo strumento).
 
-### Categorie da aggiungere alla libreria (❓ da discutere)
+### Categorie da aggiungere alla libreria (✅ elenco approvato)
 
 Oggi: alimentatore, datalogger, oscilloscopio, carico elettronico. Proposta di nuove
 categorie, ciascuna con il proprio **insieme di azioni generiche** (i "verbi" che
@@ -248,7 +273,12 @@ i moduli useranno, mappati a SCPI nella libreria) e i propri **limiti** dichiara
 | `smu` | forza V/I, compliance, misura V/I, sweep | V/I/P max |
 | `thermal_chamber` | setpoint, rampa, lettura T | T min/max |
 
-Da valutare dopo: `lcr_meter`, `ac_source`, `frequency_counter`, `switch_matrix`.
+A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
+`ac_source`, `frequency_counter`, `switch_matrix`.
+
+**Per ora solo categorie, nessuno strumento nella libreria:** le categorie nascono
+vuote. Unica eccezione: un **VNA** reale (quello in possesso dell'autore), da usare
+come primo strumento di test della categoria `vna`.
 Per le categorie esistenti va fatto lo stesso lavoro: elencare i verbi generici che
 oggi sono sparsi in `RemoteControlTab` e in `sweep.c`.
 
@@ -294,9 +324,9 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - Strumento AWG nella libreria → Bode (con scope).
 - Transitorio di carico.
 
-**Fase 3b – Livello nativo (Rust)**
+**Fase 3b – Livello nativo (Rust)** *(può anticipare: è indipendente dai moduli)*
 - Trasporto in Rust (TCP, poi seriale/USB), esposto a Python via PyO3/maturin.
-- Esecutore di sequenze nativo solo se il benchmark lo giustifica.
+- Nessun esecutore di sequenze nativo (§4.3).
 
 **Fase 4 – Strumenti avanzati**
 - Spectrum analyzer, VNA, relative misure (6, 7).
@@ -309,14 +339,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 
 ## 10. Punti aperti
 
-- ❓ **Rust vs C** per lo strato nativo (raccomandato Rust, §4.2): confermare, tenendo
-  conto di chi contribuirà al codice.
-- ❓ **Categorie strumento**: confermare l'elenco e i verbi generici di §7.
+- ✅ Rust per lo strato nativo (trasporto).
+- ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
+- ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
+- ❓ **`thermal_chamber`**: tenere o togliere? (tenuta in tabella in attesa di conferma)
+- ❓ **Modello del VNA** posseduto, per scrivere la voce di libreria e i comandi.
+- ❓ **Verbi generici** per ogni categoria (§7): da definire insieme alla libreria,
+  partendo dalle categorie esistenti.
 - ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
-  le nuove categorie, i verbi e i limiti vanno definiti lì in coordinamento con questo repo.
+  le nuove categorie vanno create lì in coordinamento con questo repo.
 - ❓ **Moduli utente**: solo Python nella prima versione (proposta); API stabile
   (`api_version`) da congelare prima di documentarla.
 - ❓ **Lingue**: ogni modulo porta un proprio `lang/` opzionale (proposta).
-- ❓ **Sequenze critiche**: elenco dei casi in cui serve davvero timing stretto
-  (es. step di carico sincronizzato con acquisizione scope) per decidere se serve
-  l'esecutore nativo o bastano i trigger hardware.
