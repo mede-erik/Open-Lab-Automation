@@ -31,7 +31,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["frontend*"]
+include = ["frontend*", "ola*"]
 
 [tool.black]
 line-length = 100

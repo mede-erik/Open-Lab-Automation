@@ -478,6 +478,19 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - Confronto tra run, report, formule derivate.
 - Validazione dell'efficienza su hardware reale.
 
+## 9b. Stato di avanzamento
+
+- ✅ **Trasporto Rust** (`native/`): TCP (`TCP_NODELAY`), seriale, blocchi IEEE 488.2,
+  timeout con deadline, GIL rilasciato, errori `TRN-xxx`. 13 test Rust + 37 test Python.
+- ✅ **Livello Python** (`ola/`): `ola.transport` usa il modulo nativo o, se assente,
+  un'implementazione Python equivalente (stessa suite di test su entrambe).
+- ✅ **Benchmark** (`benchmarks/bench_transport.py`), mediana su loopback: backend C
+  attuale 44 ms; Python 55 µs; Rust 34 µs (p99 101 µs); trasferimento di 1 MB: Python
+  552 MB/s, Rust 2124 MB/s.
+- ⏳ Non ancora fatto: collegare `ola.transport` al resto dell'app (il backend C e
+  `c_backend.py` sono ancora in uso e non sono stati toccati), strato strumento
+  generico, strumenti simulati, pipeline Python → CI per le wheel.
+
 ## 10. Punti aperti
 
 - ✅ Rust per lo strato nativo (trasporto).
