@@ -24,7 +24,7 @@ def plan(*steps, call="test_call"):
     return {"call": call, "access": "scpi", "steps": list(steps)}
 
 
-# ---- steps ----------------------------------------------------------------------------
+# ---- steps -------------------------------------------------------------------------------------
 
 
 def test_step_validation():
@@ -55,7 +55,7 @@ def test_bad_plan_does_no_io():
     assert t.log == []  # validated up front: nothing was sent
 
 
-# ---- results ------------------------------------------------------------------------------
+# ---- results -----------------------------------------------------------------------------------
 
 
 def test_order_and_raw_results():
@@ -108,7 +108,7 @@ def test_plan_may_be_an_object():
     assert inst.run(p) == [7]
 
 
-# ---- failures and recovery --------------------------------------------------------------------
+# ---- failures and recovery ---------------------------------------------------------------------
 
 
 def test_step_failure_reports_index_and_cause():
@@ -168,7 +168,7 @@ def test_no_transport():
         Instrument("x").run(plan({"op": "write", "text": "A"}))
 
 
-# ---- concurrency -----------------------------------------------------------------------------
+# ---- concurrency -------------------------------------------------------------------------------
 
 
 def make_channel_instrument():
@@ -248,7 +248,7 @@ def test_already_cancelled_call_sends_nothing():
     assert t.log == []
 
 
-# ---- drivers --------------------------------------------------------------------------------------
+# ---- drivers -----------------------------------------------------------------------------------
 
 
 class FakeDriver:
@@ -294,7 +294,7 @@ def test_unknown_access_rejected():
         Instrument("x", SimTransport()).run({"call": "c", "access": "magic", "steps": []})
 
 
-# ---- error codes ----------------------------------------------------------------------------------
+# ---- error codes -------------------------------------------------------------------------------
 
 
 def test_trn_exceptions_have_a_code():
@@ -304,7 +304,7 @@ def test_trn_exceptions_have_a_code():
     assert TransportError("no prefix").code == "TRN-002"
 
 
-# ---- with the real transports --------------------------------------------------------------------------
+# ---- with the real transports ------------------------------------------------------------------
 
 IMPLS = [pytest.param(_pyconn.PyConnection, id="python")]
 if ola_native is not None:
