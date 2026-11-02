@@ -93,7 +93,7 @@ Conclusioni:
 | Livello | Linguaggio | Compito |
 |---|---|---|
 | Moduli di misura, runner, UI | Python | Logica della misura, nessun vincolo di tempo stretto |
-| Strumento generico + traduzione SCPI + limiti | Python (prima versione) | Guidato dalla libreria, facile da estendere |
+| Strumento generico + limiti; traduttore SCPI **o** driver (§7.1) | Python (prima versione) | Guidato dalla libreria, facile da estendere |
 | Trasporto (TCP/LXI, poi USB, seriale, GPIB/VISA) | **Rust** | `TCP_NODELAY`, un solo write, letture bufferizzate, timeout, thread-safe |
 | Esecutore di sequenze | **Rust**, *non previsto* (vedi §4.3) | Sequenza compilata eseguita in un thread nativo senza GIL; da riconsiderare solo se emerge un caso reale |
 
@@ -180,7 +180,8 @@ file direttamente.
 ### 5.3 Strumento generico, ruoli e capability (il punto chiave)
 
 **Il modulo non conosce SCPI né il modello.** Python (modulo) → API generica →
-OpenLab traduce in SCPI dalla libreria → trasporto:
+OpenLab traduce in SCPI dalla libreria **oppure passa la chiamata a un driver**
+(§7.1) → trasporto:
 
 ```python
 psu = ctx.instrument("psu")        # ruolo → strumento reale del .inst
@@ -198,7 +199,8 @@ Una misura non dice "usa il Keysight 34972A": dice "mi serve un *generatore
 di funzioni*, un *oscilloscopio*". L'utente associa i ruoli agli strumenti del
 `.inst`. Gli strumenti dichiarano le **capability** nella libreria (es.
 `awg`, `scope`, `dmm`, `psu`, `eload`, `spectrum`, `vna`, `power_meter`), con
-i comandi SCPI definiti dalla libreria, come già avviene oggi.
+i comandi SCPI definiti dalla libreria (come oggi) oppure, per gli strumenti
+proprietari, con un driver (§7.1).
 Così lo stesso modulo funziona con strumenti diversi e un nuovo strumento si
 aggiunge solo estendendo la libreria.
 
@@ -275,26 +277,118 @@ A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
 `ac_source`, `frequency_counter`, `switch_matrix`.
 
 **Per ora solo categorie, nessuno strumento nella libreria:** le categorie nascono
-vuote. Unica eccezione: il **LiteVNA** dell'autore (assunto LiteVNA64), primo
-strumento della categoria `vna`.
+vuote. Eccezioni, come banco di prova (§7.1): il **LiteVNA67** (categoria `vna`) e,
+in seguito, l'**Analog Discovery 2** (dispositivo composito).
 
-### 7.1 Conseguenza: il livello strumento non può assumere SCPI
+### 7.1 Strumenti "a driver" (proprietari): LiteVNA67, Analog Discovery 2
 
-Il LiteVNA è un VNA portatile in stile NanoVNA: si collega via **USB seriale**, non
-via LAN, e parla un **protocollo proprio** (shell testuale in stile NanoVNA e/o
-protocollo binario), non SCPI. (Da verificare sul manuale/firmware: non lo do per
-certo.) Quindi il livello strumento si divide in due parti indipendenti:
+Molti strumenti da hobbista non sono SCPI: il **LiteVNA67** (VNA USB portatile; per
+indicazione dell'autore stesso protocollo del LiteVNA64) e l'**Analog Discovery 2**
+(Digilent; si pilota con la libreria **WaveForms SDK**, non con comandi testuali).
+Questi strumenti sono un target primario del progetto, non un'eccezione. Il piano
+introduce quindi una seconda modalità di accesso, accanto a SCPI.
 
-| Parte | Esempi |
-|---|---|
-| **Transport** | TCP/LXI, seriale/USB-CDC, (poi) VISA/GPIB |
-| **Protocol** | `scpi` (la maggior parte degli strumenti), `nanovna` (LiteVNA), eventuali altri |
+> Da verificare sul campo: protocollo reale del LiteVNA67 (shell testuale e/o
+> binario) e funzioni esatte dell'SDK dell'AD2. Non li do per certi.
 
-La libreria dichiara per ogni strumento transport + protocol e mappa i **verbi
-generici** (es. `vna.set_sweep(f_start, f_stop, points)`, `vna.read_sparam("S21")`)
-sul protocollo giusto: stringhe SCPI per gli uni, comandi shell/binari per l'altro.
-I moduli restano identici. Impatto sul Rust: il crate dovrà gestire anche la seriale
-(prima di quanto previsto) e le letture binarie.
+#### Due modalità di accesso
+
+| `access` | Chi sa parlare con lo strumento | Cosa descrive la libreria |
+|---|---|---|
+| `scpi` | Traduttore generico di OpenLab | Tabella verbo → stringa SCPI, trasporto, limiti |
+| `driver` | **Un driver** (codice, uno per famiglia di strumenti) | Identità, capability, limiti, come trovarlo, **nome del driver** |
+
+Il punto chiave: **in entrambi i casi il modulo di misura vede la stessa interfaccia**.
+Il traduttore SCPI e i driver implementano gli stessi contratti per categoria
+(`PowerSupply`, `Scope`, `FunctionGenerator`, `Vna`, …):
+
+```python
+class Vna(Protocol):                       # contratto della categoria "vna"
+    def set_sweep(self, f_start, f_stop, points, ifbw=None, power_dbm=None): ...
+    def read_sparam(self, name: str) -> ComplexTrace: ...   # "S11", "S21", ...
+```
+
+Il traduttore SCPI genera stringhe; il driver del LiteVNA parla il suo protocollo;
+il driver dell'AD2 chiama l'SDK. Il modulo scrive `vna.read_sparam("S21")` e basta.
+
+#### Dove vive cosa
+
+- **Libreria (JSON, solo dati, nessun codice):** identità, categorie/capability,
+  limiti dichiarati, regole di rilevamento (VID/PID USB, nome porta) e, per `driver`,
+  l'**id del driver**. Un repo di dati non deve poter eseguire codice sul PC
+  dell'utente.
+- **Driver (codice Python):** in questo repo (`frontend/drivers/`, integrati) o in
+  una cartella utente. Usano lo **stesso meccanismo dei moduli di misura**
+  (manifest, `api_version`, registro, avviso per codice di terzi): il sistema ha due
+  tipi di modulo, *measurement* e *driver*.
+- Se la libreria cita un driver non installato, lo strumento compare come **non
+  supportato** con un messaggio chiaro, non come errore a runtime.
+
+Esempio di voce di libreria (schema indicativo):
+
+```json
+{
+  "id": "litevna_67", "name": "LiteVNA67", "access": "driver",
+  "driver": "litevna",
+  "connection": {"transport": "serial", "usb": {"vid": "TODO", "pid": "TODO"}},
+  "capabilities": {
+    "vna": {"f_min_hz": "TODO", "f_max_hz": "TODO", "points_max": "TODO",
+            "power_dbm_max": "TODO", "sparams": ["S11", "S21"]}
+  }
+}
+```
+
+I valori reali (VID/PID, range, punti) vanno presi dal dispositivo e dal manuale;
+qui sono segnaposto.
+
+#### Strumenti compositi: un dispositivo, più strumenti logici
+
+L'AD2 è oscilloscopio a 2 canali, generatore di forme d'onda a 2 canali,
+alimentazioni ±, voltmetro, I/O digitali, analizzatore logico, analizzatore di
+impedenza… in **un solo dispositivo USB**. La libreria oggi ha "un tipo per modello":
+va esteso a **più capability per modello**. Nel `.inst` il dispositivo si inserisce
+una volta e **espone strumenti logici** (`ad2.scope`, `ad2.awg`, `ad2.psu`, …) a cui si
+associano i ruoli delle misure. Ne seguono due regole:
+
+- **Sessione condivisa:** il dispositivo si apre una volta sola e tutti gli strumenti
+  logici la condividono, con un lock (un dispositivo = un handle, una sola misura
+  alla volta lo usa).
+- **Sincronizzazione hardware:** l'AD2 può avviare scope e generatore insieme
+  (trigger incrociati). Le capability espongono opzioni come
+  `scope.trigger_source = "awg"`, usate da moduli come Bode e transitorio; per
+  strumenti separati si usa il trigger esterno. Questo risolve in hardware il
+  problema di timing dei test a impulsi (§4.3).
+
+#### Cosa resta uguale (e viene garantito sopra il driver)
+
+- **Limiti:** il controllo (es. tensione > massimo dichiarato) sta nello **strato
+  strumento generico, sopra** i driver. Un driver non può saltarlo, quindi la
+  sicurezza è identica per SCPI e per driver.
+- **Errori:** i driver sollevano gli errori standard `[INST-xxx]`; dipendenza
+  mancante (es. WaveForms non installato, porta seriale occupata) = errore
+  esplicito con istruzioni.
+- **Rilevamento automatico:** per i dispositivi USB l'`Add instrument` può elencare
+  quelli collegati (VID/PID, WaveForms `enumerate`) invece di far scrivere un indirizzo.
+- **Simulazione:** ogni contratto ha un'implementazione simulata per sviluppare e
+  testare senza hardware (già prevista in Fase 0).
+
+#### Impatto sul Rust
+
+- Il trasporto Rust è un servizio per i driver **a flusso di byte** (seriale del
+  LiteVNA, TCP/LXI): seriale e letture binarie sono nel perimetro dall'inizio.
+- I driver **che usano un SDK di terzi** (AD2/WaveForms) lo chiamano direttamente
+  (ctypes/binding Python) e non passano dal trasporto Rust: non c'è un flusso di byte
+  da gestire. Per questo `Transport` è una scelta del driver, non un obbligo.
+
+#### Banco di prova
+
+Il piano usa i due strumenti reali dell'autore come validazione dell'architettura:
+
+1. **LiteVNA67** → primo `driver` e primo strumento `vna` (misura S-param).
+2. **Analog Discovery 2** → strumento composito: `scope` + `function_generator`
+   (+ `psu`/voltmetro) → permette di provare **Bode**, **ripple** e **transitorio**
+   senza altro hardware.
+
 Per le categorie esistenti va fatto lo stesso lavoro: elencare i verbi generici che
 oggi sono sparsi in `RemoteControlTab` e in `sweep.c`.
 
@@ -359,7 +453,12 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
 - ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
 - ✅ `thermal_chamber` tolta dalle categorie.
-- ❓ **LiteVNA**: confermare il modello (assunto LiteVNA64) e il protocollo (§7.1).
+- ✅ Strumenti non SCPI: modalità `access: "driver"` con driver in Python (§7.1).
+- ❓ **Dove vivono i driver**: proposta = codice nel repo OpenLab / cartella utente,
+  libreria JSON solo dati. Da confermare.
+- ❓ **AD2**: richiede WaveForms (Digilent) installato sul PC; accettabile?
+- ❓ **LiteVNA67**: protocollo, VID/PID e specifiche reali da rilevare sul dispositivo.
+- ❓ **Modello dei dispositivi compositi** nel `.inst` e nella libreria (§7.1).
 - ❓ **Verbi generici** per ogni categoria (§7): da definire insieme alla libreria,
   partendo dalle categorie esistenti.
 - ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
