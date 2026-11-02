@@ -318,5 +318,9 @@
   "manual_output_off_prompt": "Disabilitare l'uscita su '{instrument}' - Canale '{channel}'",
   "manual_instrument_title": "Strumento Manuale",
   "manual_action_confirmed": "Azione confermata. Si presuppone che il valore sia stato impostato.",
-  "manual_action_cancelled": "Azione annullata dall'utente."
+  "manual_action_cancelled": "Azione annullata dall'utente.",
+  "hex_label": "Hex:",
+  "dec_label": "Dec:",
+  "bin_label": "Bin:",
+  "converter_invalid_value": "Valore non valido"
 }

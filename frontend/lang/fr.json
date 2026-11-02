@@ -317,5 +317,9 @@
   "manual_output_off_prompt": "Désactiver la sortie sur '{instrument}' - Canal '{channel}'",
   "manual_instrument_title": "Instrument Manuel",
   "manual_action_confirmed": "Action confirmée. Il est supposé que la valeur a été définie.",
-  "manual_action_cancelled": "Action annulée par l'utilisateur."
+  "manual_action_cancelled": "Action annulée par l'utilisateur.",
+  "hex_label": "Hex :",
+  "dec_label": "Déc :",
+  "bin_label": "Bin :",
+  "converter_invalid_value": "Valeur invalide"
 }

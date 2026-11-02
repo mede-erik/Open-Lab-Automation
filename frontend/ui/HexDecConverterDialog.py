@@ -1,3 +1,4 @@
+from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QLabel
 from frontend.core.Translator import Translator
 
@@ -36,7 +37,7 @@ class HexDecConverterDialog(QDialog):
 
     def __init__(self, parent=None, translator=None):
         super().__init__(parent)
-        self.translator = translator or getattr(parent, 'translator', None) or Translator()
+        self.translator = translator or getattr(parent, 'translator', None) or self._default_translator()
         title = self.translator.t('hex_dec_converter')
         self.setWindowTitle(title if title != 'hex_dec_converter' else "Hex/Dec Converter")
         self.setMinimumWidth(400)
@@ -44,6 +45,11 @@ class HexDecConverterDialog(QDialog):
 
         self.layout = QVBoxLayout(self)
         self.init_ui()
+
+    @staticmethod
+    def _default_translator():
+        lang = QSettings('LabAutomation', 'App').value('language', 'en')
+        return Translator(default_lang=str(lang))
 
     def init_ui(self):
         form = QFormLayout()
@@ -53,9 +59,9 @@ class HexDecConverterDialog(QDialog):
         self.dec_edit.setPlaceholderText("255")
         self.bin_edit = QLineEdit()
         self.bin_edit.setPlaceholderText("0b11111111")
-        form.addRow("Hex:", self.hex_edit)
-        form.addRow("Dec:", self.dec_edit)
-        form.addRow("Bin:", self.bin_edit)
+        form.addRow(self.translator.t("hex_label"), self.hex_edit)
+        form.addRow(self.translator.t("dec_label"), self.dec_edit)
+        form.addRow(self.translator.t("bin_label"), self.bin_edit)
         self.layout.addLayout(form)
 
         self.status_label = QLabel("")
@@ -90,7 +96,7 @@ class HexDecConverterDialog(QDialog):
             try:
                 value = parse_int(text, base)
             except ValueError:
-                self.status_label.setText("Valore non valido")
+                self.status_label.setText(self.translator.t("converter_invalid_value"))
                 for f in fields.values():
                     if f is not source:
                         f.clear()
