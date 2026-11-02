@@ -172,6 +172,9 @@ class Shell:
 
     def serial_settings_dialog(self, model_id):
         cfg = {**self.library.serial_settings(model_id), **self.serial_override}
+        for itf in tester.interfaces(self.library, model_id):
+            if itf["type"] == "SERIAL" and itf["notes"]:
+                self.say(f"note: {itf['notes']}")
         self.say(f"serial settings from the library: {cfg or 'none'}")
         self.say("they must match the instrument's front-panel RS-232 menu.")
         text = self.ask("override (e.g. baud=19200 flow_control=dtr_dsr), Enter to keep: ").strip()
