@@ -23,13 +23,32 @@ SCHEMA = {
     },
     "calls": {
         "reset": {"requirement": "mandatory", "kind": "action"},
-        "set_scale": {"requirement": "mandatory", "kind": "set",
-                      "args": {"channel_number": {"type": "int", "min": 1, "max": 4}, "value": {"type": "float"}}},
-        "set_slope": {"requirement": "mandatory", "kind": "set", "args": {"slope": {"type": "slope"}}},
-        "set_state": {"requirement": "mandatory", "kind": "set",
-                      "args": {"channel_number": {"type": "int"}, "state": {"type": "bool"}}},
-        "set_level": {"requirement": "mandatory", "kind": "set",
-                      "args": {"value": {"type": "float"}, "channel_number": {"type": "int", "required": False}}},
+        "set_scale": {
+            "requirement": "mandatory",
+            "kind": "set",
+            "args": {
+                "channel_number": {"type": "int", "min": 1, "max": 4},
+                "value": {"type": "float"},
+            },
+        },
+        "set_slope": {
+            "requirement": "mandatory",
+            "kind": "set",
+            "args": {"slope": {"type": "slope"}},
+        },
+        "set_state": {
+            "requirement": "mandatory",
+            "kind": "set",
+            "args": {"channel_number": {"type": "int"}, "state": {"type": "bool"}},
+        },
+        "set_level": {
+            "requirement": "mandatory",
+            "kind": "set",
+            "args": {
+                "value": {"type": "float"},
+                "channel_number": {"type": "int", "required": False},
+            },
+        },
         "acquire_single": {"requirement": "mandatory", "kind": "action"},
         "query_status": {"requirement": "mandatory", "kind": "query", "result": {"type": "status"}},
         "query_two": {"requirement": "optional", "kind": "query", "result": {"type": "float"}},
@@ -41,27 +60,53 @@ SERIES = {
     "series_id": "S",
     "common_scpi_commands": {
         "reset": {"set": {"syntax": "*RST"}},
-        "set_scale": {"set": {"syntax": "CH{channel_number}:SCAL {value}"},
-                      "parameters": {"channel_number": {"type": "int"}, "value": {"type": "float"}}},
-        "set_slope": {"set": {"syntax": "SLOP {slope}"},
-                      "parameters": {"slope": {"type": "string", "map": {"RISE": "POS", "FALL": "NEG"}}}},
-        "set_state": {"set": {"syntax": "CH{channel_number}:DISP {state}"},
-                      "parameters": {"channel_number": {"type": "int"}, "state": {"type": "string"}}},
+        "set_scale": {
+            "set": {"syntax": "CH{channel_number}:SCAL {value}"},
+            "parameters": {"channel_number": {"type": "int"}, "value": {"type": "float"}},
+        },
+        "set_slope": {
+            "set": {"syntax": "SLOP {slope}"},
+            "parameters": {"slope": {"type": "string", "map": {"RISE": "POS", "FALL": "NEG"}}},
+        },
+        "set_state": {
+            "set": {"syntax": "CH{channel_number}:DISP {state}"},
+            "parameters": {"channel_number": {"type": "int"}, "state": {"type": "string"}},
+        },
         "set_level": {"set": {"syntax": "LEV {value}"}, "parameters": {"value": {"type": "float"}}},
-        "acquire_single": {"set": {"steps": [
-            {"op": "write", "text": "ACQ:STOPAFTER SEQ"},
-            {"op": "write", "text": "ACQ:STATE RUN"},
-        ]}},
-        "query_status": {"query": {"syntax": "TRIG:STATE?", "return_type": "string",
-                                   "response_map": {"ARM": "ARMED", "TRIG'D": "TRIGGERED"}}},
-        "query_two": {"query": {"syntax": "READ?", "return_type": "float", "split": ",", "index": 1}},
-        "query_on": {"query": {"syntax": "ON?", "return_type": "int",
-                               "bool": {"true": ["1"], "false": ["0"]}}},
+        "acquire_single": {
+            "set": {
+                "steps": [
+                    {"op": "write", "text": "ACQ:STOPAFTER SEQ"},
+                    {"op": "write", "text": "ACQ:STATE RUN"},
+                ]
+            }
+        },
+        "query_status": {
+            "query": {
+                "syntax": "TRIG:STATE?",
+                "return_type": "string",
+                "response_map": {"ARM": "ARMED", "TRIG'D": "TRIGGERED"},
+            }
+        },
+        "query_two": {
+            "query": {"syntax": "READ?", "return_type": "float", "split": ",", "index": 1}
+        },
+        "query_on": {
+            "query": {
+                "syntax": "ON?",
+                "return_type": "int",
+                "bool": {"true": ["1"], "false": ["0"]},
+            }
+        },
     },
     "models": [
         {"id": "M1"},
         {"id": "M2", "scpi_commands": {"reset": None}},
-        {"id": "M3", "access": "driver", "scpi_commands": {"reset": {"driver": {"function": "do_reset"}}}},
+        {
+            "id": "M3",
+            "access": "driver",
+            "scpi_commands": {"reset": {"driver": {"function": "do_reset"}}},
+        },
     ],
 }
 
@@ -90,8 +135,14 @@ def test_map_and_unmapped_value(lib):
 
 
 def test_bool_default_on_off(lib):
-    assert plan_call(lib, "M1", "set_state", {"channel_number": 1, "state": True}).steps[0]["text"] == "CH1:DISP ON"
-    assert plan_call(lib, "M1", "set_state", {"channel_number": 1, "state": "off"}).steps[0]["text"] == "CH1:DISP OFF"
+    assert (
+        plan_call(lib, "M1", "set_state", {"channel_number": 1, "state": True}).steps[0]["text"]
+        == "CH1:DISP ON"
+    )
+    assert (
+        plan_call(lib, "M1", "set_state", {"channel_number": 1, "state": "off"}).steps[0]["text"]
+        == "CH1:DISP OFF"
+    )
 
 
 def test_optional_argument_ignored_when_unused(lib):
@@ -100,8 +151,12 @@ def test_optional_argument_ignored_when_unused(lib):
 
 
 def test_invalid_arguments(lib):
-    for args in ({"channel_number": 9, "value": 1}, {"channel_number": "x", "value": 1},
-                 {"value": 1}, {"channel_number": 1, "value": 1, "bogus": 1}):
+    for args in (
+        {"channel_number": 9, "value": 1},
+        {"channel_number": "x", "value": 1},
+        {"value": 1},
+        {"channel_number": 1, "value": 1, "bogus": 1},
+    ):
         with pytest.raises(InvalidArgumentError) as e:
             plan_call(lib, "M1", "set_scale", args)
         assert e.value.code == "CALL-003"
@@ -140,39 +195,94 @@ def test_interpret_split_and_bool(lib):
         q.interpret(["maybe"])
 
 
-REAL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Instruments_LIB", "instruments_lib.json")
-REAL_ALT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "Instruments_LIB", "instruments_lib.json")
+REAL = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "Instruments_LIB",
+    "instruments_lib.json",
+)
+REAL_ALT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "Instruments_LIB",
+    "instruments_lib.json",
+)
 
 
-@pytest.mark.skipif(not (os.path.isfile(REAL) or os.path.isfile(REAL_ALT)), reason="library not available")
+@pytest.mark.skipif(
+    not (os.path.isfile(REAL) or os.path.isfile(REAL_ALT)), reason="library not available"
+)
 def test_real_library_oscilloscopes():
     lib = Library.load(REAL if os.path.isfile(REAL) else REAL_ALT)
-    assert plan_call(lib, "OSC_Siglent_SDS824X_HD", "set_channel_scale",
-                     {"channel_number": 1, "value": 0.5}).steps[0]["text"] == ":CHANnel1:SCALe 0.5"
-    assert plan_call(lib, "OSC_Siglent_SDS824X_HD", "force_trigger").steps[0]["text"] == ":TRIGger:MODE FTRIG"
-    assert plan_call(lib, "OSC_Tek_MSO54", "set_trigger_level",
-                     {"value": 0.1, "channel_number": 2}).steps[0]["text"] == "TRIGger:A:LEVel:CH2 0.1"
+    assert (
+        plan_call(
+            lib, "OSC_Siglent_SDS824X_HD", "set_channel_scale", {"channel_number": 1, "value": 0.5}
+        ).steps[0]["text"]
+        == ":CHANnel1:SCALe 0.5"
+    )
+    assert (
+        plan_call(lib, "OSC_Siglent_SDS824X_HD", "force_trigger").steps[0]["text"]
+        == ":TRIGger:MODE FTRIG"
+    )
+    assert (
+        plan_call(
+            lib, "OSC_Tek_MSO54", "set_trigger_level", {"value": 0.1, "channel_number": 2}
+        ).steps[0]["text"]
+        == "TRIGger:A:LEVel:CH2 0.1"
+    )
     with pytest.raises(CallNotSupportedError):
         plan_call(lib, "OSC_Siglent_SDS824X_HD", "query_waveform_all")
 
 
 def _lib_with(commands):
     series = {"series_id": "S", "common_scpi_commands": commands, "models": [{"id": "M"}]}
-    schema = {"schema_version": 1, "category": "c", "types": {"bool": {"kind": "bool"}, "fmt": {"kind": "enum", "values": ["BYTE", "WORD", "ASCII"]}},
-              "calls": {
-                  "set_bw": {"requirement": "optional", "kind": "set", "args": {"bandwidth": {"type": "float", "min": 0}}},
-                  "set_fmt": {"requirement": "optional", "kind": "set", "args": {"format_type": {"type": "fmt"}}},
-                  "set_depth": {"requirement": "optional", "kind": "set", "args": {"depth": {"type": "int"}}}}}
+    schema = {
+        "schema_version": 1,
+        "category": "c",
+        "types": {
+            "bool": {"kind": "bool"},
+            "fmt": {"kind": "enum", "values": ["BYTE", "WORD", "ASCII"]},
+        },
+        "calls": {
+            "set_bw": {
+                "requirement": "optional",
+                "kind": "set",
+                "args": {"bandwidth": {"type": "float", "min": 0}},
+            },
+            "set_fmt": {
+                "requirement": "optional",
+                "kind": "set",
+                "args": {"format_type": {"type": "fmt"}},
+            },
+            "set_depth": {
+                "requirement": "optional",
+                "kind": "set",
+                "args": {"depth": {"type": "int"}},
+            },
+        },
+    }
     return Library({"c": [series]}, {"c": schema})
 
 
 def test_numeric_map_keys_and_map_default():
-    lib = _lib_with({
-        "set_bw": {"set": {"syntax": "BW {bandwidth}"},
-                   "parameters": {"bandwidth": {"type": "string", "map": {"0": "FULL", "20000000": "20M"}, "map_default": "pass"}}},
-        "set_depth": {"set": {"syntax": "DEPTH {depth}"},
-                      "parameters": {"depth": {"type": "string", "map": {"10000": "10k", "1000000": "1M"}}}},
-    })
+    lib = _lib_with(
+        {
+            "set_bw": {
+                "set": {"syntax": "BW {bandwidth}"},
+                "parameters": {
+                    "bandwidth": {
+                        "type": "string",
+                        "map": {"0": "FULL", "20000000": "20M"},
+                        "map_default": "pass",
+                    }
+                },
+            },
+            "set_depth": {
+                "set": {"syntax": "DEPTH {depth}"},
+                "parameters": {
+                    "depth": {"type": "string", "map": {"10000": "10k", "1000000": "1M"}}
+                },
+            },
+        }
+    )
     assert plan_call(lib, "M", "set_bw", {"bandwidth": 0}).steps[0]["text"] == "BW FULL"
     assert plan_call(lib, "M", "set_bw", {"bandwidth": 2e7}).steps[0]["text"] == "BW 20M"
     assert plan_call(lib, "M", "set_bw", {"bandwidth": 5e6}).steps[0]["text"] == "BW 5000000"
@@ -182,13 +292,28 @@ def test_numeric_map_keys_and_map_default():
 
 
 def test_derived_parameters():
-    lib = _lib_with({
-        "set_fmt": {"set": {"steps": [
-            {"op": "write", "text": "DAT:ENC {encoding}"},
-            {"op": "write", "text": "DAT:WID {width}"}]},
-            "parameters": {"format_type": {"type": "string"},
-                           "encoding": {"from": "format_type", "map": {"BYTE": "RIB", "WORD": "RIB", "ASCII": "ASC"}},
-                           "width": {"from": "format_type", "map": {"BYTE": "1", "WORD": "2", "ASCII": "1"}}}},
-    })
+    lib = _lib_with(
+        {
+            "set_fmt": {
+                "set": {
+                    "steps": [
+                        {"op": "write", "text": "DAT:ENC {encoding}"},
+                        {"op": "write", "text": "DAT:WID {width}"},
+                    ]
+                },
+                "parameters": {
+                    "format_type": {"type": "string"},
+                    "encoding": {
+                        "from": "format_type",
+                        "map": {"BYTE": "RIB", "WORD": "RIB", "ASCII": "ASC"},
+                    },
+                    "width": {
+                        "from": "format_type",
+                        "map": {"BYTE": "1", "WORD": "2", "ASCII": "1"},
+                    },
+                },
+            },
+        }
+    )
     p = plan_call(lib, "M", "set_fmt", {"format_type": "word"})
     assert [s["text"] for s in p.steps] == ["DAT:ENC RIB", "DAT:WID 2"]

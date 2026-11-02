@@ -62,7 +62,9 @@ class Plan:
             i = resp.get("index", 0)
             if i >= len(parts):
                 raise ResponseNotRecognisedError(
-                    f"call '{self.call}': answer {value!r} has no element {i}", call=self.call, step_index=idx
+                    f"call '{self.call}': answer {value!r} has no element {i}",
+                    call=self.call,
+                    step_index=idx,
                 )
             value = parts[i].strip()
             value = _convert(value, resp.get("return_type", "string"), self.call, idx)
@@ -74,7 +76,8 @@ class Plan:
                 return False
             raise ResponseNotRecognisedError(
                 f"call '{self.call}': answer {value!r} is not a recognised boolean",
-                call=self.call, step_index=idx,
+                call=self.call,
+                step_index=idx,
             )
         if "response_map" in resp:
             table = resp["response_map"]
@@ -85,14 +88,17 @@ class Plan:
             if text.upper() in folded:
                 return folded[text.upper()]
             raise ResponseNotRecognisedError(
-                f"call '{self.call}': answer {value!r} is not in the response map of {self.model_id}",
-                call=self.call, step_index=idx,
+                f"call '{self.call}': answer {value!r} is not in the response map "
+                f"of {self.model_id}",
+                call=self.call,
+                step_index=idx,
             )
         if self.logical_values is not None and str(value).strip() not in self.logical_values:
             raise ResponseNotRecognisedError(
                 f"call '{self.call}': answer {value!r} is not one of {self.logical_values} "
                 f"(no response_map for {self.model_id})",
-                call=self.call, step_index=idx,
+                call=self.call,
+                step_index=idx,
             )
         return value
 
@@ -105,7 +111,10 @@ def _convert(value: Any, return_type: str, call: str, idx: int) -> Any:
             return float(str(value).strip())
     except ValueError as exc:
         raise ResponseNotRecognisedError(
-            f"call '{call}': cannot read {value!r} as {return_type}", call=call, step_index=idx, cause=exc
+            f"call '{call}': cannot read {value!r} as {return_type}",
+            call=call,
+            step_index=idx,
+            cause=exc,
         )
     return value
 
@@ -118,7 +127,9 @@ def _fmt_number(value: Any) -> str:
     return format(float(value), ".12g")
 
 
-def _logical_value(name: str, arg_spec: Dict[str, Any], value: Any, types: Dict[str, Any], call: str) -> Any:
+def _logical_value(
+    name: str, arg_spec: Dict[str, Any], value: Any, types: Dict[str, Any], call: str
+) -> Any:
     """Check and normalise one logical argument against its schema definition."""
     t = arg_spec["type"]
     kind = types.get(t, {}).get("kind")
@@ -151,7 +162,8 @@ def _logical_value(name: str, arg_spec: Dict[str, Any], value: Any, types: Dict[
             value = types[t].get("aliases", {}).get(value, value)
             if value not in types[t]["values"]:
                 raise InvalidArgumentError(
-                    f"argument '{name}' of '{call}': {value!r} is not one of {types[t]['values']}", call=call
+                    f"argument '{name}' of '{call}': {value!r} is not one of {types[t]['values']}",
+                    call=call,
                 )
     except (ValueError, TypeError) as exc:
         raise InvalidArgumentError(
@@ -159,14 +171,25 @@ def _logical_value(name: str, arg_spec: Dict[str, Any], value: Any, types: Dict[
         )
     if t in ("int", "float"):
         if "min" in arg_spec and value < arg_spec["min"]:
-            raise InvalidArgumentError(f"argument '{name}' of '{call}': {value} < minimum {arg_spec['min']}", call=call)
+            raise InvalidArgumentError(
+                f"argument '{name}' of '{call}': {value} < minimum {arg_spec['min']}", call=call
+            )
         if "max" in arg_spec and value > arg_spec["max"]:
-            raise InvalidArgumentError(f"argument '{name}' of '{call}': {value} > maximum {arg_spec['max']}", call=call)
+            raise InvalidArgumentError(
+                f"argument '{name}' of '{call}': {value} > maximum {arg_spec['max']}", call=call
+            )
     return value
 
 
-def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Dict[str, Any],
-             types: Dict[str, Any], model_id: str, call: str) -> str:
+def _to_text(
+    name: str,
+    value: Any,
+    arg_spec: Optional[Dict[str, Any]],
+    pdef: Dict[str, Any],
+    types: Dict[str, Any],
+    model_id: str,
+    call: str,
+) -> str:
     """Translate one logical value into the text the instrument expects."""
     t = (arg_spec or {}).get("type")
     kind = types.get(t, {}).get("kind")
@@ -177,7 +200,8 @@ def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Di
             return text
         if pdef.get("map_default") != "pass":
             raise ValueNotHandledError(
-                f"value {value!r} of argument '{name}' is not handled by model {model_id} (call '{call}')",
+                f"value {value!r} of argument '{name}' is not handled by model "
+                f"{model_id} (call '{call}')",
                 call=call,
             )
     if kind == "bool" or isinstance(value, bool):
@@ -185,7 +209,9 @@ def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Di
         allowed = pdef.get("values")
         if allowed and text not in allowed:
             raise ValueNotHandledError(
-                f"value {value!r} of argument '{name}' is not handled by model {model_id} (call '{call}')", call=call
+                f"value {value!r} of argument '{name}' is not handled by model "
+                f"{model_id} (call '{call}')",
+                call=call,
             )
         return text
     if isinstance(value, (int, float)):
@@ -196,7 +222,8 @@ def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Di
     if allowed and (kind == "enum" or t in (None, "string")):
         if text not in [str(v) for v in allowed]:
             raise ValueNotHandledError(
-                f"value {value!r} of argument '{name}' is not handled by model {model_id} (call '{call}'); "
+                f"value {value!r} of argument '{name}' is not handled by model "
+                f"{model_id} (call '{call}'); "
                 f"the library has no map and the model accepts {allowed}",
                 call=call,
             )
@@ -264,10 +291,15 @@ def plan_call(
     if spec is not None:
         schema_args = spec.get("args", {})
     else:
-        schema_args = {n: {"type": p.get("type", "string")} for n, p in (definition.get("parameters") or {}).items()}
+        schema_args = {
+            n: {"type": p.get("type", "string")}
+            for n, p in (definition.get("parameters") or {}).items()
+        }
     unknown = set(args) - set(schema_args)
     if unknown:
-        raise InvalidArgumentError(f"call '{call}': unknown argument(s) {sorted(unknown)}", call=call)
+        raise InvalidArgumentError(
+            f"call '{call}': unknown argument(s) {sorted(unknown)}", call=call
+        )
     logical: Dict[str, Any] = {}
     for name, aspec in schema_args.items():
         if name in args and args[name] is not None:
@@ -278,24 +310,35 @@ def plan_call(
     # ---- driver calls are delegated, with the logical (validated) arguments
     if "driver" in definition:
         return Plan(
-            call=call, model_id=model_id, access="driver",
+            call=call,
+            model_id=model_id,
+            access="driver",
             driver={"function": definition["driver"]["function"], "args": logical},
             result={"from_step": 0},
         )
     if access == "driver":
-        raise CallNotSupportedError(f"call '{call}' has no driver implementation in {model_id}", call=call)
+        raise CallNotSupportedError(
+            f"call '{call}' has no driver implementation in {model_id}", call=call
+        )
 
     # ---- choose the half
     kind = spec["kind"] if spec else None
-    half_name = "query" if (kind == "query" or readback or (spec is None and not definition.get("set"))) else "set"
+    half_name = (
+        "query"
+        if (kind == "query" or readback or (spec is None and not definition.get("set")))
+        else "set"
+    )
     half = definition.get(half_name)
     if not half:
-        raise CallNotSupportedError(f"call '{call}' has no {half_name} half in {model_id}", call=call)
+        raise CallNotSupportedError(
+            f"call '{call}' has no {half_name} half in {model_id}", call=call
+        )
 
     # ---- translate arguments into text
     pdefs = definition.get("parameters") or {}
     texts = {
-        n: _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call) for n, v in logical.items()
+        n: _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call)
+        for n, v in logical.items()
     }
     # derived parameters: one logical argument drives several placeholders of the library
     for dname, ddef in pdefs.items():
@@ -304,7 +347,8 @@ def plan_call(
             found, text = _lookup(ddef.get("map", {}), logical[src])
             if not found:
                 raise ValueNotHandledError(
-                    f"value {logical[src]!r} of argument '{src}' is not handled by model {model_id} "
+                    f"value {logical[src]!r} of argument '{src}' is not handled by model "
+                    f"{model_id} "
                     f"(call '{call}', placeholder '{dname}')",
                     call=call,
                 )
@@ -340,9 +384,14 @@ def plan_call(
     if result_spec and types.get(result_spec.get("type"), {}).get("kind") == "enum":
         logical_values = types[result_spec["type"]]["values"]
     return Plan(
-        call=call, model_id=model_id, access="scpi", steps=steps,
-        result={"from_step": from_step}, response=response,
-        logical_result=result_spec, logical_values=logical_values,
+        call=call,
+        model_id=model_id,
+        access="scpi",
+        steps=steps,
+        result={"from_step": from_step},
+        response=response,
+        logical_result=result_spec,
+        logical_values=logical_values,
     )
 
 
@@ -362,5 +411,7 @@ def _validated(step: Dict[str, Any], call: str) -> Dict[str, Any]:
     try:
         s = Step.from_dict(step)
     except (ValueError, TypeError) as exc:
-        raise InvalidArgumentError(f"call '{call}': invalid step in the library: {exc}", call=call, cause=exc)
+        raise InvalidArgumentError(
+            f"call '{call}': invalid step in the library: {exc}", call=call, cause=exc
+        )
     return {k: v for k, v in step.items() if v is not None} if s else step

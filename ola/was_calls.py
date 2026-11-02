@@ -55,7 +55,11 @@ def oscilloscope_calls_from_was(was_data: Dict[str, Any]) -> List[Call]:
         items = [(ch.get("channel_id", ""), ch) for ch in channels]
     for ch_ref, ch in items:
         if isinstance(ch, dict) and "channel_id" in ch:
-            ch = {"scale": ch.get("volt_per_div"), "offset": ch.get("offset"), "coupling": ch.get("coupling")}
+            ch = {
+                "scale": ch.get("volt_per_div"),
+                "offset": ch.get("offset"),
+                "coupling": ch.get("coupling"),
+            }
         number = extract_channel_number(ch_ref) if isinstance(ch_ref, str) else ch_ref
         scale = parse_voltage_value(ch.get("scale"))
         if scale is not None:
@@ -63,7 +67,12 @@ def oscilloscope_calls_from_was(was_data: Dict[str, Any]) -> List[Call]:
         if ch.get("offset") is not None:
             calls.append(("set_channel_offset", {"channel_number": number, "value": ch["offset"]}))
         if ch.get("coupling") is not None:
-            calls.append(("set_channel_coupling", {"channel_number": number, "coupling_type": ch["coupling"]}))
+            calls.append(
+                (
+                    "set_channel_coupling",
+                    {"channel_number": number, "coupling_type": ch["coupling"]},
+                )
+            )
 
     trigger = was_data.get("trigger", {})
     if trigger:
@@ -71,7 +80,9 @@ def oscilloscope_calls_from_was(was_data: Dict[str, Any]) -> List[Call]:
         if "source" in trigger and trigger_ch:
             calls.append(("set_trigger_source", {"channel_number": trigger_ch}))
         if "level" in trigger:
-            calls.append(("set_trigger_level", {"value": trigger["level"], "channel_number": trigger_ch}))
+            calls.append(
+                ("set_trigger_level", {"value": trigger["level"], "channel_number": trigger_ch})
+            )
         if "slope" in trigger:
             calls.append(("set_trigger_slope", {"slope": trigger["slope"]}))
         if "mode" in trigger:

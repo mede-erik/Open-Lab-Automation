@@ -184,7 +184,7 @@
   "reload_library_warning": "Strumento aggiunto ma errore nel ricaricamento:",
   "save_instrument_error": "Errore nel salvare lo strumento:",
   "error_loading_series": "Errore nel caricamento serie esistenti:",
-  "series_not_found": "Serie {series_id} non trovata",
+  "series_not_found": "Serie {series_id} no encontrada",
   "save_library_error": "Errore nel salvare nella libreria:",
   "power_supply_desc": "Dispositivi per fornire tensione e corrente controllate ai circuiti in test. Include alimentatori lineari, switching e programmabili.",
   "datalogger_desc": "Strumenti per l'acquisizione e registrazione automatica di dati da sensori multipli. Ideali per monitoraggio a lungo termine.",

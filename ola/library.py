@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 
 def deep_merge(base: Any, patch: Any) -> Any:
-    """Return a copy of ``base`` with ``patch`` merged in (dicts merge, anything else is replaced)."""
+    """Return a copy of ``base`` with ``patch`` merged in (dicts merge, others are replaced)."""
     if not isinstance(base, dict) or not isinstance(patch, dict):
         return copy.deepcopy(patch)
     merged = copy.deepcopy(base)
@@ -107,7 +107,9 @@ class Library:
             version = data.get("schema_version")
         else:
             categories, version = data, None
-        schema_dir = schema_dir or os.path.join(os.path.dirname(os.path.abspath(library_path)), "schema")
+        schema_dir = schema_dir or os.path.join(
+            os.path.dirname(os.path.abspath(library_path)), "schema"
+        )
         return cls(categories, load_schemas(schema_dir), version)
 
     def find_model(self, model_id: str) -> Optional[ModelRef]:

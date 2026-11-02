@@ -32,17 +32,29 @@ def test_helpers():
 
 def test_calls_from_was_order():
     names = [c for c, _ in oscilloscope_calls_from_was(WAS)]
-    assert names == ["reset", "set_timebase_scale", "set_channel_scale", "set_channel_offset",
-                     "set_channel_coupling", "set_trigger_source", "set_trigger_level",
-                     "set_trigger_slope", "set_trigger_mode", "auto_setup"]
+    assert names == [
+        "reset",
+        "set_timebase_scale",
+        "set_channel_scale",
+        "set_channel_offset",
+        "set_channel_coupling",
+        "set_trigger_source",
+        "set_trigger_level",
+        "set_trigger_slope",
+        "set_trigger_mode",
+        "auto_setup",
+    ]
 
 
 @pytest.mark.skipif(LIB is None, reason="library not available")
-@pytest.mark.parametrize("model,slope,mode", [
-    ("OSC_Siglent_SDS824X_HD", ":TRIGger:EDGE:SLOPe RISing", ":TRIGger:MODE NORMal"),
-    ("OSC_Rigol_DS1054Z", ":TRIGger:EDGe:SLOPe POSitive", ":TRIGger:SWEep NORMal"),
-    ("OSC_Tek_MSO54", "TRIGger:A:EDGE:SLOpe RISe", "TRIGger:A:MODE NORMal"),
-])
+@pytest.mark.parametrize(
+    "model,slope,mode",
+    [
+        ("OSC_Siglent_SDS824X_HD", ":TRIGger:EDGE:SLOPe RISing", ":TRIGger:MODE NORMal"),
+        ("OSC_Rigol_DS1054Z", ":TRIGger:EDGe:SLOPe POSitive", ":TRIGger:SWEep NORMal"),
+        ("OSC_Tek_MSO54", "TRIGger:A:EDGE:SLOpe RISe", "TRIGger:A:MODE NORMal"),
+    ],
+)
 def test_same_was_every_brand(model, slope, mode):
     lib = Library.load(LIB)
     texts = {}
@@ -56,17 +68,37 @@ def test_same_was_every_brand(model, slope, mode):
 def test_value_not_handled_per_model():
     lib = Library.load(LIB)
     with pytest.raises(ValueNotHandledError):
-        plan_call(lib, "OSC_Tek_MSO54", "set_channel_coupling", {"channel_number": 1, "coupling_type": "GND"})
-    assert plan_call(lib, "OSC_Siglent_SDS824X_HD", "set_channel_coupling",
-                     {"channel_number": 1, "coupling_type": "GND"}).steps[0]["text"] == ":CHANnel1:COUPling GND"
+        plan_call(
+            lib,
+            "OSC_Tek_MSO54",
+            "set_channel_coupling",
+            {"channel_number": 1, "coupling_type": "GND"},
+        )
+    assert (
+        plan_call(
+            lib,
+            "OSC_Siglent_SDS824X_HD",
+            "set_channel_coupling",
+            {"channel_number": 1, "coupling_type": "GND"},
+        ).steps[0]["text"]
+        == ":CHANnel1:COUPling GND"
+    )
 
 
 @pytest.mark.skipif(LIB is None, reason="library not available")
 def test_tektronix_multi_command_calls():
     lib = Library.load(LIB)
     assert [s["text"] for s in plan_call(lib, "OSC_Tek_MSO54", "acquire_single").steps] == [
-        "ACQuire:STOPAfter SEQuence", "ACQuire:STATE RUN"]
-    assert [s["text"] for s in plan_call(lib, "OSC_Tek_MSO54", "set_timebase_delay", {"value": 0.3}).steps] == [
-        "HORizontal:DELay:MODe ON", "HORizontal:DELay:TIMe 0.3"]
-    assert [s["text"] for s in plan_call(lib, "OSC_Tek_MSO54", "set_waveform_format", {"format_type": "BYTE"}).steps] == [
-        "DATa:ENCdg RIBinary", "DATa:WIDth 1"]
+        "ACQuire:STOPAfter SEQuence",
+        "ACQuire:STATE RUN",
+    ]
+    assert [
+        s["text"]
+        for s in plan_call(lib, "OSC_Tek_MSO54", "set_timebase_delay", {"value": 0.3}).steps
+    ] == ["HORizontal:DELay:MODe ON", "HORizontal:DELay:TIMe 0.3"]
+    assert [
+        s["text"]
+        for s in plan_call(
+            lib, "OSC_Tek_MSO54", "set_waveform_format", {"format_type": "BYTE"}
+        ).steps
+    ] == ["DATa:ENCdg RIBinary", "DATa:WIDth 1"]

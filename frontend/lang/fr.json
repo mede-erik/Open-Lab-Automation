@@ -202,7 +202,7 @@
   "series_group": "Série",
   "series_id": "ID de série",
   "series_name": "Nom de série",
-  "series_not_found": "Série non trouvée",
+  "series_not_found": "Série {series_id} non trouvée",
   "success": "Succès",
   "supported_interfaces": "Interfaces supportées",
   "temperature": "Température",

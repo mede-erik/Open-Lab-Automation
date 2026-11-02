@@ -4,7 +4,8 @@
 Examples:
     python3 scripts/dry_run_call.py --model OSC_Siglent_SDS824X_HD --call set_channel_scale \\
         --arg channel_number=1 --arg value=0.5
-    python3 scripts/dry_run_call.py --model OSC_Tek_MSO54 --call query_trigger_status --answer TRIGGER
+    python3 scripts/dry_run_call.py --model OSC_Tek_MSO54 \\
+        --call query_trigger_status --answer TRIGGER
     python3 scripts/dry_run_call.py --model OSC_Rigol_DS1054Z --was project.was
 
 The library is read from --library (default: Instruments_LIB/instruments_lib.json, or a sibling
@@ -28,8 +29,10 @@ from ola.was_calls import oscilloscope_calls_from_was  # noqa: E402
 
 
 def default_library():
-    for p in (os.path.join(ROOT, "Instruments_LIB", "instruments_lib.json"),
-              os.path.join(os.path.dirname(ROOT), "Instruments_LIB", "instruments_lib.json")):
+    for p in (
+        os.path.join(ROOT, "Instruments_LIB", "instruments_lib.json"),
+        os.path.join(os.path.dirname(ROOT), "Instruments_LIB", "instruments_lib.json"),
+    ):
         if os.path.isfile(p):
             return p
     return os.path.join(ROOT, "Instruments_LIB", "instruments_lib.json")
@@ -60,13 +63,17 @@ def run_call(library, model, call, args, answer):
         print(f"  {call:30} -> {exc}")
         return False
     sent = " ; ".join(sim.log) if sim.log else "(nothing)"
-    suffix = f"   answer {answer!r} -> {logical!r}" if plan.result.get("from_step") is not None else ""
+    suffix = (
+        f"   answer {answer!r} -> {logical!r}" if plan.result.get("from_step") is not None else ""
+    )
     print(f"  {call:30} -> {sent}{suffix}")
     return True
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--library", default=default_library())
     ap.add_argument("--model", required=True, help="model id, e.g. OSC_Siglent_SDS824X_HD")
     ap.add_argument("--call", help="logical call name")

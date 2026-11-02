@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 100
+extend-ignore = E203, W503
+exclude =
+    .git,
+    __pycache__,
+    native,
+    Instruments_LIB,
+    build,
+    dist,
+    *.egg-info
+per-file-ignores =
+    # Known problems of code that predates the CI (undefined names in unused/broken
+    # database code). Remove these lines when the functions are fixed.
+    frontend/core/DatabaseManager.py: F821
+    frontend/core/ProjectDatabaseManager.py: F821
