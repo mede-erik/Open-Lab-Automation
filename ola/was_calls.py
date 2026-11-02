@@ -88,5 +88,4 @@ def oscilloscope_calls_from_was(was_data: Dict[str, Any]) -> List[Call]:
         if "mode" in trigger:
             calls.append(("set_trigger_mode", {"mode": trigger["mode"]}))
 
-    calls.append(("auto_setup", {}))
     return calls

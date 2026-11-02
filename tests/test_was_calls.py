@@ -42,8 +42,8 @@ def test_calls_from_was_order():
         "set_trigger_level",
         "set_trigger_slope",
         "set_trigger_mode",
-        "auto_setup",
     ]
+    assert "auto_setup" not in names  # the instrument keeps exactly the settings of the file
 
 
 @pytest.mark.skipif(LIB is None, reason="library not available")
