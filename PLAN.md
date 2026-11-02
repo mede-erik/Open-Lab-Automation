@@ -549,6 +549,16 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   planner e risoluzione della libreria vivono in `ola/` (senza Qt); un solo trasporto;
   formato dei passi e del piano concordati; item 14 (export del piano) rimandato.
   L'ordine di merge dei due branch lo decide l'autore.
+- ✅ **Nucleo delle misure** (Fase 1, solo file nuovi in `ola/`, senza Qt):
+  `measurement.py` (classe `Measurement`, `MeasurementContext`, ruoli, eventi),
+  `runner.py` (thread: setup → run → teardown **sempre**; stop, pausa, errori con codice e
+  traceback; derivate; listener), `registry.py` (moduli da `module.json`: la scoperta **non
+  esegue codice**, il codice dei moduli non integrati si carica solo con permesso esplicito;
+  id ed estensione file unici), `project.py` (progetto con `measurements[]`, un file per
+  misura, nomi file sicuri), `runs.py` (risultati scritti durante la run, JSON Lines,
+  leggibili anche dopo un crash; export CSV), primo modulo `ola/modules/time_log`
+  (`.tlg`, campionamento senza deriva). Interfaccia verso gli strumenti: `handle.call(nome,
+  **argomenti)`, da collegare a libreria + planner + esecutore (lavoro dell'altra sessione).
 - ⏳ Non ancora fatto: collegare `ola.transport` al resto dell'app (il backend C e
   `c_backend.py` sono ancora in uso e non sono stati toccati), strato strumento
   generico, strumenti simulati, pipeline Python → CI per le wheel.
