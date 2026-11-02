@@ -1425,8 +1425,30 @@ class RemoteControlTab(QWidget):
             number = self._extract_channel_number(ch.get('channel_id'))
             if number is not None:
                 args['channel_number'] = number
+        self._set_remote_once(library, model_id, visa_addr, executor)
         plan = plan_call(library, model_id, call, args)
         return plan.interpret(executor.run(plan))
+
+    def _set_remote_once(self, library, model_id, visa_addr, executor):
+        """
+        Serial (RS-232) instruments ignore commands until they are put in remote mode
+        (HP E3631A, Keysight 34970A, ...): send the logical call 'set_remote' once per
+        connection. Models without that call, or errors, are skipped; the real call that
+        follows reports any problem.
+        """
+        if not str(visa_addr).upper().startswith('ASRL'):
+            return
+        done = self.__dict__.setdefault('_remote_sent', set())
+        if visa_addr in done:
+            return
+        done.add(visa_addr)
+        from ola.call_errors import CallError
+        from ola.call_planner import plan_call
+        try:
+            executor.run(plan_call(library, model_id, 'set_remote', {}))
+        except CallError as exc:
+            if self.logger:
+                self.logger.info(f"set_remote on {visa_addr} skipped: {exc}")
 
     def get_visa_instrument(self, inst):
         """
