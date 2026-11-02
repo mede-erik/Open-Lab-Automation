@@ -12,6 +12,8 @@ pyvisa>=1.16.2
 pyvisa-py>=0.8.1
 # Serial (RS-232 / USB-serial) ports for pyvisa-py
 pyserial>=3.5
+# Command history and Tab completion in scripts/instrument_shell.py on Windows
+pyreadline3>=3.4; sys_platform == "win32"
 
 # Scientific computing and data processing
 numpy>=2.5.1

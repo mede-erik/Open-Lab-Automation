@@ -24,6 +24,7 @@ Commands once connected (type 'help'):
     save FILE.csv [N]     save the last waveform to CSV, keeping 1 point in N (default 1)
     stats                 min, max, peak-to-peak, mean and RMS of the last waveform
     reconnect             open the connection again
+    (up / down arrows recall earlier commands, also from previous sessions; Tab completes)
     quit
 """
 
@@ -48,6 +49,52 @@ def default_library():
         if os.path.isfile(p):
             return p
     return os.path.join(ROOT, "Instruments_LIB", "instruments_lib.json")
+
+
+COMMANDS = (
+    "help calls missing call plan readback test serial raw probe loopback save stats "
+    "reconnect quit"
+).split()
+HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".ola_instrument_shell_history")
+HISTORY_LENGTH = 500
+
+
+def setup_line_editing(words_fn):
+    """Up/down arrows recall earlier commands (kept between sessions) and Tab completes command
+    and call names, like a terminal. Uses ``readline`` (Linux, macOS) or ``pyreadline3``
+    (Windows); without either the shell works as before."""
+    try:
+        import readline
+    except ImportError:
+        return False
+
+    try:
+        readline.set_history_length(HISTORY_LENGTH)
+        readline.read_history_file(HISTORY_FILE)
+    except (OSError, AttributeError):
+        pass  # no history file yet
+
+    def complete(text, state):
+        matches = [w for w in words_fn() if w.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    try:
+        readline.set_completer(complete)
+        readline.set_completer_delims(" \t\n")
+        readline.parse_and_bind("tab: complete")
+    except (AttributeError, OSError):
+        pass
+
+    import atexit
+
+    def save_history():
+        try:
+            readline.write_history_file(HISTORY_FILE)
+        except (OSError, AttributeError):
+            pass
+
+    atexit.register(save_history)
+    return True
 
 
 class Shell:
@@ -236,6 +283,16 @@ class Shell:
     def format_result(value):
         """Short text of a result: long data (waveforms) is summarised, not printed whole."""
         return "  done" if value is None else f"  result: {tester.summarise(value)}"
+
+    def completion_words(self):
+        """Words offered by Tab: the commands and, once a model is chosen, its call names."""
+        names = []
+        if self.model_id:
+            try:
+                names = [c["name"] for c in tester.model_calls(self.library, self.model_id)]
+            except Exception:  # completion must never break the shell
+                names = []
+        return COMMANDS + names
 
     def show_calls(self):
         for c in tester.model_calls(self.library, self.model_id):
@@ -464,7 +521,11 @@ def main():
     args = ap.parse_args()
     if not os.path.isfile(args.library):
         sys.exit(f"library not found: {args.library}")
-    Shell(Library.load(args.library), simulate=args.sim, source=os.path.abspath(args.library)).run()
+    shell = Shell(
+        Library.load(args.library), simulate=args.sim, source=os.path.abspath(args.library)
+    )
+    setup_line_editing(shell.completion_words)
+    shell.run()
 
 
 if __name__ == "__main__":
