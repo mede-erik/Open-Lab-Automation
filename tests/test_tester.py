@@ -257,3 +257,10 @@ def test_datalogger_self_test_has_a_long_timeout_and_monitor_data_is_a_list(libr
     assert plan.steps == [{"op": "query", "text": "*TST?", "returns": "int", "timeout_ms": 60000}]
     monitor = plan_call(library, "DL_Agilent_34970A", "query_monitor_data")
     assert monitor.interpret([""]) == [] and monitor.interpret(["+1.5E+00"]) == [1.5]
+
+
+def test_self_test_runs_fetch_readings_after_read_scan(library):
+    model = "DL_Agilent_34970A"
+    handle = tester.make_handle(library, model, tester.open_simulated("1.5"), model)
+    order = [r.call for r in tester.self_test(library, model, handle)]
+    assert order.index("fetch_readings") == order.index("read_scan") + 1

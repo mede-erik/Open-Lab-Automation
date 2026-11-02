@@ -270,6 +270,8 @@ def missing_mandatory(library: Library, model_id: str) -> List[str]:
 
 # queries that are long or may change the instrument state: only with include_writes
 HEAVY_CALLS = {"self_test"}
+# queries that need data produced by another call: they run after it
+RUN_AFTER = {"fetch_readings": "read_scan"}
 
 
 @dataclass
@@ -295,7 +297,15 @@ def self_test(
     set calls need their own value, so they are skipped. Returns one result per call.
     """
     results: List[TestResult] = []
-    for info in model_calls(library, model_id):
+    infos = model_calls(library, model_id)
+    names = [i["name"] for i in infos]
+    # a call that needs the data of another one goes right after it
+    ordered = [i for i in infos if RUN_AFTER.get(i["name"]) not in names]
+    for dependent, first in RUN_AFTER.items():
+        if first in names and dependent in names:
+            at = next(n for n, i in enumerate(ordered) if i["name"] == first)
+            ordered.insert(at + 1, next(i for i in infos if i["name"] == dependent))
+    for info in ordered:
         name, kind, args = info["name"], info["kind"], info["args"]
         call_args: Dict[str, Any] = {}
         unknown = []
