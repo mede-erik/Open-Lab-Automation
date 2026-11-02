@@ -21,13 +21,20 @@ SIGLENT_GRID = 10
 WAVEDESC_SIZE = 346
 
 
-def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str = "read_waveform"):
+def siglent_waveform(
+    descriptor: bytes,
+    data: bytes,
+    timebase: float,
+    first_index: int = 0,
+    call: str = "read_waveform",
+):
     """Siglent SDS waveform (``:WAVeform:PREamble?`` descriptor + ``:WAVeform:DATA?`` samples).
 
     Uses the formulas of the programming guide (BYTE format, signed 8-bit codes):
         voltage = code * (vertical_gain / code_per_div) - vertical_offset
         time    = delay - timebase * grid / 2 + index * sample_interval
-    ``timebase`` is the horizontal scale in s/div (queried with ``:TIMebase:SCALe?``).
+    ``timebase`` is the horizontal scale in s/div (queried with ``:TIMebase:SCALe?``);
+    ``first_index`` the index of the first transferred point (``:WAVeform:STARt?``).
     Returns a dict with ``time`` and ``voltage`` (arrays of floats) and the descriptor values.
     """
     descriptor, data = bytes(descriptor), bytes(data)
@@ -69,7 +76,9 @@ def siglent_waveform(descriptor: bytes, data: bytes, timebase: float, call: str 
         # a byte code is worth 256 times more than the descriptor says.
         code_per_div = code_per_div / 256.0
     scale = gain / code_per_div
-    start = delay - timebase * SIGLENT_GRID / 2.0
+    # ``first_index`` is the index of the first transferred point (:WAVeform:STARt) when the
+    # memory is read in blocks
+    start = delay - timebase * SIGLENT_GRID / 2.0 + int(first_index) * interval
     try:
         import numpy as np
 

@@ -71,6 +71,12 @@ def test_word_format_uses_the_16_bit_scale_as_is():
     assert wave["voltage"][1] == pytest.approx(2.967 + 128 * 0.5 / 7680, abs=1e-3)
 
 
+def test_block_transfer_shifts_the_time_axis():
+    first = siglent_waveform(descriptor(2), bytes([1, 2]), 2e-8)
+    second = siglent_waveform(descriptor(2), bytes([1, 2]), 2e-8, 1000)
+    assert second["time"][0] - first["time"][0] == pytest.approx(1000 * 2e-10, rel=1e-4)
+
+
 def test_extra_bytes_after_the_samples_are_ignored():
     wave = siglent_waveform(descriptor(2), bytes([1, 2, 10, 10]), 1e-3)
     assert wave["points"] == 2 and len(wave["voltage"]) == 2
@@ -91,15 +97,19 @@ def test_read_waveform_call_on_the_sds():
         ":TIMebase:SCALe?": "2.0E-08",
         ":WAVeform:PREamble?": desc,
         ":WAVeform:DATA?": bytes([(-11) & 0xFF, 0, 30]),
+        ":WAVeform:STARt?": "0",
     }
     sim = SimTransport(lambda cmd: answers.get(cmd))
     plan = plan_call(library, "OSC_Siglent_SDS824X_HD", "read_waveform", {"channel_number": 2})
     assert [s["text"] for s in plan.steps] == [
         ":WAVeform:SOURce C2",
         ":WAVeform:WIDTh BYTE",
+        ":WAVeform:STARt 0",
+        ":WAVeform:POINt 0",
         ":TIMebase:SCALe?",
         ":WAVeform:PREamble?",
         ":WAVeform:DATA?",
+        ":WAVeform:STARt?",
     ]
     wave = plan.interpret(Instrument("osc", sim).run(plan))
     assert wave["points"] == 3 and wave["voltage"][0] == pytest.approx(-18.1667, abs=1e-3)
