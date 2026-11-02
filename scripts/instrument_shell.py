@@ -298,7 +298,27 @@ class Shell:
             elif cmd in {c["name"] for c in tester.model_calls(self.library, self.model_id)}:
                 self.run_call(cmd, rest)  # a call name alone works like 'call NAME'
             else:
-                self.say("  unknown command (type 'help')")
+                import difflib
+
+                known = [
+                    "calls",
+                    "missing",
+                    "call",
+                    "plan",
+                    "readback",
+                    "test",
+                    "serial",
+                    "raw",
+                    "probe",
+                    "loopback",
+                    "reconnect",
+                    "help",
+                    "quit",
+                ]
+                known += [c["name"] for c in tester.model_calls(self.library, self.model_id)]
+                close = difflib.get_close_matches(cmd, known, n=3, cutoff=0.6)
+                hint = f" Did you mean: {', '.join(close)}?" if close else ""
+                self.say(f"  unknown command.{hint} (type 'help')")
         if self.connection is not None and hasattr(self.connection, "close"):
             self.connection.close()
 
