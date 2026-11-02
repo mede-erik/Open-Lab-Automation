@@ -131,6 +131,13 @@ class MeasurementContext:
     def stop_requested(self) -> bool:
         return self._stop.is_set()
 
+    @property
+    def cancel_event(self) -> threading.Event:
+        """Set when the user stops the run. The instrument handles are built with this event
+        (``InstrumentHandle(..., cancel=ctx.cancel_event)``) so a stop also interrupts a long
+        delay or wait inside an instrument call."""
+        return self._stop
+
     def checkpoint(self) -> None:
         """Call regularly: raises ``Stopped`` if the user stopped the run and blocks while the
         run is paused. No-op during teardown."""

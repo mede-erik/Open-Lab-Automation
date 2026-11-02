@@ -1,6 +1,7 @@
 """Runs a measurement in its own thread: setup -> run -> teardown (always), with stop/pause.
 
-    runner = Runner(measurement, {"psu": [handle]}, listeners=[RunWriter(...)])
+    cancel = threading.Event()                    # one per run, shared with the handles
+    runner = Runner(measurement, {"psu": [handle]}, listeners=[RunWriter(...)], stop_event=cancel)
     runner.start()          # validates, then returns; the work happens in a thread
     runner.pause(); runner.resume(); runner.stop()
     runner.join()
@@ -21,6 +22,7 @@ import uuid
 from enum import Enum
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
+from .instrument import Aborted
 from .measurement import (
     Event,
     InstrumentHandle,
@@ -56,6 +58,7 @@ class Runner:
         listeners: Sequence[Listener] = (),
         collect: bool = True,
         run_id: Optional[str] = None,
+        stop_event: Optional[threading.Event] = None,
     ):
         self.measurement = measurement
         self.roles = tuple(roles if roles is not None else measurement.roles)
@@ -70,7 +73,8 @@ class Runner:
         self._collect = collect
         self._lock = threading.RLock()
         self._state = RunState.IDLE
-        self._stop = threading.Event()
+        # May be created by the caller so instrument handles can share it (one per run).
+        self._stop = stop_event if stop_event is not None else threading.Event()
         self._resume = threading.Event()
         self._resume.set()
         self._thread: Optional[threading.Thread] = None
@@ -82,6 +86,11 @@ class Runner:
     @property
     def state(self) -> RunState:
         return self._state
+
+    @property
+    def stop_event(self) -> threading.Event:
+        """The event set by ``stop()``; pass it as ``cancel`` to the instrument handles."""
+        return self._stop
 
     def add_listener(self, listener: Listener) -> None:
         self._listeners.append(listener)
@@ -231,7 +240,7 @@ class Runner:
             self.measurement.run(ctx)
             if self._stop.is_set():
                 outcome = RunState.STOPPED
-        except Stopped:
+        except (Stopped, Aborted):  # Aborted: a stop interrupted an instrument call
             outcome = RunState.STOPPED
         except Exception as exc:
             outcome = RunState.FAILED

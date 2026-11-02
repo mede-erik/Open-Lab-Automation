@@ -324,3 +324,73 @@ def test_sleep_rejects_bad_values():
                 ctx.sleep(bad)
 
     assert run_to_end(Runner(Scripted(run), {})).state is RunState.FINISHED
+
+
+# ---- stop event shared with the instrument handles ----------------------------------------------
+
+
+def test_ctx_cancel_event_is_the_runner_stop_event():
+    seen = {}
+
+    def run(ctx):
+        seen["same"] = ctx.cancel_event is runner.stop_event
+
+    runner = Runner(Scripted(run), {})
+    run_to_end(runner)
+    assert seen == {"same": True}
+
+
+def test_external_stop_event_is_used():
+    cancel = threading.Event()
+    started = threading.Event()
+
+    def run(ctx):
+        started.set()
+        ctx.sleep(30)
+
+    runner = Runner(Scripted(run), {}, stop_event=cancel)
+    assert runner.stop_event is cancel
+    runner.start()
+    assert started.wait(2)
+    cancel.set()  # stopping through the shared event (not through runner.stop()) also works
+    assert runner.join(2) and runner.state is RunState.STOPPED
+
+
+def test_stop_interrupts_a_wait_inside_an_instrument_call():
+    """A real Instrument call with a long delay step, cancelled through the shared event:
+    the run ends STOPPED (not FAILED) and teardown still runs."""
+    from ola.instrument import Instrument
+    from ola.sim import SimTransport
+
+    cancel = threading.Event()
+    inst = Instrument("psu", SimTransport())
+    in_call = threading.Event()
+
+    class Handle:
+        name = "psu"
+
+        def call(self, name, **args):
+            in_call.set()
+            plan = {
+                "call": name,
+                "access": "scpi",
+                "steps": [
+                    {"op": "write", "text": "OUTP ON"},
+                    {"op": "delay", "ms": 30000},
+                    {"op": "write", "text": "NEVER"},
+                ],
+            }
+            return inst.run(plan, cancel=cancel)
+
+    m = Scripted(
+        lambda ctx: ctx.instrument("psu").call("settle"), roles=(Role("psu", "power_supply"),)
+    )
+    runner = Runner(m, {"psu": Handle()}, stop_event=cancel)
+    runner.start()
+    assert in_call.wait(2)
+    t = time.perf_counter()
+    runner.stop()
+    assert runner.join(2)
+    assert time.perf_counter() - t < 0.5
+    assert runner.state is RunState.STOPPED and runner.error is None
+    assert m.order[-1] == "teardown" and inst.transport.log == ["OUTP ON"]
