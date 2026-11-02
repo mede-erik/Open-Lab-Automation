@@ -7,8 +7,9 @@ self-test the library entries of one instrument. Nothing here talks to the GUI.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .call_errors import CallError
 from .call_planner import plan_call
@@ -130,6 +131,75 @@ def visa_diagnostics() -> str:
         except Exception as exc:
             lines.append(f"backend {label}: {type(exc).__name__}: {exc}")
     return "\n".join(lines)
+
+
+def serial_port_from_address(address: str) -> str:
+    """'ASRL/dev/ttyUSB1::INSTR' -> '/dev/ttyUSB1'; 'ASRL3::INSTR' -> 'COM3' on Windows."""
+    body = address.strip()
+    if body.upper().startswith("ASRL"):
+        body = body[4:].split("::")[0]
+    if body.isdigit():
+        return f"COM{body}" if os.name == "nt" else f"/dev/ttyS{max(int(body) - 1, 0)}"
+    return body
+
+
+@dataclass
+class ProbeResult:
+    baud: int
+    flow_control: str
+    parity: str
+    answer: str
+
+
+def probe_serial(
+    port: str,
+    command: str = "*IDN?",
+    bauds: Sequence[int] = (57600, 9600, 19200, 38400, 115200, 4800, 2400, 1200),
+    flows: Sequence[str] = ("xon_xoff", "none", "dtr_dsr", "rts_cts"),
+    parities: Sequence[str] = ("N",),
+    timeout: float = 1.0,
+    terminator: str = "\n",
+    progress: Callable[[str], None] = lambda s: None,
+    stop_at_first: bool = True,
+) -> List[ProbeResult]:
+    """Find the serial settings an instrument answers to: for every baud rate / flow control /
+    parity send ``command`` and see whether anything comes back. Uses pyserial directly (no
+    VISA), so close any other connection to the port first. 'E' and 'O' parity use 7 data bits,
+    'N' uses 8 (the convention of the instruments' menus)."""
+    import serial
+
+    found: List[ProbeResult] = []
+    for parity in parities:
+        for baud in bauds:
+            for flow in flows:
+                progress(f"  trying {baud} baud, parity {parity}, flow {flow} ...")
+                try:
+                    ser = serial.Serial(
+                        port,
+                        baudrate=baud,
+                        bytesize=8 if parity == "N" else 7,
+                        parity=parity,
+                        stopbits=1,
+                        timeout=timeout,
+                        write_timeout=timeout,
+                        xonxoff=(flow == "xon_xoff"),
+                        rtscts=(flow == "rts_cts"),
+                        dsrdtr=(flow == "dtr_dsr"),
+                    )
+                except (serial.SerialException, ValueError, OSError) as exc:
+                    raise RuntimeError(f"cannot open {port}: {exc}") from exc
+                try:
+                    ser.reset_input_buffer()
+                    ser.write((command + terminator).encode())
+                    reply = ser.readline()
+                finally:
+                    ser.close()
+                if reply:
+                    text = reply.decode(errors="replace").strip()
+                    found.append(ProbeResult(baud, flow, parity, text))
+                    if stop_at_first:
+                        return found
+    return found
 
 
 def open_raw_socket(host: str, port: int, timeout_ms: int = 5000):

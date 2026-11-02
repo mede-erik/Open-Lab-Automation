@@ -179,3 +179,41 @@ def test_open_visa_serial_on_a_pseudo_terminal(library):
         assert seen == ["SYST:REM", "*IDN?", "READ?"]
     finally:
         connection.close()
+
+
+def test_probe_serial_finds_an_answering_instrument():
+    pty = pytest.importorskip("pty")
+    pytest.importorskip("serial")
+    import threading
+    import tty
+
+    master, slave = pty.openpty()
+    tty.setraw(master)
+
+    def instrument():
+        buf = b""
+        while True:
+            try:
+                buf += os.read(master, 256)
+            except OSError:
+                return
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                if line.strip() == b"*IDN?":
+                    os.write(master, b"HEWLETT-PACKARD,34970A,0,13-2-2\r\n")
+
+    threading.Thread(target=instrument, daemon=True).start()
+    seen = []
+    found = tester.probe_serial(os.ttyname(slave), timeout=0.5, progress=seen.append)
+    assert found and found[0].answer.startswith("HEWLETT-PACKARD,34970A")
+    assert found[0].baud == 57600 and found[0].flow_control == "xon_xoff"
+    assert seen and "57600" in seen[0]
+
+
+def test_probe_serial_without_answer_returns_nothing():
+    pty = pytest.importorskip("pty")
+    pytest.importorskip("serial")
+    master, slave = pty.openpty()  # nobody answers on the master side
+    found = tester.probe_serial(os.ttyname(slave), timeout=0.2, bauds=(9600,), flows=("none",))
+    assert found == []
+    assert tester.serial_port_from_address("ASRL/dev/ttyUSB1::INSTR") == "/dev/ttyUSB1"

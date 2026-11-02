@@ -16,7 +16,11 @@ Commands once connected (type 'help'):
     readback NAME [a=v]   read back a set call
     test [writes] [all]   run every call that needs no argument ('writes' also actions,
                           'all' also lists the skipped calls)
-    serial                show / change the serial settings (RS-232)
+    serial                show / change the serial settings (RS-232) and reconnect
+    raw TEXT              send TEXT as it is and show what comes back (debugging)
+    probe [all]           RS-232: find the baud rate / flow control the instrument answers to
+                          ('all' also tries parity even / odd)
+    reconnect             open the connection again
     quit
 """
 
@@ -53,6 +57,7 @@ class Shell:
         self.model_id = None
         self.handle = None
         self.connection = None
+        self.address = None
         self.serial_override = {}
 
     # ---- selection ----------------------------------------------------------------
@@ -147,6 +152,7 @@ class Shell:
                 )
                 return tester.open_raw_socket(host, port)
             address = self.ask("VISA address: ").strip()
+            self.address = address
             if address.upper().startswith("ASRL"):
                 self.serial_settings_dialog(model_id)
             return tester.open_visa(
@@ -269,13 +275,84 @@ class Shell:
                 self.run_call(rest[0], rest[1:], readback=(cmd == "readback"), dry=(cmd == "plan"))
             elif cmd == "test":
                 self.run_test("writes" in rest, "all" in rest)
-            elif cmd == "serial":
+            elif cmd == "serial" and self.address:
                 self.serial_settings_dialog(self.model_id)
-                self.say("  applied at the next connection")
+                self.reconnect()
+            elif cmd == "reconnect" and self.address:
+                self.reconnect()
+            elif cmd == "raw" and rest:
+                self.raw(" ".join(rest))
+            elif cmd == "probe" and self.address:
+                self.probe("all" in rest)
             else:
                 self.say("  unknown command (type 'help')")
         if self.connection is not None and hasattr(self.connection, "close"):
             self.connection.close()
+
+    def reconnect(self):
+        """Close the connection and open it again with the current serial settings."""
+        if self.connection is not None and hasattr(self.connection, "close"):
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+        try:
+            self.connection = tester.open_visa(
+                self.address, self.library, self.model_id, serial_override=self.serial_override
+            )
+        except Exception as exc:
+            self.say(f"  cannot connect: {type(exc).__name__}: {exc}")
+            return
+        self.handle = tester.make_handle(
+            self.library, self.model_id, self.connection, self.model_id
+        )
+        self.say("  reconnected")
+        if self.address.upper().startswith("ASRL") and self.handle.supports("set_remote"):
+            try:
+                self.handle.call("set_remote")
+            except Exception as exc:
+                self.say(f"  set_remote not accepted: {exc}")
+        if self.handle.supports("identification_query"):
+            self.run_call("identification_query", [])
+
+    def raw(self, text):
+        """Send text exactly as typed and show the raw answer."""
+        try:
+            self.connection.send(text)
+            self.say(f"  answer: {self.connection.read_line(2000)!r}")
+        except Exception as exc:
+            self.say(f"  no answer: {type(exc).__name__}: {exc}")
+
+    def probe(self, every_parity=False):
+        port = tester.serial_port_from_address(self.address)
+        self.say(f"  closing the VISA connection and probing {port} with *IDN? ...")
+        self.say("  (the instrument must be set to RS-232 in its Interface menu)")
+        if self.connection is not None and hasattr(self.connection, "close"):
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+        try:
+            found = tester.probe_serial(
+                port, parities=("N", "E", "O") if every_parity else ("N",), progress=self.say
+            )
+        except Exception as exc:
+            self.say(f"  {exc}")
+            return
+        if not found:
+            self.say(
+                "  NO answer with any setting. Check: instrument set to RS-232 (not GPIB), "
+                "cable (null-modem / crossover), the right port, and the adapter "
+                "(loopback test: join pins 2 and 3 of the cable and run 'raw hello')."
+            )
+            return
+        hit = found[0]
+        self.say(f"  ANSWER: {hit.answer!r}")
+        self.say(f"  settings: baud={hit.baud} flow_control={hit.flow_control} parity={hit.parity}")
+        self.serial_override.update(baud=hit.baud, flow_control=hit.flow_control, parity=hit.parity)
+        if hit.parity != "N":
+            self.serial_override["data_bits"] = 7
+        self.say("  type 'reconnect' to use them (the library factory values are in the manual).")
 
     def run(self):
         if self.select_and_connect():
