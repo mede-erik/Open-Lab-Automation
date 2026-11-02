@@ -171,12 +171,14 @@ def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Di
     kind = types.get(t, {}).get("kind")
     table = pdef.get("map")
     if table is not None:
-        key = str(value).lower() if isinstance(value, bool) else str(value)
-        if key in table:
-            return str(table[key])
-        raise ValueNotHandledError(
-            f"value {value!r} of argument '{name}' is not handled by model {model_id} (call '{call}')", call=call
-        )
+        found, text = _lookup(table, value)
+        if found:
+            return text
+        if pdef.get("map_default") != "pass":
+            raise ValueNotHandledError(
+                f"value {value!r} of argument '{name}' is not handled by model {model_id} (call '{call}')",
+                call=call,
+            )
     if kind == "bool" or isinstance(value, bool):
         text = "ON" if value else "OFF"
         allowed = pdef.get("values")
@@ -198,6 +200,26 @@ def _to_text(name: str, value: Any, arg_spec: Optional[Dict[str, Any]], pdef: Di
                 call=call,
             )
     return text
+
+
+def _lookup(table: Dict[str, Any], value: Any):
+    """Find ``value`` in a library ``map``. Keys are strings; numbers match numerically
+    (``"20000000"`` matches 2e7), booleans use the keys ``"true"``/``"false"``."""
+    if isinstance(value, bool):
+        key = "true" if value else "false"
+        return (key in table), (str(table[key]) if key in table else None)
+    if isinstance(value, (int, float)):
+        for k, v in table.items():
+            try:
+                if float(k) == float(value):
+                    return True, str(v)
+            except ValueError:
+                continue
+        return False, None
+    key = str(value)
+    if key in table:
+        return True, str(table[key])
+    return False, None
 
 
 def _substitute(template: str, texts: Dict[str, str], call: str) -> str:
@@ -274,6 +296,18 @@ def plan_call(
     texts = {
         n: _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call) for n, v in logical.items()
     }
+    # derived parameters: one logical argument drives several placeholders of the library
+    for dname, ddef in pdefs.items():
+        src = ddef.get("from")
+        if src is not None and src in logical:
+            found, text = _lookup(ddef.get("map", {}), logical[src])
+            if not found:
+                raise ValueNotHandledError(
+                    f"value {logical[src]!r} of argument '{src}' is not handled by model {model_id} "
+                    f"(call '{call}', placeholder '{dname}')",
+                    call=call,
+                )
+            texts[dname] = text
 
     # ---- build the steps
     steps: List[Dict[str, Any]] = []
