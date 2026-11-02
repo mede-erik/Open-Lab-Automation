@@ -290,6 +290,8 @@ class Shell:
                 self.probe("all" in rest)
             elif cmd == "loopback" and self.address:
                 self.loopback()
+            elif cmd in {c["name"] for c in tester.model_calls(self.library, self.model_id)}:
+                self.run_call(cmd, rest)  # a call name alone works like 'call NAME'
             else:
                 self.say("  unknown command (type 'help')")
         if self.connection is not None and hasattr(self.connection, "close"):

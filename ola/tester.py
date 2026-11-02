@@ -268,6 +268,10 @@ def missing_mandatory(library: Library, model_id: str) -> List[str]:
     ]
 
 
+# queries that are long or may change the instrument state: only with include_writes
+HEAVY_CALLS = {"self_test"}
+
+
 @dataclass
 class TestResult:
     call: str
@@ -300,6 +304,11 @@ def self_test(
                 call_args[arg] = channel
             elif spec.get("required", True) and "default" not in spec:
                 unknown.append(arg)
+        if name in HEAVY_CALLS and not include_writes:
+            results.append(
+                TestResult(name, "skip", "long, may reset the instrument (use 'test writes')")
+            )
+            continue
         if kind == "query" and not unknown:
             pass
         elif kind == "action" and not unknown and include_writes:

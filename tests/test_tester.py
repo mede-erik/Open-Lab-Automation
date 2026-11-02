@@ -240,3 +240,20 @@ def test_loopback_serial_with_an_echoing_pty():
     assert tester.loopback_serial(os.ttyname(slave), timeout=0.5) == "hello"
     mute_master, mute_slave = pty.openpty()
     assert tester.loopback_serial(os.ttyname(mute_slave), timeout=0.2) is None
+
+
+def test_self_test_skips_heavy_calls_unless_asked(library):
+    model = "DL_Agilent_34970A"
+    handle = tester.make_handle(library, model, tester.open_simulated("0"), model)
+    results = {r.call: r for r in tester.self_test(library, model, handle)}
+    assert results["self_test"].status == "skip" and "reset" in results["self_test"].detail
+    assert "*TST?" not in handle._instrument.transport.log
+
+
+def test_datalogger_self_test_has_a_long_timeout_and_monitor_data_is_a_list(library):
+    from ola.call_planner import plan_call
+
+    plan = plan_call(library, "DL_Agilent_34970A", "self_test")
+    assert plan.steps == [{"op": "query", "text": "*TST?", "returns": "int", "timeout_ms": 60000}]
+    monitor = plan_call(library, "DL_Agilent_34970A", "query_monitor_data")
+    assert monitor.interpret([""]) == [] and monitor.interpret(["+1.5E+00"]) == [1.5]
