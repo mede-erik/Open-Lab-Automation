@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "ola-native"
+version = "0.1.0"
+description = "Low-latency instrument transport for Open Lab Automation"
+requires-python = ">=3.10"
+
+[tool.maturin]
+features = ["python"]
+module-name = "ola_native"
