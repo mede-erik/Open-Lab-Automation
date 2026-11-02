@@ -11,6 +11,8 @@ Steps follow ``ola.steps.Step``: ``{"op": "write"|"query"|"delay", "text", "ms",
 
 from __future__ import annotations
 
+import ast
+import operator
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -230,6 +232,42 @@ def _to_text(
     return text
 
 
+_OPS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Pow: operator.pow,
+}
+
+
+def _evaluate(expression: str, values: Dict[str, Any], call: str) -> float:
+    """Evaluate a derived-parameter formula: numbers, names of logical arguments, + - * / **
+    and parentheses only (no function calls, no attributes)."""
+
+    def ev(node):
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.Name) and node.id in values:
+            return values[node.id]
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](ev(node.left), ev(node.right))
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+            return -ev(node.operand) if isinstance(node.op, ast.USub) else ev(node.operand)
+        raise ValueError(f"unsupported element in formula {expression!r}")
+
+    try:
+        return ev(ast.parse(expression, mode="eval"))
+    except (ValueError, SyntaxError, ZeroDivisionError, OverflowError, KeyError) as exc:
+        raise InvalidArgumentError(
+            f"call '{call}': cannot compute {expression!r} with {values}: {exc}",
+            call=call,
+            cause=exc,
+        )
+
+
 def _lookup(table: Dict[str, Any], value: Any):
     """Find ``value`` in a library ``map``. Keys are strings; numbers match numerically
     (``"20000000"`` matches 2e7), booleans use the keys ``"true"``/``"false"``."""
@@ -307,6 +345,8 @@ def plan_call(
         )
     logical: Dict[str, Any] = {}
     for name, aspec in schema_args.items():
+        if (name not in args or args[name] is None) and "default" in aspec:
+            args[name] = aspec["default"]
         if name in args and args[name] is not None:
             logical[name] = _logical_value(name, aspec, args[name], types, call)
         elif aspec.get("required", True) and _uses_arg(definition, name, half_name):
@@ -342,6 +382,11 @@ def plan_call(
     # derived parameters: one logical argument drives several placeholders of the library
     for dname, ddef in pdefs.items():
         src = ddef.get("from")
+        if "expr" in ddef:
+            names = src if isinstance(src, list) else [src]
+            if all(n in logical for n in names):
+                texts[dname] = _fmt_number(_evaluate(ddef["expr"], logical, call))
+            continue
         if src is not None and src in logical:
             found, text = _lookup(ddef.get("map", {}), logical[src])
             if not found:

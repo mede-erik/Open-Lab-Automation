@@ -25,13 +25,12 @@ from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
 from frontend.core.errorhandler import ErrorHandler, ErrorCode
 
-# Fallback SCPI standard (sintassi Chroma 6330A) per i comandi dynamic mode
-# non presenti nella libreria. Usati SOLO per serie con capabilities.dynamic_mode == true.
-SCPI_DYNAMIC_FALLBACKS = {
-    'set_dynamic_frequency': 'CURR:DYN:FREQ {value}',
-    'enable_dynamic_mode': 'MODE CCDH',
-    'disable_dynamic_mode': 'MODE CCL',
-}
+# Logical calls the Pulse Generator needs from an electronic load (see schema/electronic_load.json).
+# A model that does not define all of them cannot be used here: there is no generic fallback.
+REQUIRED_CALLS = (
+    'load_on', 'load_off', 'set_dynamic_level_high', 'set_dynamic_level_low',
+    'set_dynamic_timing', 'enable_dynamic_mode', 'disable_dynamic_mode',
+)
 
 try:
     import matplotlib
@@ -79,6 +78,7 @@ class PulseGeneratorDialog(QDialog):
         self.current_scpi_commands = None
         self.current_limits = {'max_current': None, 'max_voltage': None, 'max_power': None}
         self.visa_instr = None
+        self.pulse_handle = None
         self.pulse_running = False
 
         # Track last modified parameter for power validation
@@ -352,18 +352,10 @@ class PulseGeneratorDialog(QDialog):
                 self.start_button.setEnabled(False)
                 return
 
-            # Dynamic mode support: capabilities o comandi libreria
-            dynamic_supported = bool(
-                self.current_capabilities.get('dynamic_mode', False)
-                or 'set_dynamic_level_high' in self.current_scpi_commands
-                or 'set_dynamic_level_low' in self.current_scpi_commands
-            )
+            # The model must define every call the tool uses (no generic fallback)
+            missing_commands = [cmd for cmd in REQUIRED_CALLS if cmd not in self.current_scpi_commands]
 
-            # Validate required commands (load on/off sempre richiesti)
-            required_commands = ['load_on', 'load_off']
-            missing_commands = [cmd for cmd in required_commands if cmd not in self.current_scpi_commands]
-
-            if missing_commands or not dynamic_supported:
+            if missing_commands:
                 QMessageBox.critical(
                     self,
                     self.translator.t('error'),
@@ -546,17 +538,19 @@ class PulseGeneratorDialog(QDialog):
         """Update waveform plot"""
         self.plot_pulse_waveform()
 
-    def _get_scpi_cmd_with_fallback(self, key):
-        """
-        Restituisce la sintassi SCPI per un comando dalla libreria,
-        oppure il fallback standard se il comando non è definito.
-        I fallback coprono solo comandi dynamic mode standard (Chroma).
-        """
-        if self.current_scpi_commands and key in self.current_scpi_commands:
-            syntax = self._get_scpi_set_syntax(self.current_scpi_commands.get(key))
-            if syntax:
-                return syntax
-        return SCPI_DYNAMIC_FALLBACKS.get(key)
+    def _make_handle(self, visa_address):
+        """InstrumentHandle for the selected load: handle.call(name, **args) works for every brand."""
+        from ola._visa import VisaConnection
+        from ola.instrument import Instrument
+        from ola.instrument_handle import InstrumentHandle
+        library = self.load_instruments.get_library()
+        model_key = self.current_instrument.get('model_id', self.current_instrument.get('model', ''))
+        model_id = library.resolve_model_id(model_key)
+        if not model_id:
+            raise ValueError(f"model {model_key!r} is not in the instrument library")
+        name = self.current_instrument.get('instance_name', visa_address)
+        connection = VisaConnection(self.visa_instr, visa_address, 5000, pyvisa)
+        return InstrumentHandle(name, library, model_id, Instrument(name, connection))
 
     def start_pulse(self):
         """Start pulse generation"""
@@ -587,42 +581,29 @@ class PulseGeneratorDialog(QDialog):
                 )
                 return
 
-            # Connect to instrument
+            # Connect to instrument; the logical calls are translated for this model
             rm = pyvisa.ResourceManager()
             self.visa_instr = rm.open_resource(visa_address)
             self.visa_instr.timeout = 5000
+            self.pulse_handle = self._make_handle(visa_address)
 
             # Get parameters
             amplitude = self.amplitude_spin.value()
             base_level = self.base_level_spin.value()
             frequency = self.frequency_spin.value()
+            width_us = self.width_spin.value()
+            duty = width_us * frequency / 10000.0  # percent of the period
+            if not 0.0 < duty < 100.0:
+                raise ValueError(
+                    f"pulse width {width_us} us does not fit in the period of {frequency} Hz"
+                )
 
-            # Send SCPI commands (con fallback per dynamic mode)
-            cmd_high = self._get_scpi_cmd_with_fallback('set_dynamic_level_high')
-            cmd_low = self._get_scpi_cmd_with_fallback('set_dynamic_level_low')
-            cmd_on = self._get_scpi_cmd_with_fallback('load_on')
-
-            if not cmd_high or not cmd_low or not cmd_on:
-                raise ValueError("Comandi SCPI richiesti mancanti o non validi")
-
-            cmd_high = cmd_high.format(value=amplitude)
-            cmd_low = cmd_low.format(value=base_level)
-
-            self.visa_instr.write(cmd_high)
-            self.visa_instr.write(cmd_low)
-
-            # Set dynamic frequency (fallback se manca nella libreria)
-            cmd_freq = self._get_scpi_cmd_with_fallback('set_dynamic_frequency')
-            if cmd_freq:
-                self.visa_instr.write(cmd_freq.format(value=frequency))
-
-            # Enable dynamic mode (fallback se manca nella libreria)
-            cmd_enable = self._get_scpi_cmd_with_fallback('enable_dynamic_mode')
-            if cmd_enable:
-                self.visa_instr.write(cmd_enable)
-
-            # Turn load on
-            self.visa_instr.write(cmd_on)
+            handle = self.pulse_handle
+            handle.call('set_dynamic_level_high', value=amplitude)
+            handle.call('set_dynamic_level_low', value=base_level)
+            handle.call('set_dynamic_timing', frequency=frequency, duty=duty)
+            handle.call('enable_dynamic_mode')
+            handle.call('load_on')
 
             # Update UI
             self.pulse_running = True
@@ -649,19 +630,14 @@ class PulseGeneratorDialog(QDialog):
             return
 
         try:
-            # Disable dynamic mode (fallback se manca nella libreria)
-            cmd_disable = self._get_scpi_cmd_with_fallback('disable_dynamic_mode')
-            if cmd_disable:
-                self.visa_instr.write(cmd_disable)
-
-            # Turn load off
-            cmd_off = self._get_scpi_cmd_with_fallback('load_off')
-            if cmd_off:
-                self.visa_instr.write(cmd_off)
+            # Disable dynamic mode and turn the load off
+            self.pulse_handle.call('disable_dynamic_mode')
+            self.pulse_handle.call('load_off')
 
             # Close connection
             self.visa_instr.close()
             self.visa_instr = None
+            self.pulse_handle = None
 
             # Update UI
             self.pulse_running = False
@@ -699,13 +675,3 @@ class PulseGeneratorDialog(QDialog):
                 event.ignore()
         else:
             event.accept()
-
-    def _get_scpi_set_syntax(self, command_def):
-        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
-        if isinstance(command_def, str):
-            return command_def
-        if isinstance(command_def, dict):
-            set_def = command_def.get('set')
-            if isinstance(set_def, dict):
-                return set_def.get('syntax')
-        return None

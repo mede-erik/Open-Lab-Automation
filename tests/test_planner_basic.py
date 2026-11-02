@@ -317,3 +317,53 @@ def test_derived_parameters():
     )
     p = plan_call(lib, "M", "set_fmt", {"format_type": "word"})
     assert [s["text"] for s in p.steps] == ["DAT:ENC RIB", "DAT:WID 2"]
+
+
+def test_expression_parameters_and_defaults():
+    schema = {
+        "schema_version": 1,
+        "category": "c",
+        "types": {},
+        "calls": {
+            "set_timing": {
+                "requirement": "optional",
+                "kind": "set",
+                "args": {
+                    "frequency": {"type": "float", "min": 0},
+                    "duty": {"type": "float", "default": 25},
+                },
+            }
+        },
+    }
+    series = {
+        "series_id": "S",
+        "common_scpi_commands": {
+            "set_timing": {
+                "set": {
+                    "steps": [
+                        {"op": "write", "text": "T1 {t_high}S"},
+                        {"op": "write", "text": "T2 {t_low}S"},
+                    ]
+                },
+                "parameters": {
+                    "frequency": {"type": "float"},
+                    "duty": {"type": "float"},
+                    "t_high": {"from": ["frequency", "duty"], "expr": "duty / 100 / frequency"},
+                    "t_low": {
+                        "from": ["frequency", "duty"],
+                        "expr": "(100 - duty) / 100 / frequency",
+                    },
+                },
+            }
+        },
+        "models": [{"id": "M"}],
+    }
+    lib = Library({"c": [series]}, {"c": schema})
+    texts = [s["text"] for s in plan_call(lib, "M", "set_timing", {"frequency": 1000}).steps]
+    assert texts == ["T1 0.00025S", "T2 0.00075S"]
+    texts = [
+        s["text"] for s in plan_call(lib, "M", "set_timing", {"frequency": 100, "duty": 50}).steps
+    ]
+    assert texts == ["T1 0.005S", "T2 0.005S"]
+    with pytest.raises(InvalidArgumentError):
+        plan_call(lib, "M", "set_timing", {"frequency": 0})
