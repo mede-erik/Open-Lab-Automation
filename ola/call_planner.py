@@ -148,6 +148,7 @@ def _logical_value(name: str, arg_spec: Dict[str, Any], value: Any, types: Dict[
                 value = bool(value)
         elif kind == "enum":
             value = str(value).strip().upper()
+            value = types[t].get("aliases", {}).get(value, value)
             if value not in types[t]["values"]:
                 raise InvalidArgumentError(
                     f"argument '{name}' of '{call}': {value!r} is not one of {types[t]['values']}", call=call

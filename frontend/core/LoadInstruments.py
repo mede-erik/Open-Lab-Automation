@@ -1,7 +1,10 @@
 import json
 import logging
+import os
 import warnings
 
+from ola.library import Library as _Library
+from ola.library import load_schemas as _load_schemas
 from ola.library import resolve_model_commands as _resolve_model_commands
 
 logger = logging.getLogger('frontend.core.LoadInstruments')
@@ -30,6 +33,8 @@ class LoadInstruments:
     def __init__(self):
         """Inizializza la lista strumenti vuota."""
         self.instruments = {}
+        self.library_path = None
+        self._ola_library = None
 
     def load_instruments(self, file_path):
         """
@@ -37,6 +42,8 @@ class LoadInstruments:
         Args:
             file_path (str): Path to the instruments JSON file.
         """
+        self.library_path = file_path
+        self._ola_library = None
         try:
             with open(file_path, 'r') as f:
                 data = json.load(f)
@@ -544,6 +551,22 @@ class LoadInstruments:
                     if model.get('id') == model_id:
                         return self.resolve_model_commands(series, model)
         return None
+
+    def get_library(self):
+        """
+        Return the Qt-free ola.library.Library built from the loaded instruments and the
+        call schemas found in the 'schema' folder next to the library file.
+        Returns:
+            ola.library.Library: library used by the call planner.
+        """
+        if self._ola_library is None:
+            schemas = {}
+            if self.library_path:
+                schema_dir = os.path.join(os.path.dirname(os.path.abspath(self.library_path)), 'schema')
+                if os.path.isdir(schema_dir):
+                    schemas = _load_schemas(schema_dir)
+            self._ola_library = _Library(self.instruments, schemas)
+        return self._ola_library
 
     @staticmethod
     def resolve_model_commands(series, model):

@@ -260,11 +260,11 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Indirizzo VISA mancante per {osc_name}")
             return
 
-        # Carica i comandi SCPI specifici per questo modello dalla libreria
-        scpi_commands = self._get_oscilloscope_scpi_commands(
-            osc_inst.get('model_id', osc_model))
-        if not scpi_commands:
-            print(f"[RemoteControlTab] Comandi SCPI non trovati per modello {osc_model}")
+        # Modello nella libreria (id, codice modello o nome)
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_id = library.resolve_model_id(osc_inst.get('model_id', osc_model)) if library else None
+        if not model_id:
+            print(f"[RemoteControlTab] Modello {osc_model} non trovato nella libreria")
             return
 
         # Connessione VISA
@@ -283,292 +283,73 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Connesso a {osc_name} su {visa_addr}")
 
             # Applica le impostazioni dal file .was
-            self._apply_was_settings_to_oscilloscope(instr, scpi_commands, was_data)
+            executor = self._get_instrument_executor(visa_addr, instr, osc_name)
+            self._apply_was_settings_to_oscilloscope(executor, library, model_id, was_data)
 
         except Exception as e:
             print(f"[RemoteControlTab] Errore connessione a {osc_name}: {e}")
 
-    def _get_oscilloscope_scpi_commands(self, model_id):
-        """Recupera i comandi SCPI per il modello di oscilloscopio dalla libreria."""
-        if not self.instruments_manager:
-            return {}
+    def _get_instrument_executor(self, visa_addr, instr, name):
+        """Executor (ola.instrument.Instrument) of one instrument, one per VISA resource."""
+        from ola._visa import VisaConnection
+        from ola.instrument import Instrument
+        executors = self.__dict__.setdefault('_executors', {})
+        entry = executors.get(visa_addr)
+        if entry is None or entry[0] is not instr:
+            timeout_ms = int(getattr(instr, 'timeout', None) or 5000)
+            entry = (instr, Instrument(name, VisaConnection(instr, visa_addr, timeout_ms, pyvisa)))
+            executors[visa_addr] = entry
+        return entry[1]
+
+    def _apply_was_settings_to_oscilloscope(self, executor, library, model_id, was_data):
+        """
+        Applica le impostazioni del file .was con chiamate logiche (stesse per ogni
+        marca): il pianificatore le traduce nei comandi del modello, l'esecutore li invia.
+        Una chiamata non supportata o non gestita dal modello viene segnalata (CALL-xxx)
+        e le altre impostazioni vengono applicate comunque.
+        """
+        from ola.call_errors import CallError
+        from ola.call_planner import plan_call
+        from ola.was_calls import oscilloscope_calls_from_was
+
+        failed = []
+
+        def call(name, **args):
+            try:
+                executor.run(plan_call(library, model_id, name, args))
+                return True
+            except CallError as exc:
+                failed.append(exc)
+                print(f"[RemoteControlTab] {exc}")
+                if self.logger:
+                    self.logger.error(str(exc))
+                return False
 
         try:
-            # Cerca nelle serie di oscilloscopi
-            osc_series = self.instruments_manager.instruments.get('oscilloscopes_series', [])
+            # Impostazioni del .was -> chiamate logiche, nell'ordine di applicazione
+            for name, args in oscilloscope_calls_from_was(was_data):
+                if call(name, **args):
+                    print(f"[RemoteControlTab] {name} {args}")
 
-            for series in osc_series:
-                for model in series.get('models', []):
-                    if (model.get('id') == model_id
-                            or model.get('model') == model_id
-                            or model.get('name') == model_id):
-                        # Series commands + model overrides/removals/patches
-                        from frontend.core.LoadInstruments import LoadInstruments
-                        combined_commands = LoadInstruments.resolve_model_commands(series, model)
-                        print(f"[RemoteControlTab] Trovati {len(combined_commands)} comandi SCPI per {model_id}")
-                        return combined_commands
-
-            print(f"[RemoteControlTab] Modello {model_id} non trovato nella libreria")
-            return {}
-
-        except Exception as e:
-            print(f"[RemoteControlTab] Errore recupero comandi SCPI: {e}")
-            return {}
-
-    def _apply_was_settings_to_oscilloscope(self, instr, scpi_commands, was_data):
-        """Applica le impostazioni specifiche del file .was all'oscilloscopio."""
-        try:
-            # Reset oscilloscopio
-            if 'reset' in scpi_commands:
-                reset_cmd = self._get_scpi_set_syntax(scpi_commands.get('reset'))
-                if reset_cmd:
-                    instr.write(reset_cmd)
-                print("[RemoteControlTab] Reset oscilloscopio")
-
-            # Applica impostazioni timebase (settings.time_per_div, in secondi)
-            settings = was_data.get('settings', {})
-            if 'time_per_div' in settings and 'set_timebase_scale' in scpi_commands:
-                timebase_value = settings['time_per_div']
-                syntax = self._get_scpi_set_syntax(scpi_commands.get('set_timebase_scale'))
-                if syntax:
-                    cmd = syntax.format(value=timebase_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Timebase: {timebase_value}s")
-
-            # Applica impostazioni canali (formato lista: [{channel_id, volt_per_div, ...}])
-            channels = was_data.get('channels', [])
-            if isinstance(channels, dict):
-                channels = channels.items()
+            if failed:
+                print(f"[RemoteControlTab] Configurazione completata con {len(failed)} chiamate non eseguite")
             else:
-                channels = [(ch.get('channel_id', ''), ch) for ch in channels]
-
-            for ch_ref, ch_settings in channels:
-                if isinstance(ch_settings, dict) and 'channel_id' in ch_settings:
-                    ch_settings = {'scale': ch_settings.get('volt_per_div'),
-                                   'offset': ch_settings.get('offset'),
-                                   'coupling': ch_settings.get('coupling')}
-                if isinstance(ch_ref, str):
-                    channel_number = self._extract_channel_number(ch_ref)
-                else:
-                    channel_number = ch_ref
-
-                # Scala canale (volt_per_div: '2V' → 2.0)
-                scale_value = ch_settings.get('scale')
-                if scale_value is not None and 'set_channel_scale' in scpi_commands:
-                    scale_value = self._parse_voltage_value(scale_value)
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_scale'))
-                    if syntax and scale_value is not None:
-                        cmd = syntax.format(channel_number=channel_number, value=scale_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} scala: {scale_value}")
-
-                # Offset canale
-                if ch_settings.get('offset') is not None and 'set_channel_offset' in scpi_commands:
-                    offset_value = ch_settings['offset']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_offset'))
-                    if syntax:
-                        cmd = syntax.format(channel_number=channel_number, value=offset_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} offset: {offset_value}")
-
-                # Accoppiamento canale
-                if ch_settings.get('coupling') is not None and 'set_channel_coupling' in scpi_commands:
-                    coupling_value = ch_settings['coupling']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_coupling'))
-                    if syntax:
-                        cmd = syntax.format(channel_number=channel_number, coupling_type=coupling_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} coupling: {coupling_value}")
-
-            # Applica impostazioni trigger
-            trigger = was_data.get('trigger', {})
-            if trigger:
-                # Sorgente trigger
-                if 'source' in trigger and 'set_trigger_source' in scpi_commands:
-                    source = trigger['source']
-                    channel_number = self._extract_channel_number(source)
-                    if channel_number:
-                        syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_source'))
-                        if syntax:
-                            cmd = syntax.format(channel_number=channel_number)
-                            instr.write(cmd)
-                            print(f"[RemoteControlTab] Trigger source: {source}")
-
-                # Livello trigger (alcuni modelli richiedono il canale nella syntax)
-                if 'level' in trigger and 'set_trigger_level' in scpi_commands:
-                    level_value = trigger['level']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_level'))
-                    if syntax:
-                        if '{channel_number}' in syntax:
-                            trigger_ch = self._extract_channel_number(trigger.get('source', ''))
-                            cmd = syntax.format(channel_number=trigger_ch, value=level_value)
-                        else:
-                            cmd = syntax.format(value=level_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger level: {level_value}")
-
-                # Fronte trigger (rise/fall). Il file .was usa valori vendor-agnostici
-                # RISE/FALL/EITHER: la libreria definisce sintassi (placeholder
-                # {slope} o {value}) e valori accettati; mappa per significato.
-                if 'slope' in trigger:
-                    slope_cmd = scpi_commands.get('set_trigger_slope')
-                    syntax = None
-                    slope_values = None
-                    if slope_cmd:
-                        syntax = self._get_scpi_set_syntax(slope_cmd)
-                        slope_params = (slope_cmd.get('parameters') or {})
-                        for param_name in ('slope', 'value'):
-                            pvals = None
-                            if param_name in slope_params:
-                                pvals = (slope_params[param_name] or {})
-                                pvals = pvals.get('values')
-                            if pvals:
-                                slope_values = pvals
-                                break
-                    else:
-                        src_syntax = self._get_scpi_set_syntax(
-                            scpi_commands.get('set_trigger_source'))
-                        syntax = self._get_trigger_slope_syntax_fallback(src_syntax)
-                    if syntax:
-                        slope_value = trigger['slope']
-                        if slope_values:
-                            slope_value = self._map_trigger_slope_value(
-                                slope_value, slope_values)
-                        else:
-                            slope_value = self._normalize_trigger_slope(slope_value)
-                        if '{slope}' in syntax:
-                            cmd = syntax.format(slope=slope_value)
-                        else:
-                            cmd = syntax.format(value=slope_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger slope: {slope_value}")
-
-                # Modalità trigger
-                if 'mode' in trigger and 'set_trigger_mode' in scpi_commands:
-                    mode_value = trigger['mode']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_mode'))
-                    if syntax:
-                        cmd = syntax.format(mode=mode_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger mode: {mode_value}")
-
-            # Auto setup se disponibile
-            if 'auto_setup' in scpi_commands:
-                auto_setup_cmd = self._get_scpi_set_syntax(scpi_commands.get('auto_setup'))
-                if auto_setup_cmd:
-                    instr.write(auto_setup_cmd)
-                    print("[RemoteControlTab] Auto setup eseguito")
-
-            print(f"[RemoteControlTab] Configurazione completata con successo")
+                print(f"[RemoteControlTab] Configurazione completata con successo")
 
         except Exception as e:
             print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
 
     @staticmethod
     def _extract_channel_number(ch_ref):
-        """
-        Estrae il numero di canale da riferimenti tipo 'CH1', 'CHAN1', 'C1', '1'.
-        Returns:
-            int | None: Numero di canale o None se non trovato.
-        """
-        if ch_ref is None:
-            return None
-        if isinstance(ch_ref, (int, float)):
-            return int(ch_ref)
-        digits = ''.join(d for d in str(ch_ref) if d.isdigit())
-        return int(digits) if digits else None
+        """Channel number of 'CH1', 'CHAN1', 'C1', '1' (None if absent)."""
+        from ola.was_calls import extract_channel_number
+        return extract_channel_number(ch_ref)
 
     @staticmethod
     def _parse_voltage_value(value):
-        """
-        Converte un valore di scala canale in float.
-        Accetta '2V', '2', '0.5V', '100mV'.
-        Returns:
-            float | None: Valore in volt o None se non parsabile.
-        """
-        if value is None:
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        s = str(value).strip().lower().replace(',', '.')
-        try:
-            if s.endswith('mv'):
-                return float(s[:-2]) * 1e-3
-            if s.endswith('v'):
-                return float(s[:-1])
-            return float(s)
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _map_enum_value(value, accepted_values):
-        """
-        Mappa un valore generico su un valore accettato dallo strumento.
-        Se 'value' è già tra gli accettati (o la lista è vuota) ritorna invariato;
-        altrimenti cerca una corrispondenza semantica per sottostringa
-        (es. 'RISE' -> 'RIS' o 'RISing', 'FALL' -> 'FALL'/'FALLing').
-        """
-        if value is None or not accepted_values:
-            return value
-        if value in accepted_values:
-            return value
-        key = str(value).lower()
-        for candidate in accepted_values:
-            if key in str(candidate).lower() or str(candidate).lower() in key:
-                return candidate
-        return value
-
-    @staticmethod
-    def _map_trigger_slope_value(slope, accepted_values):
-        """
-        Mappa il fronte del .was (RISE/FALL/EITHER) sui valori accettati dallo
-        strumento, con corrispondenza semantica cross-vendor:
-          RISE   -> RISe | RISing | POSitive
-          FALL   -> FALL | FALLing | NEGative
-          EITHER -> EITHer | ALTernate | RFALl
-        """
-        if slope is None or not accepted_values:
-            return slope
-        if slope in accepted_values:
-            return slope
-        key = str(slope).lower()
-        if 'fall' in key or 'neg' in key:
-            needles = ('neg', 'fall')
-        elif 'rise' in key or 'ris' in key or 'pos' in key:
-            needles = ('ris', 'pos')
-        else:
-            needles = ('eith', 'rfal', 'alt', 'both')
-        for needle in needles:
-            for candidate in accepted_values:
-                if needle in str(candidate).lower():
-                    return candidate
-        return slope
-
-    @staticmethod
-    def _get_trigger_slope_syntax_fallback(source_syntax):
-        """
-        Deriva la sintassi SCPI standard per il fronte edge trigger dalla syntax
-        di set_trigger_source della libreria (fallback quando la libreria non
-        definisce set_trigger_slope). Es. ':TRIGger:EDGE:SOURce C{...}' ->
-        ':TRIGger:EDGE:SLOPe {value}'.
-        """
-        if not source_syntax:
-            return ':TRIGger:EDGE:SLOPe {value}'
-        idx = source_syntax.lower().find('sour')
-        if idx == -1:
-            return None
-        return source_syntax[:idx] + 'SLOPe {value}'
-
-    @staticmethod
-    def _normalize_trigger_slope(slope):
-        """
-        Normalizza il fronte del .was (RISE/FALL, ma accetta anche RIS/RISing/
-        FALLing) sulle abbreviazioni SCPI standard: 'RIS' (valida anche su
-        Siglent, che rifiuta 'RISE') e 'FALL'.
-        """
-        if 'fall' in str(slope).lower():
-            return 'FALL'
-        return 'RIS'
+        """Volts from '2V', '2', '0.5V', '100mV' (None if not parsable)."""
+        from ola.was_calls import parse_voltage_value
+        return parse_voltage_value(value)
 
     def _get_scpi_set_syntax(self, command_def):
         """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""

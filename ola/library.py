@@ -63,6 +63,16 @@ def resolve_model_commands(series: Dict[str, Any], model: Dict[str, Any]) -> Dic
     return commands
 
 
+def load_schemas(schema_dir: str) -> Dict[str, Dict[str, Any]]:
+    """Load every ``*.json`` call schema of a directory, keyed by library category."""
+    schemas: Dict[str, Dict[str, Any]] = {}
+    for path in sorted(glob.glob(os.path.join(schema_dir, "*.json"))):
+        with open(path, encoding="utf-8") as f:
+            schema = json.load(f)
+        schemas[schema["category"]] = schema
+    return schemas
+
+
 @dataclass(frozen=True)
 class ModelRef:
     category: str
@@ -98,12 +108,7 @@ class Library:
         else:
             categories, version = data, None
         schema_dir = schema_dir or os.path.join(os.path.dirname(os.path.abspath(library_path)), "schema")
-        schemas: Dict[str, Dict[str, Any]] = {}
-        for path in sorted(glob.glob(os.path.join(schema_dir, "*.json"))):
-            with open(path, encoding="utf-8") as f:
-                schema = json.load(f)
-            schemas[schema["category"]] = schema
-        return cls(categories, schemas, version)
+        return cls(categories, load_schemas(schema_dir), version)
 
     def find_model(self, model_id: str) -> Optional[ModelRef]:
         for category, series_list in self.categories.items():
@@ -113,6 +118,19 @@ class Library:
                 for model in series.get("models", []) or []:
                     if model.get("id") == model_id:
                         return ModelRef(category, series, model)
+        return None
+
+    def resolve_model_id(self, identifier: str) -> Optional[str]:
+        """Return the library id of a model given its id, model code or name (project files
+        sometimes store the model code instead of the id)."""
+        for key in ("id", "model", "name"):
+            for series_list in self.categories.values():
+                if not isinstance(series_list, list):
+                    continue
+                for series in series_list:
+                    for model in series.get("models", []) or []:
+                        if model.get(key) == identifier:
+                            return model.get("id")
         return None
 
     def commands(self, model_id: str) -> Optional[Dict[str, Any]]:

@@ -378,8 +378,12 @@ Documentazione: {model_data.get('documentation_path', 'N/A')}
         parts = []
         if isinstance(set_def, dict) and set_def.get('syntax'):
             parts.append(f"set: {set_def.get('syntax')}")
+        elif isinstance(set_def, dict) and set_def.get('steps'):
+            parts.append("set: " + " ; ".join(s.get('text', s.get('op', '')) for s in set_def['steps']))
         if isinstance(query_def, dict) and query_def.get('syntax'):
             parts.append(f"query: {query_def.get('syntax')}")
+        elif isinstance(query_def, dict) and query_def.get('steps'):
+            parts.append("query: " + " ; ".join(s.get('text', s.get('op', '')) for s in query_def['steps']))
         if parts:
             return " | ".join(parts)
         return "N/A"
