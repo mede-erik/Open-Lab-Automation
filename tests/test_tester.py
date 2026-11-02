@@ -217,3 +217,26 @@ def test_probe_serial_without_answer_returns_nothing():
     found = tester.probe_serial(os.ttyname(slave), timeout=0.2, bauds=(9600,), flows=("none",))
     assert found == []
     assert tester.serial_port_from_address("ASRL/dev/ttyUSB1::INSTR") == "/dev/ttyUSB1"
+
+
+def test_loopback_serial_with_an_echoing_pty():
+    pty = pytest.importorskip("pty")
+    pytest.importorskip("serial")
+    import threading
+    import tty
+
+    master, slave = pty.openpty()
+    tty.setraw(master)
+
+    def echo():
+        while True:
+            try:
+                data = os.read(master, 256)
+            except OSError:
+                return
+            os.write(master, data)
+
+    threading.Thread(target=echo, daemon=True).start()
+    assert tester.loopback_serial(os.ttyname(slave), timeout=0.5) == "hello"
+    mute_master, mute_slave = pty.openpty()
+    assert tester.loopback_serial(os.ttyname(mute_slave), timeout=0.2) is None

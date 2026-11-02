@@ -202,6 +202,18 @@ def probe_serial(
     return found
 
 
+def loopback_serial(port: str, baud: int = 9600, timeout: float = 1.0) -> Optional[str]:
+    """Adapter test: write a line and read it back. With pins 2 and 3 (RXD/TXD) of the
+    adapter joined, the same text comes back; returns None if nothing comes back."""
+    import serial
+
+    with serial.Serial(port, baudrate=baud, timeout=timeout, write_timeout=timeout) as ser:
+        ser.reset_input_buffer()
+        ser.write(b"hello\n")
+        reply = ser.readline()
+    return reply.decode(errors="replace").strip() if reply else None
+
+
 def open_raw_socket(host: str, port: int, timeout_ms: int = 5000):
     from .transport import open_tcp
 

@@ -20,6 +20,7 @@ Commands once connected (type 'help'):
     raw TEXT              send TEXT as it is and show what comes back (debugging)
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
+    loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
     reconnect             open the connection again
     quit
 """
@@ -284,6 +285,8 @@ class Shell:
                 self.raw(" ".join(rest))
             elif cmd == "probe" and self.address:
                 self.probe("all" in rest)
+            elif cmd == "loopback" and self.address:
+                self.loopback()
             else:
                 self.say("  unknown command (type 'help')")
         if self.connection is not None and hasattr(self.connection, "close"):
@@ -322,6 +325,32 @@ class Shell:
             self.say(f"  answer: {self.connection.read_line(2000)!r}")
         except Exception as exc:
             self.say(f"  no answer: {type(exc).__name__}: {exc}")
+            if "closed" in str(exc).lower():
+                self.say("  the connection is closed (probe/loopback close it): type 'reconnect'")
+
+    def loopback(self):
+        port = tester.serial_port_from_address(self.address)
+        self.say(
+            f"  closing the VISA connection; join pins 2 and 3 of the adapter ({port}), "
+            "NOT connected to the instrument"
+        )
+        if self.connection is not None and hasattr(self.connection, "close"):
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+        try:
+            echo = tester.loopback_serial(port)
+        except Exception as exc:
+            self.say(f"  cannot open {port}: {exc}")
+            return
+        if echo == "hello":
+            self.say("  OK: 'hello' came back, the adapter and the port work")
+        else:
+            self.say(
+                f"  NOT OK: got {echo!r}. Pins 2-3 not joined, wrong port, or a faulty adapter"
+            )
+        self.say("  type 'reconnect' to open the connection again")
 
     def probe(self, every_parity=False):
         port = tester.serial_port_from_address(self.address)
