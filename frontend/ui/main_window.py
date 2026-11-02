@@ -476,16 +476,20 @@ class MainWindow(QMainWindow):
         Initialize database connection on application startup.
         """
         try:
-            # Try to load existing database configuration
-            self.logger.debug("Checking for database configuration file.")
-            config_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database_config.json')
-            if os.path.exists(config_file):
-                self.logger.debug(f"Found database config file: {config_file}")
-                config = read_json(config_file)
-                
+            # Drop the plain-text password stored by the old (removed) DatabaseDialog
+            QSettings('LabAutomation', 'App').remove('db_password')
+
+            # Load the configuration saved (with encrypted password) by DatabaseConfigDialog
+            from frontend.core.database_config import get_database_config_manager
+            config_manager = get_database_config_manager()
+            if os.path.exists(config_manager.config_file) or config_manager._find_old_config():
+                self.logger.debug(f"Found database config file: {config_manager.config_file}")
+                config = config_manager.load_config()
+                params = config_manager.get_connection_params(config)
+
                 from frontend.core.database import DatabaseManager
-                self.db_manager = DatabaseManager(**config)
-                
+                self.db_manager = DatabaseManager(**params)
+
                 # Test connection silently
                 self.logger.debug("Testing database connection silently...")
                 if self.db_manager.test_connection():
@@ -494,8 +498,8 @@ class MainWindow(QMainWindow):
                     self.logger.warning("Database connection test failed on startup")
                     self.db_manager = None
             else:
-                self.logger.debug("No database configuration file found. Skipping DB initialization.")
-                
+                self.logger.debug("No database configuration found. Skipping DB initialization.")
+
         except Exception as e:
             self.logger.error(f"Failed to initialize database connection: {e}", exc_info=True)
             self.error_handler.handle_error(e, "Failed to initialize database connection")
@@ -698,7 +702,6 @@ class MainWindow(QMainWindow):
             return
         
         try:
-            import json
             from datetime import datetime
             
             # Aggiorna il timestamp di ultimo accesso
@@ -959,120 +962,6 @@ class MainWindow(QMainWindow):
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
-
-
-class DatabaseDialog(QDialog):
-    """
-    Dialog for configuring database connection settings.
-    """
-    
-    def __init__(self, parent=None, translator=None):
-        """
-        Initialize the database settings dialog.
-        
-        Args:
-            parent: Parent widget
-            translator: Translator instance for localization
-        """
-        super().__init__(parent)
-        self.translator = translator
-        self.error_handler = ErrorHandler()
-        self.logger = Logger()
-        self.logger.debug("DatabaseDialog.__init__ started.")
-        
-        self.setWindowTitle(self.translator.t('database_settings'))
-        self.setModal(True)
-        
-        layout = QVBoxLayout()
-        form = QFormLayout()
-        
-        self.host = QLineEdit()
-        self.port = QLineEdit()
-        self.user = QLineEdit()
-        self.password = QLineEdit()
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.dbname = QLineEdit()
-        
-        form.addRow(self.translator.t('db_host'), self.host)
-        form.addRow(self.translator.t('db_port'), self.port)
-        form.addRow(self.translator.t('db_user'), self.user)
-        form.addRow(self.translator.t('db_password'), self.password)
-        form.addRow(self.translator.t('db_name'), self.dbname)
-        
-        layout.addLayout(form)
-        
-        save_btn = QPushButton(self.translator.t('save'))
-        save_btn.clicked.connect(self.save_db_settings)
-        layout.addWidget(save_btn)
-        
-        self.setLayout(layout)
-        self.load_db_settings()
-        self.logger.debug("DatabaseDialog initialized.")
-
-    def save_db_settings(self):
-        """
-        Save the database settings and test connection.
-        """
-        self.logger.debug("Attempting to save database settings.")
-        try:
-            # Validate inputs
-            from frontend.core.validator import (
-                is_not_empty, is_valid_port, 
-                ValidationError as ValidatorError
-            )
-            
-            self.logger.debug("Validating database form inputs.")
-            is_not_empty(self.host.text(), "Database host")
-            is_valid_port(self.port.text())
-            is_not_empty(self.user.text(), "Database user")
-            is_not_empty(self.dbname.text(), "Database name")
-            
-            # Save settings
-            self.logger.debug("Saving database settings to QSettings.")
-            settings = QSettings('LabAutomation', 'App')
-            settings.setValue('db_host', self.host.text())
-            settings.setValue('db_port', self.port.text())
-            settings.setValue('db_user', self.user.text())
-            settings.setValue('db_password', self.password.text())
-            settings.setValue('db_name', self.dbname.text())
-
-            # Test connection
-            self.logger.debug("Testing new database connection...")
-            from frontend.core.DatabaseManager import DatabaseManager
-            db = DatabaseManager(
-                host=self.host.text(),
-                port=int(self.port.text()),
-                dbname=self.dbname.text(), 
-                user=self.user.text(),
-                password=self.password.text()
-            )
-            
-            db.ensure_connection()
-            db.close()
-            
-            self.logger.info("Database connection successful.")
-            QMessageBox.information(self, "Database", "Connessione al database riuscita!")
-            self.accept()
-            
-        except ValidatorError as e:
-            self.logger.warning(f"Database settings validation failed: {e}")
-            QMessageBox.warning(self, "Validation Error", str(e))
-        except Exception as e:
-            self.logger.error(f"Database connection failed: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Database connection failed")
-
-    def load_db_settings(self):
-        """
-        Load database settings from QSettings and populate the input fields.
-        """
-        self.logger.debug("Loading database settings from QSettings.")
-        settings = QSettings('LabAutomation', 'App')
-        self.host.setText(settings.value('db_host', 'localhost'))
-        self.port.setText(settings.value('db_port', '5432'))
-        self.user.setText(settings.value('db_user', ''))
-        self.password.setText(settings.value('db_password', ''))
-        self.dbname.setText(settings.value('db_name', 'prometheus'))
-        self.logger.debug("Database settings loaded into dialog.")
 
 
 class AddFileDialog(QDialog):
