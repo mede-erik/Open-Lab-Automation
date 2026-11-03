@@ -35,6 +35,8 @@ from .measurement import (
 
 
 class RunState(str, Enum):
+    """Lifecycle of a run; ``FINISHED``, ``STOPPED`` and ``FAILED`` are final."""
+
     IDLE = "idle"
     RUNNING = "running"
     PAUSED = "paused"
@@ -50,6 +52,8 @@ Binding = Union[InstrumentHandle, Sequence[InstrumentHandle]]
 
 
 class Runner:
+    """Runs one measurement in a thread (single use); see the module docstring."""
+
     def __init__(
         self,
         measurement: Measurement,
@@ -85,6 +89,7 @@ class Runner:
     # ----- public -----------------------------------------------------------------------
     @property
     def state(self) -> RunState:
+        """Current ``RunState``."""
         return self._state
 
     @property
@@ -93,6 +98,7 @@ class Runner:
         return self._stop
 
     def add_listener(self, listener: Listener) -> None:
+        """Add a function called with every ``Event``, in the runner thread."""
         self._listeners.append(listener)
 
     def start(self) -> None:
@@ -113,6 +119,7 @@ class Runner:
             self._thread.start()
 
     def stop(self) -> None:
+        """Ask the run to stop; it ends as STOPPED after ``teardown`` (also wakes a paused run)."""
         with self._lock:
             if self._state in (RunState.RUNNING, RunState.PAUSED):
                 self._set_state(RunState.STOPPING)
@@ -120,12 +127,14 @@ class Runner:
             self._resume.set()  # wake a paused run so it can stop
 
     def pause(self) -> None:
+        """Pause at the next ``ctx.checkpoint()`` / ``ctx.sleep()``."""
         with self._lock:
             if self._state is RunState.RUNNING:
                 self._resume.clear()
                 self._set_state(RunState.PAUSED)
 
     def resume(self) -> None:
+        """Continue a paused run."""
         with self._lock:
             if self._state is RunState.PAUSED:
                 self._set_state(RunState.RUNNING)

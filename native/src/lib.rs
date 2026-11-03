@@ -3,6 +3,8 @@
 //! The core (`conn`, `error`) is plain Rust and fully testable with `cargo test`.
 //! The Python bindings are compiled only with the `python` feature (see `python.rs`).
 
+#![warn(missing_docs)]
+
 pub mod conn;
 pub mod error;
 

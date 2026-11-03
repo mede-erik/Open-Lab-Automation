@@ -36,6 +36,8 @@ class RunWriter:
 
     @staticmethod
     def header_for(runner: Runner, **extra: Any) -> Dict[str, Any]:
+        """Header line of a run file built from a runner (run id, module, parameters, bound
+        instruments); ``extra`` adds fields."""
         info = runner.measurement.info
         return {
             "run_id": runner.run_id,
@@ -64,6 +66,7 @@ class RunWriter:
         self._f.flush()
 
     def close(self) -> None:
+        """Close the file (done automatically when the run ends)."""
         if self._f is not None:
             self._f.close()
             self._f = None

@@ -4,6 +4,7 @@
 use std::fmt;
 use std::io;
 
+/// Everything that can go wrong in the transport. Each variant has a stable `TRN-xxx` code.
 #[derive(Debug)]
 pub enum Error {
     /// Could not open the connection (TRN-001).
@@ -20,9 +21,11 @@ pub enum Error {
     InvalidArgument(String),
 }
 
+/// Result of every transport operation.
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
+    /// Stable error code (`TRN-001`..`TRN-006`), documented in `ERROR_CODES.md`.
     pub fn code(&self) -> &'static str {
         match self {
             Error::Connect(_) => "TRN-001",

@@ -1,0 +1,169 @@
+"""Keeps the documentation honest: it fails when the code and the docs drift apart.
+
+* every public module / class / function of ``ola/`` has a docstring;
+* every module of ``ola/`` appears in the README table of the engine;
+* the error codes of the transport are documented in ERROR_CODES.md;
+* the relative links of the README and of ``docs/`` point to existing files;
+* the example module written in ``docs/measurement-modules.md`` really works.
+"""
+
+import ast
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+from ola.registry import ModuleRegistry
+from ola.runner import Runner, RunState
+from tests.measurement_helpers import FakeHandle, run_to_end
+
+ROOT = Path(__file__).resolve().parent.parent
+OLA = ROOT / "ola"
+DOCS = sorted((ROOT / "docs").glob("*.md"))
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def public_items_without_docstring():
+    missing = []
+    for path in sorted(OLA.rglob("*.py")):
+        rel = path.relative_to(ROOT).as_posix()
+        tree = ast.parse(read(path))
+        if not ast.get_docstring(tree):
+            missing.append(f"{rel}: module")
+
+        def visit(node, in_function):
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    is_setter = any(
+                        isinstance(d, ast.Attribute) and d.attr == "setter"
+                        for d in getattr(child, "decorator_list", [])
+                    )
+                    public = not child.name.startswith("_")
+                    if (
+                        public
+                        and not in_function
+                        and not is_setter
+                        and not ast.get_docstring(child)
+                    ):
+                        missing.append(f"{rel}:{child.lineno} {child.name}")
+                    visit(child, in_function or not isinstance(child, ast.ClassDef))
+                else:
+                    visit(child, in_function)
+
+        visit(tree, False)
+    return missing
+
+
+def test_public_items_have_docstrings():
+    assert public_items_without_docstring() == []
+
+
+def test_every_ola_module_is_in_the_readme():
+    readme = read(ROOT / "README.md")
+    absent = [
+        p.name for p in sorted(OLA.glob("*.py")) if p.name != "__init__.py" and p.name not in readme
+    ]
+    assert absent == [], f"add these files to the 'Engine' table of README.md: {absent}"
+    for module_dir in sorted((OLA / "modules").iterdir()):
+        if (module_dir / "module.json").exists():
+            assert f"ola/modules/{module_dir.name}" in readme or module_dir.name in readme
+
+
+def test_transport_error_codes_are_documented():
+    text = read(ROOT / "ERROR_CODES.md")
+    for n in range(1, 7):
+        assert f"TRN-00{n}" in text, f"TRN-00{n} missing from ERROR_CODES.md"
+
+
+def test_call_error_codes_are_documented_once_the_section_exists():
+    text = read(ROOT / "ERROR_CODES.md")
+    if "CALL-" not in text:
+        pytest.skip("the CALL section of ERROR_CODES.md has not been added yet")
+    codes = set(re.findall(r'code = "(CALL-\d{3})"', read(OLA / "call_errors.py")))
+    codes.discard("CALL-000")
+    assert codes, "no CALL codes found in ola/call_errors.py"
+    assert [c for c in sorted(codes) if c not in text] == []
+
+
+@pytest.mark.parametrize("doc", [ROOT / "README.md", *DOCS], ids=lambda p: p.name)
+def test_relative_links_resolve(doc):
+    broken = []
+    for target in re.findall(r"\]\(([^)\s]+)\)", read(doc)):
+        if re.match(r"^[a-z]+:", target) or target.startswith("#"):
+            continue
+        path = target.split("#", 1)[0]
+        if path and not (doc.parent / path).exists():
+            broken.append(target)
+    assert broken == [], f"broken links in {doc.name}: {broken}"
+
+
+def test_docs_exist():
+    assert {p.name for p in DOCS} >= {
+        "engine.md",
+        "measurement-modules.md",
+        "instrument-calls.md",
+    }
+
+
+# ---- the example module of docs/measurement-modules.md must work --------------------------------
+
+
+def doc_example_files(tmp_path):
+    text = read(ROOT / "docs" / "measurement-modules.md")
+    blocks = dict(
+        re.findall(r"```(?:json|python) (module\.json|measurement\.py)\n(.*?)```", text, re.S)
+    )
+    assert set(blocks) == {"module.json", "measurement.py"}, "example blocks not found in the doc"
+    folder = tmp_path / "dc_check"
+    folder.mkdir()
+    for name, body in blocks.items():
+        (folder / name).write_text(body, encoding="utf-8")
+    json.loads(blocks["module.json"])  # valid JSON
+    return tmp_path
+
+
+def make_psu():
+    state = {"v": 0.0}
+
+    def set_v(value):
+        state["v"] = value
+
+    return FakeHandle(
+        "psu1",
+        {
+            "set_voltage": set_v,
+            "read_voltage": lambda: state["v"],
+            "output_on": None,
+            "output_off": None,
+        },
+    )
+
+
+def test_doc_example_module_runs(tmp_path):
+    registry = ModuleRegistry([(doc_example_files(tmp_path), False)])
+    registry.discover()
+    assert registry.problems == [] and [m.id for m in registry.list()] == ["dc_check"]
+    psu = make_psu()
+    m = registry.create("dc_check", {"voltages": [1, 2.5], "settle_s": 0}, allow_user_code=True)
+    runner = run_to_end(Runner(m, {"psu": [psu]}))
+    assert runner.state is RunState.FINISHED
+    points = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert points == [{"set_v": 1, "read_v": 1}, {"set_v": 2.5, "read_v": 2.5}]
+    assert psu.calls[-1] == ("output_off", {})
+
+
+def test_doc_example_switches_off_after_an_error_and_validates(tmp_path):
+    registry = ModuleRegistry([(doc_example_files(tmp_path), False)])
+    registry.discover()
+    psu = FakeHandle(
+        "psu1", {"output_on": None, "output_off": None, "set_voltage": None}, fail_on="read_voltage"
+    )
+    m = registry.create("dc_check", {"voltages": [1], "settle_s": 0}, allow_user_code=True)
+    runner = run_to_end(Runner(m, {"psu": [psu]}))
+    assert runner.state is RunState.FAILED and psu.calls[-1] == ("output_off", {})
+    bad = registry.create("dc_check", {"voltages": []}, allow_user_code=True)
+    assert bad.validate() == ["voltages must be a non-empty list"]

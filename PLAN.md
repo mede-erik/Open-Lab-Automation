@@ -42,6 +42,11 @@ Progetto ─┬─ Strumenti (.inst)             ← condivisi da tutte le misur
 
 ## 3. Formato progetto (nuovo)
 
+> **Implementato** in `ola/project.py` (descrizione: `docs/engine.md`). Differenze rispetto
+> a questo schema iniziale: il file di progetto ha anche `"format_version": 2`; il vecchio
+> formato (`eff_files`/`was_files`) viene rifiutato con un errore chiaro; i nomi dei file
+> devono essere nomi semplici (niente percorsi, `..` rifiutato).
+
 Il JSON di progetto sostituisce le liste `eff_files`/`was_files` con:
 
 ```json
@@ -137,6 +142,15 @@ latenza e jitter al repo (come quello sopra, più uno strumento simulato) e si p
 in nativo solo ciò che il benchmark mostra come insufficiente.
 
 ## 5. Sistema a moduli
+
+> **Implementato** in `ola/measurement.py`, `ola/runner.py`, `ola/registry.py`; guida per chi
+> scrive un modulo: `docs/measurement-modules.md`. Differenze rispetto al design iniziale
+> qui sotto: `validate(self)` non riceve argomenti (usa `self.params`); i ruoli sono oggetti
+> `Role(name, category, required, multiple)` letti dal `module.json`, non una mappa di
+> `Capability`; l'arresto si controlla con `ctx.checkpoint()` / `ctx.sleep()` (non
+> `should_stop()` / `pause_point()`); il manifest ha `entry` (`file.py:Classe`); la cartella dei
+> moduli integrati è `ola/modules/` (non `frontend/measurements/builtin/`); `schema.json` e
+> `editor.py` non esistono ancora (`params_schema` sta nel manifest e non è applicato).
 
 ### 5.1 Struttura di un modulo
 
@@ -487,33 +501,33 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 
 ## 9. Fasi di sviluppo
 
-**Fase 0 – Base**
-- **Fix immediato del trasporto C**: `TCP_NODELAY` + un solo `send` per comando
+**Fase 0 – Base** *(fatta, tranne la regressione sull'efficienza)*
+- **Fix immediato del trasporto C** *(sostituito dal nuovo trasporto; il C non è stato toccato)*: `TCP_NODELAY` + un solo `send` per comando
   (da ~44 ms a ~30 µs per query), con test.
 - Benchmark di latenza/jitter nel repo e strumento simulato (mock) per sviluppare
   e testare senza hardware.
-- Test di regressione sull'attuale pipeline dell'efficienza.
+- Test di regressione sull'attuale pipeline dell'efficienza *(non fatto: l'efficienza verrà riscritta)*.
 
-**Fase 1 – Core**
+**Fase 1 – Core** *(fatta, per la parte in `ola/`)*
 - Interfaccia `Transport` (implementazione Python) e strato strumento generico
   (verbi → SCPI dalla libreria, controllo limiti, errori `[INST-xxx]`).
 - Nuovo formato progetto (`measurements[]`), nuovo `ProjectDatabaseManager`.
 - Interfaccia `Measurement`, `Capability`, contesto di esecuzione, runner in thread.
 - Modello `Run` generico.
 
-**Fase 2 – Moduli**
+**Fase 2 – Moduli** *(registro fatto; editor generico, efficienza e pannello Run da fare)*
 - Registro/loader dei moduli (integrati + utente + progetto) con manifest.
 - Editor generico da `schema.json`.
 - Efficienza riscritta come primo modulo integrato.
 - Pannello Run unico (live, stop/pausa, export).
 
-**Fase 3 – Prime nuove misure**
+**Fase 3 – Prime nuove misure** *(solo il logging nel tempo è fatto)*
 - Logging nel tempo (la più semplice: valida il runner e i dati temporali).
 - Ripple e rumore.
 - Strumento AWG nella libreria → Bode (con scope).
 - Transitorio di carico.
 
-**Fase 3b – Livello nativo (Rust)** *(può anticipare: è indipendente dai moduli)*
+**Fase 3b – Livello nativo (Rust)** *(fatta: TCP e seriale; USB-TMC/GPIB passano da pyvisa)*
 - Trasporto in Rust (TCP, poi seriale/USB), esposto a Python via PyO3/maturin.
 - Nessun esecutore di sequenze nativo (§4.3).
 
@@ -522,14 +536,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - Bode via VNA.
 
 **Fase 5 – Rifinitura**
-- Documentazione per scrivere un modulo (con modulo di esempio).
+- Documentazione per scrivere un modulo (con modulo di esempio) *(fatta: `docs/measurement-modules.md`, esempio verificato da un test)*.
 - Confronto tra run, report, formule derivate.
 - Validazione dell'efficienza su hardware reale.
 
 ## 9b. Stato di avanzamento
 
 - ✅ **Trasporto Rust** (`native/`): TCP (`TCP_NODELAY`), seriale, blocchi IEEE 488.2,
-  timeout con deadline, GIL rilasciato, errori `TRN-xxx`. 13 test Rust + 37 test Python.
+  timeout con deadline, GIL rilasciato, errori `TRN-xxx`. 13 test Rust; documentazione `///` completa
+  (`#![warn(missing_docs)]`, nessun avviso).
 - ✅ **Livello Python** (`ola/`): `ola.transport` usa il modulo nativo o, se assente,
   un'implementazione Python equivalente (stessa suite di test su entrambe).
 - ✅ **Benchmark** (`benchmarks/bench_transport.py`), mediana su loopback: backend C
@@ -567,9 +582,18 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) contro la regola "solo comandi della libreria", e
   `frontend/core/c_backend.py` non è chiamato dalla GUI. Si ritira insieme a `c_backend.py`
   dopo il collegamento di `ola.transport` all'app.
-- ⏳ Non ancora fatto: collegare `ola.transport` al resto dell'app (il backend C e
-  `c_backend.py` sono ancora in uso e non sono stati toccati), strato strumento
-  generico, strumenti simulati, pipeline Python → CI per le wheel.
+- ✅ **Documentazione** (2026-11-03): sezione "Engine" nel `README.md`; guide in `docs/`
+  (`engine.md`, `measurement-modules.md`, `instrument-calls.md`); docstring su tutti gli
+  elementi pubblici di `ola/`; contratto `Transport` (`ola/transport.py`) verificato su
+  tutte le implementazioni. **Documentazione tenuta allineata da test**
+  (`tests/test_docs.py`, `tests/test_transport_contract.py`): falliscono se manca una docstring,
+  se un file di `ola/` non è nel README, se un codice `TRN-xxx` non è in `ERROR_CODES.md`, se
+  un link relativo è rotto o se l'esempio di `docs/measurement-modules.md` non funziona.
+  Totale: 201 test Python (con trasporto nativo e con `OLA_TRANSPORT=python`).
+- ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
+  ancora nel repo e non sono stati toccati), misura di efficienza (formato nuovo da definire),
+  modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
+  attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 
 ## 10. Punti aperti
 
@@ -587,11 +611,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
 - ❓ **Modello dei dispositivi compositi** nel `.inst` e nella libreria (§7.1).
 - ✅ Verbi generici = nomi di chiamata della libreria (§7.2); restano da definire
   solo quelli delle categorie nuove, nel repo della libreria.
-- ❓ **Chiamate a più comandi** (§7.2): schema, atomicità, eventuale unione con `;`.
-- ❓ **Connessioni**: USB-TMC/GPIB (pyvisa o rusb) e modalità LXI (socket raw vs VXI-11).
-- ❓ **Estrazione** di `resolve_model_commands()` in un modulo senza Qt.
+- ✅ **Chiamate a più comandi** (§7.2): passi `write`/`query`/`read`/`delay` sotto un lock per
+  strumento; l'unione con `;` resta fuori dalla v1.
+- ✅ **Connessioni**: USB-TMC/GPIB/VXI-11 via pyvisa (`ola/_visa.py`, provato solo con `pyvisa-py`);
+  la modalità per ogni modello (socket raw / VXI-11 / seriale) la dichiara la libreria nel blocco
+  `interface` (lavoro dell'altra sessione). Aperto: `rusb` per USB-TMC nativo (non necessario ora).
+- ✅ **Estrazione** di `resolve_model_commands()` in un modulo senza Qt: fatta nel branch dell'altra
+  sessione (`ola/library.py`), non ancora in `main`.
 - ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
   le nuove categorie vanno create lì in coordinamento con questo repo.
-- ❓ **Moduli utente**: solo Python nella prima versione (proposta); API stabile
-  (`api_version`) da congelare prima di documentarla.
+- ✅ **Moduli utente**: solo Python; caricare un modulo non integrato richiede un permesso esplicito
+  (`allow_user_code`), scoprirlo no. Documentato in `docs/measurement-modules.md`.
+- ❓ **Congelare `api_version` 1** (interfaccia `Measurement` / `ctx`): da fare prima di promettere
+  compatibilità ai moduli scritti da altri.
 - ❓ **Lingue**: ogni modulo porta un proprio `lang/` opzionale (proposta).

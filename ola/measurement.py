@@ -52,7 +52,8 @@ class InstrumentHandle(Protocol):
 
     name: str
 
-    def call(self, name: str, **args: Any) -> Any: ...
+    def call(self, name: str, **args: Any) -> Any:
+        """Run a logical call of the instrument library; return its logical result."""
 
 
 @dataclass
@@ -121,14 +122,17 @@ class MeasurementContext:
         self._emit("trace", {"name": name, "trace_kind": kind, "x": x, "y": y, "meta": dict(meta)})
 
     def progress(self, done: float, total: Optional[float] = None, message: str = "") -> None:
+        """Report how far the run is: ``done`` of ``total`` (for example points measured)."""
         self._emit("progress", {"done": done, "total": total, "message": message})
 
     def log(self, message: str, level: str = "info") -> None:
+        """Add a message to the run log (``level``: info, warning or error)."""
         self._emit("log", {"level": level, "message": message})
 
     # ----- control ----------------------------------------------------------------------
     @property
     def stop_requested(self) -> bool:
+        """True once the user asked to stop (``checkpoint()`` raises ``Stopped`` for you)."""
         return self._stop.is_set()
 
     @property
@@ -186,6 +190,8 @@ class Measurement:
         """Bring the instruments to the initial state."""
 
     def run(self, ctx: MeasurementContext) -> None:
+        """Do the measurement: reach the instruments and report results through ``ctx``. Call
+        ``ctx.checkpoint()`` or ``ctx.sleep()`` regularly so stop and pause work."""
         raise NotImplementedError
 
     def teardown(self, ctx: MeasurementContext) -> None:
