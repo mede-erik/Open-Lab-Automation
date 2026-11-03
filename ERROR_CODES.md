@@ -1510,6 +1510,132 @@ Errors related to the instrument library database.
 
 ---
 
+## CALL - Instrument Call Errors (CALL-XXX)
+
+Errors of the call layer: a logical call (for example `set_channel_scale`) is translated into the commands of one instrument model and executed. They are raised by `ola.call_planner` / `ola.instrument` and shown with the same code.
+
+### CALL-000: Generic Call Error
+**Description**: Base code of the call layer; a call error with no more specific code  
+**Common Cause**:
+- A call failed for a reason that has no dedicated CALL code
+- Raised directly by code that uses the base error class
+
+**Solution**:
+1. Read the message: it names the call and, when known, the step
+2. Check the log for the cause that is attached to the error
+
+**Log Example**:
+```
+[13:49:00] ERROR-CALL-000-call 'read_waveform' failed
+```
+
+---
+
+### CALL-001: Call Not Supported
+**Description**: The call is not defined for this instrument model (or the model has no connection/driver)  
+**Common Cause**:
+- The instrument manual does not document the command
+- The model disables the call in the library
+- The instrument is not connected
+
+**Solution**:
+1. Check the model in the instrument library
+2. Use another call, or add the call to the library if the manual documents it
+3. Connect the instrument
+
+**Log Example**:
+```
+[13:50:00] ERROR-CALL-001-call 'query_waveform_all' is not supported by OSC_Siglent_SDS824X_HD
+```
+
+---
+
+### CALL-002: Value Not Handled
+**Description**: The value of an argument is not handled for this model  
+**Common Cause**:
+- The library has no translation (`map`) for this value
+- The instrument does not offer this option (for example GND coupling)
+
+**Solution**:
+1. Choose a value the model supports
+2. Add the translation to the library if the manual documents it
+
+**Log Example**:
+```
+[13:51:00] ERROR-CALL-002-value 'EITHER' of argument 'slope' is not handled by model OSC_Siglent_SDS824X_HD
+```
+
+---
+
+### CALL-003: Invalid Argument
+**Description**: A call argument is missing, unknown, of the wrong type or out of range  
+**Common Cause**:
+- Missing or misspelled argument name
+- Number out of the allowed range
+- Value not in the list of logical values
+
+**Solution**:
+1. Check the argument names and types in the call schema (`schema/`)
+2. Correct the value
+
+**Log Example**:
+```
+[13:52:00] ERROR-CALL-003-argument 'channel_number' of 'set_channel_scale': 9 > maximum 4
+```
+
+---
+
+### CALL-004: Step Failed
+**Description**: A step of the call failed while it was executed (the step index is reported)  
+**Common Cause**:
+- Transport error or timeout (see TRN codes)
+- The instrument closed the connection
+
+**Solution**:
+1. Check the connection and the instrument state
+2. Retry; the input buffer is flushed before the next call
+
+**Log Example**:
+```
+[13:53:00] ERROR-CALL-004-call 'acquire_single' failed at step 1: TransportTimeout
+```
+
+---
+
+### CALL-005: Response Not Recognised
+**Description**: The answer of the instrument cannot be interpreted as the logical value of the call  
+**Common Cause**:
+- The answer is not in the library `response_map`
+- The answer is not a number/boolean as expected
+
+**Solution**:
+1. Check the instrument answer against the manual
+2. Add the missing entry to the `response_map` of the library
+
+**Log Example**:
+```
+[13:54:00] ERROR-CALL-005-answer 'Trig'd' is not in the response map of OSC_Tek_MSO54
+```
+
+---
+
+### CALL-006: Manual Action Cancelled
+**Description**: The operator cancelled an action asked for a manual instrument (an instrument without remote control)  
+**Common Cause**:
+- The operator pressed Cancel in the popup that asks to set a value or switch the output
+- The measurement was cancelled while waiting for the operator
+
+**Solution**:
+1. Repeat the action and press OK once the instrument has been set
+2. Restart the measurement if it was stopped
+
+**Log Example**:
+```
+[13:55:00] ERROR-CALL-006-the operator cancelled: Set 'Vin' 10.0 V
+```
+
+---
+
 ## SCPI - SCPI Command Errors (SCPI-XXX)
 
 Errors specific to SCPI command operations (distinct from general VISA errors).
@@ -1984,6 +2110,44 @@ Errors related to PostgreSQL project database operations.
 
 ---
 
+### PJDB-008: Project Database Read Data Error
+**Description**: Reading the rows of a project database table failed  
+**Common Cause**:
+- Table missing or renamed
+- Connection lost while reading
+- Insufficient privileges on the table
+
+**Solution**:
+1. Check that the table exists in the project database
+2. Check the connection and try again
+3. Check the database user's privileges
+
+**Log Example**:
+```
+[14:07:00] ERROR-PJDB-008-Error reading data from 'measurements': connection closed
+```
+
+---
+
+### PJDB-009: Project Database Delete Error
+**Description**: Deleting the project database failed (or no database name is set for the project)  
+**Common Cause**:
+- Project database name not specified
+- Other sessions are still connected to the database
+- Insufficient privileges to drop the database
+
+**Solution**:
+1. Check that the project has a database name
+2. Close the other connections to the database and try again
+3. Check the database user's privileges
+
+**Log Example**:
+```
+[14:08:00] ERROR-PJDB-009-Error deleting database 'dcdc_test': database is being accessed by other users
+```
+
+---
+
 ## SYS - System Errors (SYS-XXX)
 
 System-level errors and resource issues.
@@ -2229,6 +2393,7 @@ To add a new error code:
 | **CFG** | 001-099 | Application configuration errors |
 | **LIB** | 001-099 | Instrument library errors |
 | **SCPI** | 001-099 | SCPI command specific errors |
+| **CALL** | 001-099 | Instrument call (planner/executor) errors |
 | **DATA** | 001-099 | Data acquisition/processing errors |
 | **PJDB** | 001-099 | Project database errors |
 | **SYS** | 001-099 | System-level errors |
@@ -2250,7 +2415,7 @@ To add a new error code:
   - Added **LIB** category (8 codes): Instrument library errors
   - Added **SCPI** category (7 codes): SCPI command specific errors
   - Added **DATA** category (8 codes): Data acquisition/processing errors
-  - Added **PJDB** category (7 codes): Project database errors
+  - Added **PJDB** category (9 codes): Project database errors
   - Added **SYS** category (7 codes): System-level errors
   - Total: **99 error codes** covering comprehensive error scenarios
   - All new exception classes added to errorhandler.py

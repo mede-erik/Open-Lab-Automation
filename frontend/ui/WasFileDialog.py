@@ -59,7 +59,8 @@ class WasFileDialog(QDialog):
             with open(self.file_path, 'r', encoding='utf-8') as f:
                 self.data = json.load(f)
             self.data_edit.setText(json.dumps(self.data, indent=2))
-        except Exception as e:
+        except (OSError, ValueError) as e:
+            logger.warning(f"Cannot read .was file {self.file_path}, using defaults: {e}")
             self.data = {"type": "oscilloscope_settings", "channels": [], "settings": {}}
             self.data_edit.setText(json.dumps(self.data, indent=2))
         
@@ -348,25 +349,22 @@ class WasFileDialog(QDialog):
 
     def parse_time(self, s):
         """
-        Converte una stringa tipo '100k', '1n1', '0.001' in float secondi.
-        Accetta anche notazione con suffissi k, m, u, n, p.
+        Converte una stringa tempo in secondi (float).
+        Accetta numeri semplici ('0.001', '1e-3') e suffissi SI con o senza 's':
+        'ks', 'k', 's', 'ms', 'm', 'us', 'u', 'µs', 'ns', 'n', 'ps', 'p' (es. '100us', '1ms').
+        Restituisce None se la stringa non è valida.
         """
-        s = s.strip().lower().replace(',', '.')
+        text = s.strip().lower().replace(',', '.').replace(' ', '').replace('µ', 'u')
+        if text.endswith('s'):
+            text = text[:-1]
+        multipliers = {'k': 1e3, 'm': 1e-3, 'u': 1e-6, 'n': 1e-9, 'p': 1e-12}
+        factor = 1.0
+        if text and text[-1] in multipliers:
+            factor = multipliers[text[-1]]
+            text = text[:-1]
         try:
-            if 'k' in s:
-                return float(s.replace('k','')) * 1e3
-            if 'm' in s:
-                return float(s.replace('m','')) * 1e-3
-            if 'u' in s:
-                return float(s.replace('u','')) * 1e-6
-            if 'n' in s:
-                return float(s.replace('n','')) * 1e-9
-            if 'p' in s:
-                return float(s.replace('p','')) * 1e-12
-            if '1n1' in s:
-                return 1e-9
-            return float(s)
-        except Exception:
+            return float(text) * factor
+        except ValueError:
             return None
 
     def populate_params_from_json(self):

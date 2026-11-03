@@ -117,6 +117,14 @@ class ErrorCode(Enum):
     LIB_INCOMPATIBLE_VERSION = "[LIB-007]"
     LIB_UPDATE_FAILED = "[LIB-008]"
     
+    # Instrument call errors (CALL-XXX): planner/executor, raised by ola.call_errors
+    CALL_NOT_SUPPORTED = "[CALL-001]"
+    CALL_VALUE_NOT_HANDLED = "[CALL-002]"
+    CALL_INVALID_ARGUMENT = "[CALL-003]"
+    CALL_STEP_FAILED = "[CALL-004]"
+    CALL_RESPONSE_NOT_RECOGNISED = "[CALL-005]"
+    CALL_MANUAL_ACTION_CANCELLED = "[CALL-006]"
+
     # SCPI command specific errors (SCPI-XXX)
     SCPI_COMMAND_NOT_SUPPORTED = "[SCPI-001]"
     SCPI_SYNTAX_ERROR = "[SCPI-002]"
@@ -144,6 +152,8 @@ class ErrorCode(Enum):
     PJDB_TIMEOUT = "[PJDB-005]"
     PJDB_SCHEMA_ERROR = "[PJDB-006]"
     PJDB_DATA_INTEGRITY = "[PJDB-007]"
+    PJDB_READ_DATA_ERROR = "[PJDB-008]"
+    PJDB_DELETE_ERROR = "[PJDB-009]"
     
     # System errors (SYS-XXX)
     SYS_RESOURCE_UNAVAILABLE = "[SYS-001]"
@@ -300,6 +310,11 @@ class ErrorHandler(QObject):
             # Remove brackets from error code for structured format
             error_code = error_code_enum.value.strip('[]')
             if hasattr(exception, 'message') and exception.message:
+                technical_message = exception.message
+        elif isinstance(getattr(exception, 'code', None), str):
+            # ola.* exceptions (CALL-XXX, TRN-XXX) carry the code as a plain string
+            error_code = exception.code.strip('[]')
+            if getattr(exception, 'message', None):
                 technical_message = exception.message
         
         # Log with structured format

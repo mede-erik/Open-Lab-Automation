@@ -14,6 +14,11 @@ logger = logging.getLogger('frontend.ui.RemoteControlTab')
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
+from ola.call_errors import CallNotSupportedError
+from ola.call_errors import ManualActionCancelledError
+from ola.datalogger_setup import datalogger_calls, scan_order
+from ola.manual_instrument import manual_handle_from_inst
+from ola.datalogger_setup import signature as datalogger_signature
 
 
 # =========================
@@ -80,7 +85,7 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Icona oscilloscopio caricata: {osc_icon_path}")
         else:
             self.osc_btn.setText('OSC')
-            print(f"[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
+            print("[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
         self.osc_btn.setFixedSize(64, 64)
         self.osc_btn.clicked.connect(self._configure_oscilloscope_from_was)
         top_layout.addWidget(self.osc_btn)
@@ -98,7 +103,7 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Icona refresh caricata: {refresh_icon_path}")
         else:
             self.reload_btn.setText('↻')
-            print(f"[RemoteControlTab] Icona refresh non trovata, usando testo")
+            print("[RemoteControlTab] Icona refresh non trovata, usando testo")
         self.reload_btn.setFixedSize(64, 64)
         self.reload_btn.clicked.connect(self._reload_instruments_from_mainwindow)
         top_layout.addWidget(self.reload_btn)
@@ -231,7 +236,7 @@ class RemoteControlTab(QWidget):
 
             # Filtra solo gli oscilloscopi (gestisce sia 'oscilloscope' che 'oscilloscopes')
             oscilloscopes = []
-            print(f"[RemoteControlTab] Analisi strumenti nel file .inst:")
+            print("[RemoteControlTab] Analisi strumenti nel file .inst:")
             for idx, inst in enumerate(inst_data.get('instruments', [])):
                 inst_type = inst.get('instrument_type', '')
                 inst_name = inst.get('instance_name', 'N/A')
@@ -260,16 +265,16 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Indirizzo VISA mancante per {osc_name}")
             return
 
-        # Carica i comandi SCPI specifici per questo modello dalla libreria
-        scpi_commands = self._get_oscilloscope_scpi_commands(
-            osc_inst.get('model_id', osc_model))
-        if not scpi_commands:
-            print(f"[RemoteControlTab] Comandi SCPI non trovati per modello {osc_model}")
+        # Modello nella libreria (id, codice modello o nome)
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_id = library.resolve_model_id(osc_inst.get('model_id', osc_model)) if library else None
+        if not model_id:
+            print(f"[RemoteControlTab] Modello {osc_model} non trovato nella libreria")
             return
 
         # Connessione VISA
         if not self._ensure_visa_initialized():
-            print(f"[RemoteControlTab] VISA non inizializzato")
+            print("[RemoteControlTab] VISA non inizializzato")
             return
 
         try:
@@ -278,310 +283,110 @@ class RemoteControlTab(QWidget):
                 instr = self.visa_connections[visa_addr]
             else:
                 instr = self.rm.open_resource(visa_addr)
+                self._configure_serial(instr, visa_addr, osc_inst)
                 self.visa_connections[visa_addr] = instr
 
             print(f"[RemoteControlTab] Connesso a {osc_name} su {visa_addr}")
 
             # Applica le impostazioni dal file .was
-            self._apply_was_settings_to_oscilloscope(instr, scpi_commands, was_data)
+            executor = self._get_instrument_executor(visa_addr, instr, osc_name)
+            self._apply_was_settings_to_oscilloscope(executor, library, model_id, was_data)
 
         except Exception as e:
             print(f"[RemoteControlTab] Errore connessione a {osc_name}: {e}")
 
-    def _get_oscilloscope_scpi_commands(self, model_id):
-        """Recupera i comandi SCPI per il modello di oscilloscopio dalla libreria."""
-        if not self.instruments_manager:
-            return {}
+    def _configure_serial(self, instr, visa_addr, inst):
+        """
+        Serial (ASRL) resources: set baud rate, data bits, parity, stop bits and flow control
+        on the pyvisa resource before the first command. Values come from the instrument
+        library (factory settings of the manual) and can be overridden per instrument by a
+        'serial' entry in the project's .inst file. They must match the instrument's own
+        front-panel RS-232 settings.
+        """
+        if not str(visa_addr).upper().startswith('ASRL'):
+            return
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        cfg = dict(library.serial_settings(model_id)) if model_id else {}
+        cfg.update(inst.get('serial') or {})
+        self.__dict__.setdefault('_serial_cfg', {})[visa_addr] = cfg
+        if not cfg:
+            return
+        from ola.serial_config import apply_serial_settings
+        try:
+            apply_serial_settings(instr, cfg)
+            print(f"[RemoteControlTab] Seriale {visa_addr}: {cfg}")
+        except (ValueError, AttributeError) as exc:
+            if self.logger:
+                self.logger.error(f"Serial settings for {visa_addr} not applied: {exc}")
+
+    def _get_instrument_executor(self, visa_addr, instr, name):
+        """Executor (ola.instrument.Instrument) of one instrument, one per VISA resource."""
+        from ola._visa import VisaConnection
+        from ola.instrument import Instrument
+        executors = self.__dict__.setdefault('_executors', {})
+        entry = executors.get(visa_addr)
+        if entry is None or entry[0] is not instr:
+            timeout_ms = int(getattr(instr, 'timeout', None) or 5000)
+            connection = VisaConnection(instr, visa_addr, timeout_ms, pyvisa)
+            cfg = self.__dict__.get('_serial_cfg', {}).get(visa_addr)
+            if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
+                connection.set_terminators(
+                    cfg.get('write_termination', '\n'), cfg.get('read_termination', '\n'))
+            entry = (instr, Instrument(name, connection))
+            executors[visa_addr] = entry
+        return entry[1]
+
+    def _apply_was_settings_to_oscilloscope(self, executor, library, model_id, was_data):
+        """
+        Applica le impostazioni del file .was con chiamate logiche (stesse per ogni
+        marca): il pianificatore le traduce nei comandi del modello, l'esecutore li invia.
+        Una chiamata non supportata o non gestita dal modello viene segnalata (CALL-xxx)
+        e le altre impostazioni vengono applicate comunque.
+        """
+        from ola.call_errors import CallError
+        from ola.call_planner import plan_call
+        from ola.was_calls import oscilloscope_calls_from_was
+
+        failed = []
+
+        def call(name, **args):
+            try:
+                executor.run(plan_call(library, model_id, name, args))
+                return True
+            except CallError as exc:
+                failed.append(exc)
+                print(f"[RemoteControlTab] {exc}")
+                if self.logger:
+                    self.logger.error(str(exc))
+                return False
 
         try:
-            # Cerca nelle serie di oscilloscopi
-            osc_series = self.instruments_manager.instruments.get('oscilloscopes_series', [])
+            # Impostazioni del .was -> chiamate logiche, nell'ordine di applicazione
+            for name, args in oscilloscope_calls_from_was(was_data):
+                if call(name, **args):
+                    print(f"[RemoteControlTab] {name} {args}")
 
-            for series in osc_series:
-                for model in series.get('models', []):
-                    if (model.get('id') == model_id
-                            or model.get('model') == model_id
-                            or model.get('name') == model_id):
-                        # Combina comandi comuni della serie con quelli specifici del modello
-                        common_commands = series.get('common_scpi_commands', {})
-                        model_commands = model.get('scpi_commands', {})
-
-                        # Merge dei comandi
-                        combined_commands = {**common_commands, **model_commands}
-                        print(f"[RemoteControlTab] Trovati {len(combined_commands)} comandi SCPI per {model_id}")
-                        return combined_commands
-
-            print(f"[RemoteControlTab] Modello {model_id} non trovato nella libreria")
-            return {}
-
-        except Exception as e:
-            print(f"[RemoteControlTab] Errore recupero comandi SCPI: {e}")
-            return {}
-
-    def _apply_was_settings_to_oscilloscope(self, instr, scpi_commands, was_data):
-        """Applica le impostazioni specifiche del file .was all'oscilloscopio."""
-        try:
-            # Reset oscilloscopio
-            if 'reset' in scpi_commands:
-                reset_cmd = self._get_scpi_set_syntax(scpi_commands.get('reset'))
-                if reset_cmd:
-                    instr.write(reset_cmd)
-                print("[RemoteControlTab] Reset oscilloscopio")
-
-            # Applica impostazioni timebase (settings.time_per_div, in secondi)
-            settings = was_data.get('settings', {})
-            if 'time_per_div' in settings and 'set_timebase_scale' in scpi_commands:
-                timebase_value = settings['time_per_div']
-                syntax = self._get_scpi_set_syntax(scpi_commands.get('set_timebase_scale'))
-                if syntax:
-                    cmd = syntax.format(value=timebase_value)
-                    instr.write(cmd)
-                    print(f"[RemoteControlTab] Timebase: {timebase_value}s")
-
-            # Applica impostazioni canali (formato lista: [{channel_id, volt_per_div, ...}])
-            channels = was_data.get('channels', [])
-            if isinstance(channels, dict):
-                channels = channels.items()
+            if failed:
+                print(f"[RemoteControlTab] Configurazione completata con {len(failed)} chiamate non eseguite")
             else:
-                channels = [(ch.get('channel_id', ''), ch) for ch in channels]
-
-            for ch_ref, ch_settings in channels:
-                if isinstance(ch_settings, dict) and 'channel_id' in ch_settings:
-                    ch_settings = {'scale': ch_settings.get('volt_per_div'),
-                                   'offset': ch_settings.get('offset'),
-                                   'coupling': ch_settings.get('coupling')}
-                if isinstance(ch_ref, str):
-                    channel_number = self._extract_channel_number(ch_ref)
-                else:
-                    channel_number = ch_ref
-
-                # Scala canale (volt_per_div: '2V' → 2.0)
-                scale_value = ch_settings.get('scale')
-                if scale_value is not None and 'set_channel_scale' in scpi_commands:
-                    scale_value = self._parse_voltage_value(scale_value)
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_scale'))
-                    if syntax and scale_value is not None:
-                        cmd = syntax.format(channel_number=channel_number, value=scale_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} scala: {scale_value}")
-
-                # Offset canale
-                if ch_settings.get('offset') is not None and 'set_channel_offset' in scpi_commands:
-                    offset_value = ch_settings['offset']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_offset'))
-                    if syntax:
-                        cmd = syntax.format(channel_number=channel_number, value=offset_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} offset: {offset_value}")
-
-                # Accoppiamento canale
-                if ch_settings.get('coupling') is not None and 'set_channel_coupling' in scpi_commands:
-                    coupling_value = ch_settings['coupling']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_channel_coupling'))
-                    if syntax:
-                        cmd = syntax.format(channel_number=channel_number, coupling_type=coupling_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Canale {channel_number} coupling: {coupling_value}")
-
-            # Applica impostazioni trigger
-            trigger = was_data.get('trigger', {})
-            if trigger:
-                # Sorgente trigger
-                if 'source' in trigger and 'set_trigger_source' in scpi_commands:
-                    source = trigger['source']
-                    channel_number = self._extract_channel_number(source)
-                    if channel_number:
-                        syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_source'))
-                        if syntax:
-                            cmd = syntax.format(channel_number=channel_number)
-                            instr.write(cmd)
-                            print(f"[RemoteControlTab] Trigger source: {source}")
-
-                # Livello trigger (alcuni modelli richiedono il canale nella syntax)
-                if 'level' in trigger and 'set_trigger_level' in scpi_commands:
-                    level_value = trigger['level']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_level'))
-                    if syntax:
-                        if '{channel_number}' in syntax:
-                            trigger_ch = self._extract_channel_number(trigger.get('source', ''))
-                            cmd = syntax.format(channel_number=trigger_ch, value=level_value)
-                        else:
-                            cmd = syntax.format(value=level_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger level: {level_value}")
-
-                # Fronte trigger (rise/fall). Il file .was usa valori vendor-agnostici
-                # RISE/FALL/EITHER: la libreria definisce sintassi (placeholder
-                # {slope} o {value}) e valori accettati; mappa per significato.
-                if 'slope' in trigger:
-                    slope_cmd = scpi_commands.get('set_trigger_slope')
-                    syntax = None
-                    slope_values = None
-                    if slope_cmd:
-                        syntax = self._get_scpi_set_syntax(slope_cmd)
-                        slope_params = (slope_cmd.get('parameters') or {})
-                        for param_name in ('slope', 'value'):
-                            pvals = None
-                            if param_name in slope_params:
-                                pvals = (slope_params[param_name] or {})
-                                pvals = pvals.get('values')
-                            if pvals:
-                                slope_values = pvals
-                                break
-                    else:
-                        src_syntax = self._get_scpi_set_syntax(
-                            scpi_commands.get('set_trigger_source'))
-                        syntax = self._get_trigger_slope_syntax_fallback(src_syntax)
-                    if syntax:
-                        slope_value = trigger['slope']
-                        if slope_values:
-                            slope_value = self._map_trigger_slope_value(
-                                slope_value, slope_values)
-                        else:
-                            slope_value = self._normalize_trigger_slope(slope_value)
-                        if '{slope}' in syntax:
-                            cmd = syntax.format(slope=slope_value)
-                        else:
-                            cmd = syntax.format(value=slope_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger slope: {slope_value}")
-
-                # Modalità trigger
-                if 'mode' in trigger and 'set_trigger_mode' in scpi_commands:
-                    mode_value = trigger['mode']
-                    syntax = self._get_scpi_set_syntax(scpi_commands.get('set_trigger_mode'))
-                    if syntax:
-                        cmd = syntax.format(mode=mode_value)
-                        instr.write(cmd)
-                        print(f"[RemoteControlTab] Trigger mode: {mode_value}")
-
-            # Auto setup se disponibile
-            if 'auto_setup' in scpi_commands:
-                auto_setup_cmd = self._get_scpi_set_syntax(scpi_commands.get('auto_setup'))
-                if auto_setup_cmd:
-                    instr.write(auto_setup_cmd)
-                    print("[RemoteControlTab] Auto setup eseguito")
-
-            print(f"[RemoteControlTab] Configurazione completata con successo")
+                print("[RemoteControlTab] Configurazione completata con successo")
 
         except Exception as e:
             print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
 
     @staticmethod
     def _extract_channel_number(ch_ref):
-        """
-        Estrae il numero di canale da riferimenti tipo 'CH1', 'CHAN1', 'C1', '1'.
-        Returns:
-            int | None: Numero di canale o None se non trovato.
-        """
-        if ch_ref is None:
-            return None
-        if isinstance(ch_ref, (int, float)):
-            return int(ch_ref)
-        digits = ''.join(d for d in str(ch_ref) if d.isdigit())
-        return int(digits) if digits else None
+        """Channel number of 'CH1', 'CHAN1', 'C1', '1' (None if absent)."""
+        from ola.was_calls import extract_channel_number
+        return extract_channel_number(ch_ref)
 
     @staticmethod
     def _parse_voltage_value(value):
-        """
-        Converte un valore di scala canale in float.
-        Accetta '2V', '2', '0.5V', '100mV'.
-        Returns:
-            float | None: Valore in volt o None se non parsabile.
-        """
-        if value is None:
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        s = str(value).strip().lower().replace(',', '.')
-        try:
-            if s.endswith('mv'):
-                return float(s[:-2]) * 1e-3
-            if s.endswith('v'):
-                return float(s[:-1])
-            return float(s)
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _map_enum_value(value, accepted_values):
-        """
-        Mappa un valore generico su un valore accettato dallo strumento.
-        Se 'value' è già tra gli accettati (o la lista è vuota) ritorna invariato;
-        altrimenti cerca una corrispondenza semantica per sottostringa
-        (es. 'RISE' -> 'RIS' o 'RISing', 'FALL' -> 'FALL'/'FALLing').
-        """
-        if value is None or not accepted_values:
-            return value
-        if value in accepted_values:
-            return value
-        key = str(value).lower()
-        for candidate in accepted_values:
-            if key in str(candidate).lower() or str(candidate).lower() in key:
-                return candidate
-        return value
-
-    @staticmethod
-    def _map_trigger_slope_value(slope, accepted_values):
-        """
-        Mappa il fronte del .was (RISE/FALL/EITHER) sui valori accettati dallo
-        strumento, con corrispondenza semantica cross-vendor:
-          RISE   -> RISe | RISing | POSitive
-          FALL   -> FALL | FALLing | NEGative
-          EITHER -> EITHer | ALTernate | RFALl
-        """
-        if slope is None or not accepted_values:
-            return slope
-        if slope in accepted_values:
-            return slope
-        key = str(slope).lower()
-        if 'fall' in key or 'neg' in key:
-            needles = ('neg', 'fall')
-        elif 'rise' in key or 'ris' in key or 'pos' in key:
-            needles = ('ris', 'pos')
-        else:
-            needles = ('eith', 'rfal', 'alt', 'both')
-        for needle in needles:
-            for candidate in accepted_values:
-                if needle in str(candidate).lower():
-                    return candidate
-        return slope
-
-    @staticmethod
-    def _get_trigger_slope_syntax_fallback(source_syntax):
-        """
-        Deriva la sintassi SCPI standard per il fronte edge trigger dalla syntax
-        di set_trigger_source della libreria (fallback quando la libreria non
-        definisce set_trigger_slope). Es. ':TRIGger:EDGE:SOURce C{...}' ->
-        ':TRIGger:EDGE:SLOPe {value}'.
-        """
-        if not source_syntax:
-            return ':TRIGger:EDGE:SLOPe {value}'
-        idx = source_syntax.lower().find('sour')
-        if idx == -1:
-            return None
-        return source_syntax[:idx] + 'SLOPe {value}'
-
-    @staticmethod
-    def _normalize_trigger_slope(slope):
-        """
-        Normalizza il fronte del .was (RISE/FALL, ma accetta anche RIS/RISing/
-        FALLing) sulle abbreviazioni SCPI standard: 'RIS' (valida anche su
-        Siglent, che rifiuta 'RISE') e 'FALL'.
-        """
-        if 'fall' in str(slope).lower():
-            return 'FALL'
-        return 'RIS'
-
-    def _get_scpi_set_syntax(self, command_def):
-        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
-        if isinstance(command_def, str):
-            return command_def
-        if isinstance(command_def, dict):
-            set_def = command_def.get('set')
-            if isinstance(set_def, dict):
-                return set_def.get('syntax')
-        return None
+        """Volts from '2V', '2', '0.5V', '100mV' (None if not parsable)."""
+        from ola.was_calls import parse_voltage_value
+        return parse_voltage_value(value)
 
     def _ensure_visa_initialized(self):
         """
@@ -680,6 +485,7 @@ class RemoteControlTab(QWidget):
                         )
                     self.visa_connections.pop(visa_addr, None)
                 instr = self.rm.open_resource(visa_addr)
+                self._configure_serial(instr, visa_addr, inst)
                 self.visa_connections[visa_addr] = instr
                 btn.setStyleSheet('border: 2px solid green;')
                 btn.setChecked(True)
@@ -957,90 +763,6 @@ class RemoteControlTab(QWidget):
 
         dialog.exec()
 
-    def get_scpi_cmd(self, inst, ch, action):
-        """
-        Get the SCPI command for the given instrument/channel/action from the library.
-        action: 'set_voltage', 'set_current', 'read_voltage', 'read_current',
-                'read_measurement', 'output_on', 'output_off', 'output_state_query'
-        Returns the syntax string (con placeholder come '{value}') o '' se non disponibile.
-        """
-        type_name = inst.get('instrument_type', '')
-        series_id = inst.get('series', '')
-        model_id = inst.get('model_id', inst.get('model', ''))
-
-        # Check if instruments_manager is available
-        if self.instruments_manager is None:
-            scpi_dict = None
-        else:
-            try:
-                scpi_dict = self.instruments_manager.get_model_scpi(type_name, series_id, model_id)
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Errore get_model_scpi: {str(e)}")
-                scpi_dict = None
-        if not scpi_dict:
-            # Fallback standard
-            if action == 'set_voltage':
-                return 'VOLT {value}'
-            if action == 'set_current':
-                return 'CURR {value}'
-            if action == 'read_voltage':
-                return 'MEAS:VOLT?'
-            if action == 'read_current':
-                return 'MEAS:CURR?'
-            if action == 'read_measurement':
-                return 'MEAS?'
-            if action == 'output_on':
-                return 'OUTP ON'
-            if action == 'output_off':
-                return 'OUTP OFF'
-            if action == 'output_state_query':
-                return 'OUTP?'
-            return ''
-        # Le azioni di lettura usano la sintassi 'query', le altre la sintassi 'set'
-        is_query = action.endswith('_query') or action.startswith('read_')
-        # Mappa azione → chiavi SCPI (nome libreria, nome generico standard)
-        action_map = {
-            'set_voltage': ['set_voltage', 'VOLT'],
-            'set_current': ['set_current', 'CURR'],
-            'read_voltage': ['read_voltage', 'MEAS:VOLT?'],
-            'read_current': ['read_current', 'MEAS:CURR?'],
-            'read_measurement': ['read_measurement', 'MEAS?'],
-            'output_on': ['output_on', 'OUTP ON'],
-            'output_off': ['output_off', 'OUTP OFF'],
-            'output_state_query': ['output_state_query', 'OUTP?']
-        }
-        for key in action_map.get(action, []):
-            if key in scpi_dict:
-                command_def = scpi_dict[key]
-                syntax = self._get_scpi_syntax(command_def, is_query)
-                if syntax:
-                    return syntax
-        # Fallback standard se la chiave esiste ma senza sintassi richiesta
-        fallback = {
-            'set_voltage': 'VOLT {value}',
-            'set_current': 'CURR {value}',
-            'read_voltage': 'MEAS:VOLT?',
-            'read_current': 'MEAS:CURR?',
-            'read_measurement': 'MEAS?',
-            'output_on': 'OUTP ON',
-            'output_off': 'OUTP OFF',
-            'output_state_query': 'OUTP?'
-        }
-        return fallback.get(action, '')
-
-    @staticmethod
-    def _get_scpi_syntax(command_def, is_query=False):
-        """Estrae la stringa di sintassi (query o set) da una definizione comando libreria."""
-        if isinstance(command_def, str):
-            return command_def
-        if not isinstance(command_def, dict):
-            return None
-        section = command_def.get('query' if is_query else 'set')
-        if isinstance(section, dict):
-            return section.get('syntax')
-        return None
-
     def update_translation(self, translator):
         """
         Update UI elements with translated text.
@@ -1257,7 +979,7 @@ class RemoteControlTab(QWidget):
                         })
                         total_enabled_channels += len(enabled_channels)
 
-            print(f"\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
+            print("\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
             print(f"Strumenti validi: {len(power_instruments)}")
             print(f"Totale canali abilitati: {total_enabled_channels}")
 
@@ -1344,6 +1066,7 @@ class RemoteControlTab(QWidget):
                                 )
                             self.visa_connections.pop(visa_addr, None)
                         instr = self.rm.open_resource(visa_addr)
+                        self._configure_serial(instr, visa_addr, inst)
                         self.visa_connections[visa_addr] = instr
                         btn.setStyleSheet('border: 2px solid green;')
                         btn.setChecked(True)
@@ -1557,7 +1280,7 @@ class RemoteControlTab(QWidget):
 
                     print(f"  ✓ Strumento aggiunto alla colonna {best_column_idx + 1} (carico: {column_loads[best_column_idx]})")
 
-            print(f"\n=== Distribuzione finale ===")
+            print("\n=== Distribuzione finale ===")
             for i, load in enumerate(column_loads):
                 print(f"Colonna {i+1}: {load} canali")
             print(f"Totale widget canali creati: {len(self.current_channel_widgets)}")
@@ -1594,6 +1317,36 @@ class RemoteControlTab(QWidget):
                 print(f"[RemoteControlTab] Translation format error for key '{key}': {e}")
                 text = f"{key} [format error]"
         return text
+
+    @staticmethod
+    def _is_load(inst):
+        """True for an electronic load (its calls are load_on, set_current_level, ...)."""
+        return str(inst.get('instrument_type', '')).lower() in ('electronic_load', 'electronic_loads')
+
+    def _setpoint_call(self, inst, quantity):
+        """Logical call that sets the voltage or the current of a supply or an electronic load."""
+        if self._is_load(inst):
+            return 'set_voltage_level' if quantity == 'voltage' else 'set_current_level'
+        return 'set_voltage' if quantity == 'voltage' else 'set_current'
+
+    def _output_call(self, inst, on):
+        """Logical call that switches the output of a supply or the input of a load."""
+        if self._is_load(inst):
+            return 'load_on' if on else 'load_off'
+        return 'output_on' if on else 'output_off'
+
+    def _report_call_error(self, title, exc):
+        """Print and log the error of a call."""
+        print(f"ERRORE: {title}: {exc}")
+        if self.logger:
+            self.logger.error(f"{title}: {exc}")
+
+    def _manual_prompt(self, request):
+        """Ask the operator to carry out a manual action: True after OK, False on Cancel."""
+        message = self._t(request.key, instrument=request.instrument, **request.args)
+        if message == request.key:  # no translation for this call: use the English sentence
+            message = request.text
+        return self._show_manual_prompt(message)
 
     def _show_manual_prompt(self, message):
         """
@@ -1709,6 +1462,84 @@ class RemoteControlTab(QWidget):
         print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')} (manuale: {is_manual})")
         return group
 
+    def run_call(self, inst, ch, call, **args):
+        """
+        Run one logical call (same name and arguments for every brand) on an instrument.
+        The planner translates it into the commands of the model, the executor sends them.
+        Args:
+            inst: Instrument instance data (.inst entry).
+            ch: Channel data (its 'channel_id' gives channel_number) or None.
+            call: Logical call name, e.g. 'set_voltage'.
+            **args: Logical arguments of the call.
+        Returns:
+            The logical result of the call (None for calls without result).
+        Raises:
+            ola.call_errors.CallError: call not supported, value not handled, invalid argument,
+            step failed, answer not recognised.
+        """
+        from ola.call_planner import plan_call
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        if inst.get('is_manual', False):
+            # not a library model: the operator carries the call out by hand
+            if library is None:
+                raise CallNotSupportedError("the instrument library is not loaded", call=call)
+            handle = manual_handle_from_inst(inst, library, prompt=self._manual_prompt)
+            return handle.call(call, **args)
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        if not model_id:
+            raise CallNotSupportedError(f"model {model_key!r} is not in the library", call=call)
+        instr = self.get_visa_instrument(inst)
+        if instr is None:
+            raise CallNotSupportedError(
+                f"instrument {inst.get('instance_name', '?')!r} is not connected", call=call)
+        visa_addr = inst.get('visa_address', '')
+        executor = self._get_instrument_executor(visa_addr, instr, inst.get('instance_name', visa_addr))
+        if ch is not None and 'channel_number' not in args:
+            number = self._extract_channel_number(ch.get('channel_id'))
+            if number is not None:
+                args['channel_number'] = number
+        self._set_remote_once(library, model_id, visa_addr, executor)
+        plan = plan_call(library, model_id, call, args)
+        return plan.interpret(executor.run(plan))
+
+    def _configure_datalogger(self, inst, channels):
+        """
+        Configure a datalogger from its .inst entry: the function of every enabled channel
+        (configure_dc_voltage, ...) and the scan list (select_channels), so that read_scan
+        returns exactly the channels of the project. It is sent again only when the
+        configuration in the .inst file changes.
+        """
+        key = inst.get('instance_name', '')
+        done = self.__dict__.setdefault('_datalogger_signature', {})
+        sig = datalogger_signature(channels)
+        if done.get(key) == sig:
+            return
+        for name, args in datalogger_calls(channels):
+            self.run_call(inst, None, name, **args)
+        done[key] = sig
+
+    def _set_remote_once(self, library, model_id, visa_addr, executor):
+        """
+        Serial (RS-232) instruments ignore commands until they are put in remote mode
+        (HP E3631A, Keysight 34970A, ...): send the logical call 'set_remote' once per
+        connection. Models without that call, or errors, are skipped; the real call that
+        follows reports any problem.
+        """
+        if not str(visa_addr).upper().startswith('ASRL'):
+            return
+        done = self.__dict__.setdefault('_remote_sent', set())
+        if visa_addr in done:
+            return
+        done.add(visa_addr)
+        from ola.call_errors import CallError
+        from ola.call_planner import plan_call
+        try:
+            executor.run(plan_call(library, model_id, 'set_remote', {}))
+        except CallError as exc:
+            if self.logger:
+                self.logger.info(f"set_remote on {visa_addr} skipped: {exc}")
+
     def get_visa_instrument(self, inst):
         """
         Get the VISA instrument object for the given instance.
@@ -1720,7 +1551,7 @@ class RemoteControlTab(QWidget):
 
         # Manual instruments do not use VISA connections
         if inst.get('is_manual', False):
-            print(f"[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
+            print("[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
             return None
 
         if not self._ensure_visa_initialized():
@@ -1741,6 +1572,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Tentativo apertura nuova connessione a {visa_addr}")
         try:
             instr = self.rm.open_resource(visa_addr)
+            self._configure_serial(instr, visa_addr, inst)
             self.visa_connections[visa_addr] = instr
             print(f"[DEBUG] Connessione aperta con successo: {instr}")
             return instr
@@ -1783,32 +1615,25 @@ class RemoteControlTab(QWidget):
 
         print(f"[DEBUG] Valore validato: {value_float}V")
 
-        # Handle manual instruments with a confirmation popup
+        # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
-            msg = self._t(
-                'manual_set_voltage_prompt',
-                instrument=inst.get('instance_name', ''),
-                channel=ch.get('name', ''),
-                value=value_float
-            )
-            confirmed = self._show_manual_prompt(msg)
-            if confirmed:
-                print(f"[ManualInstrument] Voltaggio confermato: {value_float}V per {inst.get('instance_name', 'N/A')}")
-            else:
-                print(f"[ManualInstrument] Impostazione voltaggio annullata dall'utente")
+            try:
+                self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
+            except ManualActionCancelledError as exc:
+                print(f"[ManualInstrument] {exc}")
+            except Exception as exc:
+                self._report_call_error('Set Voltage Error', exc)
             return
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
 
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_voltage').replace('{value}', value_str)
-            print(f"[DEBUG] Comando SCPI: '{cmd}'")
-            instr.write(cmd)
+            self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
             print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Voltage Error: {str(e)}'
@@ -1848,32 +1673,25 @@ class RemoteControlTab(QWidget):
 
         print(f"[DEBUG] Valore validato: {value_float}A")
 
-        # Handle manual instruments with a confirmation popup
+        # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
-            msg = self._t(
-                'manual_set_current_prompt',
-                instrument=inst.get('instance_name', ''),
-                channel=ch.get('name', ''),
-                value=value_float
-            )
-            confirmed = self._show_manual_prompt(msg)
-            if confirmed:
-                print(f"[ManualInstrument] Corrente confermata: {value_float}A per {inst.get('instance_name', 'N/A')}")
-            else:
-                print("[ManualInstrument] Impostazione corrente annullata dall'utente")
+            try:
+                self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
+            except ManualActionCancelledError as exc:
+                print(f"[ManualInstrument] {exc}")
+            except Exception as exc:
+                self._report_call_error('Set Current Error', exc)
             return
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
 
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            cmd = self.get_scpi_cmd(inst, ch, 'set_current').replace('{value}', value_str)
-            print(f"[DEBUG] Comando SCPI: '{cmd}'")
-            instr.write(cmd)
+            self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
             print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Current Error: {str(e)}'
@@ -1901,12 +1719,7 @@ class RemoteControlTab(QWidget):
     def _toggle_output_attempt(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Tenta di impostare l'output e programma la verifica via QTimer."""
         try:
-            if checked:
-                cmd = self.get_scpi_cmd(inst, ch, 'output_on')
-                instr.write(cmd)
-            else:
-                cmd = self.get_scpi_cmd(inst, ch, 'output_off')
-                instr.write(cmd)
+            self.run_call(inst, ch, self._output_call(inst, checked))
 
             QTimer.singleShot(200, lambda: self._verify_output_state(
                 instr, inst, ch, button, checked, attempt, max_attempts))
@@ -1922,17 +1735,15 @@ class RemoteControlTab(QWidget):
 
     def _verify_output_state(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Verifica lo stato dell'uscita dopo aver inviato il comando."""
-        verify_cmd = self.get_scpi_cmd(inst, ch, 'output_state_query')
-        if not verify_cmd:
-            self._toggle_output_success(inst, ch, button, checked)
-            return
-
         try:
-            response = instr.query(verify_cmd).strip()
-            is_on = response in ['1', 'ON', 'on', 'On']
-            is_off = response in ['0', 'OFF', 'off', 'Off']
+            try:
+                is_on = self.run_call(inst, ch, 'output_state_query')
+            except CallNotSupportedError:
+                # the model cannot report the output state: trust the command
+                self._toggle_output_success(inst, ch, button, checked)
+                return
 
-            if (checked and is_on) or (not checked and is_off):
+            if is_on == checked:
                 self._toggle_output_success(inst, ch, button, checked)
             else:
                 if attempt < max_attempts:
@@ -1975,20 +1786,21 @@ class RemoteControlTab(QWidget):
 
     def _toggle_output_manual(self, inst, ch, button, checked):
         """Conferma manuale per strumenti non connessi via VISA."""
-        prompt_key = 'manual_output_on_prompt' if checked else 'manual_output_off_prompt'
-        msg = self._t(prompt_key,
-                      instrument=inst.get('instance_name', ''),
-                      channel=ch.get('name', ''))
-        confirmed = self._show_manual_prompt(msg)
-        if confirmed:
-            if checked:
-                button.setText('Output: ON')
-                button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
-            else:
-                button.setText('Output: OFF')
-                button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
-        else:
+        try:
+            self.run_call(inst, ch, self._output_call(inst, checked))
+        except ManualActionCancelledError:
             button.setChecked(not checked)
+            return
+        except Exception as exc:
+            self._report_call_error('Output Error', exc)
+            button.setChecked(not checked)
+            return
+        if checked:
+            button.setText('Output: ON')
+            button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+        else:
+            button.setText('Output: OFF')
+            button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
 
     def read_actual(self, inst, ch, label):
         """
@@ -1997,15 +1809,12 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param label: QLabel widget to update with the read values.
         """
-        instr = self.get_visa_instrument(inst)
-        if not instr:
+        if not self.get_visa_instrument(inst):
             return
         try:
-            v_cmd = self.get_scpi_cmd(inst, ch, 'read_voltage')
-            c_cmd = self.get_scpi_cmd(inst, ch, 'read_current')
-            v = instr.query(v_cmd)
-            c = instr.query(c_cmd)
-            label.setText(f'V: {v.strip()}  I: {c.strip()}')
+            v = self.run_call(inst, ch, 'read_voltage')
+            c = self.run_call(inst, ch, 'read_current')
+            label.setText(f'V: {v:.6g}  I: {c:.6g}')
         except Exception as e:
             label.setText(f'Error: {e}')
 
@@ -2020,6 +1829,11 @@ class RemoteControlTab(QWidget):
         """
         if not hasattr(self, 'meas_vars'):
             return
+
+        # Dataloggers answer one list with all the readings of the scan list: ask once per
+        # instrument and per refresh, then pick the value of each channel by its position
+        # (readings follow the order of the enabled channels = scan list order).
+        scan_cache = {}
 
         for inst, ch in self.meas_vars:
             instr = self.get_visa_instrument(inst)
@@ -2049,34 +1863,41 @@ class RemoteControlTab(QWidget):
                 continue
 
             try:
-                cmd = self.get_scpi_cmd(inst, ch, 'read_measurement')
-                if not cmd:
-                    label.setText(f"{var_name} = N/A {unit}")
-                    continue
+                if inst_type in ('datalogger', 'dataloggers'):
+                    inst_key = inst.get('instance_name', '')
+                    siblings = scan_order([c for i, c in self.meas_vars
+                                           if i.get('instance_name', '') == inst_key])
+                    if inst_key not in scan_cache:
+                        self._configure_datalogger(inst, siblings)
+                        scan_cache[inst_key] = self.run_call(inst, None, 'read_scan')
+                    readings = scan_cache[inst_key]
+                    idx = next((n for n, c in enumerate(siblings) if c is ch), 0)
+                    if idx >= len(readings):
+                        label.setText(f"{var_name} = N/A {unit}")
+                        continue
+                    numeric_val = readings[idx]
+                else:
+                    numeric_val = float(self.run_call(inst, ch, 'read_measurement'))
 
-                raw_val = instr.query(cmd)
-                # Pulisce il valore e applica attenuazione
-                try:
-                    numeric_val = float(raw_val.strip())
-                    final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
+                final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
 
-                    # Formatta il valore con precisione appropriata
-                    if abs(final_val) >= 1000:
-                        formatted_val = f"{final_val:.2f}"
-                    elif abs(final_val) >= 1:
-                        formatted_val = f"{final_val:.3f}"
-                    else:
-                        formatted_val = f"{final_val:.6f}"
+                # Formatta il valore con precisione appropriata
+                if abs(final_val) >= 1000:
+                    formatted_val = f"{final_val:.2f}"
+                elif abs(final_val) >= 1:
+                    formatted_val = f"{final_val:.3f}"
+                else:
+                    formatted_val = f"{final_val:.6f}"
 
-                    label.setText(f"{var_name} = {formatted_val} {unit}")
-                    label.setProperty("state", "normal")
+                label.setText(f"{var_name} = {formatted_val} {unit}")
+                label.setProperty("state", "normal")
 
-                except ValueError:
-                    # Il valore non è numerico, mostra così com'è
-                    clean_val = raw_val.strip()
-                    label.setText(f"{var_name} = {clean_val} {unit}")
-
+            except CallNotSupportedError:
+                # the model has no such call: not available, not an instrument error
+                label.setText(f"{var_name} = N/A {unit}")
             except Exception as e:
+                if self.logger:
+                    self.logger.error(f"Measurement error {var_name}: {e}")
                 label.setText(f"{var_name} = ERR {unit}")
                 label.setProperty("state", "error")
 

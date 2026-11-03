@@ -469,11 +469,14 @@ class DataloggerSlotConfigDialog(QDialog):
             all_channels = []
             for slot in self.slots:
                 if slot.get('module_id'):
-                    for ch in slot.get('channels', []):
+                    for index, ch in enumerate(slot.get('channels', [])):
                         if ch.get('enabled', False):
                             # Add slot information to channel
                             ch_copy = ch.copy()
                             ch_copy['slot_number'] = slot.get('slot_number')
+                            # channel number of the instrument: slot * 100 + channel (e.g. "103")
+                            ch_copy['channel_id'] = str(
+                                int(slot.get('slot_number') or 0) * 100 + index + 1)
                             ch_copy['module_id'] = slot.get('module_id')
                             all_channels.append(ch_copy)
             

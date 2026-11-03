@@ -310,11 +310,11 @@ def is_valid_visa_address(address: str) -> bool:
     
     # Common VISA address patterns
     patterns = [
-        r'^TCPIP::.+::\d+::SOCKET$',  # TCP/IP Socket
-        r'^TCPIP::.+::inst\d*::INSTR$',  # TCP/IP VXI-11
-        r'^USB::.+::.+::.+::INSTR$',  # USB
-        r'^GPIB::\d+::INSTR$',  # GPIB
-        r'^ASRL\d+::INSTR$',  # Serial
+        r'^TCPIP\d*::[^:]+::\d+::SOCKET$',  # TCP/IP raw socket
+        r'^TCPIP\d*::[^:]+(::(inst|hislip)\d*(,\d+)?)?::INSTR$',  # VXI-11 / HiSLIP
+        r'^USB\d*::[^:]+::[^:]+::[^:]+(::\d+)?::INSTR$',  # USB-TMC
+        r'^GPIB\d*::\d+(::\d+)?::INSTR$',  # GPIB
+        r'^ASRL[^:]+::INSTR$',  # Serial
     ]
     
     for pattern in patterns:

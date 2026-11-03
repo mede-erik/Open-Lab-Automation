@@ -1,8 +1,19 @@
 import json
 import logging
+import os
 import warnings
 
+from ola.library import Library as _Library
+from ola.library import load_schemas as _load_schemas
+from ola.library import resolve_model_commands as _resolve_model_commands
+
 logger = logging.getLogger('frontend.core.LoadInstruments')
+
+
+def get_library_path():
+    """Absolute path of Instruments_LIB/instruments_lib.json (repository root)."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(repo_root, 'Instruments_LIB', 'instruments_lib.json')
 
 
 def deprecated(func):
@@ -28,26 +39,47 @@ class LoadInstruments:
     def __init__(self):
         """Inizializza la lista strumenti vuota."""
         self.instruments = {}
+        self.library_path = None
+        self._ola_library = None
 
-    def load_instruments(self, file_path):
+    def load_instruments(self, file_path=None):
         """
         Loads the instrument list from a JSON file.
         Args:
-            file_path (str): Path to the instruments JSON file.
+            file_path (str): Path to the instruments JSON file (default: repository library).
+        Returns:
+            bool: True if the library was loaded and has a valid structure.
         """
+        file_path = file_path or get_library_path()
+        self.library_path = file_path
+        self._ola_library = None
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # Normalize to dictionary with 'instrument_library' key
-                if isinstance(data, dict) and 'instrument_library' in data:
-                    self.instruments = data['instrument_library']
-                else:
-                    # fallback: accept directly the expected dictionary structure
-                    self.instruments = data if isinstance(data, dict) else {}
         except FileNotFoundError:
-            logger.error(f"File not found: {file_path}")
-        except json.JSONDecodeError:
+            logger.error(f"File not found: {file_path} "
+                         f"(is the Instruments_LIB submodule initialised? "
+                         f"run: git submodule update --init)")
+            self.instruments = {}
+            return False
+        except (json.JSONDecodeError, UnicodeDecodeError):
             logger.error(f"Error decoding JSON from file: {file_path}")
+            self.instruments = {}
+            return False
+        except OSError as e:
+            logger.error(f"Cannot read instrument library {file_path}: {e}")
+            self.instruments = {}
+            return False
+
+        # Normalize to dictionary with 'instrument_library' key
+        if isinstance(data, dict) and 'instrument_library' in data:
+            data = data['instrument_library']
+        if not isinstance(data, dict) or not any(k.endswith('_series') for k in data):
+            logger.error(f"Invalid instrument library structure in {file_path}")
+            self.instruments = {}
+            return False
+        self.instruments = data
+        return True
 
     @deprecated
     def get_powersupplys_series(self):
@@ -422,7 +454,7 @@ class LoadInstruments:
         Restituisce la chiave della libreria (pluralizzata) per un tipo di strumento.
         Args:
             type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger',
-                             'oscilloscope', 'electronic_load').
+                             'oscilloscope', 'electronic_load', 'switch_unit').
         Returns:
             str | None: Chiave della libreria (es. 'power_supplies_series') o None.
         """
@@ -431,6 +463,7 @@ class LoadInstruments:
             'datalogger': 'dataloggers_series',
             'oscilloscope': 'oscilloscopes_series',
             'electronic_load': 'electronic_loads_series',
+            'switch_unit': 'switch_units_series',
         }
         return key_by_type.get(type_name)
 
@@ -537,12 +570,39 @@ class LoadInstruments:
         series_list = self.get_series(type_name) or []
         for series in series_list:
             if series.get('series_id') == series_id:
-                common = series.get('common_scpi_commands', {})
                 for model in series.get('models', []):
                     if model.get('id') == model_id:
-                        specific = model.get('scpi_commands', {})
-                        return {**common, **specific}
+                        return self.resolve_model_commands(series, model)
         return None
+
+    def get_library(self):
+        """
+        Return the Qt-free ola.library.Library built from the loaded instruments and the
+        call schemas found in the 'schema' folder next to the library file.
+        Returns:
+            ola.library.Library: library used by the call planner.
+        """
+        if self._ola_library is None:
+            schemas = {}
+            if self.library_path:
+                schema_dir = os.path.join(os.path.dirname(os.path.abspath(self.library_path)), 'schema')
+                if os.path.isdir(schema_dir):
+                    schemas = _load_schemas(schema_dir)
+            self._ola_library = _Library(self.instruments, schemas)
+        return self._ola_library
+
+    @staticmethod
+    def resolve_model_commands(series, model):
+        """
+        Build the SCPI command set of one model from its series (override, remove with null,
+        patch). Thin wrapper: the logic lives in the Qt-free module ola.library.
+        Args:
+            series (dict): Series dict from the library.
+            model (dict): Model dict belonging to the series.
+        Returns:
+            dict: Call name -> command definition for this model.
+        """
+        return _resolve_model_commands(series, model)
 
     def get_supported_connections(self, type_name, series_id, model_id):
         """
@@ -606,7 +666,11 @@ class LoadInstruments:
         num = caps.get('number_of_channels', caps.get('number_of_slots', 0))
         if isinstance(num, list):
             num = len(num)
-        return [f'CH{i+1}' for i in range(int(num or 0))]
+        ids = [f'CH{i+1}' for i in range(int(num or 0))]
+        if not ids and type_name == 'electronic_load':
+            # Single-input electronic loads may omit any channel definition
+            ids = ['CH1']
+        return ids
 
     def get_channel_limits(self, type_name, series_id, model_id, channel_id=None):
         """
@@ -677,6 +741,7 @@ class LoadInstruments:
             ('dataloggers_series', 'datalogger'),
             ('oscilloscopes_series', 'oscilloscope'),
             ('electronic_loads_series', 'electronic_load'),
+            ('switch_units_series', 'switch_unit'),
         ]
         available = []
         for key, tname in mapping:
@@ -802,4 +867,4 @@ class LoadInstruments:
             if module_id in compatible_ids and not module.get('not_enabled', False):
                 enabled_modules.append(module)
         
-        return enabled_modules
+        return enabled_modules

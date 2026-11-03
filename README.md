@@ -115,9 +115,10 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+
 - PyQt6
 - GCC (for backend compilation)
+- Git (the instrument library `Instruments_LIB` is a submodule)
 - Additional Python packages listed in `requirements.txt`
 
 ## File List and Description
@@ -164,8 +165,12 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/mede-erik/Open-Lab-Automation.git
+   git clone --recurse-submodules https://github.com/mede-erik/Open-Lab-Automation.git
    cd Open-Lab-Automation
+   ```
+   If you already cloned without `--recurse-submodules`, download the instrument library with:
+   ```bash
+   git submodule update --init
    ```
 
 2. Install Python dependencies:
@@ -175,7 +180,12 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 
 3. Compile the C backend (optional, for direct instrument communication):
    ```bash
-   gcc backend/backend.c -o backend/backend.exe
+   bash backend/build.sh
+   ```
+   This builds the shared library `backend/libbackend.so` (Linux/macOS) or `backend/backend.dll`
+   (Windows, MinGW/MSYS). Manual build on Linux:
+   ```bash
+   gcc -shared -fPIC backend/*.c -Ibackend -o backend/libbackend.so -lm
    ```
 
 4. Launch the application:
