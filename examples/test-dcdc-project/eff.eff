@@ -12,7 +12,8 @@
     }
   ],
   "measured_variables": [
-    "Vaux",
+    "VOUT",
+    "VIN_monitor",
     "Vd_Q1",
     "Vs_Q1"
   ],
