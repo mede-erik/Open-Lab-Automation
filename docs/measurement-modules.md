@@ -107,6 +107,28 @@ each role to an instrument of the project (`role_bindings` in the measurement fi
 The framework also calls `derived(values)` for every point: return a dict of computed quantities (for
 example `{"efficiency": pout / pin}`) and they are added to the point. It cannot overwrite a measured value.
 
+## Curves, limits and RF helpers
+
+A measurement that produces a curve (a Bode plot, S-parameters, a spectrum, a waveform) emits it with
+`ctx.emit_trace(name, x, y, kind="complex", **meta)`. A sweep that is repeated emits the same `name` again; the
+window shows the newest. The `meta` keys that the run window understands (all optional):
+
+| key | meaning |
+|---|---|
+| `xlabel`, `ylabel` | axis titles (`ylabel` is used for a real trace) |
+| `x_unit` | unit of x, for the tick labels: `"Hz"` gives `1 MHz`, `2 GHz` |
+| `log_x` | `True`: the x axis starts logarithmic (frequency sweeps) |
+| `limits` | `{"view": "loss_db", "min": [[f, v], ...], "max": [[f, v], ...]}`: limit lines, dashed in red, drawn when the window shows that view |
+
+A **complex** trace can be shown as magnitude (dB), loss (dB, positive), phase, real part, imaginary part, or on
+the **Smith chart**. The window exports a trace to CSV and the S-parameters (traces called `S11`, `S21`, `S12`,
+`S22`) to Touchstone (`ola.runs.export_trace_csv`, `ola.runs.export_touchstone`).
+
+Helpers, so that a module does not rewrite them: `ola.rf` (dB, insertion and return loss, VSWR, impedance from the
+reflection coefficient, group delay, velocity factor, a curve at one frequency, level crossings, Touchstone files)
+and `ola.limits` (`parse_limits({"max": 1.5})` -> `check(freq, y)` gives a pass / fail `Verdict`, and
+`lines(freq)` gives the limit as curves to put in `meta["limits"]`).
+
 ## Rules
 
 * **Call `ctx.checkpoint()` or `ctx.sleep()` in every loop.** A loop that never does cannot be stopped or paused.

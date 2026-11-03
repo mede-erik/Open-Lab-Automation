@@ -32,7 +32,11 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPlainTextEdit,
+    QCheckBox,
+    QListWidget,
+    QListWidgetItem,
     QProgressBar,
+    QStackedWidget,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -44,15 +48,19 @@ from PyQt6.QtWidgets import (
 from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.plot_widget import LinePlot
+from frontend.ui.trace_plot import SmithChart, TracePlot
 from ola.measurement import MeasurementError
 from ola.run_view import (
     QUESTION_OUTPUTS_ON,
     QUESTION_VERIFY,
+    VIEW_SMITH,
     RunModel,
     question_kind,
+    trace_views,
+    trace_xy,
 )
 from ola.runner import Runner
-from ola.runs import export_points_csv
+from ola.runs import export_points_csv, export_touchstone, export_trace_csv
 
 POLL_MS = 100
 TIMEOUT_CLOSE_S = 15  # how long closing the window waits for the run to stop
@@ -174,6 +182,9 @@ class RunWindow(QWidget):
         self._table_columns: list = []
         self._plot_dirty = False
         self._axes_chosen = False
+        self._traces_dirty = False
+        self._traces_checked: dict = {}  # trace name -> shown
+        self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
         self.resize(1000, 700)
         self._build_ui()
@@ -227,6 +238,8 @@ class RunWindow(QWidget):
         self.table.setAlternatingRowColors(True)
         self.tabs.addTab(self.table, self._t("run_tab_results"))
         self.tabs.addTab(self._build_plot_tab(), self._t("run_tab_plot"))
+        self.tabs.addTab(self._build_traces_tab(), self._t("run_tab_traces"))
+        self.tabs.tabBarClicked.connect(lambda _i: setattr(self, "_tab_chosen", True))
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setMaximumBlockCount(5000)
@@ -251,6 +264,37 @@ class RunWindow(QWidget):
         layout.addLayout(row)
         self.plot = LinePlot()
         layout.addWidget(self.plot, 1)
+        return page
+
+    def _build_traces_tab(self) -> QWidget:
+        """Curves (S-parameters, spectra, waveforms): which ones, how to show them, export."""
+        page = QWidget()
+        layout = QHBoxLayout(page)
+        side = QVBoxLayout()
+        self.trace_list = QListWidget()
+        self.trace_list.setMaximumWidth(220)
+        self.trace_list.itemChanged.connect(self._trace_choice_changed)
+        self.view_box = QComboBox()
+        self.view_box.activated.connect(lambda _i: self._draw_traces())
+        self.log_x_box = QCheckBox(self._t("run_traces_log_x"))
+        self.log_x_box.toggled.connect(lambda _on: self._draw_traces())
+        self.csv_btn = QPushButton(self._t("run_traces_export_csv"))
+        self.csv_btn.clicked.connect(self.export_trace)
+        self.touchstone_btn = QPushButton(self._t("run_traces_export_touchstone"))
+        self.touchstone_btn.clicked.connect(self.export_touchstone_file)
+        side.addWidget(self.trace_list, 1)
+        side.addWidget(QLabel(self._t("run_traces_view")))
+        side.addWidget(self.view_box)
+        side.addWidget(self.log_x_box)
+        side.addWidget(self.csv_btn)
+        side.addWidget(self.touchstone_btn)
+        layout.addLayout(side)
+        self.trace_plot = TracePlot()
+        self.smith = SmithChart()
+        self.trace_stack = QStackedWidget()
+        self.trace_stack.addWidget(self.trace_plot)
+        self.trace_stack.addWidget(self.smith)
+        layout.addWidget(self.trace_stack, 1)
         return page
 
     # ================================================================ buttons
@@ -301,8 +345,12 @@ class RunWindow(QWidget):
             self._update_table()
             self._update_log()
             self._plot_dirty = True
+            if any(e.kind == "trace" for e in events):
+                self._traces_dirty = True
         if self._plot_dirty and self.tabs.currentIndex() == 1:
             self._update_plot()
+        if self._traces_dirty:
+            self._update_traces()
         self._refresh()
         self._handle_questions()
         if self.model.finished and not events and self._dialog is None:
@@ -328,7 +376,7 @@ class RunWindow(QWidget):
         fraction = m.fraction
         if fraction is None:
             self.progress.setRange(0, 0 if running else 1)
-            self.progress.setValue(0)
+            self.progress.setValue(1 if m.state == "finished" else 0)  # no total: full when done
         else:
             self.progress.setRange(0, 1000)
             self.progress.setValue(int(fraction * 1000))
@@ -435,6 +483,124 @@ class RunWindow(QWidget):
             self.plot.set_series([])
             return
         self.plot.set_series(self.model.series(x, y, [group] if group else None), x, y)
+
+    # ================================================================ curves
+    def _update_traces(self) -> None:
+        """A trace arrived: refresh the list (new ones are shown), then draw."""
+        self._traces_dirty = False
+        m = self.model
+        self.trace_list.blockSignals(True)
+        have = [self.trace_list.item(i).text() for i in range(self.trace_list.count())]
+        for name in m.trace_order:
+            if name not in have:
+                item = QListWidgetItem(name)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
+                self.trace_list.addItem(item)
+                if not have and m.traces[name].get("meta", {}).get("log_x"):
+                    self.log_x_box.setChecked(True)
+        self.trace_list.blockSignals(False)
+        if not self._tab_chosen and not m.points:  # a measurement of curves only: show them
+            self.tabs.setCurrentIndex(2)
+        self._draw_traces()
+
+    def _trace_choice_changed(self, _item) -> None:
+        self._draw_traces()
+
+    def _shown_traces(self) -> list:
+        names = [
+            self.trace_list.item(i).text()
+            for i in range(self.trace_list.count())
+            if self.trace_list.item(i).checkState() == Qt.CheckState.Checked
+        ]
+        return [self.model.traces[n] for n in names if n in self.model.traces]
+
+    def _draw_traces(self) -> None:
+        shown = self._shown_traces()
+        kinds = {t["kind"] for t in shown}
+        views = trace_views("complex" if "complex" in kinds else "real")
+        if [self.view_box.itemData(i) for i in range(self.view_box.count())] != views:
+            keep = self.view_box.currentData()
+            self.view_box.clear()
+            for view in views:
+                self.view_box.addItem(self._t(f"run_view_{view}"), view)
+            position = self.view_box.findData(keep)
+            self.view_box.setCurrentIndex(max(position, 0))
+        view = self.view_box.currentData() or views[0]
+        has_export = bool(self.run_file) and bool(self.model.traces)
+        self.csv_btn.setEnabled(has_export and self.trace_list.currentRow() >= 0)
+        self.touchstone_btn.setEnabled(has_export and self._touchstone_names() != {})
+        if view == VIEW_SMITH:
+            self.trace_stack.setCurrentWidget(self.smith)
+            self.smith.set_curves(
+                [(t["name"], *trace_xy(t, view)) for t in shown if t["kind"] == "complex"]
+            )
+            return
+        self.trace_stack.setCurrentWidget(self.trace_plot)
+        curves, limits, meta = [], [], {}
+        for t in shown:
+            x, y = trace_xy(t, view if t["kind"] == "complex" else "value")
+            curves.append((t["name"], x, y))
+            meta = meta or t.get("meta", {})
+            wanted = t.get("meta", {}).get("limits") or {}
+            if wanted.get("view") == view:
+                for edge in ("min", "max"):
+                    if wanted.get(edge):
+                        xs, ys = zip(*wanted[edge])
+                        limits.append((self._t("run_traces_limit"), list(xs), list(ys)))
+        ylabel = meta.get("ylabel") if view == "value" else self._t(f"run_view_{view}")
+        self.trace_plot.set_curves(
+            curves,
+            meta.get("xlabel", ""),
+            ylabel or "",
+            limits,
+            log_x=self.log_x_box.isChecked(),
+            x_unit=meta.get("x_unit", ""),
+        )
+
+    def _touchstone_names(self) -> dict:
+        """The S-parameter traces of the run (complex traces called S11, S21, S12, S22)."""
+        return {
+            n: n
+            for n in ("S11", "S21", "S12", "S22")
+            if n in self.model.traces and self.model.traces[n]["kind"] == "complex"
+        }
+
+    def export_trace(self) -> None:
+        """Write the selected trace to CSV."""
+        item = self.trace_list.currentItem()
+        if not self.run_file or item is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, self._t("run_traces_export_csv"), f"{item.text()}.csv", "CSV (*.csv)"
+        )
+        if path:
+            self._export(lambda: export_trace_csv(self.run_file, path, item.text()), path)
+
+    def export_touchstone_file(self) -> None:
+        """Write the S-parameters of the run as a Touchstone file."""
+        names = self._touchstone_names()
+        if not self.run_file or not names:
+            return
+        ports = 2 if set(names) - {"S11"} else 1
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("run_traces_export_touchstone"),
+            f"result.s{ports}p",
+            f"Touchstone (*.s{ports}p)",
+        )
+        if path:
+            self._export(lambda: export_touchstone(self.run_file, path, names), path)
+
+    def _export(self, action, path: str) -> None:
+        try:
+            action()
+        except Exception as exc:
+            QMessageBox.critical(
+                self, self._t("run_title"), self._t("run_export_failed", error=exc)
+            )
+            return
+        self.banner.setText(self._t("run_traces_export_done", path=path))
 
     # ================================================================ questions
     def _handle_questions(self) -> None:

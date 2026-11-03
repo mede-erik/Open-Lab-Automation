@@ -190,6 +190,11 @@ the window only draws it. A timer takes `runner.drain()` every 100 ms.
 * **Plot:** any numeric column against any other, with one line for each value of a third column (by
   default: efficiency against the fastest sweep, one line per slower parameter). Drawn with `QPainter`, so it
   follows the dark or light theme and needs no extra library.
+* **Curves:** the traces the measurement emits (S-parameters, spectra, waveforms). A list with a check box for
+  each, a view (magnitude, loss, phase, real, imaginary, **Smith chart**), a logarithmic x axis, dashed limit
+  lines, a read-out under the mouse (the value of each curve; on the Smith chart the reflection coefficient, the
+  impedance and the VSWR), and export to CSV and Touchstone. A measurement that produces only curves opens on
+  this tab. What a module can ask of the window is in [`measurement-modules.md`](measurement-modules.md#curves-limits-and-rf-helpers).
 * **Log:** messages, warnings and errors.
 * **Questions:** when the measurement asks something (`ctx.ask`) a pop-up shows the question with one button per
   choice; the safe choice (for example *abort*) is the default and is in bold. The pop-up cannot be closed

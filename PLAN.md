@@ -691,6 +691,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   saltati finché `ola.library`/`instrument_handle` non sono uniti. **Non provato su strumenti reali.**
   Nota: `charming-bell` e `wonderful-mccarthy` in conflitto tra loro su `.github/workflows/ci.yml` e
   `scripts/check_translations.py`.
+  **Pezzi comuni per le misure RF** (2026-11-03, 1ª parte della roadmap §6b): `ola/rf.py` (dB, perdita
+  di inserzione e di ritorno, VSWR, impedenza, ritardo di gruppo, fattore di velocità, valore a una
+  frequenza, incroci di livello, Touchstone `.s1p/.s2p` in lettura e scrittura), `ola/limits.py`
+  (limiti pass/fail: costante, retta, bande; `Verdict`), esportazione CSV delle tracce e Touchstone da un
+  file di esecuzione (`ola/runs.py`), tracce nel `RunModel`, **scheda "Curve"** nella finestra di
+  esecuzione (elenco con caselle, viste modulo/perdita/fase/Re/Im/**Smith**, asse X logaritmico, linee
+  limite dai `meta` della traccia, lettura sotto il mouse, esportazione) con `frontend/ui/trace_plot.py`
+  (`TracePlot`, `SmithChart`, senza librerie esterne). **Resta dei pezzi comuni**: un editor per ogni tipo
+  di misura (oggi solo l'efficienza; gli altri usano JSON) e lo strumento di confronto nel menu Tools.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

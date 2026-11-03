@@ -291,3 +291,44 @@ def trace_xy(trace: Mapping[str, Any], view: str) -> Tuple[List[float], List[flo
     if view == VIEW_SMITH:
         return [v.real for v in y], [v.imag for v in y]
     raise ValueError(f"unknown view {view!r}")
+
+
+def log_ticks(low: float, high: float) -> List[float]:
+    """Tick values for a logarithmic axis: 1, 2 and 5 of every decade between ``low`` and ``high``
+    (both positive); only the decades if the range is wider than 4 decades. A range inside one
+    decade also gets 3, 4, 6 ... so that there is something to read."""
+    if not (math.isfinite(low) and math.isfinite(high)) or low <= 0 or high <= 0:
+        return []
+    if high < low:
+        low, high = high, low
+    first, last = math.floor(math.log10(low)), math.ceil(math.log10(high))
+    decades = last - first
+    steps = (1,) if decades > 4 else (1, 2, 5) if decades > 1 else (1, 2, 3, 4, 5, 6, 8)
+    ticks = []
+    for d in range(first, last + 1):
+        for s in steps:
+            value = s * 10.0**d
+            if low * (1 - 1e-9) <= value <= high * (1 + 1e-9):
+                ticks.append(value)
+    return ticks
+
+
+def format_si(value: float, unit: str = "") -> str:
+    """``1500000 -> "1.5 M"``, ``2e9, "Hz" -> "2 GHz"``, ``0.0005, "s" -> "500 us"``."""
+    if value == 0 or not math.isfinite(value):
+        return f"{value:g} {unit}".strip()
+    prefixes = (
+        (1e12, "T"),
+        (1e9, "G"),
+        (1e6, "M"),
+        (1e3, "k"),
+        (1.0, ""),
+        (1e-3, "m"),
+        (1e-6, "u"),
+        (1e-9, "n"),
+        (1e-12, "p"),
+    )
+    for scale, prefix in prefixes:
+        if abs(value) >= scale * 0.99999:
+            return f"{value / scale:.6g} {prefix}{unit}".strip()
+    return f"{value:.3g} {unit}".strip()

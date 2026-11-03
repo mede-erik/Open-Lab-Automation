@@ -175,3 +175,22 @@ def test_a_real_trace_has_one_view():
     m = RunModel()
     m.apply(trace_event("temp", [20.0, 21.0]))
     assert trace_xy(m.traces["temp"], "value") == ([1.0, 2.0], [20.0, 21.0])
+
+
+def test_log_ticks():
+    from ola.run_view import log_ticks
+
+    assert log_ticks(1e6, 1e9) == [1e6, 2e6, 5e6, 1e7, 2e7, 5e7, 1e8, 2e8, 5e8, 1e9]
+    assert log_ticks(1e3, 1e10) == [10.0**k for k in range(3, 11)]  # wide: decades only
+    narrow = log_ticks(2e6, 5e6)
+    assert narrow[0] == 2e6 and 3e6 in narrow and narrow[-1] == 5e6
+    assert log_ticks(0, 10) == [] and log_ticks(-1, 10) == []
+    assert log_ticks(1e9, 1e6) == log_ticks(1e6, 1e9)
+
+
+def test_format_si():
+    from ola.run_view import format_si
+
+    assert format_si(1.5e6) == "1.5 M" and format_si(2e9, "Hz") == "2 GHz"
+    assert format_si(5e-4, "s") == "500 us" and format_si(0, "Hz") == "0 Hz"
+    assert format_si(999e6, "Hz") == "999 MHz" and format_si(1e3, "Hz") == "1 kHz"

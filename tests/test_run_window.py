@@ -10,6 +10,7 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
+from PyQt6.QtCore import Qt  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from frontend.ui import RunWindow as run_module  # noqa: E402
@@ -216,3 +217,125 @@ def test_closing_while_running_asks_first(app, windows, monkeypatch):
     )
     assert w.close()
     assert runner.stop_event.is_set()
+
+
+# ---- curves -------------------------------------------------------------------------------------
+import cmath  # noqa: E402
+import math  # noqa: E402
+
+from ola.measurement import Role  # noqa: E402
+from tests.measurement_helpers import Scripted  # noqa: E402
+
+FREQ = [1e6 * 10 ** (k / 20) for k in range(0, 61)]  # 1 MHz .. 1 GHz, logarithmic
+
+
+def cable_s21(loss_per_ghz_db=1.0, delay_s=5e-9):
+    return [
+        cmath.rect(10 ** (-loss_per_ghz_db * math.sqrt(f / 1e9) / 20), -2 * math.pi * f * delay_s)
+        for f in FREQ
+    ]
+
+
+def trace_runner(limits=None, kind="complex"):
+    """A measurement that only produces curves: S21 of a cable and S11 of an antenna."""
+
+    def run(ctx):
+        meta = {"xlabel": "Frequency", "x_unit": "Hz", "log_x": True}
+        if limits:
+            meta["limits"] = limits
+        ctx.emit_trace("S21", FREQ, cable_s21(), kind="complex", **meta)
+        s11 = [cmath.rect(0.1 + 0.8 * k / 60, -k / 8) for k in range(61)]
+        ctx.emit_trace("S11", FREQ, s11, kind="complex", x_unit="Hz")
+        ctx.emit_trace("temperature", FREQ, [20.0 + k / 10 for k in range(61)], x_unit="Hz")
+
+    return Runner(Scripted(run, roles=(Role("instruments", "any", required=False),)), {})
+
+
+def test_curves_appear_in_their_tab_and_switch_view(app, windows):
+    runner = trace_runner()
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.trace_list.count() == 3
+    assert w.tabs.currentIndex() == 2  # a measurement of curves only: its curves are shown
+    assert w.log_x_box.isChecked()  # the module asked for a logarithmic axis
+    assert [w.view_box.itemData(i) for i in range(w.view_box.count())][0] == "magnitude_db"
+    assert len(w.trace_plot.curves) == 3 and w.trace_plot.log_x
+    # only S21 is shown: untick the others
+    for i in (1, 2):
+        w.trace_list.item(i).setCheckState(Qt.CheckState.Unchecked)
+    assert [c[0] for c in w.trace_plot.curves] == ["S21"]
+    w.view_box.setCurrentIndex(w.view_box.findData("loss_db"))
+    w._draw_traces()
+    assert w.trace_plot.ylabel == "Loss (dB)"
+    assert all(y > 0 for y in w.trace_plot.curves[0][2])  # a loss is positive
+    w.view_box.setCurrentIndex(w.view_box.findData("smith"))
+    w._draw_traces()
+    assert w.trace_stack.currentWidget() is w.smith and len(w.smith.curves) == 1
+
+
+def test_a_real_trace_alone_has_one_view(app, windows):
+    runner = trace_runner()
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    for i in (0, 1):
+        w.trace_list.item(i).setCheckState(Qt.CheckState.Unchecked)
+    assert w.view_box.count() == 1 and w.view_box.itemData(0) == "value"
+
+
+def test_limits_from_the_measurement_are_drawn_when_the_view_matches(app, windows):
+    limits = {"view": "loss_db", "max": [[1e6, 0.5], [1e9, 1.5]]}
+    w = window(windows, trace_runner(limits), auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.trace_plot.limits == []  # the view is magnitude: not the one the limit is for
+    w.view_box.setCurrentIndex(w.view_box.findData("loss_db"))
+    w._draw_traces()
+    assert len(w.trace_plot.limits) == 1 and w.trace_plot.limits[0][2] == [0.5, 1.5]
+
+
+def test_export_of_curves(app, windows, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QFileDialog
+
+    from ola import rf
+
+    runner = trace_runner()
+    path = tmp_path / "run.jsonl"
+    runner.add_listener(RunWriter(path, RunWriter.header_for(runner)))
+    w = window(windows, runner, run_file=str(path), auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.touchstone_btn.isEnabled()
+    csv_path, s2p = str(tmp_path / "s21.csv"), str(tmp_path / "cable.s2p")
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (csv_path, ""))
+    )
+    w.trace_list.setCurrentRow(0)  # S21
+    w.export_trace()
+    assert open(csv_path).readline().strip() == "x,re,im,magnitude_db,phase_deg"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (s2p, "")))
+    w.export_touchstone_file()
+    freq, params, _ = rf.read_touchstone(s2p)
+    assert len(freq) == 61 and set(params) == {"S11", "S21", "S12", "S22"}
+    assert "Saved" in w.banner.text()
+
+
+def test_the_smith_chart_reads_impedance_under_the_mouse(app):
+    from frontend.ui.trace_plot import SmithChart
+
+    chart = SmithChart()
+    chart.set_curves([("S11", [0.0, 1 / 3], [0.0, 0.0])])
+    assert "Z = 50 + j0 ohm" in chart.readout(0.01, 0.0)
+    assert "Z = 100 + j0 ohm" in chart.readout(0.33, 0.0)
+    assert SmithChart().readout(0, 0) is None
+
+
+def test_the_trace_plot_reads_values_and_ignores_a_log_axis_with_zero(app):
+    from frontend.ui.trace_plot import TracePlot
+
+    plot = TracePlot()
+    plot.set_curves([("a", [1e6, 2e6], [1.0, 2.0])], x_unit="Hz", log_x=True)
+    assert plot.log_x and plot.readout(1.9e6) == ["a: 2  @ 2 MHz"]
+    plot.set_curves([("a", [0.0, 2e6], [1.0, 2.0])], x_unit="Hz", log_x=True)
+    assert not plot.log_x  # zero cannot be on a logarithmic axis
