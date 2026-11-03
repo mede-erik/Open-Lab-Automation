@@ -13,7 +13,8 @@ cannot be used). On the selected one:
 * **Rename**, **Remove** (the file is only deleted if you ask);
 * the list of the runs already made, with **Export CSV**.
 
-The instruments come from the application through ``connect(name) -> handle``; without it the
+The instruments come from the application through ``connect(name, cancel) -> handle`` (or a
+``connector_factory(session)`` that builds it for each project); without it the
 measurement cannot start and the window says why. Strings:
 ``frontend/lang/modules/project/<lang>.json``. Try it: ``python -m frontend.ui.ProjectWindow
 [project.json]`` (with no argument a demo project with simulated instruments is created in a
@@ -182,7 +183,8 @@ class ProjectWindow(QMainWindow):
         self,
         project: Optional[Project] = None,
         translator: Any = None,
-        connect: Optional[Callable[[str], Any]] = None,
+        connect: Optional[Callable[..., Any]] = None,
+        connector_factory: Optional[Callable[[ProjectSession], Callable[..., Any]]] = None,
         registry: Optional[ModuleRegistry] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -190,6 +192,7 @@ class ProjectWindow(QMainWindow):
         self.tr_ = CatalogTranslator("project", translator)
         self._t = self.tr_.t
         self.translator, self.connect = translator, connect
+        self.connector_factory, self.connector = connector_factory, None
         self.registry = registry or default_registry()
         self.session: Optional[ProjectSession] = None
         self.run_windows: list = []
@@ -276,9 +279,20 @@ class ProjectWindow(QMainWindow):
     # ================================================================ the project
     def set_project(self, project: Project) -> None:
         """Show this project (``connect`` is kept)."""
+        self._close_connector()
         self.session = ProjectSession(project, self.registry, connect=self.connect)
+        if self.connector_factory is not None:  # built for this project, closed when it changes
+            self.connector = self.connector_factory(self.session)
+            self.session.connect = self.connector
         self.setWindowTitle(f"{self._t('prj_title')} - {project.name}")
         self._refresh()
+
+    def _close_connector(self) -> None:
+        """Close the connections of the previous project (if its connector can close them)."""
+        close = getattr(self.connector, "close", None)
+        if callable(close):
+            close()
+        self.connector = None
 
     def new_project(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, self._t("prj_new_project"))
@@ -551,10 +565,11 @@ class ProjectWindow(QMainWindow):
             event.ignore()
             return
         self._timer.stop()
+        self._close_connector()
         event.accept()
 
 
-def not_connected(name: str):
+def not_connected(name: str, cancel=None):
     """The ``connect`` of an application that cannot reach instruments yet: raises, and the project
     window shows "cannot reach instrument '<name>': ..." instead of starting. Replace it with a
     function that returns the handle of the instrument ``name`` of the project."""
@@ -591,7 +606,9 @@ def main(argv: Optional[list] = None) -> int:
     else:
         lab = DemoLab(delay_s=0.05)
         folder = tempfile.mkdtemp(prefix="ola_demo_")
-        window = ProjectWindow(demo_project(folder), connect=lambda name: DemoHandle(name, lab))
+        window = ProjectWindow(
+            demo_project(folder), connect=lambda name, cancel=None: DemoHandle(name, lab)
+        )
     window.show()
     return app.exec()
 

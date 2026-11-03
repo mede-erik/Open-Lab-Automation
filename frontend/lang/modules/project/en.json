@@ -1,6 +1,9 @@
 {
   "prj_title": "Project",
   "prj_tab": "Measurements",
+  "prj_manual_title": "Manual action",
+  "prj_manual_help": "Do it on the instrument, then press Done.",
+  "prj_manual_done": "Done",
   "prj_menu_file": "File",
   "prj_new_project": "New project...",
   "prj_open_project": "Open project...",

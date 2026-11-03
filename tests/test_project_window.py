@@ -54,7 +54,7 @@ def window(app, tmp_path):
     lab = DemoLab()
     w = ProjectWindow(
         demo_project(str(tmp_path)),
-        connect=lambda name: DemoHandle(name, lab),
+        connect=lambda name, cancel=None: DemoHandle(name, lab),
         registry=default_registry(user_dir="/nonexistent"),
     )
     yield w
@@ -236,5 +236,44 @@ def test_main_window_uses_the_project_tab():
     """main_window.py is not instantiated here (it opens a database); check the wiring."""
     path = os.path.join(os.path.dirname(project_module.__file__), "main_window.py")
     source = open(path, encoding="utf-8").read()
-    assert "ProjectWindow(translator=self.translator, connect=not_connected)" in source
+    assert (
+        "ProjectWindow(" in source and "connector_factory=lambda session: make_connector(" in source
+    )
     assert "Funzionalità in arrivo" not in source
+
+
+def test_without_the_engine_or_library_the_connector_explains(window, tmp_path):
+    """make_connector never raises: with no usable library it gives a function that says why."""
+    from frontend.ui.connector_setup import make_connector
+
+    connect = make_connector(window.session, str(tmp_path / "missing_library.json"))
+    with pytest.raises(RuntimeError, match="library cannot be used"):
+        connect("PSU", None)
+    connect = make_connector(window.session, None)
+    with pytest.raises(RuntimeError, match="library cannot be used"):
+        connect("PSU", None)
+
+
+def test_the_window_closes_the_connector_of_the_previous_project(app, tmp_path):
+    closed = []
+
+    class Connector:
+        def __call__(self, name, cancel=None):
+            raise RuntimeError("no")
+
+        def close(self):
+            closed.append(True)
+
+    w = ProjectWindow(
+        demo_project(str(tmp_path / "a")),
+        connector_factory=lambda session: Connector(),
+        registry=default_registry(user_dir="/nonexistent"),
+    )
+    try:
+        assert isinstance(w.session.connect, Connector)
+        w.set_project(demo_project(str(tmp_path / "b")))  # another project: the old one is closed
+        assert closed == [True]
+    finally:
+        w._timer.stop()
+        w.close()
+    assert closed == [True, True]

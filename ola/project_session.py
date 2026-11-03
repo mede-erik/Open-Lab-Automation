@@ -10,15 +10,18 @@
     runner, run_file = session.build_runner(ref)     # ready to start, results written to run_file
     session.runs(ref)                   # the run files of this measurement, newest first
 
-``connect(name)`` must return the *handle* of the instrument called ``name`` in the instrument file
-(an object with ``.name`` and ``.call(call_name, **args)``). The application provides it; without
-it a measurement cannot start and the reason is a readable message, not a crash. The window of the
+``connect(name, cancel)`` must return the *handle* of the instrument called ``name`` in the
+instrument file (an object with ``.name`` and ``.call(call_name, **args)``); ``cancel`` is the stop
+event of the run, which the handle should honour (``ola.connection.ProjectConnector`` does). The
+application provides it; without it a measurement cannot start and the reason is a readable message,
+not a crash. The window of the
 measurement to run is chosen by the GUI, not here.
 """
 
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,7 +33,7 @@ from .registry import ModuleInfo, ModuleRegistry
 from .runner import Runner
 from .runs import RunWriter, read_run
 
-Connect = Callable[[str], Any]
+Connect = Callable[[str, Optional[threading.Event]], Any]  # (name, run's stop event) -> handle
 RUNS_FOLDER = "runs"
 
 
@@ -158,7 +161,12 @@ class ProjectSession:
         self.project.save()
 
     # ----- running ----------------------------------------------------------------------------
-    def bind(self, measurement_file: MeasurementFile, info: ModuleInfo) -> Dict[str, List[Any]]:
+    def bind(
+        self,
+        measurement_file: MeasurementFile,
+        info: ModuleInfo,
+        cancel: Optional[threading.Event] = None,
+    ) -> Dict[str, List[Any]]:
         """The handles for every role of the measurement. A role without names in the file gets
         all the project's instruments. ``MeasurementError`` (readable) if an instrument is not in
         the project or cannot be reached."""
@@ -181,7 +189,7 @@ class ProjectSession:
             for name in wanted:
                 if name not in cache:
                     try:
-                        cache[name] = self.connect(name)
+                        cache[name] = self.connect(name, cancel)
                     except Exception as exc:  # the real reason is shown to the user
                         raise MeasurementError(f"cannot reach instrument '{name}': {exc}") from exc
                 role_handles.append(cache[name])
@@ -203,9 +211,10 @@ class ProjectSession:
                 f"{ref.file}: the file is a '{measurement_file.type}' measurement, the project "
                 f"says '{ref.type}'"
             )
-        handles = self.bind(measurement_file, row.info)
+        cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
+        handles = self.bind(measurement_file, row.info, cancel)
         measurement = self.registry.create(ref.type, measurement_file.params)
-        runner = Runner(measurement, handles, unattended=unattended)
+        runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
         stamp = time.strftime("%Y%m%d_%H%M%S")
         path = self.run_dir / f"{Path(ref.file).stem}_{stamp}.jsonl"
         suffix = 2

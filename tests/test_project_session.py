@@ -17,7 +17,7 @@ def make(tmp_path, with_connect=True):
     registry = default_registry(user_dir="/nonexistent")
     project = Project.new("Demo", tmp_path)
     lab = DemoLab()
-    connect = (lambda name: DemoHandle(name, lab)) if with_connect else None
+    connect = (lambda name, cancel=None: DemoHandle(name, lab)) if with_connect else None
     session = ProjectSession(project, registry, connect=connect, instruments=INSTRUMENTS)
     return session, lab
 
@@ -111,7 +111,7 @@ def test_without_a_way_to_connect_the_reason_is_readable(tmp_path):
 def test_an_instrument_that_cannot_be_reached_names_it(tmp_path):
     session, _ = make(tmp_path)
 
-    def connect(name):
+    def connect(name, cancel=None):
         raise OSError("timeout")
 
     session.connect = connect

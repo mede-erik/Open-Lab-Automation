@@ -1,6 +1,9 @@
 {
   "prj_title": "Projekt",
   "prj_tab": "Messungen",
+  "prj_manual_title": "Manuelle Aktion",
+  "prj_manual_help": "Am Gerät ausführen und dann auf Erledigt drücken.",
+  "prj_manual_done": "Erledigt",
   "prj_menu_file": "Datei",
   "prj_new_project": "Neues Projekt...",
   "prj_open_project": "Projekt öffnen...",

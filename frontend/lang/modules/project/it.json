@@ -1,6 +1,9 @@
 {
   "prj_title": "Progetto",
   "prj_tab": "Misure",
+  "prj_manual_title": "Azione manuale",
+  "prj_manual_help": "Eseguila sullo strumento, poi premi Fatto.",
+  "prj_manual_done": "Fatto",
   "prj_menu_file": "File",
   "prj_new_project": "Nuovo progetto...",
   "prj_open_project": "Apri progetto...",

@@ -223,12 +223,33 @@ to reach an instrument: the application gives it `connect(name) -> handle` (an o
 instruments are not connected and sends nothing; an instrument that cannot be reached is named in the message.
 
 **In the main window.** `frontend/ui/main_window.py` shows the project window as the *Measurements* tab (it replaces
-the old "Avvia Efficienza - in arrivo" placeholder). Its `connect` is `not_connected` (in `ProjectWindow.py`), which
-raises "the connection to the instruments is not available in this build yet": the window then says
-"cannot reach instrument '<name>'" and starts nothing. **To connect the real instruments, replace that one
-function** with one that returns the handle of the instrument `name` of the project (the `InstrumentHandle` of the
-library branch, built from the `.inst` entry: model, address, transport). The old project flow of the main window
-(`eff_files`, left list) is untouched and still works on its own format.
+the old "Avvia Efficienza - in arrivo" placeholder). The old project flow of the main window (`eff_files`, left
+list) is untouched and still works on its own format.
+
+## Connecting the instruments
+
+`ola/connection.py` (`ProjectConnector`) is the `connect(name, cancel)` of the project window. It reads the
+project's `.inst` file (entries by `instance_name`) and returns the handle of the instrument:
+
+* **manual instrument** (`is_manual`: a bench supply or load without remote control): a handle that asks the
+  operator to do each action by hand. `frontend/ui/manual_prompt.py` (`ManualPrompter`) shows the pop-up
+  ("Set 'VIN' 12.0 V" - *Done* / *Cancel*) from the thread of the run without blocking the GUI; *Cancel* ends the
+  run as *stopped* (not failed); *Stop* closes the pop-up by itself. Values above the limits of the instrument
+  are refused before the operator is asked;
+* **any other instrument**: found in the library by `model_id`, opened at its `visa_address` (USB-TMC, LAN, GPIB,
+  serial; a serial instrument is put in remote mode with `set_remote` if the library has it) and wrapped in an
+  `InstrumentHandle`.
+
+Connections stay open between runs; the handle is new for every run because it carries that run's *Stop* event, so
+Stop also interrupts a long instrument call. Every problem is one sentence that says what to check: *"'PSU' has no
+address (visa_address)"*, *"the model of 'DAQ' (...) is not in the instrument library"*, *"cannot open 'OSC' at
+TCPIP0::...: timed out. Check that it is switched on, connected, and that the address is right"*.
+`frontend/ui/connector_setup.py` (`make_connector`) builds it for the application from
+`Instruments_LIB/instruments_lib.json`; if the library or the engine cannot be loaded it gives a function that
+says why, so the window still opens and *Start measurement* explains instead of crashing.
+
+The engine part (`ola.library`, `ola.instrument_handle`, `ola.manual_instrument`) lives on another branch; the
+tests of `ola/connection.py` are skipped where it is missing and run once it is merged.
 
 `python -m frontend.ui.ProjectWindow [project.json]` opens a project; with no argument it creates a demo project
 with simulated instruments in a temporary folder. A project in the old format (`eff_files`) is not read: the
@@ -236,6 +257,6 @@ window says so.
 
 ## Not done yet
 
-The measurement modules other than `time_log` and `efficiency`, connecting the project window to the main window and to the real instruments, the driver system
+The measurement modules other than `time_log` and `efficiency`, trying the connection on real instruments, the driver system
 for Analog Discovery, the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`)
 and the retirement of the old C backend. The plan and the status are in [`PLAN.md`](../PLAN.md).

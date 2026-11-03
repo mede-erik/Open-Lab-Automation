@@ -641,14 +641,22 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   eliminato su richiesta), elenco delle esecuzioni con esportazione CSV. Gli strumenti arrivano
   dall'applicazione tramite `connect(nome) -> handle`; senza, "Avvia" spiega che non sono collegati.
   **Integrazione in `main_window.py`** (2026-11-03): il segnaposto "Avvia Efficienza - in arrivo" è
-  sostituito dalla scheda **Misure** (`ProjectWindow`, 6 righe; non tocca le parti modificate dal ramo
-  `wonderful-mccarthy`, i due rami si uniscono senza conflitti). Il flusso vecchio (`eff_files`, lista a
-  sinistra) resta com'è. `connect` è `not_connected` (messaggio chiaro, non parte nulla): **va sostituito
-  con la funzione che restituisce l'`InstrumentHandle` dal `.inst`** quando il ramo `charming-bell`
-  (libreria, planner, handle) sarà unito. Nota: `charming-bell` e `wonderful-mccarthy` in conflitto
-  tra loro su `.github/workflows/ci.yml` e `scripts/check_translations.py`.
+  sostituito dalla scheda **Misure** (`ProjectWindow`; non tocca le parti modificate dal ramo
+  `wonderful-mccarthy`). Il flusso vecchio (`eff_files`, lista a sinistra) resta com'è.
+  **`connect` reale** (2026-11-03): `ola/connection.py` (`ProjectConnector`, senza Qt) legge il `.inst`
+  e restituisce l'handle: strumento manuale (pop-up `ManualPrompter`: Fatto/Annulla, Annulla ferma la
+  misura come "fermata", Ferma chiude il pop-up) oppure strumento della libreria aperto al suo
+  `visa_address` (modalità remota `set_remote` per le seriali); connessioni tenute aperte tra le
+  esecuzioni, handle nuovo a ogni esecuzione con l'evento di stop; errori in una frase che dice cosa
+  controllare. `frontend/ui/connector_setup.py` lo costruisce per l'app dalla libreria; se la libreria
+  o il motore mancano dà una funzione che spiega il motivo. **Provato** con il codice reale del ramo
+  `charming-bell` unito in una worktree locale (45 test + prova completa: progetto → `.inst` → libreria
+  → strumento simulato → esecuzione terminata con i dati); sul ramo i test di `connection.py` sono
+  saltati finché `ola.library`/`instrument_handle` non sono uniti. **Non provato su strumenti reali.**
+  Nota: `charming-bell` e `wonderful-mccarthy` in conflitto tra loro su `.github/workflows/ci.yml` e
+  `scripts/check_translations.py`.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), collegare la finestra del progetto a `main_window` e agli strumenti reali (`connect`, dal ramo di libreria/handle),
+  ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
   attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 

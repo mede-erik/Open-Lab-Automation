@@ -1,6 +1,9 @@
 {
   "prj_title": "Proyecto",
   "prj_tab": "Mediciones",
+  "prj_manual_title": "Acción manual",
+  "prj_manual_help": "Hágalo en el instrumento y pulse Hecho.",
+  "prj_manual_done": "Hecho",
   "prj_menu_file": "Archivo",
   "prj_new_project": "Nuevo proyecto...",
   "prj_open_project": "Abrir proyecto...",
