@@ -23,6 +23,7 @@ CATEGORY_LABELS = {
     "switch_units_series": "Switch unit",
     "datalogger_modules": "Datalogger module",
     "multimeters_series": "Multimeter",
+    "network_analyzers_series": "Network analyzer (VNA)",
     "oscilloscopes_series": "Oscilloscope",
     "electronic_loads_series": "Electronic load",
 }
