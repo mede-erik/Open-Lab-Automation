@@ -191,6 +191,16 @@ def _logical_value(
                 raise ValueError
             else:
                 value = bool(value)
+        elif kind == "list":
+            items = (
+                [s.strip() for s in value.split(",") if s.strip()]
+                if isinstance(value, str)
+                else list(value)
+            )
+            if not items:
+                raise ValueError("empty list")
+            item_spec = {"type": types[t].get("item", "string")}
+            value = [_logical_value(name, item_spec, v, types, call) for v in items]
         elif kind == "enum":
             value = str(value).strip().upper()
             value = types[t].get("aliases", {}).get(value, value)
