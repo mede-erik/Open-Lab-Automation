@@ -278,6 +278,7 @@ def _evaluate(expression: str, values: Dict[str, Any], call: str) -> float:
     and parentheses only (no function calls, no attributes)."""
 
     def ev(node):
+        """Value of one node of the expression tree (only the allowed node types)."""
         if isinstance(node, ast.Expression):
             return ev(node.body)
         if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
@@ -322,6 +323,7 @@ def _lookup(table: Dict[str, Any], value: Any):
 
 def _substitute(template: str, texts: Dict[str, str], call: str) -> str:
     def repl(m):
+        """Text of one ``{argument}`` placeholder."""
         name = m.group(1)
         if name not in texts:
             raise InvalidArgumentError(f"call '{call}' needs argument '{name}'", call=call)

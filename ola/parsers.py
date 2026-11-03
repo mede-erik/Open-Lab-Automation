@@ -106,6 +106,7 @@ PARSERS: Dict[str, Callable[..., Any]] = {"siglent_waveform": siglent_waveform}
 
 
 def get_parser(name: str, call: str = "?") -> Callable[..., Any]:
+    """The named parser of a library ``parse`` entry; CALL-005 if the name is unknown."""
     try:
         return PARSERS[name]
     except KeyError:

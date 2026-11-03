@@ -145,6 +145,8 @@ def serial_port_from_address(address: str) -> str:
 
 @dataclass
 class ProbeResult:
+    """A serial setting the instrument answered to during ``probe_serial``."""
+
     baud: int
     flow_control: str
     parity: str
@@ -215,6 +217,7 @@ def loopback_serial(port: str, baud: int = 9600, timeout: float = 1.0) -> Option
 
 
 def open_raw_socket(host: str, port: int, timeout_ms: int = 5000):
+    """Open a raw TCP connection to an instrument (for example port 5025)."""
     from .transport import open_tcp
 
     return open_tcp(host, port, timeout_ms)
@@ -228,10 +231,12 @@ def open_simulated(answer: str = "1"):
 
 
 def make_handle(library: Library, model_id: str, connection, name: str = "instrument"):
+    """An ``InstrumentHandle`` of a model on an open connection."""
     return InstrumentHandle(name, library, model_id, Instrument(name, connection))
 
 
 def call_spec(library: Library, model_id: str, call: str) -> Optional[Dict[str, Any]]:
+    """The schema entry of a call for the category of a model, or None."""
     ref = library.find_model(model_id)
     schema = library.schema(ref.category) if ref else None
     return (schema or {}).get("calls", {}).get(call)
@@ -256,6 +261,7 @@ def model_calls(library: Library, model_id: str) -> List[Dict[str, Any]]:
 
 
 def missing_mandatory(library: Library, model_id: str) -> List[str]:
+    """Mandatory calls of the category that the model does not define."""
     ref = library.find_model(model_id)
     schema = library.schema(ref.category) if ref else None
     if not schema:
@@ -276,6 +282,8 @@ RUN_AFTER = {"fetch_readings": "read_scan"}
 
 @dataclass
 class TestResult:
+    """The outcome of one call in ``self_test``: ``ok``, ``fail`` or ``skip``, with a detail."""
+
     call: str
     status: str  # ok | fail | skip
     detail: str

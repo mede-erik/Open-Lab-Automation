@@ -75,12 +75,15 @@ def load_schemas(schema_dir: str) -> Dict[str, Dict[str, Any]]:
 
 @dataclass(frozen=True)
 class ModelRef:
+    """A model found in the library, with the category and the series it belongs to."""
+
     category: str
     series: Dict[str, Any]
     model: Dict[str, Any]
 
     @property
     def model_id(self) -> str:
+        """The library id of the model, e.g. ``OSC_Siglent_SDS824X_HD``."""
         return self.model.get("id", "")
 
 
@@ -113,6 +116,7 @@ class Library:
         return cls(categories, load_schemas(schema_dir), version)
 
     def find_model(self, model_id: str) -> Optional[ModelRef]:
+        """The model with this library id, or None."""
         for category, series_list in self.categories.items():
             if not isinstance(series_list, list):
                 continue
@@ -150,8 +154,10 @@ class Library:
         return {}
 
     def commands(self, model_id: str) -> Optional[Dict[str, Any]]:
+        """The command set of a model (series commands with the model overrides), or None."""
         ref = self.find_model(model_id)
         return resolve_model_commands(ref.series, ref.model) if ref else None
 
     def schema(self, category: str) -> Optional[Dict[str, Any]]:
+        """The call schema of a library category (``None`` if the category has none)."""
         return self.schemas.get(category)
