@@ -1,0 +1,593 @@
+"""Window of a project: its measurements, and the actions on them.
+
+A thin layer over ``ola.project_session.ProjectSession`` (which does the work and is tested without
+a screen). The list shows every measurement of the project (name, type, file, and the reason if it
+cannot be used). On the selected one:
+
+* **New**: choose the type (the measurement modules found) and a name; a file with the extension of
+  the type is created in the project folder;
+* **Edit** (or double-click): the editor of the type - the efficiency editor for ``.eff``, a JSON
+  editor with validation for the other types;
+* **Start measurement**: opens the run window (live table, plot, log, pop-ups) and starts it; the
+  results are written to ``runs/`` in the project folder;
+* **Rename**, **Remove** (the file is only deleted if you ask);
+* the list of the runs already made, with **Export CSV**.
+
+The instruments come from the application through ``connect(name) -> handle``; without it the
+measurement cannot start and the window says why. Strings:
+``frontend/lang/modules/project/<lang>.json``. Try it: ``python -m frontend.ui.ProjectWindow
+[project.json]`` (with no argument a demo project with simulated instruments is created in a
+temporary folder).
+"""
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from frontend.ui.efficiency_widgets import text_color
+from frontend.ui.module_translator import CatalogTranslator
+from ola.measurement import MeasurementError
+from ola.project import MeasurementFile, MeasurementRef, Project
+from ola.project_session import ProjectSession
+from ola.registry import ModuleRegistry, default_registry
+from ola.runs import export_points_csv
+
+REFRESH_MS = 1000  # the list of runs is refreshed while a run window is open
+
+
+class NewMeasurementDialog(QDialog):
+    """Asks for the type and the name of a new measurement."""
+
+    def __init__(self, types: list, tr: CatalogTranslator, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr.t("prj_new_title"))
+        layout = QVBoxLayout(self)
+        self.type_box = QComboBox()
+        for info in types:
+            self.type_box.addItem(f"{info.name}  ({info.extension})", info.id)
+            self.type_box.setItemData(
+                self.type_box.count() - 1, info.description, Qt.ItemDataRole.ToolTipRole
+            )
+        self.name_edit = QLineEdit()
+        self.type_box.currentIndexChanged.connect(self._suggest)
+        self.description = QLabel()
+        self.description.setWordWrap(True)
+        self.types = {t.id: t for t in types}
+        layout.addWidget(QLabel(tr.t("prj_new_type")))
+        layout.addWidget(self.type_box)
+        layout.addWidget(self.description)
+        layout.addWidget(QLabel(tr.t("prj_new_name")))
+        layout.addWidget(self.name_edit)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        ok = QPushButton(tr.t("prj_ok"))
+        cancel = QPushButton(tr.t("prj_cancel"))
+        ok.setDefault(True)
+        ok.clicked.connect(self.accept)
+        cancel.clicked.connect(self.reject)
+        row.addWidget(ok)
+        row.addWidget(cancel)
+        layout.addLayout(row)
+        self._suggest()
+
+    def _suggest(self) -> None:
+        info = self.types.get(self.type_box.currentData())
+        if info is not None:
+            self.description.setText(info.description)
+            if not self.name_edit.isModified():
+                self.name_edit.setText(info.name)
+
+    def chosen(self):
+        """``(type_id, name)``."""
+        return self.type_box.currentData(), self.name_edit.text().strip()
+
+
+class JsonParamsDialog(QDialog):
+    """Editor of the parameters of a measurement type that has no editor of its own: the
+    parameters as JSON, checked by the measurement module before saving."""
+
+    def __init__(
+        self, session: ProjectSession, ref: MeasurementRef, tr: CatalogTranslator, parent=None
+    ):
+        super().__init__(parent)
+        self.session, self.ref, self.tr_ = session, ref, tr
+        self.file = session.load(ref)
+        self.setWindowTitle(f"{tr.t('prj_json_title')} - {ref.name}")
+        self.resize(640, 520)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(tr.t("prj_json_help")))
+        self.edit = QPlainTextEdit(json.dumps(self.file.params, indent=2, ensure_ascii=False))
+        self.edit.textChanged.connect(self._check)
+        layout.addWidget(self.edit, 1)
+        self.message = QLabel()
+        self.message.setWordWrap(True)
+        layout.addWidget(self.message)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self.save_btn = QPushButton(tr.t("prj_save"))
+        close = QPushButton(tr.t("prj_cancel"))
+        self.save_btn.clicked.connect(self.save)
+        close.clicked.connect(self.reject)
+        row.addWidget(self.save_btn)
+        row.addWidget(close)
+        layout.addLayout(row)
+        self._check()
+
+    def _problems(self) -> List[str]:
+        """What is wrong with the text now (empty list: it can be saved)."""
+        try:
+            params = json.loads(self.edit.toPlainText())
+        except ValueError as exc:
+            return [self.tr_.t("prj_json_invalid", error=exc)]
+        if not isinstance(params, dict):
+            return [self.tr_.t("prj_json_not_object")]
+        try:
+            return list(self.session.registry.create(self.ref.type, params).validate())
+        except Exception as exc:  # the module refused the parameters
+            return [str(exc)]
+
+    def _check(self) -> None:
+        problems = self._problems()
+        color = text_color("error" if problems else "ok", self)
+        text = "<br>".join(problems) if problems else self.tr_.t("prj_json_ok")
+        self.message.setText(f"<span style='color:{color}'>{text}</span>")
+
+    def save(self) -> None:
+        """Write the file (after a confirmation if the module sees problems)."""
+        problems = self._problems()
+        if problems:
+            answer = QMessageBox.question(
+                self, self.windowTitle(), self.tr_.t("prj_save_with_errors", n=len(problems))
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            params = json.loads(self.edit.toPlainText())
+        except ValueError:
+            return  # not saved: the text is not JSON
+        self.file.params = params
+        self.file.save(self.session.path(self.ref))
+        self.accept()
+
+
+class ProjectWindow(QMainWindow):
+    """The window of a project (see the module docstring)."""
+
+    def __init__(
+        self,
+        project: Optional[Project] = None,
+        translator: Any = None,
+        connect: Optional[Callable[[str], Any]] = None,
+        registry: Optional[ModuleRegistry] = None,
+        parent: Optional[QWidget] = None,
+    ):
+        super().__init__(parent)
+        self.tr_ = CatalogTranslator("project", translator)
+        self._t = self.tr_.t
+        self.translator, self.connect = translator, connect
+        self.registry = registry or default_registry()
+        self.session: Optional[ProjectSession] = None
+        self.run_windows: list = []
+        self.setWindowTitle(self._t("prj_title"))
+        self.resize(980, 640)
+        self._build_ui()
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh_runs)
+        self._timer.start(REFRESH_MS)
+        if project is not None:
+            self.set_project(project)
+        else:
+            self._refresh()
+
+    # ================================================================ building the window
+    def _build_ui(self) -> None:
+        menu = self.menuBar().addMenu(self._t("prj_menu_file"))
+        for key, handler in (
+            ("prj_new_project", self.new_project),
+            ("prj_open_project", self.open_project),
+            ("prj_choose_inst", self.choose_instrument_file),
+        ):
+            action = menu.addAction(self._t(key))
+            action.triggered.connect(lambda _c=False, h=handler: h())
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        self.header = QLabel()
+        self.header.setTextFormat(Qt.TextFormat.RichText)
+        self.header.setWordWrap(True)
+        root.addWidget(self.header)
+
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(
+            [
+                self._t("prj_col_name"),
+                self._t("prj_col_type"),
+                self._t("prj_col_file"),
+                self._t("prj_col_status"),
+            ]
+        )
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.itemSelectionChanged.connect(self._selection_changed)
+        self.table.itemDoubleClicked.connect(lambda _i: self.edit_measurement())
+        root.addWidget(self.table, 3)
+
+        row = QHBoxLayout()
+        self.buttons: Dict[str, QPushButton] = {}
+        for key, handler in (
+            ("prj_new", self.new_measurement),
+            ("prj_edit", self.edit_measurement),
+            ("prj_run", self.run_measurement),
+            ("prj_rename", self.rename_measurement),
+            ("prj_remove", self.remove_measurement),
+        ):
+            button = QPushButton(self._t(key))
+            button.clicked.connect(lambda _c=False, h=handler: h())
+            self.buttons[key] = button
+            row.addWidget(button)
+        row.addStretch(1)
+        root.addLayout(row)
+
+        root.addWidget(QLabel(self._t("prj_runs")))
+        self.runs_table = QTableWidget(0, 3)
+        self.runs_table.setHorizontalHeaderLabels(
+            [self._t("prj_run_file"), self._t("prj_run_state"), self._t("prj_run_points")]
+        )
+        self.runs_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.runs_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.runs_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.runs_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.runs_table.itemSelectionChanged.connect(self._update_buttons)
+        root.addWidget(self.runs_table, 2)
+        row = QHBoxLayout()
+        self.export_btn = QPushButton(self._t("prj_export"))
+        self.export_btn.clicked.connect(self.export_run)
+        row.addWidget(self.export_btn)
+        row.addStretch(1)
+        root.addLayout(row)
+
+    # ================================================================ the project
+    def set_project(self, project: Project) -> None:
+        """Show this project (``connect`` is kept)."""
+        self.session = ProjectSession(project, self.registry, connect=self.connect)
+        self.setWindowTitle(f"{self._t('prj_title')} - {project.name}")
+        self._refresh()
+
+    def new_project(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, self._t("prj_new_project"))
+        if not folder:
+            return
+        name, ok = QInputDialog.getText(
+            self, self._t("prj_new_project"), self._t("prj_project_name")
+        )
+        if not ok or not name.strip():
+            return
+        project = Project.new(name.strip(), folder)
+        if project.path.exists():
+            QMessageBox.warning(
+                self, self._t("prj_title"), self._t("prj_exists", path=str(project.path))
+            )
+            return
+        project.save()
+        self.set_project(project)
+
+    def open_project(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, self._t("prj_open_project"), "", "Project (*.json)"
+        )
+        if path:
+            self.open_path(path)
+
+    def open_path(self, path: str) -> bool:
+        """Open a project file; the reason is shown if it cannot be read (for example the old
+        format, which is not supported)."""
+        try:
+            project = Project.load(path)
+        except MeasurementError as exc:
+            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_open_failed", error=exc))
+            return False
+        self.set_project(project)
+        return True
+
+    def choose_instrument_file(self) -> None:
+        if self.session is None:
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._t("prj_choose_inst"),
+            str(self.session.project.directory),
+            "Instruments (*.inst)",
+        )
+        if not path:
+            return
+        try:
+            if Path(path).parent.resolve() != self.session.project.directory.resolve():
+                raise MeasurementError(self._t("prj_inst_outside"))
+            self.session.set_instrument_file(Path(path).name)
+        except MeasurementError as exc:
+            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            return
+        self._refresh()
+
+    # ================================================================ the list
+    def _selected(self) -> Optional[MeasurementRef]:
+        row = self.table.currentRow()
+        if self.session is None or not 0 <= row < len(self.session.project.measurements):
+            return None
+        return self.session.project.measurements[row]
+
+    def _refresh(self) -> None:
+        keep = self._selected().id if self._selected() else None
+        self.table.setRowCount(0)
+        session = self.session
+        if session is None:
+            self.header.setText(self._t("prj_no_project"))
+        else:
+            inst = session.project.inst_file or self._t("prj_no_inst")
+            self.header.setText(
+                self._t(
+                    "prj_header",
+                    name=session.project.name,
+                    folder=str(session.project.directory),
+                    inst=inst,
+                    n=len(session.instruments),
+                )
+            )
+            for r in session.rows():
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                status = r.problem or self._t("prj_ok_status")
+                cells = [r.ref.name, r.info.name if r.info else r.ref.type, r.ref.file, status]
+                for column, text in enumerate(cells):
+                    item = QTableWidgetItem(text)
+                    if column == 3:
+                        item.setForeground(
+                            QBrush(QColor(text_color("error" if r.problem else "ok", self)))
+                        )
+                    self.table.setItem(row, column, item)
+                if r.ref.id == keep:
+                    self.table.selectRow(row)
+            self.table.resizeColumnsToContents()
+            self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self._selection_changed()
+
+    def _selection_changed(self) -> None:
+        self._refresh_runs()
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        ref = self._selected()
+        usable = ref is not None and not next(
+            (r.problem for r in self.session.rows() if r.ref.id == ref.id), "x"
+        )
+        self.buttons["prj_new"].setEnabled(self.session is not None)
+        self.buttons["prj_edit"].setEnabled(usable)
+        self.buttons["prj_run"].setEnabled(usable)
+        self.buttons["prj_rename"].setEnabled(ref is not None)
+        self.buttons["prj_remove"].setEnabled(ref is not None)
+        self.export_btn.setEnabled(self._selected_run() is not None)
+
+    # ================================================================ actions
+    def new_measurement(self) -> None:
+        if self.session is None:
+            return
+        dialog = NewMeasurementDialog(self.session.module_types(), self.tr_, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        type_id, name = dialog.chosen()
+        try:
+            ref = self.session.create(type_id, name)
+        except MeasurementError as exc:
+            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            return
+        self._refresh()
+        self._select(ref.id)
+
+    def _select(self, measurement_id: str) -> None:
+        for row, ref in enumerate(self.session.project.measurements):
+            if ref.id == measurement_id:
+                self.table.selectRow(row)
+
+    def edit_measurement(self) -> None:
+        """Open the editor of the selected measurement's type."""
+        ref = self._selected()
+        if ref is None:
+            return
+        try:
+            if ref.type == "efficiency":
+                from frontend.ui.EfficiencyEditorDialog import EfficiencyEditorDialog
+
+                dialog: QDialog = EfficiencyEditorDialog(
+                    str(self.session.path(ref)),
+                    self.translator,
+                    self.session.instruments,
+                    parent=self,
+                )
+            else:
+                dialog = JsonParamsDialog(self.session, ref, self.tr_, self)
+        except MeasurementError as exc:
+            QMessageBox.critical(self, self._t("prj_title"), str(exc))
+            return
+        dialog.exec()
+        self._refresh()
+
+    def run_measurement(self) -> None:
+        """Start the selected measurement in a run window."""
+        ref = self._selected()
+        if ref is None:
+            return
+        try:
+            runner, run_file = self.session.build_runner(ref)
+        except MeasurementError as exc:
+            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
+            return
+        from frontend.ui.RunWindow import RunWindow
+
+        window = RunWindow(
+            runner, self.translator, run_file=str(run_file), title=ref.name, auto_start=True
+        )
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+        self.run_windows.append(window)
+        window.show()
+
+    def rename_measurement(self) -> None:
+        ref = self._selected()
+        if ref is None:
+            return
+        name, ok = QInputDialog.getText(
+            self, self._t("prj_rename"), self._t("prj_new_name"), text=ref.name
+        )
+        if ok and name.strip():
+            self.session.rename(ref.id, name)
+            self._refresh()
+
+    def remove_measurement(self) -> None:
+        ref = self._selected()
+        if ref is None:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle(self._t("prj_remove"))
+        box.setText(self._t("prj_confirm_remove", name=ref.name, file=ref.file))
+        only = box.addButton(self._t("prj_remove_keep"), QMessageBox.ButtonRole.AcceptRole)
+        both = box.addButton(self._t("prj_remove_delete"), QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(self._t("prj_cancel"), QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(only)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked in (only, both):
+            self.session.remove(ref.id, delete_file=clicked is both)
+            self._refresh()
+
+    # ================================================================ runs
+    def _selected_run(self) -> Optional[Path]:
+        row = self.runs_table.currentRow()
+        paths = getattr(self, "_run_paths", [])
+        return paths[row] if 0 <= row < len(paths) else None
+
+    def _refresh_runs(self) -> None:
+        ref = self._selected()
+        paths = self.session.runs(ref) if (ref and self.session) else []
+        summaries = [(p, self.session.describe_run(p)) for p in paths]
+        key = [(p.name, s["state"], s["points"]) for p, s in summaries]
+        if key == getattr(self, "_runs_key", None):
+            return  # nothing changed: keep the selection and the scroll position
+        self._runs_key = key
+        keep = self._selected_run()
+        self._run_paths = paths
+        self.runs_table.setRowCount(0)
+        for path, summary in summaries:
+            row = self.runs_table.rowCount()
+            self.runs_table.insertRow(row)
+            state = self._t(f"prj_state_{summary['state']}")
+            for column, text in enumerate((summary["file"], state, str(summary["points"]))):
+                self.runs_table.setItem(row, column, QTableWidgetItem(text))
+            if path == keep:
+                self.runs_table.selectRow(row)
+        self._update_buttons()
+
+    def export_run(self) -> None:
+        path = self._selected_run()
+        if path is None:
+            return
+        target, _ = QFileDialog.getSaveFileName(
+            self, self._t("prj_export"), str(path.with_suffix(".csv")), "CSV (*.csv)"
+        )
+        if not target:
+            return
+        try:
+            n = export_points_csv(path, target)
+        except Exception as exc:
+            QMessageBox.critical(
+                self, self._t("prj_title"), self._t("prj_export_failed", error=exc)
+            )
+            return
+        QMessageBox.information(
+            self, self._t("prj_title"), self._t("prj_export_done", n=n, path=target)
+        )
+
+    def closeEvent(self, event) -> None:  # noqa: N802 (Qt name)
+        running = [w for w in self.run_windows if not w.model.finished and w.model.state != "idle"]
+        if running:
+            answer = QMessageBox.question(
+                self, self._t("prj_title"), self._t("prj_confirm_close", n=len(running))
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+        for window in running:  # stop them first, so that their own windows do not ask again
+            window.runner.stop()
+            window.runner.join(15)
+            window._tick()
+        for window in self.run_windows:
+            window.close()
+        if any(w.isVisible() for w in self.run_windows):  # a run window refused to close
+            event.ignore()
+            return
+        self._timer.stop()
+        event.accept()
+
+
+def demo_project(folder: str):
+    """A project with one efficiency measurement for the simulated lab (``DemoLab``); the file
+    names the instruments it uses, as the efficiency editor writes it."""
+    from ola.demo_lab import INSTRUMENTS, demo_params
+
+    registry = default_registry()
+    project = Project.new("Demo", folder)
+    ref = project.add_measurement("efficiency", "Demo converter", registry)
+    MeasurementFile(
+        type="efficiency",
+        module_version=registry.get("efficiency").version,
+        role_bindings={"instruments": list(INSTRUMENTS)},
+        params=demo_params(samples=3, interval_s=0.2),
+    ).save(project.directory / ref.file)
+    project.save()
+    return project
+
+
+def main(argv: Optional[list] = None) -> int:
+    """Open a project (or a demo one with simulated instruments)."""
+    from ola.demo_lab import DemoHandle, DemoLab
+
+    argv = list(sys.argv[1:] if argv is None else argv)
+    app = QApplication.instance() or QApplication(sys.argv)
+    if argv:
+        window = ProjectWindow()
+        window.open_path(argv[0])
+    else:
+        lab = DemoLab(delay_s=0.05)
+        folder = tempfile.mkdtemp(prefix="ola_demo_")
+        window = ProjectWindow(demo_project(folder), connect=lambda name: DemoHandle(name, lab))
+    window.show()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

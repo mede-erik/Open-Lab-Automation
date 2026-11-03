@@ -633,8 +633,18 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   predefinita e in grassetto, non si chiude senza risposta, si chiude da sola se la misura viene fermata).
   Stringhe in `frontend/lang/modules/run/{en,it,fr,es,de}.json`. Demo con strumenti simulati
   (`ola/demo_lab.py`): `python -m frontend.ui.RunWindow [--fault]`.
+  **GUI, collegamento con il progetto** (2026-11-03): `ola/project_session.py` (`ProjectSession`, senza
+  Qt, testata) + `frontend/ui/ProjectWindow.py`: elenco delle misure del progetto (formato 2) con il
+  motivo se una non è utilizzabile, Nuova (tipo scelto tra i moduli), Modifica (editor dell'efficienza
+  per `.eff`, editor JSON validato per gli altri tipi), **Avvia misura** (apre la finestra di
+  esecuzione; risultati in `runs/` nella cartella del progetto), Rinomina, Rimuovi (file tenuto o
+  eliminato su richiesta), elenco delle esecuzioni con esportazione CSV. Gli strumenti arrivano
+  dall'applicazione tramite `connect(nome) -> handle`; senza, "Avvia" spiega che non sono collegati.
+  **Scelta**: `main_window.py` (vecchio formato, e toccato anche da un altro branch) non è stato
+  modificato: la finestra è autonoma (`python -m frontend.ui.ProjectWindow`) e si aggancia al
+  momento di unire i rami.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), l'azione "Avvia misura" e l'apertura dell'editor e della finestra di esecuzione dal progetto,
+  ancora nel repo e non sono stati toccati), collegare la finestra del progetto a `main_window` e agli strumenti reali (`connect`, dal ramo di libreria/handle),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
   attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 

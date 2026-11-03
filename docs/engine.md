@@ -200,8 +200,34 @@ the window only draws it. A timer takes `runner.drain()` every 100 ms.
 (`--fault` makes the data logger disagree with the supply for a few readings, to see the pop-up). Strings are
 in `frontend/lang/modules/run/<lang>.json`.
 
+## The project window
+
+`frontend/ui/ProjectWindow.py` is the window of a project, split like the others: `ola/project_session.py`
+(`ProjectSession`, no Qt) does the work and is tested without a screen.
+
+* The list shows every measurement (name, type, file) and, if one cannot be used, *why*: the file is missing,
+  the extension does not match the type, the module of that type is not installed.
+* **New** asks for the type (the measurement modules found) and a name, and creates a file with the extension of
+  the type in the project folder; a new efficiency measurement starts from the template of its editor.
+* **Edit** (or double-click) opens the editor of the type: the efficiency editor for `.eff`; for the types
+  without an editor of their own, the parameters as JSON, checked by the measurement module before saving.
+* **Start measurement** builds the runner (`ProjectSession.build_runner`), opens the run window and starts it.
+  Results are written to `runs/<file>_<date>_<time>.jsonl` in the project folder; the list below shows the runs
+  of the selected measurement (state, points) and exports one to CSV.
+* **Rename** changes the displayed name only. **Remove** asks whether to keep or delete the file.
+
+**Instruments.** The names come from the project's `.inst` file (`instance_name`); a measurement uses the ones
+named in its file (`role_bindings`, written by its editor) or, if none, all of them. The window does not know how
+to reach an instrument: the application gives it `connect(name) -> handle` (an object with `.name` and
+`.call(call_name, **args)`, see [`instrument-calls.md`](instrument-calls.md)). Without it, **Start** says that the
+instruments are not connected and sends nothing; an instrument that cannot be reached is named in the message.
+
+`python -m frontend.ui.ProjectWindow [project.json]` opens a project; with no argument it creates a demo project
+with simulated instruments in a temporary folder. A project in the old format (`eff_files`) is not read: the
+window says so.
+
 ## Not done yet
 
-The measurement modules other than `time_log` and `efficiency`, opening the editor and the run window from the project window ("Avvia misura"), the driver system
+The measurement modules other than `time_log` and `efficiency`, connecting the project window to the main window and to the real instruments, the driver system
 for Analog Discovery, the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`)
 and the retirement of the old C backend. The plan and the status are in [`PLAN.md`](../PLAN.md).
