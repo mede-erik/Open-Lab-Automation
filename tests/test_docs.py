@@ -296,3 +296,27 @@ def test_filter_example_in_the_docs_is_valid_and_runs():
     row = rows[0]
     assert row["verdict"] == "PASS" and row["type"] == "bandpass" and "q_factor" in row
     assert abs(row["center_hz"] - 868e6) < 0.001 * 868e6
+
+
+def test_simulated_vna_takes_the_sweep_types_the_planner_takes():
+    """The planner turns an enum into upper case and applies the aliases: SimVna must accept the same."""
+    import pytest
+
+    from ola.sim_vna import SimVna
+
+    for spelling in ("linear", "LINEAR", " Linear ", "LIN", "log", "LOG", "LOGARITHMIC"):
+        vna = SimVna()
+        vna.call(
+            "set_sweep", start_frequency=1e6, stop_frequency=1e9, points=5, sweep_type=spelling
+        )
+        assert len(vna.call("read_sparameter", parameter="S21")["frequency"]) == 5
+    log = SimVna()
+    log.call(
+        "set_sweep", start_frequency=1e6, stop_frequency=1e9, points=4, sweep_type="LOGARITHMIC"
+    )
+    freq = log.call("read_sparameter", parameter="S21")["frequency"]
+    assert freq[1] / freq[0] == pytest.approx(10.0)  # spaced by a ratio: it really is logarithmic
+    with pytest.raises(ValueError, match="unknown sweep type"):
+        SimVna().call(
+            "set_sweep", start_frequency=1e6, stop_frequency=1e9, points=5, sweep_type="decade"
+        )

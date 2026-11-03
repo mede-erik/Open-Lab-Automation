@@ -137,6 +137,9 @@ class SimVna:
             raise ValueError("the start frequency must be below the stop frequency")
         if points < 2:
             raise ValueError("a sweep needs at least 2 points")
+        # like the call planner: any case, and the aliases of the schema (LIN, LOGARITHMIC)
+        word = str(sweep_type).strip().upper()
+        sweep_type = {"LIN": "LINEAR", "LOGARITHMIC": "LOG"}.get(word, word).lower()
         if sweep_type not in ("linear", "log"):
             raise ValueError(f"unknown sweep type {sweep_type!r}")
         self.sweep = {

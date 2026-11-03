@@ -18,7 +18,7 @@ measurements call, and what they expect back. It is written for whoever adds the
 
 | Call | Kind | Arguments | Gives |
 |---|---|---|---|
-| `set_sweep` | set | `start_frequency` (Hz), `stop_frequency` (Hz), `points` (int), `sweep_type` (`linear` or `log`), optional `if_bandwidth` (Hz), optional `power` (dBm) | nothing |
+| `set_sweep` | set | `start_frequency` (Hz), `stop_frequency` (Hz), `points` (int), `sweep_type` (`linear` or `log`, in any case: the call planner converts it to the schema's `LINEAR` / `LOG` and applies the aliases `LIN` / `LOGARITHMIC`), optional `if_bandwidth` (Hz), optional `power` (dBm) | nothing |
 | `read_sparameter` | query | `parameter` (`S11`, `S21`; optionally `S12`, `S22`) | the S-parameter over the sweep (below) |
 
 * `read_sparameter` must **return only when the sweep has finished**: the implementation starts one sweep (or waits
@@ -42,11 +42,11 @@ length. (The measurements also accept a plain list of complex numbers, in which 
 the sweep that was set.) For an instrument that gives dB and degrees, convert to real and imaginary in the
 library's parser; the measurements always work on the complex values.
 
-## Optional calls that help
+## Other calls
 
 | Call | Why |
 |---|---|
-| `identification_query` | like the other categories: the string the instrument answers to *IDN? (or what it has) |
+| `identification_query` | **mandatory**, as in every category (the draft below has it): the string the instrument answers to `*IDN?`, or what it has |
 | `set_remote` | for a serial instrument that must be put in remote mode |
 | `query_sweep` | reads back what is set (the `readback` of `set_sweep`) |
 
@@ -93,6 +93,16 @@ In the format of [`Instruments_LIB/schema/README.md`](https://github.com/mede-er
 
 (The names of the types and the enum spelling follow what the other categories do; adjust them to the library's
 conventions. What the measurements rely on are the **call names, the argument names and the shape of the answer**.)
+
+## What each instrument needs in the library
+
+* A **parser** for the answer. `read_sparameter` gives a mapping (`frequency`, `values`) built from what the
+  instrument sends (several lines of text, or a binary block), so every entry links a named parser from
+  [`ola/parsers.py`](../ola/parsers.py) with `"parse"`, as the oscilloscopes do for waveforms (`siglent_waveform`).
+  It is written when the data of the real instrument are known (the LiteVNA67 is waiting for them).
+* The **unit `dBm`** (the `power` argument) is not in the list of units of `Instruments_LIB/schema/README.md`
+  (`V`, `V/div`, `s`, `s/div`, `Hz`, `Sa/s`, `points`, `ratio`): add it when `schema/vna.json` is added, and
+  `vnas_series` to the table of categories there.
 
 ## Trying a measurement without an instrument
 
