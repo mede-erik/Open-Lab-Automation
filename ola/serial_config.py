@@ -36,3 +36,35 @@ def apply_serial_settings(resource, cfg: Dict[str, Any]) -> None:
             resource.flow_control = flow[str(cfg["flow_control"]).lower()]
     except KeyError as exc:
         raise ValueError(f"unknown serial setting value: {exc}") from exc
+
+
+def serial_port_value(text: str) -> str:
+    """The port part of a VISA serial address from what a person types.
+
+    ``3`` and ``COM3`` give ``3`` (Windows, NI-VISA numbering); ``/dev/ttyUSB0`` or ``ttyUSB0``
+    give ``/dev/ttyUSB0`` (Linux, macOS: pyvisa-py addresses ``ASRL/dev/ttyUSB0::INSTR``).
+    Anything else raises ``ValueError``.
+    """
+    value = text.strip()
+    if value.isdigit():
+        return value
+    if value.upper().startswith("COM") and value[3:].isdigit():
+        return value[3:]
+    if value.startswith("/dev/") and len(value) > 5:
+        return value
+    if value.startswith(("tty", "cu.")):
+        return "/dev/" + value
+    raise ValueError(f"not a serial port: {text!r}")
+
+
+def serial_address(text: str) -> str:
+    """``ASRL<port>::INSTR`` for what a person typed (see ``serial_port_value``)."""
+    return f"ASRL{serial_port_value(text)}::INSTR"
+
+
+def serial_port_of_address(address: str) -> str:
+    """The port part of ``ASRL3::INSTR`` or ``ASRL/dev/ttyUSB0::INSTR`` ('' if it is not one)."""
+    text = address.strip()
+    if not text.upper().startswith("ASRL") or "::" not in text:
+        return ""
+    return text[4:].split("::")[0]
