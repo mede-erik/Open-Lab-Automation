@@ -37,6 +37,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -861,8 +862,19 @@ class EfficiencyEditorDialog(QDialog):
         self.names_list.clear()
         groups = self.editor.available_names()
         for key in ("setpoints", "readings", "derived"):
+            if not groups[key]:
+                continue
+            header = QListWidgetItem(self._t(f"eff_group_{key}"))
+            font = header.font()
+            font.setBold(True)
+            header.setFont(font)
+            header.setFlags(Qt.ItemFlag.NoItemFlags)  # a title: cannot be selected or inserted
+            header.setData(Qt.ItemDataRole.UserRole, "header")
+            self.names_list.addItem(header)
             for name in groups[key]:
-                self.names_list.addItem(name)
+                item = QListWidgetItem("   " + name)
+                item.setData(Qt.ItemDataRole.UserRole, name)
+                self.names_list.addItem(item)
         self._loading = False
         self._formula_selected()
 
@@ -939,8 +951,9 @@ class EfficiencyEditorDialog(QDialog):
             self._after_change()
 
     def _insert_name(self, item) -> None:
-        if self.formula_edit.isEnabled():
-            self.formula_edit.insert(item.text())
+        name = item.data(Qt.ItemDataRole.UserRole)
+        if name != "header" and self.formula_edit.isEnabled():
+            self.formula_edit.insert(name)
             self._formula_text_edited(self.formula_edit.text())
             self.formula_edit.setFocus()
 

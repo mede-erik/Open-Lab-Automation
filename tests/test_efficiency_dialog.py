@@ -9,6 +9,7 @@ import pytest
 
 pytest.importorskip("PyQt6")
 
+from PyQt6.QtCore import Qt  # noqa: E402
 from PyQt6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from frontend.ui import EfficiencyEditorDialog as dialog_module  # noqa: E402
@@ -65,6 +66,7 @@ def test_every_key_used_by_the_window_exists():
     en = _catalogs()["en"]
     # keys built from a pattern, one for each value
     families = {
+        "eff_group_{}": ["setpoints", "readings", "derived"],
         "eff_{}": ["value", "values", "start", "stop", "points", "step", "scale", "offset"]
         + ["startup", "shutdown", "startup_help", "shutdown_help"],
         "eff_mode_{}": dialog_module.SWEEP_MODES,
@@ -273,3 +275,16 @@ def test_a_formula_with_a_problem_is_selected_first(dialog):
     dialog._refresh_formulas()
     row = dialog.formula_table.currentRow()
     assert dialog._formula_names[row] == "bad"
+
+
+def test_names_are_grouped_by_type_and_titles_are_not_inserted(dialog):
+    items = [dialog.names_list.item(i) for i in range(dialog.names_list.count())]
+    headers = [i for i in items if i.data(Qt.ItemDataRole.UserRole) == "header"]
+    assert len(headers) == 3  # set values, readings, computed
+    assert items[0] is headers[0]
+    dialog.formula_edit.setEnabled(True)
+    dialog.formula_edit.setText("")
+    dialog._insert_name(headers[0])
+    assert dialog.formula_edit.text() == ""
+    dialog._insert_name(items[1])
+    assert dialog.formula_edit.text() == items[1].data(Qt.ItemDataRole.UserRole)
