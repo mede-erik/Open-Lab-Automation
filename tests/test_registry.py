@@ -41,7 +41,7 @@ GOOD = (
 
 def test_builtin_time_log_is_found():
     reg = default_registry(user_dir=Path("/nonexistent"))
-    assert [m.id for m in reg.list()] == ["time_log"]
+    assert sorted(m.id for m in reg.list()) == ["efficiency", "time_log"]
     info = reg.get("time_log")
     assert info.builtin and info.extension == ".tlg" and reg.by_extension(".TLG") is info
     assert reg.problems == []

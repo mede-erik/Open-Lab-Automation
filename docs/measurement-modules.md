@@ -3,7 +3,8 @@
 A *measurement module* is a folder with a manifest and a Python file. The program finds it, shows it in
 the list of measurement types and runs it with the [runner](engine.md). Built-in modules live in
 `ola/modules/`; yours can live in `~/.open_lab_automation/modules/` (all your projects) or in
-`<project>/modules/` (one project). `ola/modules/time_log/` is a complete, tested example.
+`<project>/modules/` (one project). `ola/modules/time_log/` is a small, complete, tested example; `ola/modules/efficiency/` is a larger one
+(see [efficiency.md](efficiency.md)).
 
 ## The smallest useful module
 
@@ -94,7 +95,8 @@ each role to an instrument of the project (`role_bindings` in the measurement fi
 | `ctx.instrument(role)` | the one instrument bound to the role (`MeasurementError` if not exactly one) |
 | `ctx.instruments(role)` | all instruments of the role (empty list for an unbound optional role) |
 | `handle.call(name, **args)` | run a logical call, get its logical result |
-| `ctx.emit_point({...})` | one row of scalar results |
+| `ctx.emit_point({...}, table="points")` | one row of scalar results; `table` names another table (for example `"samples"`) |
+| `ctx.ask(text, choices, default, data)` | stop and ask the user (retry / abort / skip...); returns the chosen option |
 | `ctx.emit_trace(name, x, y, kind="real"\|"complex", **meta)` | a waveform, spectrum, Bode curve... |
 | `ctx.progress(done, total, message)` | progress for the user |
 | `ctx.log(message, level)` | a line in the run log |

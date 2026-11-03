@@ -50,7 +50,8 @@ def public_items_without_docstring():
                         and not ast.get_docstring(child)
                     ):
                         missing.append(f"{rel}:{child.lineno} {child.name}")
-                    visit(child, in_function or not isinstance(child, ast.ClassDef))
+                    if public:  # the inside of a private class or function is not public API
+                        visit(child, in_function or not isinstance(child, ast.ClassDef))
                 else:
                     visit(child, in_function)
 
@@ -167,3 +168,20 @@ def test_doc_example_switches_off_after_an_error_and_validates(tmp_path):
     assert runner.state is RunState.FAILED and psu.calls[-1] == ("output_off", {})
     bad = registry.create("dc_check", {"voltages": []}, allow_user_code=True)
     assert bad.validate() == ["voltages must be a non-empty list"]
+
+
+def test_efficiency_guide_example_is_valid_and_has_the_documented_order():
+    import json as _json
+
+    from ola.efficiency_spec import parse_params, validate_params
+    from ola.sweep import iter_points
+
+    text = read(ROOT / "docs" / "efficiency.md")
+    block = re.search(r"```json efficiency\.eff\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/efficiency.md"
+    params = _json.loads(block.group(1))
+    bound = ["psu1", "psu2", "daq1", "load1"]
+    assert [str(p) for p in validate_params(params, bound)] == []
+    spec = parse_params(params, bound)
+    points = list(iter_points(spec.axes))
+    assert [(p["vin"], p["iout"]) for p in points[:4]] == [(9, 0.5), (9, 1.5), (9, 2.5), (12, 0.5)]

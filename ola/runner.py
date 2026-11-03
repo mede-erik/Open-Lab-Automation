@@ -40,6 +40,7 @@ class RunState(str, Enum):
     IDLE = "idle"
     RUNNING = "running"
     PAUSED = "paused"
+    WAITING = "waiting"  # stopped on a question, until the user answers (or stops the run)
     STOPPING = "stopping"
     FINISHED = "finished"
     STOPPED = "stopped"
@@ -63,7 +64,11 @@ class Runner:
         collect: bool = True,
         run_id: Optional[str] = None,
         stop_event: Optional[threading.Event] = None,
+        unattended: Optional[str] = None,
     ):
+        """``unattended``: for scripts and tests without a user. If set, every question of the
+        measurement is answered immediately with this choice (or with the question's default if
+        it is not one of its choices); otherwise the run waits for ``answer()``."""
         self.measurement = measurement
         self.roles = tuple(roles if roles is not None else measurement.roles)
         self.bindings: Dict[str, List[InstrumentHandle]] = {
@@ -82,9 +87,11 @@ class Runner:
         self._resume = threading.Event()
         self._resume.set()
         self._thread: Optional[threading.Thread] = None
-        self._point_index = 0
+        self._row_index: Dict[str, int] = {}  # next row number of every table
         self._t0 = 0.0
         self._derived_warned = False
+        self._unattended = unattended
+        self._pending: Dict[str, Dict[str, Any]] = {}
 
     # ----- public -----------------------------------------------------------------------
     @property
@@ -118,10 +125,31 @@ class Runner:
             )
             self._thread.start()
 
+    @property
+    def pending_questions(self) -> List[Dict[str, Any]]:
+        """The questions waiting for an answer (``id``, ``text``, ``choices``, ``default``,
+        ``data``), oldest first. An interface that missed the ``question`` event can poll this."""
+        with self._lock:
+            return [dict(q["question"]) for q in self._pending.values()]
+
+    def answer(self, question_id: str, choice: str) -> None:
+        """Answer a question of the measurement. ``MeasurementError`` if there is no such pending
+        question, ``ValueError`` if ``choice`` is not one of its choices."""
+        with self._lock:
+            entry = self._pending.get(question_id)
+            if entry is None:
+                raise MeasurementError(f"no pending question with id {question_id!r}")
+            if choice not in entry["question"]["choices"]:
+                raise ValueError(
+                    f"{choice!r} is not one of the choices {entry['question']['choices']}"
+                )
+            entry["choice"] = choice
+            entry["event"].set()
+
     def stop(self) -> None:
         """Ask the run to stop; it ends as STOPPED after ``teardown`` (also wakes a paused run)."""
         with self._lock:
-            if self._state in (RunState.RUNNING, RunState.PAUSED):
+            if self._state in (RunState.RUNNING, RunState.PAUSED, RunState.WAITING):
                 self._set_state(RunState.STOPPING)
             self._stop.set()
             self._resume.set()  # wake a paused run so it can stop
@@ -192,14 +220,17 @@ class Runner:
 
     def _emit(self, kind: str, data: Dict[str, Any]) -> None:
         if kind == "point":
+            table = data.get("table", "points")
             values = data["values"]
-            extra = self._derived(values)
+            extra = self._derived(values) if table == "points" else {}
+            index = self._row_index.get(table, 0)
+            self._row_index[table] = index + 1
             data = {
-                "index": self._point_index,
+                "table": table,
+                "index": index,
                 "elapsed_s": time.monotonic() - self._t0,
                 "values": {**values, **extra},
             }
-            self._point_index += 1
         self._publish(Event(kind, data))
 
     def _derived(self, values: Mapping[str, Any]) -> Dict[str, Any]:
@@ -240,8 +271,34 @@ class Runner:
             self.error.setdefault("also", []).append(info)
         self._publish(Event("error", info))
 
+    def _ask(self, text: str, choices: List[str], default: str, data: Dict[str, Any]) -> str:
+        """Publish a question and wait for ``answer()`` (called from the measurement thread)."""
+        qid = uuid.uuid4().hex[:8]
+        question = {"id": qid, "text": text, "choices": choices, "default": default, "data": data}
+        self._publish(Event("question", dict(question)))
+        if self._unattended is not None:
+            choice = self._unattended if self._unattended in choices else default
+            self._publish(Event("answered", {"id": qid, "choice": choice, "auto": True}))
+            return choice
+        entry = {"question": question, "event": threading.Event(), "choice": None}
+        with self._lock:
+            self._pending[qid] = entry
+            if self._state is RunState.RUNNING:
+                self._set_state(RunState.WAITING)
+        try:
+            while not entry["event"].wait(0.05):
+                if self._stop.is_set():
+                    raise Stopped()
+        finally:
+            with self._lock:
+                self._pending.pop(qid, None)
+                if self._state is RunState.WAITING and not self._pending:
+                    self._set_state(RunState.RUNNING)
+        self._publish(Event("answered", {"id": qid, "choice": entry["choice"], "auto": False}))
+        return entry["choice"]
+
     def _main(self) -> None:
-        ctx = MeasurementContext(self.bindings, self._emit, self._stop, self._resume)
+        ctx = MeasurementContext(self.bindings, self._emit, self._stop, self._resume, ask=self._ask)
         outcome = RunState.FINISHED
         try:
             ctx.checkpoint()

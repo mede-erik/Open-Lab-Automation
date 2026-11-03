@@ -50,6 +50,7 @@ Runner(measurement, {role: handle}, stop_event=...)
 |---|---|
 | `idle` | created, not started |
 | `running` / `paused` | normal operation; `pause()` takes effect at the next checkpoint |
+| `waiting` | the measurement asked the user a question and waits for `answer()` (see below) |
 | `stopping` | `stop()` was called, the run is winding down |
 | `finished` | `run()` returned normally |
 | `stopped` | the user stopped it (also when a stop interrupted an instrument call) |
@@ -69,6 +70,25 @@ Runner(measurement, {role: handle}, stop_event=...)
 * A broken listener (for example a GUI slot that raises) never stops the measurement.
 * `derived()` can add computed values to a point (for example efficiency) but can never overwrite a
   measured key; if it raises, the point is recorded without them and a warning is logged once.
+
+### Asking the user
+
+A measurement can stop and ask, for example when an instrument does not do what it was told:
+
+```python
+choice = ctx.ask("vin differs by 20%", ["retry", "abort", "skip"], default="abort",
+                 data={"variable": "vin", "error_rel": 0.2})
+```
+
+The runner goes to the `waiting` state and publishes a `question` event; the interface shows it (a pop-up
+with one button per choice) and calls `runner.answer(question["id"], choice)`. `runner.pending_questions`
+lists the open ones for an interface that was not listening yet. `answer()` refuses a choice that is not
+offered (`ValueError`) and an unknown id (`MeasurementError`). If the user stops the run while the question
+is open, the run ends as `stopped`; nothing stays blocked. The question and the answer are written in the run
+file, so the data says what was decided.
+
+For scripts and tests without a user: `Runner(..., unattended="skip")` answers every question at once with
+that choice (or with the question's default if it is not offered).
 
 ### Stop and the shared event
 
@@ -91,11 +111,13 @@ timer when `collect=True`).
 | `kind` | `data` |
 |---|---|
 | `state` | `state`, `run_id` |
-| `point` | `index`, `elapsed_s`, `values` (measured + derived) |
+| `point` | `table` (`points` by default), `index` (row number in that table), `elapsed_s`, `values` (for `points`: measured + derived) |
 | `trace` | `name`, `trace_kind` (`real` / `complex`), `x`, `y`, `meta`; complex `y` are `[re, im]` pairs |
 | `progress` | `done`, `total`, `message` |
 | `log` | `level` (`info` / `warning` / `error`), `message` |
 | `error` | `phase` (`run` / `teardown`), `type`, `message`, `code`, `traceback` |
+| `question` | `id`, `text`, `choices`, `default`, `data` (see "Asking the user") |
+| `answered` | `id`, `choice`, `auto` (true if given by an unattended run) |
 
 ## Files
 
@@ -103,13 +125,17 @@ timer when `collect=True`).
 
 Results are written **while the measurement runs**, one JSON object per line (JSON Lines), so a crash
 loses nothing. `RunWriter` is a listener; `read_run()` reads a file back (it tolerates a truncated last
-line) and `export_points_csv()` writes the scalar points to CSV.
+line) and `export_points_csv()` writes the rows of one table to CSV. A measurement can keep several
+tables of rows (`ctx.emit_point(values, table="samples")`); `"points"` is the main one, the others come
+back from `read_run()` under `run["tables"]`; `run["questions"]` has the questions and the answers.
 
 ```
 {"kind": "run",   "run_id": ..., "measurement": ..., "module_version": ..., "params": {...}, "bindings": {...}}
-{"kind": "point", "index": 0, "elapsed_s": 0.5, "values": {...}, "t": ...}
+{"kind": "point", "table": "points", "index": 0, "elapsed_s": 0.5, "values": {...}, "t": ...}
 {"kind": "trace", "name": "ch1", "trace_kind": "real", "x": [...], "y": [...], "meta": {...}, "t": ...}
 {"kind": "log" | "error", ...}
+{"kind": "question", "id": ..., "text": ..., "choices": [...], "data": {...}}
+{"kind": "answered", "id": ..., "choice": "retry", "auto": false}
 {"kind": "end",   "state": "finished" | "stopped" | "failed", "error": null | {...}}
 ```
 

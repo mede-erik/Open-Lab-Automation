@@ -3,10 +3,12 @@
 A run file is JSON Lines, one object per line::
 
     {"kind": "run",   ...header: run_id, measurement, params, bindings, started_at...}
-    {"kind": "point", "index": 0, "elapsed_s": 0.5, "values": {...}, "t": ...}
+    {"kind": "point", "table": "points", "index": 0, "elapsed_s": 0.5, "values": {...}, "t": ...}
     {"kind": "trace", "name": "ch1", "trace_kind": "real|complex", "x": [...], "y": [...],
      "meta": {...}, "t": ...}
     {"kind": "log",   ...}   {"kind": "error", ...}
+    {"kind": "question", "id": ..., "text": ..., "choices": [...], "data": {...}}   a question
+    {"kind": "answered", "id": ..., "choice": "retry", "auto": false}               its answer
     {"kind": "end",   "state": "finished|stopped|failed", "error": null | {...}}
 
 A file without the final "end" line is a run that was interrupted: it can still be read.
@@ -83,9 +85,11 @@ def read_run(path: Union[str, Path]) -> Dict[str, Any]:
     run: Dict[str, Any] = {
         "header": None,
         "points": [],
+        "tables": {},
         "traces": [],
         "logs": [],
         "errors": [],
+        "questions": [],
         "end": None,
     }
     with open(path, encoding="utf-8") as f:
@@ -98,22 +102,34 @@ def read_run(path: Union[str, Path]) -> Dict[str, Any]:
             if kind == "run":
                 run["header"] = obj
             elif kind == "point":
-                run["points"].append(obj)
+                table = obj.get("table", "points")
+                if table == "points":
+                    run["points"].append(obj)
+                else:
+                    run["tables"].setdefault(table, []).append(obj)
             elif kind == "trace":
                 run["traces"].append(obj)
             elif kind == "log":
                 run["logs"].append(obj)
             elif kind == "error":
                 run["errors"].append(obj)
+            elif kind in ("question", "answered"):
+                run["questions"].append(obj)
             elif kind == "end":
                 run["end"] = obj
     return run
 
 
-def export_points_csv(run_path: Union[str, Path], csv_path: Union[str, Path]) -> int:
-    """Write the scalar points of a run to CSV (columns: index, elapsed_s, then the values in
-    order of first appearance). Returns the number of rows."""
-    points: List[Dict[str, Any]] = read_run(run_path)["points"]
+def export_points_csv(
+    run_path: Union[str, Path], csv_path: Union[str, Path], table: str = "points"
+) -> int:
+    """Write the rows of one table of a run to CSV (columns: index, elapsed_s, then the values in
+    order of first appearance). ``table`` is ``"points"`` or the name of another table, for
+    example ``"samples"``. Returns the number of rows."""
+    run = read_run(run_path)
+    points: List[Dict[str, Any]] = (
+        run["points"] if table == "points" else run["tables"].get(table, [])
+    )
     columns: List[str] = []
     for p in points:
         for key in p["values"]:

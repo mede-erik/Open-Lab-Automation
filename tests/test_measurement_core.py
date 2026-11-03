@@ -394,3 +394,150 @@ def test_stop_interrupts_a_wait_inside_an_instrument_call():
     assert time.perf_counter() - t < 0.5
     assert runner.state is RunState.STOPPED and runner.error is None
     assert m.order[-1] == "teardown" and inst.transport.log == ["OUTP ON"]
+
+
+# ---- several tables of rows ---------------------------------------------------------------------
+
+
+def test_points_can_go_to_other_tables_without_derived():
+    def run(ctx):
+        ctx.emit_point({"v": 1})
+        ctx.emit_point({"v": 1, "k": 0}, table="samples")
+        ctx.emit_point({"v": 1, "k": 1}, table="samples")
+        ctx.emit_point({"v": 2})
+        with pytest.raises(MeasurementError):
+            ctx.emit_point({"v": 3}, table="")
+
+    m = Scripted(run, derived=lambda v: {"double": v["v"] * 2})
+    r = run_to_end(Runner(m, {}))
+    rows = [e.data for e in r.drain() if e.kind == "point"]
+    assert [(x["table"], x["index"]) for x in rows] == [
+        ("points", 0),
+        ("samples", 0),
+        ("samples", 1),
+        ("points", 1),
+    ]
+    assert rows[0]["values"] == {"v": 1, "double": 2}  # derived applied to "points"
+    assert rows[1]["values"] == {"v": 1, "k": 0}  # and not to the other tables
+
+
+# ---- asking the user (the pop-up with retry / abort / skip) ------------------------------------
+
+
+def question_ids(runner):
+    return [q["id"] for q in runner.pending_questions]
+
+
+def test_a_measurement_can_stop_and_ask_and_continue_with_the_answer():
+    got = {}
+
+    def run(ctx):
+        got["choice"] = ctx.ask(
+            "vin differs by 20%", ["retry", "abort", "skip"], default="abort", data={"error": 0.2}
+        )
+        ctx.emit_point({"after": 1})
+
+    m = Scripted(run)
+    r = Runner(m, {})
+    r.start()
+    assert wait_for(lambda: question_ids(r))
+    assert r.state is RunState.WAITING  # visible to the interface
+    q = r.pending_questions[0]
+    assert q["text"] == "vin differs by 20%" and q["choices"] == ["retry", "abort", "skip"]
+    assert q["default"] == "abort" and q["data"] == {"error": 0.2}
+    r.answer(q["id"], "skip")
+    assert r.join(2)
+    assert got == {"choice": "skip"} and r.state is RunState.FINISHED
+    events = r.drain()
+    kinds_ = [e.kind for e in events]
+    assert kinds_.index("question") < kinds_.index("answered") < kinds_.index("point")
+    answered = [e.data for e in events if e.kind == "answered"][0]
+    assert answered == {"id": q["id"], "choice": "skip", "auto": False}
+    states = [e.data["state"] for e in events if e.kind == "state"]
+    assert states == ["running", "waiting", "running", "finished"]
+    assert r.pending_questions == []
+
+
+def test_default_choice_is_the_first_one():
+    got = {}
+    r = Runner(Scripted(lambda ctx: got.update(c=ctx.ask("q", ["a", "b"]))), {}, unattended="zzz")
+    run_to_end(r)
+    assert got == {"c": "a"}
+
+
+def test_unattended_runs_answer_at_once_with_the_given_choice_or_the_default():
+    got = []
+
+    def run(ctx):
+        got.append(ctx.ask("q1", ["retry", "abort", "skip"], default="abort"))
+        got.append(ctx.ask("q2", ["yes", "no"], default="no"))  # "skip" is not offered here
+
+    r = run_to_end(Runner(Scripted(run), {}, unattended="skip"))
+    assert got == ["skip", "no"] and r.state is RunState.FINISHED
+    events = r.drain()
+    assert [e.data["auto"] for e in events if e.kind == "answered"] == [True, True]
+
+
+def test_stop_while_waiting_ends_the_run_and_still_tears_down():
+    m = Scripted(lambda ctx: ctx.ask("q", ["retry", "abort"]))
+    r = Runner(m, {})
+    r.start()
+    assert wait_for(lambda: question_ids(r))
+    t = time.perf_counter()
+    r.stop()
+    assert r.join(2) and time.perf_counter() - t < 0.5
+    assert r.state is RunState.STOPPED and m.order[-1] == "teardown"
+    assert r.pending_questions == []
+
+
+def test_invalid_answers_are_refused_and_the_question_stays_open():
+    r = Runner(Scripted(lambda ctx: ctx.ask("q", ["retry", "abort"])), {})
+    r.start()
+    assert wait_for(lambda: question_ids(r))
+    qid = question_ids(r)[0]
+    with pytest.raises(ValueError, match="not one of the choices"):
+        r.answer(qid, "explode")
+    with pytest.raises(MeasurementError, match="no pending question"):
+        r.answer("nope", "retry")
+    assert question_ids(r) == [qid]  # still waiting
+    r.answer(qid, "retry")
+    assert r.join(2) and r.state is RunState.FINISHED
+    with pytest.raises(MeasurementError, match="no pending question"):
+        r.answer(qid, "retry")  # a second answer is too late
+
+
+@pytest.mark.parametrize(
+    "choices,default",
+    [
+        ([], None),
+        (["a", "a"], None),
+        (["a", ""], None),
+        (["a", 3], None),
+        (["a", "b"], "c"),
+    ],
+)
+def test_ask_validates_its_arguments(choices, default):
+    seen = {}
+
+    def run(ctx):
+        try:
+            ctx.ask("q", choices, default=default)
+        except MeasurementError as exc:
+            seen["error"] = str(exc)
+
+    run_to_end(Runner(Scripted(run), {}, unattended="a"))
+    assert "error" in seen
+
+
+def test_the_run_file_keeps_the_question_and_the_answer(tmp_path):
+    from ola.runs import RunWriter, read_run
+
+    m = Scripted(lambda ctx: ctx.ask("vin is 20% off", ["retry", "abort", "skip"], "abort"))
+    runner = Runner(m, {}, collect=False, unattended="skip", run_id="q1")
+    writer = RunWriter(tmp_path / "run.jsonl", RunWriter.header_for(runner))
+    runner.add_listener(writer)
+    run_to_end(runner)
+    data = read_run(writer.path)
+    assert [x["kind"] for x in data["questions"]] == ["question", "answered"]
+    assert data["questions"][0]["text"] == "vin is 20% off"
+    assert data["questions"][1]["choice"] == "skip"

@@ -590,8 +590,20 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   se un file di `ola/` non è nel README, se un codice `TRN-xxx` non è in `ERROR_CODES.md`, se
   un link relativo è rotto o se l'esempio di `docs/measurement-modules.md` non funziona.
   Totale: 201 test Python (con trasporto nativo e con `OLA_TRANSPORT=python`).
+- ✅ **Misura di efficienza** (`.eff` nuovo; `ola/modules/efficiency/`, `ola/efficiency_spec.py`,
+  `ola/formula.py`, `ola/sweep.py`; guida `docs/efficiency.md`). Decisioni dell'utente (2026-11-03):
+  parametri con nomi scelti dall'utente, ciascuno con *impostazione* e/o *letture* (anche più
+  letture dello stesso parametro, per esempio dall'alimentatore e dal datalogger); nelle formule
+  `vin` è il valore impostato e `vin@daq` la lettura con quell'etichetta (la scelta della lettura
+  è esplicita); **elenco ordinato** di parametri riordinabile: il primo cambia per primo ed è
+  lo sweep più interno; per ogni punto: attesa, N letture a intervallo scelto, **media delle
+  letture** e formule sulle medie; se la lettura indipendente si discosta dall'impostazione oltre la
+  tolleranza la misura **si ferma e chiede** (Riprova / Annulla / Salta); la validazione avviene
+  **mentre si compila il dialog** (`validate_params`, errori con il percorso del campo).
+  Nel nucleo: più tabelle di righe (`points`, `samples`), `ctx.ask` / `runner.answer`, stato
+  `waiting`. Provata solo su strumenti simulati.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), misura di efficienza (formato nuovo da definire),
+  ancora nel repo e non sono stati toccati), il dialog di modifica dell'efficienza e l'azione "Avvia misura" nella GUI,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
   attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 

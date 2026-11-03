@@ -77,11 +77,13 @@ class MeasurementContext:
         emit: Emit,
         stop_event: threading.Event,
         resume_event: threading.Event,
+        ask: Optional[Callable[[str, List[str], str, Dict[str, Any]], str]] = None,
     ):
         self._bindings = {role: list(handles) for role, handles in bindings.items()}
         self._emit = emit
         self._stop = stop_event
         self._resume = resume_event
+        self._ask = ask
         self._tearing_down = False
 
     # ----- instruments ------------------------------------------------------------------
@@ -99,9 +101,15 @@ class MeasurementContext:
         return handles[0]
 
     # ----- results ----------------------------------------------------------------------
-    def emit_point(self, values: Mapping[str, Any]) -> None:
-        """One row of scalar results (e.g. ``{"vin": 12.0, "vout": 5.01, "iout": 0.5}``)."""
-        self._emit("point", {"values": dict(values)})
+    def emit_point(self, values: Mapping[str, Any], table: str = "points") -> None:
+        """One row of scalar results (e.g. ``{"vin": 12.0, "vout": 5.01, "iout": 0.5}``).
+
+        ``table`` names the table the row belongs to. The default ``"points"`` is the main result
+        (``Measurement.derived`` is applied to it); a measurement may keep further tables, for
+        example ``"samples"`` for the individual readings that were averaged into a point."""
+        if not isinstance(table, str) or not table:
+            raise MeasurementError("table must be a non-empty string")
+        self._emit("point", {"values": dict(values), "table": table})
 
     def emit_trace(
         self,
@@ -128,6 +136,37 @@ class MeasurementContext:
     def log(self, message: str, level: str = "info") -> None:
         """Add a message to the run log (``level``: info, warning or error)."""
         self._emit("log", {"level": level, "message": message})
+
+    # ----- asking the user --------------------------------------------------------------
+    def ask(
+        self,
+        text: str,
+        choices: Sequence[str],
+        default: Optional[str] = None,
+        data: Optional[Mapping[str, Any]] = None,
+    ) -> str:
+        """Stop the measurement and ask the user to choose (for example *retry*, *abort*, *skip*).
+
+        The runner publishes a ``question`` event (``id``, ``text``, ``choices``, ``default``,
+        ``data``) and waits; the interface shows it and calls ``runner.answer(id, choice)``. Returns
+        the chosen option, one of ``choices``. A stop request while waiting raises ``Stopped``. If
+        the runner was created with ``unattended=...`` the answer is given at once, without a user.
+        ``data`` carries the numbers behind the question so an interface can format and translate
+        it; ``text`` is a complete English sentence for logs and simple interfaces."""
+        if self._ask is None:
+            raise MeasurementError("this context has no way to ask the user")
+        options = list(choices)
+        if (
+            not options
+            or len(set(options)) != len(options)
+            or not all(isinstance(c, str) and c for c in options)
+        ):
+            raise MeasurementError("choices must be a non-empty list of distinct strings")
+        if default is None:
+            default = options[0]
+        if default not in options:
+            raise MeasurementError(f"the default {default!r} is not one of the choices")
+        return self._ask(text, options, default, dict(data or {}))
 
     # ----- control ----------------------------------------------------------------------
     @property
