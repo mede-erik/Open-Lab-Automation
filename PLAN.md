@@ -730,6 +730,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   `docs/vna-calls.md` (le due chiamate `set_sweep` e `read_sparameter`, forma della risposta, bozza di
   `schema/vna.json`), con un test che lo tiene allineato a `SimVna`. Restano: filtro, impedenza
   dell'antenna (grafico di Smith) e la categoria `vna` nella libreria (la sta per iniziare l'altra sessione).
+  **Filtro** (2026-11-03, punto 3 della roadmap §6b): modulo `filter` (`.flt`): risposta di un filtro
+  passa-basso/alto/banda/elimina-banda con VNA (S21): perdita di inserzione, frequenza di taglio o bordi a
+  -3 dB **rispetto al picco** (o al massimo della banda passante data), larghezza di banda, centro, Q,
+  profondità del notch, ripple in banda, guadagno a frequenze scelte, ritardo di gruppo, return loss
+  (S11 facoltativo) e **maschera pass/fail sul guadagno in dB** (minimo in banda, massimo fuori banda;
+  disegnata sulla vista in dB). Un bordo fuori dallo sweep viene dichiarato nel log e omesso, non
+  inventato. `rf.level_crossings` (crossing con direzione); `SimVna` ha ora un filtro Butterworth
+  (passa-basso/alto/banda/elimina-banda): le cifre trovate sono confrontate con le formule del filtro.
+  Finestra di esecuzione: la scheda Curve si apre da sola quando il risultato è una curva (≤ 1 riga in
+  tabella) e le colonne `*_hz` mostrano l'unità (868 MHz). Restano: roll-off, fattore di forma e
+  **impedenza dell'antenna** (grafico di Smith), poi lo strumento di confronto e l'etichetta del cavo.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

@@ -69,10 +69,13 @@ TIMEOUT_CLOSE_S = 15  # how long closing the window waits for the run to stop
 NO_GROUP = ""
 
 
-def number(value: Any) -> str:
-    """A value for a table cell: numbers with 6 significant digits, anything else as text."""
+def number(value: Any, column: str = "") -> str:
+    """A value for a table cell: numbers with 6 significant digits (a frequency, in a column whose
+    name ends in ``_hz``, with its unit: ``868 MHz``), anything else as text."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return "" if value is None else str(value)
+    if column.endswith("_hz"):
+        return format_si(float(value), "Hz")
     return f"{value:.6g}"
 
 
@@ -421,7 +424,10 @@ class RunWindow(QWidget):
         at_end = bar.value() >= bar.maximum() - 2
         for row_index in range(self._rows_shown, len(m.points)):
             self.table.insertRow(row_index)
-            cells = [str(row_index + 1), *(number(m.points[row_index].get(c)) for c in m.columns)]
+            cells = [
+                str(row_index + 1),
+                *(number(m.points[row_index].get(c), c) for c in m.columns),
+            ]
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -510,7 +516,7 @@ class RunWindow(QWidget):
                 if not have and m.traces[name].get("meta", {}).get("log_x"):
                     self.log_x_box.setChecked(True)
         self.trace_list.blockSignals(False)
-        if not self._tab_chosen and not m.points:  # a measurement of curves only: show them
+        if not self._tab_chosen and len(m.points) <= 1:  # curves are the result: show them
             self.tabs.setCurrentIndex(2)
         self._draw_traces()
 

@@ -366,3 +366,38 @@ def test_a_cable_run_in_the_window_shows_the_loss_and_asks_about_calibration(app
     assert w.trace_list.count() >= 5 and w.touchstone_btn.isEnabled() is False  # no run file here
     row = w.model.points[0]
     assert row["verdict"] == "PASS" and row["cable"] == "RG58 #3"
+
+
+def test_a_filter_run_shows_s21_in_db_with_its_mask(app, windows):
+    """The filter's S21 is the visible curve, in dB, with the mask dashed on top of it."""
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+
+    p = {
+        "filter": {"type": "lowpass", "label": "LPF"},
+        "sweep": {"start_hz": 1e6, "stop_hz": 400e6, "points": 200, "scale": "linear"},
+        "limits": {"bands": [{"from": 250e6, "to": 400e6, "max": -30}]},
+        "confirm_setup": False,
+    }
+    m = default_registry(user_dir="/nonexistent").create("filter", p)
+    w = window(
+        windows,
+        Runner(m, {"vna": [SimVna(filter_type="lowpass", filter_f0_hz=100e6)]}),
+        auto_start=True,
+    )
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.model.state == "finished"
+    assert w.view_box.currentData() == "magnitude_db"
+    assert [c[0] for c in w.trace_plot.curves] == ["S21"]
+    assert len(w.trace_plot.limits) == 1 and w.trace_plot.ylabel == "Magnitude (dB)"
+    assert w.model.points[0]["verdict"] == "PASS" and "cutoff_hz" in w.model.points[0]
+
+
+def test_frequencies_in_the_table_are_written_with_their_unit():
+    from frontend.ui.RunWindow import number
+
+    assert number(868e6, "peak_at_hz") == "868 MHz" and number(2.4e9, "f_high_hz") == "2.4 GHz"
+    assert number(868e6, "vin") == "8.68e+08"  # only the columns that are frequencies
+    assert number(True) == "True" and number(None) == "" and number("PASS") == "PASS"
+    assert number(0.5, "loss_db") == "0.5"

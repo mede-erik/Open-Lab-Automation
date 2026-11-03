@@ -10,6 +10,7 @@ Everything works on plain Python lists. A *trace* is a list of values at the fre
     group_delay_s(freq, s21)           # delay of a signal through the device, in seconds
     value_at(freq, y, f)               # the curve at one frequency (linear interpolation)
     crossings(freq, y, level)          # frequencies where the curve crosses a level (-3 dB points)
+    level_crossings(freq, y, level)    # the crossings with their direction (edges of a filter)
     bands_where(freq, y, level)        # the bands where the curve is below a level (VSWR <= 2)
     write_touchstone(...) / read_touchstone(...)   # .s1p / .s2p files
 
@@ -169,6 +170,24 @@ def crossings(freq: Sequence[float], y: Sequence[float], level: float) -> List[f
             out.append(f0 + (f1 - f0) * (level - y0) / (y1 - y0))
     if pairs and pairs[-1][1] == level and (len(pairs) < 2 or pairs[-2][1] != level):
         out.append(pairs[-1][0])
+    return out
+
+
+def level_crossings(
+    freq: Sequence[float], y: Sequence[float], level: float
+) -> List[Tuple[float, str]]:
+    """Where the curve crosses ``level``, with the direction: ``[(frequency, "rising" |
+    "falling")]`` in order. ``"falling"``: the curve goes from at or above the level to below it.
+    The frequency is found by linear interpolation. For the edges of a filter: its -3 dB points
+    relative to the peak; the low edge of a band-pass is rising and the high edge falling."""
+    _same_length(freq, y)
+    out: List[Tuple[float, str]] = []
+    pairs = sorted(zip(freq, y))
+    for (f0, v0), (f1, v1) in zip(pairs, pairs[1:]):
+        if v0 < level <= v1:
+            out.append((f0 + (f1 - f0) * (level - v0) / (v1 - v0), "rising"))
+        elif v0 >= level > v1:
+            out.append((f0 + (f1 - f0) * (level - v0) / (v1 - v0), "falling"))
     return out
 
 

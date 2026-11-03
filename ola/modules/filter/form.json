@@ -1,0 +1,387 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Filter and instrument",
+        "it": "Filtro e strumento",
+        "fr": "Filtre et instrument",
+        "es": "Filtro e instrumento",
+        "de": "Filter und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "filter.label",
+          "kind": "text",
+          "label": {
+            "en": "Filter name",
+            "it": "Nome del filtro",
+            "fr": "Nom du filtre",
+            "es": "Nombre del filtro",
+            "de": "Filtername"
+          },
+          "help": {
+            "en": "Identifies the filter: it is saved with every run.",
+            "it": "Identifica il filtro: viene salvato con ogni esecuzione.",
+            "fr": "Identifie le filtre : il est enregistré avec chaque exécution.",
+            "es": "Identifica el filtro: se guarda con cada ejecución.",
+            "de": "Kennzeichnet den Filter: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. 868 MHz SAW #4",
+            "it": "es. SAW 868 MHz n.4",
+            "fr": "p. ex. SAW 868 MHz n°4",
+            "es": "p. ej. SAW 868 MHz n.º 4",
+            "de": "z. B. SAW 868 MHz Nr. 4"
+          }
+        },
+        {
+          "path": "filter.type",
+          "kind": "choice",
+          "label": {
+            "en": "Type",
+            "it": "Tipo",
+            "fr": "Type",
+            "es": "Tipo",
+            "de": "Typ"
+          },
+          "choices": [
+            {
+              "value": "lowpass",
+              "label": {
+                "en": "Low-pass",
+                "it": "Passa-basso",
+                "fr": "Passe-bas",
+                "es": "Paso bajo",
+                "de": "Tiefpass"
+              }
+            },
+            {
+              "value": "highpass",
+              "label": {
+                "en": "High-pass",
+                "it": "Passa-alto",
+                "fr": "Passe-haut",
+                "es": "Paso alto",
+                "de": "Hochpass"
+              }
+            },
+            {
+              "value": "bandpass",
+              "label": {
+                "en": "Band-pass",
+                "it": "Passa-banda",
+                "fr": "Passe-bande",
+                "es": "Paso banda",
+                "de": "Bandpass"
+              }
+            },
+            {
+              "value": "bandstop",
+              "label": {
+                "en": "Band-stop (notch)",
+                "it": "Elimina-banda (notch)",
+                "fr": "Coupe-bande (notch)",
+                "es": "Banda eliminada (notch)",
+                "de": "Bandsperre (Notch)"
+              }
+            }
+          ]
+        },
+        {
+          "path": "edge_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Edges at",
+            "it": "Bordi a",
+            "fr": "Bords à",
+            "es": "Bordes a",
+            "de": "Kanten bei"
+          },
+          "help": {
+            "en": "The cut-off and band edges are where the gain is this far below the peak (3 dB is usual).",
+            "it": "La frequenza di taglio e i bordi di banda sono dove il guadagno è così sotto il picco (3 dB è comune).",
+            "fr": "La fréquence de coupure et les bords de bande sont là où le gain est à cette distance sous le pic (3 dB est courant).",
+            "es": "La frecuencia de corte y los bordes de banda están donde la ganancia está así por debajo del pico (3 dB es habitual).",
+            "de": "Grenzfrequenz und Bandkanten liegen dort, wo die Verstärkung so weit unter dem Maximum liegt (3 dB ist üblich)."
+          }
+        },
+        {
+          "path": "passband.from_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Passband from",
+            "it": "Banda passante da",
+            "fr": "Bande passante de",
+            "es": "Banda de paso desde",
+            "de": "Durchlassbereich von"
+          },
+          "help": {
+            "en": "Optional: where the ripple is measured and the reference level is taken.",
+            "it": "Facoltativa: dove si misura il ripple e si prende il livello di riferimento.",
+            "fr": "Facultatif : où l'ondulation est mesurée et le niveau de référence pris.",
+            "es": "Opcional: dónde se mide el rizado y se toma el nivel de referencia.",
+            "de": "Optional: wo die Welligkeit gemessen und der Bezugspegel genommen wird."
+          }
+        },
+        {
+          "path": "passband.to_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Passband to",
+            "it": "Banda passante a",
+            "fr": "Bande passante à",
+            "es": "Banda de paso hasta",
+            "de": "Durchlassbereich bis"
+          }
+        },
+        {
+          "path": "also_s11",
+          "kind": "bool",
+          "label": {
+            "en": "Also measure the return loss of the filter (S11)",
+            "it": "Misura anche il return loss del filtro (S11)",
+            "fr": "Mesurer aussi l'affaiblissement de retour du filtre (S11)",
+            "es": "Medir también la pérdida de retorno del filtro (S11)",
+            "de": "Auch die Rückflussdämpfung des Filters messen (S11)"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "More points for a longer cable: the phase must not turn by more than half a turn between two points.",
+            "it": "Più punti per un cavo più lungo: la fase non deve girare più di mezzo giro tra due punti.",
+            "fr": "Plus de points pour un câble plus long : la phase ne doit pas tourner de plus d'un demi-tour entre deux points.",
+            "es": "Más puntos para un cable más largo: la fase no debe girar más de media vuelta entre dos puntos.",
+            "de": "Mehr Punkte für ein längeres Kabel: die Phase darf zwischen zwei Punkten nicht mehr als eine halbe Drehung machen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Results and checks",
+        "it": "Risultati e controlli",
+        "fr": "Résultats et contrôles",
+        "es": "Resultados y controles",
+        "de": "Ergebnisse und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the gain at",
+            "it": "Riporta il guadagno a",
+            "fr": "Indiquer le gain à",
+            "es": "Informar la ganancia en",
+            "de": "Verstärkung angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 433M, 868M, 2.4G",
+            "it": "es. 433M, 868M, 2.4G",
+            "fr": "p. ex. 433M, 868M, 2.4G",
+            "es": "p. ej. 433M, 868M, 2.4G",
+            "de": "z. B. 433M, 868M, 2.4G"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Mask on the gain (dB)",
+            "it": "Maschera sul guadagno (dB)",
+            "fr": "Gabarit sur le gain (dB)",
+            "es": "Máscara de la ganancia (dB)",
+            "de": "Maske für die Verstärkung (dB)"
+          },
+          "help": {
+            "en": "Optional pass / fail check. The gain is negative in dB: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = at least -4 dB in the passband, at most -40 dB far away.",
+            "it": "Controllo promosso / non promosso facoltativo. Il guadagno in dB è negativo: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = almeno -4 dB in banda, al massimo -40 dB lontano.",
+            "fr": "Contrôle réussi / échoué facultatif. Le gain en dB est négatif : {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = au moins -4 dB dans la bande, au plus -40 dB loin.",
+            "es": "Comprobación aprobado / suspendido opcional. La ganancia en dB es negativa: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = al menos -4 dB en la banda, como máximo -40 dB lejos.",
+            "de": "Optionale Bestanden / Nicht-bestanden-Prüfung. Die Verstärkung in dB ist negativ: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = mindestens -4 dB im Band, höchstens -40 dB weit weg."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

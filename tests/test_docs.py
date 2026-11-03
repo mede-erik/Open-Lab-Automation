@@ -266,3 +266,33 @@ def test_the_vna_contract_in_the_docs_matches_the_simulated_vna():
     answer = vna.call("read_sparameter", parameter="S21")
     assert set(answer) == {"frequency", "values"} and len(answer["frequency"]) == 5
     assert all(len(v) == 2 for v in answer["values"])  # [real, imaginary] pairs
+
+
+def test_filter_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/filter.md is a real file: it validates and gives its verdict."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "filter.md")
+    block = re.search(r"```json filter\.flt\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/filter.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("filter", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("filter", params)
+    vna = SimVna(filter_type="bandpass", filter_f0_hz=868e6, filter_bw_hz=20e6, filter_order=3)
+    runner = Runner(m, {"vna": [vna]})
+    runner.start()
+    assert runner.join(20) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert row["verdict"] == "PASS" and row["type"] == "bandpass" and "q_factor" in row
+    assert abs(row["center_hz"] - 868e6) < 0.001 * 868e6

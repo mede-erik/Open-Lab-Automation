@@ -1,0 +1,33 @@
+{
+  "id": "filter",
+  "name": "Filter",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".flt",
+  "entry": "measurement.py:FilterResponse",
+  "description": "Frequency response of a filter with a vector network analyzer (VNA): insertion loss, the cut-off or band edges at -3 dB below the peak, bandwidth, centre frequency and Q, passband ripple, the depth of a notch, the gain at chosen frequencies, group delay, and a pass / fail check against a mask. For low-pass, high-pass, band-pass and band-stop filters. The VNA is calibrated beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "vna", "required": true,
+     "description": "The network analyzer, calibrated for the connection of the filter between port 1 and port 2"}
+  ],
+  "params_schema": {
+    "filter": {"type": "object", "required": true,
+               "description": "type (lowpass|highpass|bandpass|bandstop) and label (identifies the filter)"},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "edge_db": {"type": "number", "unit": "dB", "required": false,
+                "description": "the cut-off / band edges are where the gain is this far below the peak (3 by default)"},
+    "passband": {"type": "object", "required": false,
+                 "description": "from_hz and to_hz: where the ripple is measured, and the level the edges refer to"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the gain is reported at these frequencies"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail mask on the gain in dB (negative numbers): {\"bands\": [{\"from\": 0, \"to\": 1e9, \"min\": -1}, {\"from\": 2e9, \"to\": 3e9, \"max\": -40}]}"},
+    "also_s11": {"type": "boolean", "required": false,
+                 "description": "also read S11 to report the return loss in the passband"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the filter"}
+  }
+}

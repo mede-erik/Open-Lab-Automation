@@ -238,3 +238,20 @@ def test_bands_where_edge_cases():
     assert rf.bands_where([3, 2, 1], [3, 1, 1], 2) == [(1, pytest.approx(2.5))]  # unsorted input
     with pytest.raises(rf.RfError):
         rf.bands_where([1, 2], [1], 2)
+
+
+def test_level_crossings_have_a_direction():
+    freq = [1, 2, 3, 4, 5]
+    y = [-10, -1, 0, -1, -10]  # a band-pass shape
+    assert rf.level_crossings(freq, y, -3) == [
+        (pytest.approx(1 + 7 / 9), "rising"),
+        (pytest.approx(4 + 2 / 9), "falling"),
+    ]
+    assert rf.level_crossings([1, 2, 3], [0, -5, -10], -3) == [(pytest.approx(1.6), "falling")]
+    assert rf.level_crossings(freq, [-10] * 5, -3) == []
+    unsorted = rf.level_crossings(
+        [3, 1, 2], [-10, -10, 0], -3
+    )  # the order of input does not matter
+    assert unsorted == [(pytest.approx(1.7), "rising"), (pytest.approx(2.3), "falling")]
+    with pytest.raises(rf.RfError):
+        rf.level_crossings([1, 2], [1], 0)

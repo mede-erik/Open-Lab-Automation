@@ -12,8 +12,9 @@ plus a term proportional to the frequency (dielectric loss)::
 ``termination`` says what is on the far end of the cable for S11: ``"thru"`` (connected to the
 other port: only a small mismatch is seen), ``"open"`` or ``"short"`` (the signal goes to the end
 and back), or ``"antenna"``: a resonant device (``antenna_f0_hz``, ``antenna_r_ohm``,
-``antenna_q``) directly on port 1, as after a calibration at the port. ``noise_db`` adds a little
-random error to every point; ``calls`` records what was asked.
+``antenna_q``) directly on port 1, as after a calibration at the port. ``filter_type`` puts a
+Butterworth filter between the ports (S21 is its response). ``noise_db`` adds a little random
+error to every point; ``calls`` records what was asked.
 """
 
 from __future__ import annotations
@@ -43,6 +44,11 @@ class SimVna:
         antenna_f0_hz: float = 868e6,
         antenna_r_ohm: float = 55.0,
         antenna_q: float = 12.0,
+        filter_type: str = "",
+        filter_f0_hz: float = 100e6,
+        filter_bw_hz: float = 20e6,
+        filter_order: int = 4,
+        filter_loss_db: float = 0.5,
     ):
         self.name = name
         self.length_m = length_m
@@ -50,6 +56,7 @@ class SimVna:
         self.velocity_factor, self.mismatch = velocity_factor, mismatch
         self.termination, self.noise_db = termination, noise_db
         self.antenna = (antenna_f0_hz, antenna_r_ohm, antenna_q)
+        self.filter = (filter_type, filter_f0_hz, filter_bw_hz, filter_order, filter_loss_db)
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -64,8 +71,28 @@ class SimVna:
         """Delay of one passage through the cable."""
         return self.length_m / (self.velocity_factor * SPEED_OF_LIGHT)
 
+    def filter_response(self, f: float) -> complex:
+        """S21 of a Butterworth filter (``filter_type``: ``lowpass``, ``highpass``, ``bandpass`` or
+        ``bandstop``) of the given order, with ``filter_f0_hz`` as its cut-off or centre, a
+        ``filter_bw_hz`` wide pass (or stop) band for the band types, and a flat insertion loss."""
+        kind, f0, bw, order, loss_db = self.filter
+        if kind == "lowpass":
+            s = 1j * f / f0
+        elif kind == "highpass":
+            s = 1 / (1j * f / f0)
+        else:
+            x = (f / f0 - f0 / f) * (f0 / bw)
+            s = 1j * x if kind == "bandpass" else (1 / (1j * x) if x else complex(math.inf))
+        h = 1.0 + 0j  # normalised Butterworth: the poles are on the unit circle
+        for k in range(order):
+            pole = cmath.exp(1j * math.pi * (2 * k + order + 1) / (2 * order))
+            h *= -pole / (s - pole) if s != complex(math.inf) else 0
+        return h * 10 ** (-loss_db / 20)
+
     def transmission(self, f: float) -> complex:
-        """What a cable does to a signal going through it (S21)."""
+        """What a cable (or the filter, if there is one) does to a signal going through (S21)."""
+        if self.filter[0]:
+            return self.filter_response(f)
         return cmath.rect(10 ** (-self.one_way_loss_db(f) / 20), -2 * math.pi * f * self.delay_s())
 
     def antenna_gamma(self, f: float) -> complex:

@@ -331,7 +331,13 @@ class FormEditorDialog(QDialog):
                 label.setVisible(visible)
         problems = sorted(self.model.problems(), key=lambda p: p.severity != "error")
         for path, row in self.rows.items():
-            found = [p for p in problems if p.path == path or p.path.startswith(path + ".")]
+            found = [
+                p
+                for p in problems
+                if p.path == path
+                or p.path.startswith(path + ".")
+                or path.startswith(p.path + ".")  # a problem of the whole group (passband)
+            ]
             if row.invalid:
                 mark_widget(row.widget, "error", row.invalid)
             elif found:
