@@ -59,8 +59,21 @@ def oscilloscope_calls_from_was(was_data: Dict[str, Any]) -> List[Call]:
                 "scale": ch.get("volt_per_div"),
                 "offset": ch.get("offset"),
                 "coupling": ch.get("coupling"),
+                "enabled": ch.get("enabled"),
+                "attenuation": ch.get("probe_attenuation"),
             }
         number = extract_channel_number(ch_ref) if isinstance(ch_ref, str) else ch_ref
+        enabled = ch.get("enabled")
+        if enabled is not None:
+            # a channel that is off ignores its settings: turn it on first, or just off
+            calls.append(("set_channel_state", {"channel_number": number, "state": bool(enabled)}))
+            if not enabled:
+                continue
+        if ch.get("attenuation") is not None:
+            # before the scale: the scale is the one at the probe tip
+            calls.append(
+                ("set_probe_attenuation", {"channel_number": number, "value": ch["attenuation"]})
+            )
         scale = parse_voltage_value(ch.get("scale"))
         if scale is not None:
             calls.append(("set_channel_scale", {"channel_number": number, "value": scale}))
