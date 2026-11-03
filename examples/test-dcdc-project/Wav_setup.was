@@ -1,0 +1,15 @@
+{
+  "type": "oscilloscope_settings",
+  "channels": [
+    {
+      "channel_id": "CH1",
+      "name": "CH1",
+      "enabled": true,
+      "volt_per_div": "50mV",
+      "probe_attenuation": 1.0
+    }
+  ],
+  "settings": {
+    "time_per_div": 0.01
+  }
+}

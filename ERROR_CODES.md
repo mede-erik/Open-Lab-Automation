@@ -2135,6 +2135,45 @@ System-level errors and resource issues.
 
 ---
 
+## TRN - Instrument Transport Errors (TRN-XXX)
+
+Errors raised by the low-level transport (`ola/transport.py`, native module `native/`):
+the byte-stream link to an instrument over TCP/LXI or serial. They are independent of
+the instrument model and of the command protocol.
+
+### TRN-001: Connection Failed
+**Description**: The TCP connection or serial port could not be opened  
+**Common Cause**:
+- Instrument off, wrong IP/port, cable disconnected
+- Serial port missing, busy (used by another program) or no permission
+- Serial transport needs the native module or `pyserial`
+
+**Solution**:
+1. Check power, cable and address (LXI raw-socket port is usually 5025)
+2. Close other programs using the port; on Linux add the user to the `dialout` group
+
+### TRN-002: I/O Error
+**Description**: Reading or writing on an open connection failed  
+**Solution**: Check the cable/network, reconnect the instrument and retry
+
+### TRN-003: Timeout
+**Description**: The instrument did not send a complete answer within the timeout  
+**Common Cause**: Wrong command or terminator, instrument busy (long acquisition), timeout too short  
+**Solution**: Check the command in the library, the terminators, or increase the timeout
+
+### TRN-004: Connection Closed
+**Description**: The connection was closed locally or by the instrument  
+**Solution**: Reopen the connection; check whether the instrument rebooted or dropped it (idle timeout)
+
+### TRN-005: Protocol Error
+**Description**: The answer does not follow the expected framing (e.g. a binary block that does not start with `#`)  
+**Solution**: Check that the command returns the expected data format
+
+### TRN-006: Invalid Argument
+**Description**: A transport function was called with an invalid argument (e.g. empty terminator, size over the limit)
+
+---
+
 ## How to Use This Guide
 
 ### For Users
@@ -2193,6 +2232,7 @@ To add a new error code:
 | **DATA** | 001-099 | Data acquisition/processing errors |
 | **PJDB** | 001-099 | Project database errors |
 | **SYS** | 001-099 | System-level errors |
+| **TRN** | 001-099 | Instrument transport (TCP/serial) errors |
 
 ---
 

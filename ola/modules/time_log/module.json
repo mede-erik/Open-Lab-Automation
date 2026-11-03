@@ -1,0 +1,23 @@
+{
+  "id": "time_log",
+  "name": "Time log",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".tlg",
+  "entry": "measurement.py:TimeLog",
+  "description": "Reads one or more values from instruments at a fixed interval (temperatures, voltages, currents...) and records them over time.",
+  "roles": [
+    {"name": "instruments", "category": "any", "multiple": true,
+     "description": "Instruments read during the log"}
+  ],
+  "params_schema": {
+    "interval_s": {"type": "number", "min": 0.001, "unit": "s", "required": true},
+    "duration_s": {"type": "number", "min": 0, "unit": "s", "required": false,
+                   "description": "stop after this time (or use 'samples')"},
+    "samples": {"type": "integer", "min": 1, "required": false,
+                "description": "stop after this many samples (or use 'duration_s')"},
+    "channels": {"type": "list", "required": true,
+                 "item": {"name": "string", "instrument": "string", "call": "string",
+                          "args": "object (optional)"}}
+  }
+}
