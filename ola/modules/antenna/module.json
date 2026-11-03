@@ -1,0 +1,31 @@
+{
+  "id": "antenna",
+  "name": "Antenna impedance",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".ant",
+  "entry": "measurement.py:AntennaImpedance",
+  "description": "Impedance of an antenna (or any one-port) with a vector network analyzer (VNA): resistance and reactance against frequency, the Smith chart, the resonances (where the reactance is zero), the best match and the band where the VSWR stays under a limit, the impedance at chosen frequencies and the series component that would cancel its reactance. The VNA is calibrated at the port beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "vna", "required": true,
+     "description": "The network analyzer, calibrated at the port the antenna connects to"}
+  ],
+  "params_schema": {
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "device": {"type": "object", "required": false,
+               "description": "label: identifies the antenna"},
+    "z0": {"type": "number", "min": 0, "unit": "ohm", "required": false,
+           "description": "reference impedance of the VNA (50 by default)"},
+    "vswr_max": {"type": "number", "required": false,
+                 "description": "the bands where the VSWR is at most this are reported (2 by default)"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the impedance and the matching component are reported at these frequencies"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail limit on the return loss in dB, normally a minimum: {\"min\": 10}"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the antenna"}
+  }
+}

@@ -320,3 +320,34 @@ def test_simulated_vna_takes_the_sweep_types_the_planner_takes():
         SimVna().call(
             "set_sweep", start_frequency=1e6, stop_frequency=1e9, points=5, sweep_type="decade"
         )
+
+
+def test_antenna_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/antenna.md is a real file: it validates and gives its figures."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "antenna.md")
+    block = re.search(r"```json antenna\.ant\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/antenna.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("antenna", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("antenna", params)
+    runner = Runner(m, {"vna": [SimVna(termination="antenna")]})
+    runner.start()
+    assert runner.join(20) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert row["verdict"] == "PASS" and row["series_resonance_count"] == 1
+    assert abs(row["series_resonance_hz"] - 868e6) < 1e6 and row["cancel_840MHz"].startswith(
+        "series inductor"
+    )

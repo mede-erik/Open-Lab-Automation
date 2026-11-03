@@ -195,6 +195,7 @@ class RunWindow(QWidget):
         self._plot_dirty = False
         self._axes_chosen = False
         self._traces_dirty = False
+        self._pending_view = None  # a view the measurement asks to open with ("smith")
         self._traces_checked: dict = {}  # trace name -> shown
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
@@ -513,6 +514,8 @@ class RunWindow(QWidget):
                 hidden = m.traces[name].get("meta", {}).get("hidden")
                 item.setCheckState(Qt.CheckState.Unchecked if hidden else Qt.CheckState.Checked)
                 self.trace_list.addItem(item)
+                if not have and m.traces[name].get("meta", {}).get("default_view"):
+                    self._pending_view = m.traces[name]["meta"]["default_view"]
                 if not have and m.traces[name].get("meta", {}).get("log_x"):
                     self.log_x_box.setChecked(True)
         self.trace_list.blockSignals(False)
@@ -542,6 +545,11 @@ class RunWindow(QWidget):
                 self.view_box.addItem(self._t(f"run_view_{view}"), view)
             position = self.view_box.findData(keep)
             self.view_box.setCurrentIndex(max(position, 0))
+        if self._pending_view:  # the first time: the view the measurement wants
+            position = self.view_box.findData(self._pending_view)
+            if position >= 0:
+                self.view_box.setCurrentIndex(position)
+            self._pending_view = None
         view = self.view_box.currentData() or views[0]
         has_export = bool(self.run_file) and bool(self.model.traces)
         self.csv_btn.setEnabled(has_export and self.trace_list.currentRow() >= 0)

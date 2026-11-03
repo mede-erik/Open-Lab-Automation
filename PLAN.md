@@ -741,6 +741,12 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   Finestra di esecuzione: la scheda Curve si apre da sola quando il risultato è una curva (≤ 1 riga in
   tabella) e le colonne `*_hz` mostrano l'unità (868 MHz). Restano: roll-off, fattore di forma e
   **impedenza dell'antenna** (grafico di Smith), poi lo strumento di confronto e l'etichetta del cavo.
+  **Impedenza dell'antenna** (2026-11-03, punto 3 della roadmap §6b): modulo `antenna` (`.ant`): S11 letto
+  come impedenza: `R + jX` in funzione della frequenza, **grafico di Smith** come vista di apertura (la
+  traccia chiede `default_view: "smith"`), risonanze serie (X da negativa a positiva: dove l'antenna è
+  adattata) e antirisonanze, miglior adattamento, banda utilizzabile e banda frazionaria, e alle frequenze
+  scelte l'impedenza e il **componente in serie che annulla la reattanza** (condensatore se X > 0,
+  induttore se X < 0). Non fa il progetto di una rete di adattamento né l'estensione di porta.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

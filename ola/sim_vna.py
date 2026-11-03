@@ -157,14 +157,89 @@ class SimVna:
             return [s["start"] * ratio**k for k in range(n)]
         return [s["start"] + (s["stop"] - s["start"]) * k / (n - 1) for k in range(n)]
 
+    def s_parameter(self, parameter: str, f: float) -> complex:
+        """One S-parameter at frequency ``f``. A cable or filter is reciprocal (S12 = S21); S22 is
+        the small mismatch of the connectors."""
+        if parameter in ("S21", "S12"):
+            return self.transmission(f)
+        if parameter == "S11":
+            return self.reflection(f)
+        return self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())  # S22
+
     def _read(self, parameter: str) -> Dict[str, Any]:
-        if parameter not in ("S11", "S21"):
-            raise ValueError(f"this simulated VNA measures S11 and S21, not {parameter!r}")
+        if parameter not in ("S11", "S21", "S12", "S22"):
+            raise ValueError(
+                f"this simulated VNA measures S11, S21, S12 and S22, not {parameter!r}"
+            )
         freq = self._frequencies()
         values = []
         for f in freq:
-            v = self.transmission(f) if parameter == "S21" else self.reflection(f)
+            v = self.s_parameter(parameter, f)
             if self.noise_db:
                 v *= 10 ** (self._random.gauss(0, self.noise_db) / 20)
             values.append([v.real, v.imag])
         return {"frequency": freq, "values": values}
+
+
+class SimAmplifier(SimVna):
+    """A VNA with an RF amplifier between its ports.
+
+    The gain is flat around ``f0_hz`` and falls away at the edges of a band ``bw_hz`` wide (a
+    Butterworth band-pass of the given ``order``). It **compresses**: the gain depends on the
+    power of the source, which is what ``set_sweep(power=...)`` sets, ``gain / (1 + Pout / Psat)``
+    with ``Pout`` the output power the gain would give without compression and ``p_sat_dbm`` the
+    saturation; the 1 dB compression point is therefore at ``Pout = 0.259 Psat`` (see
+    ``p1db_output_dbm``). The input and output mismatch (``s11_mag``, ``s22_mag``) and the reverse
+    isolation (``isolation_db``) are constants with a phase that turns with the frequency."""
+
+    def __init__(
+        self,
+        gain_db: float = 20.0,
+        f0_hz: float = 868e6,
+        bw_hz: float = 200e6,
+        order: int = 2,
+        s11_mag: float = 0.2,
+        s22_mag: float = 0.15,
+        isolation_db: float = 35.0,
+        p_sat_dbm: float = 10.0,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            filter_type="bandpass", filter_f0_hz=f0_hz, filter_bw_hz=bw_hz, filter_order=order,
+            filter_loss_db=-gain_db, **kwargs,
+        )  # fmt: skip
+        self.gain_db, self.s11_mag, self.s22_mag = gain_db, s11_mag, s22_mag
+        self.isolation_db, self.p_sat_dbm = isolation_db, p_sat_dbm
+
+    @property
+    def p1db_output_dbm(self) -> float:
+        """Output power at the 1 dB compression point (the gain is 1 dB below its small-signal
+        value): ``x = Pout_ideal / Psat = 10^0.1 - 1`` and the real output is 1 dB lower."""
+        x = 10**0.1 - 1
+        return self.p_sat_dbm + 10 * math.log10(x) - 1.0
+
+    @property
+    def p1db_input_dbm(self) -> float:
+        """Input power at the 1 dB compression point (at the centre of the band)."""
+        return self.p1db_output_dbm + 1.0 - self.gain_db
+
+    def compression(self, f: float) -> float:
+        """The factor (of the amplitude) the gain is reduced by at the present source power."""
+        power = self.sweep.get("power", -30.0)
+        small = abs(super().transmission(f)) ** 2
+        ideal_out = 10 ** (power / 10) * small
+        return math.sqrt(1.0 / (1.0 + ideal_out / 10 ** (self.p_sat_dbm / 10)))
+
+    def transmission(self, f: float) -> complex:
+        """S21: the small-signal gain of the band-pass, reduced by the compression."""
+        return super().transmission(f) * self.compression(f)
+
+    def s_parameter(self, parameter: str, f: float) -> complex:
+        """One S-parameter of the amplifier at frequency ``f``."""
+        if parameter == "S21":
+            return self.transmission(f)
+        if parameter == "S12":
+            return cmath.rect(10 ** (-self.isolation_db / 20), -2 * math.pi * f * 1e-9)
+        if parameter == "S11":
+            return cmath.rect(self.s11_mag, -0.3 - 2 * math.pi * f * 0.2e-9)
+        return cmath.rect(self.s22_mag, 0.5 - 2 * math.pi * f * 0.15e-9)

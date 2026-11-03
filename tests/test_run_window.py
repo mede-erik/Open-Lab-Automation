@@ -401,3 +401,23 @@ def test_frequencies_in_the_table_are_written_with_their_unit():
     assert number(868e6, "vin") == "8.68e+08"  # only the columns that are frequencies
     assert number(True) == "True" and number(None) == "" and number("PASS") == "PASS"
     assert number(0.5, "loss_db") == "0.5"
+
+
+def test_an_antenna_run_opens_on_the_smith_chart(app, windows):
+    """The antenna measurement asks for the Smith chart: the window opens on it."""
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+
+    p = {
+        "sweep": {"start_hz": 800e6, "stop_hz": 950e6, "points": 200, "scale": "linear"},
+        "confirm_setup": False,
+    }
+    m = default_registry(user_dir="/nonexistent").create("antenna", p)
+    w = window(windows, Runner(m, {"vna": [SimVna(termination="antenna")]}), auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.view_box.currentData() == "smith" and w.trace_stack.currentWidget() is w.smith
+    assert [c[0] for c in w.smith.curves] == ["S11"] and len(w.smith.curves[0][1]) == 200
+    w.view_box.setCurrentIndex(w.view_box.findData("magnitude_db"))  # the user can still change it
+    w._draw_traces()
+    assert w.view_box.currentData() == "magnitude_db"
