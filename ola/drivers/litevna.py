@@ -53,7 +53,10 @@ class LiteVnaDriver:
         self.t = transport
         self._sweep: Optional[Tuple[int, int, int]] = None  # start Hz, step Hz, points
         self._selected: Tuple[str, ...] = ("S11", "S21")
+        self._channels_written = False
         self._swept = False
+        self._kind: Optional[str] = None  # calibration kind chosen with calibration_begin
+        self._ports: Tuple[int, Optional[int]] = (1, None)
         self._standards: Dict[str, List[complex]] = {}
         self._standards_grid: Optional[Tuple[int, int, int]] = None
         self._reflection: Optional[cal.Reflection] = None
@@ -119,7 +122,7 @@ class LiteVnaDriver:
         self._sweep = (start, step, points)
         self._swept = False
 
-    def fn_select_sparameters(self, sparameters) -> None:
+    def _select_channels(self, sparameters) -> None:
         """S11, S21 or both; the LiteVNA has one source port, so S12 and S22 do not exist."""
         wanted = tuple(p for p in ("S11", "S21") if p in sparameters)
         other = [p for p in sparameters if p not in ("S11", "S21")]
@@ -127,10 +130,13 @@ class LiteVnaDriver:
             raise ValueNotHandledError(
                 f"{other or sparameters} cannot be measured by the LiteVNA "
                 "(T/R analyzer: S11 and S21 only)",
-                call="select_sparameters",
+                call="read_sparameters",
             )
-        self._write_register(CHANNEL_SELECT, bytes([CHANNELS[wanted]]))
-        self._selected = wanted
+        if wanted != self._selected or not self._channels_written:
+            self._write_register(CHANNEL_SELECT, bytes([CHANNELS[wanted]]))
+            self._selected = wanted
+            self._channels_written = True
+            self._swept = False  # the FIFO holds records of the other channels
 
     def fn_run_sweep(self) -> None:
         """Empty the FIFO: the records that follow belong to a new sweep."""
@@ -176,8 +182,9 @@ class LiteVnaDriver:
                 result[name] = values
         return frequencies, result
 
-    def fn_read_sparameters(self) -> Dict[str, Any]:
-        """Frequencies and the selected S-parameters of a sweep, with the calibration applied."""
+    def fn_read_sparameters(self, sparameters) -> Dict[str, Any]:
+        """Frequencies and the asked S-parameters of a sweep, with the calibration applied."""
+        self._select_channels(sparameters)
         frequencies, data = self._read_raw()
         calibrated = False
         if self._correction:
@@ -207,40 +214,62 @@ class LiteVnaDriver:
         }
 
     # ----- software calibration ---------------------------------------------------------
-    def fn_calibration_measure(self, standard, port=1) -> None:
-        """Measure a standard on port 1 (OPEN, SHORT, LOAD: S11; THRU: S21), uncorrected."""
-        if port != 1:
+    def fn_calibration_begin(self, kind, port, port2=None) -> None:
+        """Choose the calibration: ONE_PORT on port 1 (OPEN, SHORT, LOAD) or TRANSMISSION_RESPONSE
+        from port 1 to port 2 (THRU). The standards are measured with calibration_measure."""
+        if kind == "TWO_PORT":
             raise ValueNotHandledError(
-                "the LiteVNA has one test port with a source (port 1)", call="calibration_measure"
+                "the LiteVNA is a T/R analyzer: no two-port calibration", call="calibration_begin"
+            )
+        if port != 1 or (kind == "TRANSMISSION_RESPONSE" and port2 != 2):
+            raise ValueNotHandledError(
+                "the LiteVNA has its source on port 1 and measures S21 into port 2",
+                call="calibration_begin",
+            )
+        self._kind, self._ports = kind, (port, port2)
+        self._standards, self._standards_grid = {}, None
+
+    def fn_calibration_measure(self, standard, port, port2=None) -> None:
+        """Measure a standard (OPEN, SHORT, LOAD: S11; THRU: S21), without correction."""
+        if self._kind is None:
+            raise InvalidArgumentError("calibration_begin must be called first")
+        expected = {"ONE_PORT": ("OPEN", "SHORT", "LOAD"), "TRANSMISSION_RESPONSE": ("THRU",)}
+        if standard not in expected[self._kind]:
+            raise InvalidArgumentError(f"{standard} is not measured for {self._kind}")
+        if (port, port2) != self._ports:
+            raise InvalidArgumentError(
+                f"the ports are {self._ports}, as given to calibration_begin"
             )
         needed = "S21" if standard == "THRU" else "S11"
-        previous = self._selected
         was_correcting, self._correction = self._correction, False
         try:
-            if needed not in previous or len(previous) > 1:
-                self.fn_select_sparameters([needed])
+            self._select_channels([needed])
             self.fn_run_sweep()
             _, data = self._read_raw()
         finally:
             self._correction = was_correcting
-            if self._selected != previous:
-                self.fn_select_sparameters(list(previous))
         if self._standards_grid != self._need_sweep():
             self._standards = {}  # standards of another sweep cannot be mixed
         self._standards_grid = self._need_sweep()
         self._standards[standard] = data[needed]
 
-    def fn_calibration_apply(self, kind) -> None:
+    def fn_calibration_apply(self) -> None:
         """Compute the correction from the measured standards and switch it on."""
-        need = {"ONE_PORT": ("OPEN", "SHORT", "LOAD"), "TRANSMISSION_RESPONSE": ("THRU",)}[kind]
+        if self._kind is None:
+            raise InvalidArgumentError("calibration_begin must be called first")
+        need = {"ONE_PORT": ("OPEN", "SHORT", "LOAD"), "TRANSMISSION_RESPONSE": ("THRU",)}[
+            self._kind
+        ]
         missing = [s for s in need if s not in self._standards]
         if missing:
-            raise InvalidArgumentError(f"calibration {kind}: measure {', '.join(missing)} first")
+            raise InvalidArgumentError(
+                f"calibration {self._kind}: measure {', '.join(missing)} first"
+            )
         if self._standards_grid != self._need_sweep():
             raise InvalidArgumentError("the standards were measured for another frequency sweep")
         if self._cal_grid not in (None, self._standards_grid):
             self._reflection = self._thru = None  # the earlier correction is for another sweep
-        if kind == "ONE_PORT":
+        if self._kind == "ONE_PORT":
             s = self._standards
             self._reflection = cal.reflection_terms(s["OPEN"], s["SHORT"], s["LOAD"])
         else:
@@ -257,3 +286,4 @@ class LiteVnaDriver:
         self._standards, self._standards_grid = {}, None
         self._reflection = self._thru = self._cal_grid = None
         self._correction = False
+        self._kind = None

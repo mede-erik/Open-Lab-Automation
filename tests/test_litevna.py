@@ -57,12 +57,14 @@ def test_sweep_registers_are_start_step_points():
 
 def test_channel_select_and_unhandled_parameters():
     d, sim = driver()
+    sim.e00, sim.e11, sim.t = 0j, 0j, 1 + 0j
+    d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 2e6, "points": 3})
     for chosen, code in ((["S11"], 1), (["S21"], 2), (["S21", "S11"], 0)):
-        d.call("select_sparameters", {"sparameters": chosen})
+        d.call("read_sparameters", {"sparameters": chosen})
         assert sim.regs[0x44] == code
     for bad in (["S12"], ["S11", "S22"]):
         with pytest.raises(ValueNotHandledError):
-            d.call("select_sparameters", {"sparameters": bad})
+            d.call("read_sparameters", {"sparameters": bad})
 
 
 def test_read_sparameters_divides_by_the_reference_whatever_the_phase():
@@ -70,9 +72,8 @@ def test_read_sparameters_divides_by_the_reference_whatever_the_phase():
     sim.connect(lambda f: 0.5)  # a constant reflection coefficient, ideal analyzer
     sim.e00, sim.e11, sim.t = 0j, 0j, 1 + 0j
     d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 1.4e6, "points": 5})
-    d.call("select_sparameters", {"sparameters": ["S11"]})
     d.call("run_sweep", {})
-    result = d.call("read_sparameters", {})
+    result = d.call("read_sparameters", {"sparameters": ["S11"]})
     assert list(result["frequency"]) == [1e6, 1.1e6, 1.2e6, 1.3e6, 1.4e6]
     s11 = result["parameters"]["S11"]
     assert list(result["parameters"]) == ["S11"] and result["calibrated"] is False
@@ -87,7 +88,7 @@ def test_the_sweep_is_synchronised_on_index_zero():
     sim.e00, sim.e11, sim.t = 0j, 0j, 1 + 0j
     sim.connect(lambda f: f / 2e6)  # different value at each frequency
     d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 1.4e6, "points": 5})
-    result = d.call("read_sparameters", {})  # also runs the sweep: none was started
+    result = d.call("read_sparameters", {"sparameters": ["S11"]})  # runs the sweep itself
     assert [round(r, 4) for r in result["parameters"]["S11"]["real"]] == [0.5, 0.55, 0.6, 0.65, 0.7]
 
 
@@ -96,14 +97,15 @@ GAMMA = lambda f: 0.3 * (1 + (f - 1e6) / 1e6) * (0.8 - 0.4j)  # noqa: E731  the 
 
 def calibrate(d, sim):
     d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 2e6, "points": 21})
-    d.call("select_sparameters", {"sparameters": ["S11", "S21"]})
+    d.call("calibration_begin", {"kind": "ONE_PORT", "port": 1})
     for standard, gamma in (("OPEN", 1), ("SHORT", -1), ("LOAD", 0)):
         sim.connect(gamma)
         d.call("calibration_measure", {"standard": standard, "port": 1})
+    d.call("calibration_apply", {})
+    d.call("calibration_begin", {"kind": "TRANSMISSION_RESPONSE", "port": 1, "port2": 2})
     sim.connect_thru(1 + 0j)
-    d.call("calibration_measure", {"standard": "THRU", "port": 1})
-    d.call("calibration_apply", {"kind": "ONE_PORT"})
-    d.call("calibration_apply", {"kind": "TRANSMISSION_RESPONSE"})
+    d.call("calibration_measure", {"standard": "THRU", "port": 1, "port2": 2})
+    d.call("calibration_apply", {})
 
 
 def test_software_calibration_recovers_the_device_under_test():
@@ -111,7 +113,7 @@ def test_software_calibration_recovers_the_device_under_test():
     calibrate(d, sim)
     sim.connect(GAMMA)
     sim.connect_thru(lambda f: 0.25 - 0.1j)
-    corrected = d.call("read_sparameters", {})
+    corrected = d.call("read_sparameters", {"sparameters": ["S11", "S21"]})
     assert corrected["calibrated"] is True
     for n, f in enumerate(corrected["frequency"]):
         s11 = complex(
@@ -125,7 +127,7 @@ def test_software_calibration_recovers_the_device_under_test():
         assert abs(s11 - GAMMA(f)) < 1e-4
         assert abs(s21 - (0.25 - 0.1j)) < 1e-4
     d.call("set_correction_state", {"state": False})
-    raw = d.call("read_sparameters", {})
+    raw = d.call("read_sparameters", {"sparameters": ["S11", "S21"]})
     assert raw["calibrated"] is False
     assert (
         abs(
@@ -139,22 +141,29 @@ def test_software_calibration_recovers_the_device_under_test():
 def test_calibration_needs_its_standards_and_the_same_sweep():
     d, sim = driver()
     d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 2e6, "points": 5})
-    with pytest.raises(InvalidArgumentError):
-        d.call("calibration_apply", {"kind": "ONE_PORT"})
+    with pytest.raises(InvalidArgumentError):  # begin first
+        d.call("calibration_apply", {})
+    d.call("calibration_begin", {"kind": "ONE_PORT", "port": 1})
+    with pytest.raises(InvalidArgumentError):  # no standards yet
+        d.call("calibration_apply", {})
+    with pytest.raises(InvalidArgumentError):  # THRU is not a ONE_PORT standard
+        d.call("calibration_measure", {"standard": "THRU", "port": 1, "port2": 2})
+    with pytest.raises(ValueNotHandledError):  # one source port only, no two-port calibration
+        d.call("calibration_begin", {"kind": "TWO_PORT", "port": 1, "port2": 2})
     with pytest.raises(ValueNotHandledError):
-        d.call("calibration_measure", {"standard": "OPEN", "port": 2})
+        d.call("calibration_begin", {"kind": "ONE_PORT", "port": 2})
     calibrate(d, sim)
     d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 3e6, "points": 5})
     with pytest.raises(InvalidArgumentError):  # the correction is for another sweep
-        d.call("read_sparameters", {})
+        d.call("read_sparameters", {"sparameters": ["S11"]})
     d.call("calibration_clear", {})
-    assert d.call("read_sparameters", {})["calibrated"] is False
+    assert d.call("read_sparameters", {"sparameters": ["S11"]})["calibrated"] is False
 
 
 def test_sweep_must_be_defined_first_and_unknown_functions_are_refused():
     d, _ = driver()
     with pytest.raises(InvalidArgumentError):
-        d.call("read_sparameters", {})
+        d.call("read_sparameters", {"sparameters": ["S11"]})
     with pytest.raises(CallNotSupportedError):
         d.call("set_source_power", {})
 
@@ -168,15 +177,15 @@ def test_the_library_models_work_through_the_handle():
     handle = make_handle(library, "VNA_Zenko_LiteVNA67", sim, "vna")
     assert handle.call("identification_query").startswith("Zenko,LiteVNA")
     handle.call("set_frequency_sweep", start_frequency=1e6, stop_frequency=2e6, points=3)
-    handle.call("select_sparameters", sparameters=["S11"])
-    handle.call("run_sweep")
-    result = handle.call("read_sparameters")
+    result = handle.call("read_sparameters", sparameters=["S11"])
     assert list(result["frequency"]) == [1e6, 1.5e6, 2e6]
     # the schema rejects a wrong value before the driver; the driver rejects S12 for this model
     with pytest.raises(InvalidArgumentError):
-        handle.call("select_sparameters", sparameters=["S99"])
+        handle.call("read_sparameters", sparameters=["S99"])
     with pytest.raises(ValueNotHandledError):
-        handle.call("select_sparameters", sparameters="S11,S12")
+        handle.call("read_sparameters", sparameters="S11,S12")
+    with pytest.raises(ValueNotHandledError):
+        handle.call("calibration_begin", kind="TWO_PORT", port=1, port2=2)
     with pytest.raises(CallNotSupportedError):
         handle.call("set_source_power", value=0)
     ref = library.find_model("VNA_Zenko_LiteVNA67")
