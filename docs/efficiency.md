@@ -265,5 +265,5 @@ Two tables, written while the measurement runs ([engine.md](engine.md#files)):
 
 ## Not done yet
 
-The "start measurement" action and the run window of the GUI (progress, pop-ups, plots), and opening the editor from the project window. The measurement
+The "start measurement" action, and opening the editor and the run window from the project window. The measurement
 has been tested against simulated instruments only, not on real hardware.

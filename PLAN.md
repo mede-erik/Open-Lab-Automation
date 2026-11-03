@@ -625,8 +625,16 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   Schede: Parametri (lista ordinabile con Su/Giù), Tempi, Formule, Ordine di accensione (+ chiamate
   extra), Anteprima del file. Stringhe in `frontend/lang/modules/efficiency/{en,it,fr,es,de}.json`
   (test: stesse chiavi in tutte le lingue). Salvataggio con errori solo dopo conferma.
+  **GUI, finestra di esecuzione** (2026-11-03): modello senza Qt `ola/run_view.py` (`RunModel`: stato,
+  avanzamento e tempo residuo senza contare le attese dell'utente, tabella, log, domande aperte, serie
+  per i grafici) + finestra sottile `frontend/ui/RunWindow.py` (Avvia/Pausa/Riprendi/Ferma, tabella dal
+  vivo, grafico QPainter senza librerie esterne con una linea per ogni valore di un parametro, log,
+  esportazione CSV) e **pop-up per le domande della misura** (un pulsante per scelta, quella sicura è
+  predefinita e in grassetto, non si chiude senza risposta, si chiude da sola se la misura viene fermata).
+  Stringhe in `frontend/lang/modules/run/{en,it,fr,es,de}.json`. Demo con strumenti simulati
+  (`ola/demo_lab.py`): `python -m frontend.ui.RunWindow [--fault]`.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), la finestra di esecuzione (avvio/pausa/stop, pop-up, grafici) e l'azione "Avvia misura" nella GUI, l'apertura dell'editor dal progetto,
+  ancora nel repo e non sono stati toccati), l'azione "Avvia misura" e l'apertura dell'editor e della finestra di esecuzione dal progetto,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
   attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 

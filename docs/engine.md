@@ -176,8 +176,32 @@ Every exception has a `code` attribute where it makes sense; the runner copies i
 * `pytest tests` runs everything, once with the native transport and once with `OLA_TRANSPORT=python`
   (CI should do both).
 
+## The run window
+
+`frontend/ui/RunWindow.py` runs a `Runner` and shows it live. As with the efficiency editor it is split in two:
+`ola/run_view.py` (`RunModel`) follows the events and decides what is shown, so it is tested without a screen;
+the window only draws it. A timer takes `runner.drain()` every 100 ms.
+
+* **Top:** the state (ready, running, paused, *waiting for your answer*, finished, stopped, failed), a progress
+  bar, the time elapsed and an estimate of the time left (time spent waiting for the user is not counted), and
+  the buttons Start, Pause / Resume, Stop and Export CSV. If the measurement cannot start (an instrument is
+  missing, the parameters are not valid) the reasons are shown and nothing is sent to any instrument.
+* **Results:** the table of points, growing while the measurement runs.
+* **Plot:** any numeric column against any other, with one line for each value of a third column (by
+  default: efficiency against the fastest sweep, one line per slower parameter). Drawn with `QPainter`, so it
+  follows the dark or light theme and needs no extra library.
+* **Log:** messages, warnings and errors.
+* **Questions:** when the measurement asks something (`ctx.ask`) a pop-up shows the question with one button per
+  choice; the safe choice (for example *abort*) is the default and is in bold. The pop-up cannot be closed
+  without an answer; if the run is stopped meanwhile it closes by itself. The answer goes to `runner.answer`.
+  Closing the window while the run is going asks first, then stops the run.
+
+`python -m frontend.ui.RunWindow` runs an efficiency measurement on the simulated lab of `ola/demo_lab.py`
+(`--fault` makes the data logger disagree with the supply for a few readings, to see the pop-up). Strings are
+in `frontend/lang/modules/run/<lang>.json`.
+
 ## Not done yet
 
-The measurement modules other than `time_log`, the GUI integration ("Avvia misura"), the driver system
+The measurement modules other than `time_log` and `efficiency`, opening the editor and the run window from the project window ("Avvia misura"), the driver system
 for Analog Discovery, the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`)
 and the retirement of the old C backend. The plan and the status are in [`PLAN.md`](../PLAN.md).
