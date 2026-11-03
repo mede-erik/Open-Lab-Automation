@@ -53,7 +53,7 @@ Runner(measurement, {role: handle}, stop_event=...)
 | `waiting` | the measurement asked the user a question and waits for `answer()` (see below) |
 | `stopping` | `stop()` was called, the run is winding down |
 | `finished` | `run()` returned normally |
-| `stopped` | the user stopped it (also when a stop interrupted an instrument call) |
+| `stopped` | the user stopped it (also when a stop interrupted an instrument call, or the operator pressed Cancel in the prompt of a manual instrument: error code `CALL-006`) |
 | `failed` | `setup` / `run` / `teardown` raised; see `runner.error` |
 
 `finished`, `stopped` and `failed` are final. A `Runner` is **single use**.

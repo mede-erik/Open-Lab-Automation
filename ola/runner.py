@@ -48,6 +48,23 @@ class RunState(str, Enum):
 
 
 FINAL_STATES = (RunState.FINISHED, RunState.STOPPED, RunState.FAILED)
+
+# Error codes that mean "the operator cancelled", not "something broke". CALL-006: the operator
+# pressed Cancel in the prompt of a manual instrument (one that is set by hand).
+USER_CANCEL_CODES = ("CALL-006",)
+
+
+def is_user_cancel(exc: BaseException) -> bool:
+    """True if ``exc`` (or the exception it wraps) means the operator cancelled the action."""
+    seen = 0
+    while exc is not None and seen < 4:
+        if getattr(exc, "code", None) in USER_CANCEL_CODES:
+            return True
+        exc = getattr(exc, "cause", None) or exc.__cause__
+        seen += 1
+    return False
+
+
 Listener = Callable[[Event], None]
 Binding = Union[InstrumentHandle, Sequence[InstrumentHandle]]
 
@@ -297,6 +314,11 @@ class Runner:
         self._publish(Event("answered", {"id": qid, "choice": entry["choice"], "auto": False}))
         return entry["choice"]
 
+    def _publish_cancel(self, exc: BaseException) -> None:
+        self._publish(
+            Event("log", {"level": "info", "message": f"cancelled by the operator: {exc}"})
+        )
+
     def _main(self) -> None:
         ctx = MeasurementContext(self.bindings, self._emit, self._stop, self._resume, ask=self._ask)
         outcome = RunState.FINISHED
@@ -309,14 +331,21 @@ class Runner:
         except (Stopped, Aborted):  # Aborted: a stop interrupted an instrument call
             outcome = RunState.STOPPED
         except Exception as exc:
-            outcome = RunState.FAILED
-            self._fail("run", exc)
+            if is_user_cancel(exc):  # the operator pressed Cancel: a stop, not a failure
+                outcome = RunState.STOPPED
+                self._publish_cancel(exc)
+            else:
+                outcome = RunState.FAILED
+                self._fail("run", exc)
         finally:
             ctx._tearing_down = True
             try:
                 self.measurement.teardown(ctx)
             except Exception as exc:
-                outcome = RunState.FAILED
-                self._fail("teardown", exc)
+                if is_user_cancel(exc):  # e.g. the operator declined to switch a manual output off
+                    self._publish_cancel(exc)
+                else:
+                    outcome = RunState.FAILED
+                    self._fail("teardown", exc)
         with self._lock:
             self._set_state(outcome)

@@ -541,3 +541,58 @@ def test_the_run_file_keeps_the_question_and_the_answer(tmp_path):
     assert [x["kind"] for x in data["questions"]] == ["question", "answered"]
     assert data["questions"][0]["text"] == "vin is 20% off"
     assert data["questions"][1]["choice"] == "skip"
+
+
+# ---- the operator cancels (manual instruments) -------------------------------------------------
+
+
+class OperatorCancelled(Exception):
+    """Stands for CALL-006: the operator pressed Cancel in the prompt of a manual instrument."""
+
+    code = "CALL-006"
+
+
+def test_operator_cancel_is_a_stop_not_a_failure_and_tears_down():
+    def run(ctx):
+        ctx.emit_point({"a": 1})
+        raise OperatorCancelled("manual action cancelled")
+
+    m = Scripted(run)
+    r = run_to_end(Runner(m, {}))
+    assert r.state is RunState.STOPPED and r.error is None
+    assert m.order[-1] == "teardown"
+    events = r.drain()
+    assert any(e.kind == "log" and "cancelled by the operator" in e.data["message"] for e in events)
+    assert not any(e.kind == "error" for e in events)
+
+
+def test_operator_cancel_wrapped_in_another_error_is_still_a_stop():
+    class StepFailed(Exception):
+        code = "CALL-004"
+
+        def __init__(self, cause):
+            self.cause = cause
+
+    def run(ctx):
+        raise StepFailed(OperatorCancelled("cancelled"))
+
+    r = run_to_end(Runner(Scripted(run), {}))
+    assert r.state is RunState.STOPPED and r.error is None
+
+
+def test_other_error_codes_are_still_failures():
+    class Other(Exception):
+        code = "CALL-004"
+
+    def run(ctx):
+        raise Other("step failed")
+
+    assert run_to_end(Runner(Scripted(run), {})).state is RunState.FAILED
+
+
+def test_operator_cancel_while_switching_off_does_not_turn_the_run_into_a_failure():
+    def teardown(ctx):
+        raise OperatorCancelled("the operator did not confirm the switch off")
+
+    r = run_to_end(Runner(Scripted(lambda ctx: None, teardown=teardown), {}))
+    assert r.state is RunState.FINISHED and r.error is None
