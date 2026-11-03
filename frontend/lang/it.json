@@ -334,5 +334,15 @@
   "manual_field_max_voltage": "Tensione massima (V)",
   "manual_field_max_current": "Corrente massima (A)",
   "manual_name_required": "Inserire un nome per lo strumento.",
-  "manual_name_exists": "Esiste già uno strumento con questo nome."
+  "manual_name_exists": "Esiste già uno strumento con questo nome.",
+  "close": "Chiudi",
+  "confirm": "Conferma",
+  "inst_file_not_found": "File strumenti non trovato",
+  "no_inst_file_in_project": "Nessun file .inst trovato nel progetto",
+  "no_instrument_selected": "Nessuno strumento selezionato",
+  "no_project_file_found": "Nessun file di progetto trovato",
+  "project_open_failed": "Impossibile aprire il progetto",
+  "select_series": "Seleziona serie",
+  "unsupported_file_type": "Tipo di file non supportato",
+  "volt_per_div": "Volt/div"
 }

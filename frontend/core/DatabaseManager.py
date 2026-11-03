@@ -14,7 +14,6 @@ warnings.warn(
 import psycopg2
 from psycopg2.extras import execute_values
 from typing import List, Dict, Any, Optional
-import numpy as np
 from datetime import datetime
 
 class DatabaseManager:
@@ -182,15 +181,12 @@ class DatabaseManager:
 
         self.ensure_connection()
         with self.conn.cursor() as cur:
-                        # Prepare data for bulk insert
-            data_list = []
-            for point in measurement_points:
-                data_list.append((
-                    session_id,
-                    point['timestamp'],
-                    point.get('values', {})
-                ))
-            
+            # Prepare data for bulk insert
+            data = [
+                (point_id, ts, channel, val)
+                for ts, val in zip(timestamps, values)
+            ]
+
             # Use execute_values for efficient bulk insert
             execute_values(
                 cur,

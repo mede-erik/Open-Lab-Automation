@@ -8,22 +8,21 @@ It should remain as simple as possible, handling only application startup.
 import sys
 import os
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QSettings
 
 # ---------------------------------------------------------------------------
 # Dynamic import path bootstrap
 # Allows running this script from outside the frontend folder,
 # for example: `python frontend/main.py` from the repository root.
 # In this case Python only adds the repo root to sys.path and the
-# "ui" package wouldn't be found. So we add this file's directory.
+# "frontend" package wouldn't be found. So we add the repository root
+# (the parent of this file's directory) to sys.path.
 # ---------------------------------------------------------------------------
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-if _THIS_DIR not in sys.path:
-    sys.path.insert(0, _THIS_DIR)
-del _THIS_DIR
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+del _PROJECT_ROOT
 
 from frontend.ui.main_window import MainWindow
-from frontend.core.Translator import Translator
 from frontend.core.logger import Logger
 
 
@@ -47,15 +46,8 @@ def main():
     app.setApplicationName('Open Lab Automation')
     logger.debug("Organization and AppName set for QSettings.")
     
-    # Load language from settings
-    settings = QSettings('LabAutomation', 'App')
-    lang = settings.value('language', 'it')  # Default to Italian
-    logger.debug(f"Loaded language from settings: '{lang}'")
-    
-    # Create Translator instance
-    translator = Translator(default_lang=lang)
-    logger.debug("Translator instance created.")
-    
+    # Language: MainWindow creates the Translator and applies the saved language
+
     # Create and show the main window
     try:
         logger.debug("Creating main window...")

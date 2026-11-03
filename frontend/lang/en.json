@@ -333,5 +333,15 @@
   "manual_field_max_voltage": "Maximum voltage (V)",
   "manual_field_max_current": "Maximum current (A)",
   "manual_name_required": "Enter a name for the instrument.",
-  "manual_name_exists": "An instrument with this name already exists."
+  "manual_name_exists": "An instrument with this name already exists.",
+  "close": "Close",
+  "confirm": "Confirm",
+  "inst_file_not_found": "Instrument file not found",
+  "no_inst_file_in_project": "No .inst file found in the project",
+  "no_instrument_selected": "No instrument selected",
+  "no_project_file_found": "No project file found",
+  "project_open_failed": "Failed to open project",
+  "select_series": "Select series",
+  "unsupported_file_type": "Unsupported file type",
+  "volt_per_div": "Volts/div"
 }

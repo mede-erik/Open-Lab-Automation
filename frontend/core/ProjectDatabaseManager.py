@@ -3,15 +3,7 @@ Project Database Manager - PostgreSQL
 ======================================
 
 Gestisce database PostgreSQL per progetti di automazione laboratorio.
-Ogni p            # Check if database exists
-            cursor.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s",
-                (self.db_name,)
-            )
-            exists = cursor.fetchone() is not None
-            
-            if not exists:
-                # Create the databasea il proprio database.
+Ogni progetto ha il proprio database.
 Ogni file .eff genera tabelle con numero incrementale per ogni esecuzione.
 
 Architettura:
@@ -25,9 +17,9 @@ Architettura:
 import logging
 import psycopg2
 from psycopg2 import sql
-from psycopg2.extras import execute_values, Json
-from typing import List, Dict, Any, Optional, Tuple
-import json
+import psycopg2.extras
+from psycopg2.extras import execute_values
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import re
 
@@ -132,7 +124,8 @@ class ProjectDatabaseManager:
             Connessione al database del progetto
             
         Raises:
-            Exception: [PJDB-002] Database progetto non specificato o errore connessione
+            Exception: [PJDB-002] Database progetto non specificato
+            Exception: [PJDB-001] Errore connessione al database del progetto
         """
         if not self.db_name:
             raise Exception("[PJDB-002] Nome database progetto non specificato")
@@ -147,7 +140,7 @@ class ProjectDatabaseManager:
             )
             return conn
         except Exception as e:
-            raise Exception(f"[PJDB-002] Errore connessione al database '{self.db_name}': {e}")
+            raise Exception(f"[PJDB-001] Errore connessione al database '{self.db_name}': {e}")
     
     def create_project_database(self) -> bool:
         """
@@ -157,10 +150,11 @@ class ProjectDatabaseManager:
             True se creato o già esistente, False in caso di errore
             
         Raises:
+            Exception: [PJDB-002] Nome database progetto non specificato
             Exception: [PJDB-003] Errore creazione database
         """
         if not self.db_name:
-            raise Exception("[PJDB-003] Nome database progetto non specificato")
+            raise Exception("[PJDB-002] Nome database progetto non specificato")
         
         conn = None
         try:
@@ -181,7 +175,7 @@ class ProjectDatabaseManager:
                         sql.Identifier(self.db_name)
                     )
                 )
-                logger.info(f"Database created: {manager.db_name}")
+                logger.info(f"Database created: {self.db_name}")
             else:
                 logger.info(f"Database '{self.db_name}' already exists")
             
@@ -205,7 +199,7 @@ class ProjectDatabaseManager:
             Prossimo numero incrementale (es. se esistono eff_1, eff_2 ritorna 3)
             
         Raises:
-            Exception: [PJDB-004] Errore ricerca tabelle
+            Exception: [PJDB-003] Errore ricerca tabelle
         """
         sanitized_name = self._sanitize_table_name(eff_base_name)
         
@@ -239,7 +233,7 @@ class ProjectDatabaseManager:
             return max(numbers) + 1 if numbers else 1
             
         except Exception as e:
-            raise Exception(f"[PJDB-004] Errore ricerca tabelle per '{eff_base_name}': {e}")
+            raise Exception(f"[PJDB-003] Errore ricerca tabelle per '{eff_base_name}': {e}")
     
     def create_efficiency_table(
         self, 
@@ -262,43 +256,42 @@ class ProjectDatabaseManager:
             Nome completo della tabella creata (es. 'eff_1')
             
         Raises:
-            Exception: [PJDB-005] Errore creazione tabella
+            Exception: [PJDB-006] Errore creazione tabella
         """
         base_name = self._sanitize_table_name(eff_filename)
         table_number = self.get_next_table_number(base_name)
         table_name = f"{base_name}_{table_number}"
         
+        conn = None
         try:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
-            # Build table columns
-            columns = []
-            
-            # Auto-increment ID
-            columns.append("id SERIAL PRIMARY KEY")
-            
+            # Build table columns (identifiers are quoted; types are whitelisted)
+            type_pattern = re.compile(r'^[A-Za-z]+(\s[A-Za-z]+)?(\(\d+(,\s*\d+)?\))?$')
+            columns = [sql.SQL("id SERIAL PRIMARY KEY")]
+
             # Measurement variables (strings/timestamps)
             for var_name, var_type in measurement_vars.items():
-                columns.append(f"{var_name} {var_type}")
-            
-            # Sweep variables (DOUBLE PRECISION)
-            for sweep_var in sweep_variables:
-                columns.append(f"{sweep_var} DOUBLE PRECISION")
-            
-            # Data columns (DOUBLE PRECISION)
-            for data_col in data_columns:
-                columns.append(f"{data_col} DOUBLE PRECISION")
-            
+                if not type_pattern.match(var_type):
+                    raise ValueError(f"Tipo SQL non valido per '{var_name}': {var_type}")
+                columns.append(sql.SQL("{} ").format(sql.Identifier(var_name)) + sql.SQL(var_type))
+
+            # Sweep variables and data columns (DOUBLE PRECISION)
+            for col_name in list(sweep_variables) + list(data_columns):
+                columns.append(
+                    sql.SQL("{} DOUBLE PRECISION").format(sql.Identifier(col_name))
+                )
+
             # Record creation timestamp
-            columns.append("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-            
+            columns.append(sql.SQL("created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+
             # Create the table
             create_query = sql.SQL("CREATE TABLE {} ({})").format(
                 sql.Identifier(table_name),
-                sql.SQL(", ".join(columns))
+                sql.SQL(", ").join(columns)
             )
-            
+
             cursor.execute(create_query)
             
             # Create indexes to improve queries
@@ -323,7 +316,7 @@ class ProjectDatabaseManager:
             if conn:
                 conn.rollback()
                 conn.close()
-            raise Exception(f"[PJDB-005] Errore creazione tabella '{table_name}': {e}")
+            raise Exception(f"[PJDB-006] Errore creazione tabella '{table_name}': {e}")
     
     def insert_measurement_data(
         self,
@@ -345,21 +338,24 @@ class ProjectDatabaseManager:
             Numero di righe inserite
             
         Raises:
-            Exception: [PJDB-006] Errore inserimento dati
+            Exception: [PJDB-007] Errore inserimento dati
         """
+        conn = None
         try:
             conn = self.connect_project_db()
             cursor = conn.cursor()
             
             # Prepare data to insert
             data_to_insert = []
-            for point in measurement_points:
+            for point in data_rows:
                 # Combine measurement_info with point data
                 point_data = {**measurement_info, **point}
                 data_to_insert.append(point_data)
-            
+
             if not data_to_insert:
-                return
+                cursor.close()
+                conn.close()
+                return 0
             
             # Extract columns (excluding 'id' and 'created_at' which are auto-generated)
             columns = [k for k in data_to_insert[0].keys() if k not in ('id', 'created_at')]
@@ -371,7 +367,7 @@ class ProjectDatabaseManager:
             )
             
             # Prepara i valori
-            values = [[row[col] for col in columns] for row in insert_data]
+            values = [[row[col] for col in columns] for row in data_to_insert]
             
             # Esegue l'inserimento batch
             execute_values(cursor, insert_query.as_string(conn), values)
@@ -388,7 +384,7 @@ class ProjectDatabaseManager:
             if conn:
                 conn.rollback()
                 conn.close()
-            raise Exception(f"[PJDB-006] Errore inserimento dati in '{table_name}': {e}")
+            raise Exception(f"[PJDB-007] Errore inserimento dati in '{table_name}': {e}")
     
     def list_project_tables(self) -> List[str]:
         """
@@ -398,7 +394,7 @@ class ProjectDatabaseManager:
             Lista dei nomi delle tabelle
             
         Raises:
-            Exception: [PJDB-007] Errore lettura tabelle
+            Exception: [PJDB-003] Errore lettura tabelle
         """
         try:
             conn = self.connect_project_db()
@@ -419,7 +415,7 @@ class ProjectDatabaseManager:
             return tables
             
         except Exception as e:
-            raise Exception(f"[PJDB-007] Errore lettura tabelle: {e}")
+            raise Exception(f"[PJDB-003] Errore lettura tabelle: {e}")
     
     def get_table_data(
         self,
@@ -486,7 +482,7 @@ class ProjectDatabaseManager:
             Exception: [PJDB-009] Errore eliminazione database
         """
         if not self.db_name:
-            raise Exception("[PJDB-009] Nome database progetto non specificato")
+            raise Exception("[PJDB-002] Nome database progetto non specificato")
         
         conn = None
         try:
