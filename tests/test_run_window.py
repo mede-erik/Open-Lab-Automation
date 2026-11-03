@@ -421,3 +421,35 @@ def test_an_antenna_run_opens_on_the_smith_chart(app, windows):
     w.view_box.setCurrentIndex(w.view_box.findData("magnitude_db"))  # the user can still change it
     w._draw_traces()
     assert w.view_box.currentData() == "magnitude_db"
+
+
+def test_the_compression_curve_of_an_amplifier_can_be_shown_on_its_own(app, windows):
+    """Gain against input power shares no axis with the frequency curves: select it alone."""
+    from ola.registry import default_registry
+    from ola.sim_vna import SimAmplifier
+
+    p = {
+        "sweep": {
+            "start_hz": 800e6,
+            "stop_hz": 940e6,
+            "points": 71,
+            "scale": "linear",
+            "power_dbm": -30,
+        },
+        "compression": {"frequency_hz": 868e6, "start_dbm": -40, "stop_dbm": -5, "step_db": 1},
+        "confirm_setup": False,
+    }
+    m = default_registry(user_dir="/nonexistent").create("amplifier", p)
+    w = window(windows, Runner(m, {"vna": [SimAmplifier()]}), auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.model.state == "finished" and w.model.points[0]["p1db_input_dbm"] < -10
+    names = [w.trace_list.item(i).text() for i in range(w.trace_list.count())]
+    assert "gain_vs_power_db" in names
+    for i, name in enumerate(names):
+        w.trace_list.item(i).setCheckState(
+            Qt.CheckState.Checked if name == "gain_vs_power_db" else Qt.CheckState.Unchecked
+        )
+    assert [c[0] for c in w.trace_plot.curves] == ["gain_vs_power_db"]
+    assert w.trace_plot.xlabel == "Input power (dBm)" and w.trace_plot.ylabel == "Gain (dB)"
+    assert not w.trace_plot.log_x

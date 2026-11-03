@@ -8,6 +8,7 @@ Everything works on plain Python lists. A *trace* is a list of values at the fre
     return_loss_db(s11), vswr(s11)     # how well a port is matched
     gamma_to_z(s11, z0=50)             # impedance of what is on the port (R + jX)
     group_delay_s(freq, s21)           # delay of a signal through the device, in seconds
+    two_port_stability(s11, s21, s12, s22)   # K, |delta|, mu of an amplifier
     value_at(freq, y, f)               # the curve at one frequency (linear interpolation)
     crossings(freq, y, level)          # frequencies where the curve crosses a level (-3 dB points)
     level_crossings(freq, y, level)    # the crossings with their direction (edges of a filter)
@@ -141,6 +142,35 @@ SPEED_OF_LIGHT = 299_792_458.0  # m/s
 
 
 # ----- reading a curve --------------------------------------------------------------------------
+def two_port_stability(
+    s11: Sequence[Complex], s21: Sequence[Complex], s12: Sequence[Complex], s22: Sequence[Complex]
+) -> Dict[str, List[float]]:
+    """Stability of a two-port (an amplifier) at every frequency from its four S-parameters.
+
+    ``k``: the Rollett factor ``(1 - |S11|^2 - |S22|^2 + |D|^2) / (2 |S12 S21|)``;
+    ``delta``: ``|D|`` with ``D = S11 S22 - S12 S21``; ``mu`` and ``mu_prime``: the geometric
+    factors for the source and the load side, ``mu = (1 - |S11|^2) / (|S22 - D conj(S11)| +
+    |S12 S21|)`` and the same with the ports swapped. The two-port is **unconditionally stable**
+    (it cannot oscillate with any passive source and load) when ``k > 1`` and ``delta < 1``, which
+    is the same as ``mu > 1``. With no reverse transmission (``S12 = 0``) ``k`` is infinite and is
+    given as ``1e9``.
+    Returns ``{"k": [...], "delta": [...], "mu": [...], "mu_prime": [...]}``."""
+    n = len(s11)
+    if not (len(s21) == len(s12) == len(s22) == n):
+        raise RfError("the four S-parameters must have the same number of points")
+    out: Dict[str, List[float]] = {"k": [], "delta": [], "mu": [], "mu_prime": []}
+    for a, b, c, d in zip(s11, s21, s12, s22):
+        a, b, c, d = complex(a), complex(b), complex(c), complex(d)
+        det = a * d - c * b
+        cross = abs(c * b)
+        k = (1 - abs(a) ** 2 - abs(d) ** 2 + abs(det) ** 2) / (2 * cross) if cross > 1e-15 else 1e9
+        out["k"].append(min(k, 1e9))
+        out["delta"].append(abs(det))
+        out["mu"].append((1 - abs(a) ** 2) / (abs(d - det * a.conjugate()) + cross))
+        out["mu_prime"].append((1 - abs(d) ** 2) / (abs(a - det * d.conjugate()) + cross))
+    return out
+
+
 def value_at(freq: Sequence[float], y: Sequence[float], f: float) -> float:
     """The curve at frequency ``f`` by linear interpolation between the two nearest points.
     ``RfError`` if ``f`` is outside the measured range (nothing is invented)."""

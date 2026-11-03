@@ -351,3 +351,33 @@ def test_antenna_example_in_the_docs_is_valid_and_runs():
     assert abs(row["series_resonance_hz"] - 868e6) < 1e6 and row["cancel_840MHz"].startswith(
         "series inductor"
     )
+
+
+def test_amplifier_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/amplifier.md is a real file: it validates and gives its figures."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimAmplifier
+
+    text = read(ROOT / "docs" / "amplifier.md")
+    block = re.search(r"```json amplifier\.amp\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/amplifier.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("amplifier", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("amplifier", params)
+    vna = SimAmplifier()
+    runner = Runner(m, {"vna": [vna]})
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert row["verdict"] == "PASS" and row["unconditionally_stable"] == "yes"
+    assert abs(row["p1db_input_dbm"] - vna.p1db_input_dbm) < 0.5

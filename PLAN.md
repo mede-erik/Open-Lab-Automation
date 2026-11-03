@@ -747,6 +747,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   adattata) e antirisonanze, miglior adattamento, banda utilizzabile e banda frazionaria, e alle frequenze
   scelte l'impedenza e il **componente in serie che annulla la reattanza** (condensatore se X > 0,
   induttore se X < 0). Non fa il progetto di una rete di adattamento né l'estensione di porta.
+  **Amplificatore RF** (2026-11-03, richiesta dell'utente): modulo `amplifier` (`.amp`) con VNA a due porte:
+  guadagno (picco, planarità, banda a -3 dB), return loss d'ingresso e d'uscita, isolamento inverso,
+  **stabilità** (K, |Δ|, μ: `rf.two_port_stability`; non incondizionatamente stabile = avviso con le bande)
+  e, se richiesto, **punto di compressione a 1 dB** da uno sweep di potenza a una frequenza. **Protezioni**:
+  `sweep.power_dbm` bassa (avviso se manca), `input_attenuation_db`, `max_input_dbm` (una potenza che lo
+  supera è un errore e non parte nulla), domanda iniziale con il promemoria sui limiti dell'uscita, e la
+  potenza della sorgente viene **ripristinata** dopo il test di compressione anche se fallisce o si ferma.
+  Servono S11, S21, S12, S22 (contratto `vna` aggiornato) e molte chiamate `set_sweep` con `power`.
+  `SimAmplifier` (compressione nota) per i test. Non misurati: noise figure, IP3, armoniche.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

@@ -255,3 +255,40 @@ def test_level_crossings_have_a_direction():
     assert unsorted == [(pytest.approx(1.7), "rising"), (pytest.approx(2.3), "falling")]
     with pytest.raises(rf.RfError):
         rf.level_crossings([1, 2], [1], 0)
+
+
+# ---- stability of a two-port --------------------------------------------------------------------
+def test_a_matched_unilateral_amplifier_is_unconditionally_stable():
+    st = rf.two_port_stability([0.1], [10.0], [0.0], [0.1])  # no reverse transmission
+    assert st["k"] == [1e9] and st["delta"] == [pytest.approx(0.01)]
+    assert st["mu"][0] > 1 and st["mu_prime"][0] > 1
+
+
+def test_k_and_mu_of_a_known_transistor():
+    """A textbook case: S11 0.6 at -60 deg, S21 2 at 50, S12 0.05 at 26, S22 0.5 at -60."""
+    s11, s21 = cmath.rect(0.6, math.radians(-60)), cmath.rect(2.0, math.radians(50))
+    s12, s22 = cmath.rect(0.05, math.radians(26)), cmath.rect(0.5, math.radians(-60))
+    st = rf.two_port_stability([s11], [s21], [s12], [s22])
+    det = s11 * s22 - s12 * s21
+    k = (1 - 0.36 - 0.25 + abs(det) ** 2) / (2 * 0.05 * 2.0)
+    assert st["k"][0] == pytest.approx(k) and st["delta"][0] == pytest.approx(abs(det))
+    assert (st["k"][0] > 1 and st["delta"][0] < 1) == (st["mu"][0] > 1)  # the two tests agree
+
+
+def test_an_unstable_two_port():
+    st = rf.two_port_stability([1.05], [3.0], [0.2], [1.05])  # reflective ports and feedback
+    assert st["k"][0] < 1 and st["mu"][0] < 1 and st["mu_prime"][0] < 1
+
+
+@pytest.mark.parametrize("k", [0.3, 0.9, 1.5, 3.0])
+def test_k_and_mu_agree_on_stability_over_many_cases(k):
+    """mu > 1 exactly when K > 1 and |delta| < 1: vary S12 to sweep K."""
+    s11, s22, s21 = 0.5 * cmath.exp(-1j), 0.4 * cmath.exp(0.5j), 4.0
+    s12 = 0.03 * k**-1  # smaller reverse transmission, larger K
+    st = rf.two_port_stability([s11], [s21], [s12], [s22])
+    assert (st["k"][0] > 1 and st["delta"][0] < 1) == (st["mu"][0] > 1)
+
+
+def test_stability_needs_matching_lengths():
+    with pytest.raises(rf.RfError):
+        rf.two_port_stability([0.1], [1.0, 2.0], [0.0], [0.1])

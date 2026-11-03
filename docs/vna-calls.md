@@ -1,7 +1,7 @@
 # The `vna` category: what the measurements ask of a network analyzer
 
-The RF measurements ([cable](cable.md), [return loss](return-loss.md), and the filter and antenna measurements
-to come) never talk to a VNA directly. They ask for **logical calls**, the same for every brand, and the
+The RF measurements ([cable](cable.md), [return loss](return-loss.md), [filter](filter.md), [antenna](antenna.md) and
+[amplifier](amplifier.md)) never talk to a VNA directly. They ask for **logical calls**, the same for every brand, and the
 instrument library translates them for the model, as it does for power supplies and oscilloscopes
 ([`instrument-calls.md`](instrument-calls.md)). This page is the contract of the `vna` category: what the
 measurements call, and what they expect back. It is written for whoever adds the category to the library
@@ -19,7 +19,7 @@ measurements call, and what they expect back. It is written for whoever adds the
 | Call | Kind | Arguments | Gives |
 |---|---|---|---|
 | `set_sweep` | set | `start_frequency` (Hz), `stop_frequency` (Hz), `points` (int), `sweep_type` (`linear` or `log`, in any case: the call planner converts it to the schema's `LINEAR` / `LOG` and applies the aliases `LIN` / `LOGARITHMIC`), optional `if_bandwidth` (Hz), optional `power` (dBm) | nothing |
-| `read_sparameter` | query | `parameter` (`S11`, `S21`; optionally `S12`, `S22`) | the S-parameter over the sweep (below) |
+| `read_sparameter` | query | `parameter` (`S11`, `S21`; `S12` and `S22` for a two-port instrument: the amplifier measurement needs them) | the S-parameter over the sweep (below) |
 
 * `read_sparameter` must **return only when the sweep has finished**: the implementation starts one sweep (or waits
   for the running one to complete) and then transfers the data. The measurement does not poll.
@@ -29,6 +29,9 @@ measurements call, and what they expect back. It is written for whoever adds the
 * The optional arguments of `set_sweep` are only sent when the user gave them; an instrument that cannot set them
   should ignore them rather than fail (or say so in a clear error).
 * A one-port instrument (only S11) supports `S11` and rejects the others with `CALL-001` (call not supported).
+* The **amplifier** measurement ([`amplifier.md`](amplifier.md)) needs all four parameters, and calls `set_sweep` many times
+  (a 3-point sweep with a different `power` for every step of its compression test) followed by `read_sparameter`;
+  `set_sweep` with `power` should be quick, and must really change the source power before the next read.
 
 ### The answer of `read_sparameter`
 
