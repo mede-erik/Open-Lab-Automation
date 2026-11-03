@@ -689,8 +689,11 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   `charming-bell` unito in una worktree locale (45 test + prova completa: progetto → `.inst` → libreria
   → strumento simulato → esecuzione terminata con i dati); sul ramo i test di `connection.py` sono
   saltati finché `ola.library`/`instrument_handle` non sono uniti. **Non provato su strumenti reali.**
-  Nota: `charming-bell` e `wonderful-mccarthy` in conflitto tra loro su `.github/workflows/ci.yml` e
-  `scripts/check_translations.py`.
+  Stato dei rami (2026-11-03, verificato): `main` contiene le PR #3 e #4; la PR #5 (`charming-bell`, con
+  libreria, handle e strumenti manuali usati da `ola/connection.py`) è aperta. Il conflitto tra
+  `charming-bell` e `wonderful-mccarthy` (`ci.yml`, `check_translations.py`) è risolto. Questo ramo si unisce
+  a `main` senza conflitti: conviene aprire la PR **dopo** la PR #5, così i test di `connection.py` non
+  vengono saltati.
   **Pezzi comuni per le misure RF** (2026-11-03, 1ª parte della roadmap §6b): `ola/rf.py` (dB, perdita
   di inserzione e di ritorno, VSWR, impedenza, ritardo di gruppo, fattore di velocità, valore a una
   frequenza, incroci di livello, Touchstone `.s1p/.s2p` in lettura e scrittura), `ola/limits.py`
