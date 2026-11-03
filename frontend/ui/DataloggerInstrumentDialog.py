@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-import os
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
@@ -383,8 +382,8 @@ class DataloggerInstrumentDialog(QDialog):
         """Salva lo strumento nella libreria JSON"""
         try:
             # Carica la libreria esistente
-            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            library_path = os.path.join(base_path, 'Instruments_LIB', 'instruments_lib.json')
+            from frontend.core.LoadInstruments import get_library_path
+            library_path = get_library_path()
             
             with open(library_path, 'r', encoding='utf-8') as f:
                 library = json.load(f)

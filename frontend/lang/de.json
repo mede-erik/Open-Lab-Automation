@@ -317,5 +317,15 @@
   "manual_output_off_prompt": "Ausgang an '{instrument}' - Kanal '{channel}' deaktivieren",
   "manual_instrument_title": "Manuelles Gerät",
   "manual_action_confirmed": "Aktion bestätigt. Es wird angenommen, dass der Wert eingestellt wurde.",
-  "manual_action_cancelled": "Aktion vom Benutzer abgebrochen."
+  "manual_action_cancelled": "Aktion vom Benutzer abgebrochen.",
+  "close": "Schließen",
+  "confirm": "Bestätigen",
+  "inst_file_not_found": "Instrumentendatei nicht gefunden",
+  "no_inst_file_in_project": "Keine .inst-Datei im Projekt gefunden",
+  "no_instrument_selected": "Kein Instrument ausgewählt",
+  "no_project_file_found": "Keine Projektdatei gefunden",
+  "project_open_failed": "Projekt konnte nicht geöffnet werden",
+  "select_series": "Serie auswählen",
+  "unsupported_file_type": "Nicht unterstützter Dateityp",
+  "volt_per_div": "Volt/Div"
 }

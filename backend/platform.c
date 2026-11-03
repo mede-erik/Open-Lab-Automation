@@ -82,8 +82,17 @@ be_socket_t be_tcp_connect(const char *host, int port, int timeout_ms) {
 int be_tcp_send(be_socket_t sock, const char *data, int len) {
     int total = 0;
     while (total < len) {
+#ifdef MSG_NOSIGNAL
+        /* avoid SIGPIPE killing the host (Python) process if the peer closed */
+        int sent = (int)send(sock, data + total, len - total, MSG_NOSIGNAL);
+#else
         int sent = (int)send(sock, data + total, len - total, 0);
+#endif
         if (sent == BE_SOCKET_ERROR) {
+#ifndef _WIN32
+            if (errno == EINTR)
+                continue;
+#endif
             if (BE_GET_LAST_ERROR() == BE_EWOULDBLOCK) {
                 BE_SLEEP_MS(10);
                 continue;
@@ -107,8 +116,11 @@ int be_tcp_recv(be_socket_t sock, char *buf, int buf_size, int timeout_ms) {
         if (n == BE_SOCKET_ERROR) {
 #ifdef _WIN32
             int err = WSAGetLastError();
-            if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
-                break;
+            if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) {
+                if (total > 0)
+                    break;
+                return BE_ERR_TIMEOUT;
+            }
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 if (total > 0)

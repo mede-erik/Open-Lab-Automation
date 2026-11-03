@@ -317,5 +317,15 @@
   "manual_output_off_prompt": "Disable output on '{instrument}' - Channel '{channel}'",
   "manual_instrument_title": "Manual Instrument",
   "manual_action_confirmed": "Action confirmed. The value is assumed to have been set.",
-  "manual_action_cancelled": "Action cancelled by user."
+  "manual_action_cancelled": "Action cancelled by user.",
+  "close": "Close",
+  "confirm": "Confirm",
+  "inst_file_not_found": "Instrument file not found",
+  "no_inst_file_in_project": "No .inst file found in the project",
+  "no_instrument_selected": "No instrument selected",
+  "no_project_file_found": "No project file found",
+  "project_open_failed": "Failed to open project",
+  "select_series": "Select series",
+  "unsupported_file_type": "Unsupported file type",
+  "volt_per_div": "Volts/div"
 }

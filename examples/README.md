@@ -20,8 +20,8 @@ Progetto di esempio per test di convertitori DC-DC con visualizzazione delle var
 
 ### 1. Avvia l'Applicazione
 ```bash
-cd /home/mede/Documenti/Github/Open-Lab-Automation
-/home/mede/Documenti/Github/Open-Lab-Automation/.venv/bin/python frontend/main.py
+# dalla cartella del repository
+python frontend/launcher.py
 ```
 
 ### 2. Apri il Progetto di Esempio

@@ -10,7 +10,7 @@ int instrument_pool_init(void) {
 }
 
 void instrument_pool_cleanup(void) {
-    for (int i = 0; i < _pool_count; i++) {
+    for (int i = 0; i < BE_MAX_INSTRUMENTS; i++) {
         if (_pool[i].connected) {
             be_tcp_close(_pool[i].socket);
             _pool[i].connected = false;
@@ -20,14 +20,29 @@ void instrument_pool_cleanup(void) {
 }
 
 int instrument_pool_connect(be_instr_t *handle, const char *host, int port, int timeout_ms) {
-    if (_pool_count >= BE_MAX_INSTRUMENTS)
-        return BE_ERR_LIMIT;
+    if (!handle || !host)
+        return BE_ERR_INVALID_PARAM;
+
+    /* Reuse a slot freed by a previous disconnect, otherwise take a new one */
+    int idx = -1;
+    for (int i = 0; i < _pool_count; i++) {
+        if (!_pool[i].connected) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0) {
+        if (_pool_count >= BE_MAX_INSTRUMENTS)
+            return BE_ERR_LIMIT;
+        idx = _pool_count;
+    }
 
     be_socket_t sock = be_tcp_connect(host, port, timeout_ms);
     if (sock == BE_INVALID_SOCKET)
         return BE_ERR_CONNECT;
 
-    int idx = _pool_count++;
+    if (idx == _pool_count)
+        _pool_count++;
     _pool[idx].socket = sock;
     _pool[idx].port = port;
     _pool[idx].connected = true;
@@ -61,6 +76,9 @@ int instrument_send(instrument_t *inst, const char *command) {
     if (!inst || !inst->connected)
         return BE_ERR_INVALID_PARAM;
 
+    if (!command)
+        return BE_ERR_INVALID_PARAM;
+
     int cmd_len = (int)strlen(command);
 
     int ret = be_tcp_send(inst->socket, command, cmd_len);
@@ -81,20 +99,25 @@ int instrument_receive(instrument_t *inst, char *buffer, int buf_size, int timeo
 }
 
 int instrument_receive_float(instrument_t *inst, double *value, int timeout_ms) {
+    if (!value)
+        return BE_ERR_INVALID_PARAM;
     char buf[256];
     int n = instrument_receive(inst, buf, sizeof(buf), timeout_ms);
     if (n < 0)
         return n;
 
     char *end = NULL;
-    *value = strtod(buf, &end);
+    double parsed = strtod(buf, &end);
     if (end == buf || (*end != '\0' && *end != '\n' && *end != '\r'))
         return BE_ERR_PARSE;
 
+    *value = parsed;
     return BE_OK;
 }
 
 int instrument_receive_int(instrument_t *inst, int *value, int timeout_ms) {
+    if (!value)
+        return BE_ERR_INVALID_PARAM;
     char buf[256];
     int n = instrument_receive(inst, buf, sizeof(buf), timeout_ms);
     if (n < 0)

@@ -52,7 +52,7 @@ const char *be_last_error(void) {
 int be_connect(be_instr_t *handle, const char *host, int port, int timeout_ms) {
     int ret = instrument_pool_connect(handle, host, port, timeout_ms);
     if (ret != BE_OK) {
-        _set_error("Failed to connect to %s:%d", host, port);
+        _set_error("Failed to connect to %s:%d (error %d)", host ? host : "(null)", port, ret);
     }
     return ret;
 }
@@ -67,7 +67,10 @@ int be_send(be_instr_t handle, const char *command) {
         _set_error("Invalid instrument handle: %d", handle);
         return BE_ERR_NOT_FOUND;
     }
-    return instrument_send(inst, command);
+    int ret = instrument_send(inst, command);
+    if (ret != BE_OK)
+        _set_error("Send failed on handle %d (error %d)", handle, ret);
+    return ret;
 }
 
 int be_receive(be_instr_t handle, char *buffer, int buf_size, int timeout_ms) {
@@ -76,7 +79,10 @@ int be_receive(be_instr_t handle, char *buffer, int buf_size, int timeout_ms) {
         _set_error("Invalid instrument handle: %d", handle);
         return BE_ERR_NOT_FOUND;
     }
-    return instrument_receive(inst, buffer, buf_size, timeout_ms);
+    int ret = instrument_receive(inst, buffer, buf_size, timeout_ms);
+    if (ret < 0)
+        _set_error("Receive failed on handle %d (error %d)", handle, ret);
+    return ret;
 }
 
 int be_receive_float(be_instr_t handle, double *value, int timeout_ms) {
@@ -85,7 +91,10 @@ int be_receive_float(be_instr_t handle, double *value, int timeout_ms) {
         _set_error("Invalid instrument handle: %d", handle);
         return BE_ERR_NOT_FOUND;
     }
-    return instrument_receive_float(inst, value, timeout_ms);
+    int ret = instrument_receive_float(inst, value, timeout_ms);
+    if (ret != BE_OK)
+        _set_error("Float receive failed on handle %d (error %d)", handle, ret);
+    return ret;
 }
 
 int be_receive_int(be_instr_t handle, int *value, int timeout_ms) {
@@ -94,7 +103,10 @@ int be_receive_int(be_instr_t handle, int *value, int timeout_ms) {
         _set_error("Invalid instrument handle: %d", handle);
         return BE_ERR_NOT_FOUND;
     }
-    return instrument_receive_int(inst, value, timeout_ms);
+    int ret = instrument_receive_int(inst, value, timeout_ms);
+    if (ret != BE_OK)
+        _set_error("Int receive failed on handle %d (error %d)", handle, ret);
+    return ret;
 }
 
 int be_sweep_run(const be_sweep_config_t *cfg,
