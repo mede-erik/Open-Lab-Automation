@@ -54,3 +54,14 @@ class Translator:
         :return: Translated string or the key if not found.
         """
         return self.translations.get(key, key)
+
+    def get(self, key, default=None):
+        """
+        Translate a key, falling back to ``default`` (or the key itself) if missing.
+        :param key: The translation key.
+        :param default: Text returned when the key has no translation.
+        :return: Translated string, ``default``, or the key.
+        """
+        if key in self.translations:
+            return self.translations[key]
+        return default if default is not None else key

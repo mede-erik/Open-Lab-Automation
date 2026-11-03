@@ -1,3 +1,4 @@
+import logging
 import json
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, 
@@ -63,7 +64,9 @@ class EffFileDialog(QDialog):
             with open(self.file_path, 'r', encoding='utf-8') as f:
                 self.data = json.load(f)
             self.data_edit.setText(json.dumps(self.data, indent=2))
-        except Exception as e:
+        except (OSError, ValueError) as e:
+            logging.getLogger(__name__).warning(
+                f"Cannot read .eff file {self.file_path}, using defaults: {e}")
             self.data = {"type": "efficiency", "sweeps": [], "timing": {}}
             self.data_edit.setText(json.dumps(self.data, indent=2))
         

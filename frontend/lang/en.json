@@ -321,5 +321,15 @@
   "hex_label": "Hex:",
   "dec_label": "Dec:",
   "bin_label": "Bin:",
-  "converter_invalid_value": "Invalid value"
+  "converter_invalid_value": "Invalid value",
+  "close": "Close",
+  "confirm": "Confirm",
+  "inst_file_not_found": "Instrument file not found",
+  "no_inst_file_in_project": "No .inst file found in the project",
+  "no_instrument_selected": "No instrument selected",
+  "no_project_file_found": "No project file found",
+  "project_open_failed": "Failed to open project",
+  "select_series": "Select series",
+  "unsupported_file_type": "Unsupported file type",
+  "volt_per_div": "Volts/div"
 }

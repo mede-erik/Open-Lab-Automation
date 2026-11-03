@@ -45,7 +45,8 @@ Automatic sweep (Python core) ──→ C backend (TCP raw) ──→ LXI instru
 | Entry points | `frontend/launcher.py`, `frontend/main.py` | App bootstrap |
 | UI dialogs | `frontend/ui/*.py` | One file per window/dialog. Layout & signal wiring only — **no business logic**. |
 | Core library | `frontend/core/*.py` | Validation, error handling, DB/project I/O, i18n, logging |
-| C backend | `backend/*.c`, `backend/*.h` | Shared library via ctypes. TCP socket I/O for LXI instruments during automatic sweeps. |
+| Engine | `ola/`, `native/` | Qt-free transport, steps, call planner, measurement runner. See the section *Engine (`ola/` and `native/`)* of `README.md`. |
+| C backend (legacy) | `backend/*.c`, `backend/*.h` | Shared library via ctypes, raw TCP for LXI instruments. Not used by the GUI; to be retired, do not extend. |
 | C Python wrapper | `frontend/core/c_backend.py` | ctypes wrapper: load, connect, send/receive SCPI, sweep_run |
 | Instrument lib | `Instruments_LIB/instruments_lib.json` | JSON-driven 3-level selector (type → series → model) |
 | Translations | `frontend/lang/*.json` | One file per locale. Accessed via `Translator.translate(key)`. |
@@ -89,10 +90,13 @@ See `backend/backend.h` for the full API and `frontend/core/c_backend.py` for th
 
 ## Testing
 
-Only one test exists: `test_basic_import.py` at repo root. It verifies core modules import cleanly.
+Unit tests live in `tests/` (Qt-free code under `ola/`); `test_basic_import.py` and
+`test_instrument_library.py` at the repo root cover the core imports and the instrument library
+(`git submodule update --init` is needed for the latter).
 
 ```bash
-pytest                          # discovers test_basic_import.py + any test*.py at root
+pytest                          # everything (tests/ + test_*.py at root)
+pytest tests -q                 # Qt-free unit tests only
 pytest test_basic_import.py     # focused
 ```
 

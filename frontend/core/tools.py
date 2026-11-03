@@ -52,7 +52,7 @@ def save_json(data: Dict[str, Any], file_path: str) -> None:
     """
     try:
         # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(file_path) or '.', exist_ok=True)
         
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
@@ -75,7 +75,7 @@ def save_csv(data: List[List[str]], file_path: str, headers: Optional[List[str]]
     """
     try:
         # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(file_path) or '.', exist_ok=True)
         
         with open(file_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)

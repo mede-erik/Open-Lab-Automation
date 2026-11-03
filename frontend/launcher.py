@@ -13,7 +13,6 @@ def main():
     
     # Project root path (the folder above 'frontend')
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    frontend_dir = os.path.join(project_root, "frontend")
     
     print("=== Open Lab Automation Launcher ===")
     print(f"Project Root: {project_root}")

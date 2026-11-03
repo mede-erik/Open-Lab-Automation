@@ -322,5 +322,15 @@
   "hex_label": "Hex:",
   "dec_label": "Dec:",
   "bin_label": "Bin:",
-  "converter_invalid_value": "Valore non valido"
+  "converter_invalid_value": "Valore non valido",
+  "close": "Chiudi",
+  "confirm": "Conferma",
+  "inst_file_not_found": "File strumenti non trovato",
+  "no_inst_file_in_project": "Nessun file .inst trovato nel progetto",
+  "no_instrument_selected": "Nessuno strumento selezionato",
+  "no_project_file_found": "Nessun file di progetto trovato",
+  "project_open_failed": "Impossibile aprire il progetto",
+  "select_series": "Seleziona serie",
+  "unsupported_file_type": "Tipo di file non supportato",
+  "volt_per_div": "Volt/div"
 }
