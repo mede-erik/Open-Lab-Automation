@@ -192,3 +192,30 @@ def test_efficiency_guide_example_is_valid_and_has_the_documented_order():
     assert spec.timing.cooldown_s == 600 and spec.cooldown_count() == 2
     assert spec.power_order == ["vin", "iout"]  # the supply first, then the load
     assert spec.variables["vaux"].output.mode == "always_on" and spec.variables["vaux"].output.state
+
+
+def test_cable_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/cable.md is a real file: it validates and gives the verdict it says."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "cable.md")
+    block = re.search(r"```json cable\.cbl\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/cable.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("cable", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("cable", params)
+    runner = Runner(m, {"vna": [SimVna(length_m=2.0)]})
+    runner.start()
+    assert runner.join(20) and runner.state.value == "finished", runner.error
+    row = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ][0]
+    assert row["verdict"] == "PASS" and row["cable"] == "RG58 #3" and "min_return_loss_db" in row
