@@ -719,6 +719,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   fianco di ogni campo, ruolo obbligatorio senza strumento = errore, campi condizionati, 5 lingue): gli
   altri moduli RF lo riusano. Le tracce con `meta.hidden` partono deselezionate nella scheda Curve.
   **Provato solo con il VNA simulato**; mancano la categoria `vna` nella libreria e il LiteVNA67.
+  **Return loss / VSWR** (2026-11-03, punto 3 della roadmap §6b): modulo `return_loss` (`.rtl`): S11 di un
+  dispositivo (antenna, adattatore...) con VNA calibrato alla porta: return loss, VSWR (limitato a 100),
+  impedenza, miglior e peggior adattamento, **bande utilizzabili** dove il VSWR resta sotto una soglia
+  (la banda di un'antenna), verdetto PASS/FAIL sul return loss (limite minimo). Editor da `form.json`.
+  Le parti comuni ai moduli con VNA sono in `ola/vna_common.py` (controllo di sweep e parametri comuni,
+  domanda su calibrazione e collegamento, `set_sweep`, lettura e media di `read_sparameter`,
+  normalizzazione dei dati); il modulo del cavo è stato rifatto su di esse. `rf.bands_where`; `SimVna`
+  ha ora anche un'antenna risonante. **Contratto della categoria `vna` per la libreria**:
+  `docs/vna-calls.md` (le due chiamate `set_sweep` e `read_sparameter`, forma della risposta, bozza di
+  `schema/vna.json`), con un test che lo tiene allineato a `SimVna`. Restano: filtro, impedenza
+  dell'antenna (grafico di Smith) e la categoria `vna` nella libreria (la sta per iniziare l'altra sessione).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

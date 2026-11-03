@@ -10,6 +10,7 @@ Everything works on plain Python lists. A *trace* is a list of values at the fre
     group_delay_s(freq, s21)           # delay of a signal through the device, in seconds
     value_at(freq, y, f)               # the curve at one frequency (linear interpolation)
     crossings(freq, y, level)          # frequencies where the curve crosses a level (-3 dB points)
+    bands_where(freq, y, level)        # the bands where the curve is below a level (VSWR <= 2)
     write_touchstone(...) / read_touchstone(...)   # .s1p / .s2p files
 
 A reading of exactly zero has no logarithm: it is shown as ``FLOOR_DB`` (-300 dB), not an error.
@@ -169,6 +170,38 @@ def crossings(freq: Sequence[float], y: Sequence[float], level: float) -> List[f
     if pairs and pairs[-1][1] == level and (len(pairs) < 2 or pairs[-2][1] != level):
         out.append(pairs[-1][0])
     return out
+
+
+def bands_where(
+    freq: Sequence[float], y: Sequence[float], level: float, below: bool = True
+) -> List[Tuple[float, float]]:
+    """The frequency bands where the curve is at or below ``level`` (or at or above it with
+    ``below=False``): ``[(from_hz, to_hz), ...]`` in order, the edges found by linear interpolation
+    between the points. For the bandwidth of an antenna: the bands where the VSWR is at most 2.
+    A band that runs to the end of the sweep ends at the last point."""
+    _same_length(freq, y)
+    pairs = sorted(zip(freq, y))
+
+    def inside(value: float) -> bool:
+        return value <= level if below else value >= level
+
+    bands: List[Tuple[float, float]] = []
+    start: Optional[float] = None
+    for i, (f, v) in enumerate(pairs):
+        if inside(v):
+            if start is None:
+                if i and not inside(pairs[i - 1][1]):  # entering: where the curve crosses
+                    f0, v0 = pairs[i - 1]
+                    start = f0 + (f - f0) * (level - v0) / (v - v0)
+                else:
+                    start = f
+        elif start is not None:  # leaving: the crossing is between the previous point and this one
+            f0, v0 = pairs[i - 1]
+            bands.append((start, f0 + (f - f0) * (level - v0) / (v - v0)))
+            start = None
+    if start is not None:
+        bands.append((start, pairs[-1][0]))
+    return bands
 
 
 def _same_length(a: Sequence, b: Sequence) -> None:

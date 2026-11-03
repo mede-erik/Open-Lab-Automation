@@ -59,7 +59,7 @@ A cable that fails its limit is a **result**: the run still ends as *finished*, 
 ## What the VNA must provide
 
 The measurement asks for two *logical calls*, the same for every VNA; the instrument library translates them for
-the model (this is the contract of the `vna` category):
+the model (this is the contract of the `vna` category, written in full in [`vna-calls.md`](vna-calls.md)):
 
 | Call | Arguments | Gives |
 |---|---|---|

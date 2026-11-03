@@ -215,3 +215,26 @@ def test_export_touchstone_errors(tmp_path):
     RunWriter(empty, {"run_id": "e"}).close()
     with pytest.raises(ValueError, match="no S-parameter"):
         export_touchstone(empty, tmp_path / "x.s1p")
+
+
+# ---- bands --------------------------------------------------------------------------------------
+def test_bands_where_the_curve_is_below_a_level():
+    freq = [1, 2, 3, 4, 5, 6]
+    vswr = [4.0, 1.5, 1.2, 1.8, 3.0, 1.5]
+    bands = rf.bands_where(freq, vswr, 2.0)
+    assert bands[0] == (pytest.approx(1 + 2 / 2.5), pytest.approx(4 + 0.2 / 1.2))  # 1.8 .. 4.17
+    assert bands[1] == (pytest.approx(5 + 1 / 1.5), 6)  # runs to the end of the sweep
+    assert len(bands) == 2
+
+
+def test_bands_where_edge_cases():
+    freq = [1, 2, 3]
+    assert rf.bands_where(freq, [1, 1, 1], 2) == [(1, 3)]  # all of it
+    assert rf.bands_where(freq, [3, 3, 3], 2) == []  # none of it
+    assert rf.bands_where(freq, [3, 1, 3], 2) == [(pytest.approx(1.5), pytest.approx(2.5))]
+    assert rf.bands_where(freq, [1, 3, 1], 2, below=False) == [
+        (pytest.approx(1.5), pytest.approx(2.5))
+    ]
+    assert rf.bands_where([3, 2, 1], [3, 1, 1], 2) == [(1, pytest.approx(2.5))]  # unsorted input
+    with pytest.raises(rf.RfError):
+        rf.bands_where([1, 2], [1], 2)

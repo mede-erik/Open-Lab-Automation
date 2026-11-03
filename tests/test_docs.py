@@ -219,3 +219,50 @@ def test_cable_example_in_the_docs_is_valid_and_runs():
         if e.kind == "point" and e.data["table"] == "points"
     ][0]
     assert row["verdict"] == "PASS" and row["cable"] == "RG58 #3" and "min_return_loss_db" in row
+
+
+def test_return_loss_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/return-loss.md is a real file: it validates and gives its verdict."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "return-loss.md")
+    block = re.search(r"```json return_loss\.rtl\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/return-loss.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("return_loss", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("return_loss", params)
+    runner = Runner(m, {"vna": [SimVna(termination="antenna")]})
+    runner.start()
+    assert runner.join(20) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    assert rows[0]["verdict"] == "PASS" and rows[0]["usable_band_count"] == 1
+
+
+def test_the_vna_contract_in_the_docs_matches_the_simulated_vna():
+    """docs/vna-calls.md names the calls and arguments that SimVna implements."""
+    import json as _json
+
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "vna-calls.md")
+    block = re.search(r"```json\n(\{\n  \"schema_version\".*?)```", text, re.S)
+    assert block, "schema draft not found in docs/vna-calls.md"
+    draft = _json.loads(block.group(1))
+    assert draft["category"] == "vnas_series"
+    vna = SimVna()
+    args = {k: 1.0 for k in draft["calls"]["set_sweep"]["args"]}
+    args.update(points=5, sweep_type="linear", start_frequency=1e6, stop_frequency=2e6)
+    assert vna.call("set_sweep", **args) is None  # every argument of the draft is accepted
+    answer = vna.call("read_sparameter", parameter="S21")
+    assert set(answer) == {"frequency", "values"} and len(answer["frequency"]) == 5
+    assert all(len(v) == 2 for v in answer["values"])  # [real, imaginary] pairs

@@ -9,9 +9,11 @@ plus a term proportional to the frequency (dielectric loss)::
     vna.call("set_sweep", start_frequency=1e6, stop_frequency=3e9, points=201)
     vna.call("read_sparameter", parameter="S21")   # {"frequency": [...], "values": [[re, im], ...]}
 
-``termination`` says what is on the far end of the cable for S11: ``"thru"`` (connected to the other
-port: only a small mismatch is seen), ``"open"`` or ``"short"`` (the signal goes to the end and
-back). ``noise_db`` adds a little random error to every point; ``calls`` records what was asked.
+``termination`` says what is on the far end of the cable for S11: ``"thru"`` (connected to the
+other port: only a small mismatch is seen), ``"open"`` or ``"short"`` (the signal goes to the end
+and back), or ``"antenna"``: a resonant device (``antenna_f0_hz``, ``antenna_r_ohm``,
+``antenna_q``) directly on port 1, as after a calibration at the port. ``noise_db`` adds a little
+random error to every point; ``calls`` records what was asked.
 """
 
 from __future__ import annotations
@@ -38,12 +40,16 @@ class SimVna:
         termination: str = "thru",
         noise_db: float = 0.0,
         seed: int = 1,
+        antenna_f0_hz: float = 868e6,
+        antenna_r_ohm: float = 55.0,
+        antenna_q: float = 12.0,
     ):
         self.name = name
         self.length_m = length_m
         self.skin, self.dielectric = loss_db_per_m_at_1ghz, dielectric_db_per_m_per_ghz
         self.velocity_factor, self.mismatch = velocity_factor, mismatch
         self.termination, self.noise_db = termination, noise_db
+        self.antenna = (antenna_f0_hz, antenna_r_ohm, antenna_q)
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -62,6 +68,13 @@ class SimVna:
         """What a cable does to a signal going through it (S21)."""
         return cmath.rect(10 ** (-self.one_way_loss_db(f) / 20), -2 * math.pi * f * self.delay_s())
 
+    def antenna_gamma(self, f: float) -> complex:
+        """Reflection coefficient of a simple resonant antenna (a series RLC): matched at its
+        resonance, more and more reflective away from it; the higher ``q``, the narrower."""
+        f0, r, q = self.antenna
+        z = complex(r, q * r * (f / f0 - f0 / f))
+        return (z - 50.0) / (z + 50.0)
+
     def reflection(self, f: float) -> complex:
         """What port 1 sees (S11)."""
         t = self.transmission(f)
@@ -69,6 +82,8 @@ class SimVna:
             return t * t
         if self.termination == "short":
             return -t * t
+        if self.termination == "antenna":  # a resonant device on port 1 (after calibration)
+            return self.antenna_gamma(f)
         # connected through: only a small mismatch at the connectors, with a ripple
         return self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())
 

@@ -30,19 +30,24 @@ In reflection mode the signal goes to the end and back, so the loss of the cable
 loss measured on S11 (``-|S11|dB / 2``) and the delay is half of the delay of S11.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional
 
 from ola import rf
 from ola.efficiency_spec import Problem
-from ola.limits import LimitError, parse_limits
-from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
+from ola.limits import parse_limits
+from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
+from ola.vna_common import (
+    acquire,
+    ask_setup,
+    check_common,
+    check_sweep,
+    frequency_label,
+    is_number,
+)
 
 MODES = ("transmission", "reflection")
 TERMINATIONS = ("open", "short")
-SCALES = ("linear", "log")
-MAX_POINTS = 100_001
-MAX_AVERAGES = 1000
 SPEED_OF_LIGHT = rf.SPEED_OF_LIGHT
 
 
@@ -56,15 +61,6 @@ def default_params() -> Dict[str, Any]:
         "averages": 1,
         "confirm_setup": True,
     }
-
-
-def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and value == value
-
-
-def _frequency_label(f: float) -> str:
-    """``433e6 -> "433MHz"``: for the names of the result columns."""
-    return format_si(f, "Hz").replace(" ", "")
 
 
 def check_params(params: Dict[str, Any]) -> List[Problem]:
@@ -81,41 +77,14 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if mode == "reflection" and termination not in TERMINATIONS:
         err("termination", f"must be one of {', '.join(TERMINATIONS)} (not {termination!r})")
 
-    sweep = params.get("sweep")
-    start = stop = None
-    if not isinstance(sweep, dict):
-        err("sweep", "the sweep (start, stop, points) is missing")
-    else:
-        start, stop = sweep.get("start_hz"), sweep.get("stop_hz")
-        if not _is_number(start) or start <= 0:
-            err("sweep.start_hz", "the start frequency must be a number above 0 (Hz)")
-            start = None
-        if not _is_number(stop) or stop <= 0:
-            err("sweep.stop_hz", "the stop frequency must be a number above 0 (Hz)")
-            stop = None
-        if start is not None and stop is not None and start >= stop:
-            err("sweep.stop_hz", "the stop frequency must be above the start frequency")
-        points = sweep.get("points")
-        if not isinstance(points, int) or isinstance(points, bool) or not 2 <= points <= MAX_POINTS:
-            err(
-                "sweep.points",
-                f"the number of points must be a whole number from 2 to {MAX_POINTS}",
-            )
-        if sweep.get("scale", "linear") not in SCALES:
-            err("sweep.scale", f"must be one of {', '.join(SCALES)}")
-        if "if_bandwidth_hz" in sweep and (
-            not _is_number(sweep["if_bandwidth_hz"]) or sweep["if_bandwidth_hz"] <= 0
-        ):
-            err("sweep.if_bandwidth_hz", "the IF bandwidth must be a number above 0 (Hz)")
-        if "power_dbm" in sweep and not _is_number(sweep["power_dbm"]):
-            err("sweep.power_dbm", "the power must be a number (dBm)")
+    start, stop = check_sweep(params, out)
 
     cable = params.get("cable", {})
     if not isinstance(cable, dict):
         err("cable", "must be an object with 'label' and 'length_m'")
     else:
         if "length_m" in cable and cable["length_m"] is not None:
-            if not _is_number(cable["length_m"]) or cable["length_m"] <= 0:
+            if not is_number(cable["length_m"]) or cable["length_m"] <= 0:
                 err("cable.length_m", "the length must be a number above 0 (metres)")
         if "label" in cable and not isinstance(cable["label"], str):
             err("cable.label", "the label must be text")
@@ -124,32 +93,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if warning:
         out.append(Problem("sweep.points", warning, "warning"))
 
-    wanted = params.get("frequencies_of_interest", [])
-    if not isinstance(wanted, list) or not all(_is_number(f) and f > 0 for f in wanted):
-        err("frequencies_of_interest", "must be a list of frequencies above 0 (Hz)")
-    elif start is not None and stop is not None:
-        outside = [f for f in wanted if not start <= f <= stop]
-        if outside:
-            shown = ", ".join(format_si(f, "Hz") for f in outside)
-            err(
-                "frequencies_of_interest", f"outside the sweep ({shown}): nothing is measured there"
-            )
-
-    try:
-        parse_limits(params.get("limits"))
-    except LimitError as exc:
-        err("limits", str(exc))
-
-    averages = params.get("averages", 1)
-    if (
-        not isinstance(averages, int)
-        or isinstance(averages, bool)
-        or not 1 <= averages <= MAX_AVERAGES
-    ):
-        err("averages", f"must be a whole number from 1 to {MAX_AVERAGES}")
-    for key in ("also_s11", "confirm_setup"):
-        if key in params and not isinstance(params[key], bool):
-            err(key, "must be true or false")
+    check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     return out
 
 
@@ -191,41 +135,6 @@ def _step_warning(params: Dict[str, Any]) -> Optional[str]:
     )
 
 
-def sweep_frequencies(sweep: Dict[str, Any]) -> List[float]:
-    """The frequencies of a sweep: evenly spaced, or logarithmically spaced for ``scale: log``."""
-    start, stop, n = float(sweep["start_hz"]), float(sweep["stop_hz"]), int(sweep["points"])
-    if sweep.get("scale", "linear") == "log":
-        ratio = (stop / start) ** (1 / (n - 1))
-        return [start * ratio**k for k in range(n)]
-    return [start + (stop - start) * k / (n - 1) for k in range(n)]
-
-
-def as_trace(
-    result: Any, fallback_freq: Sequence[float], what: str
-) -> Tuple[List[float], List[complex]]:
-    """Normalise what the VNA answered to ``(frequencies, complex values)``; the message says what
-    was wrong when it does not fit."""
-    freq: Optional[Sequence[float]] = None
-    values: Any = result
-    if isinstance(result, dict):
-        freq = result.get("frequency", result.get("freq"))
-        values = result.get("values", result.get("s"))
-    if not isinstance(values, (list, tuple)) or not values:
-        raise MeasurementError(f"the VNA gave no data for {what} (got {type(result).__name__})")
-    try:
-        complex_values = [
-            complex(*v) if isinstance(v, (list, tuple)) else complex(v) for v in values
-        ]
-    except (TypeError, ValueError) as exc:
-        raise MeasurementError(f"the VNA data for {what} is not a list of complex numbers") from exc
-    freq = list(freq) if freq is not None else list(fallback_freq)
-    if len(freq) != len(complex_values):
-        raise MeasurementError(
-            f"the VNA gave {len(complex_values)} values for {what} at {len(freq)} frequencies"
-        )
-    return [float(f) for f in freq], complex_values
-
-
 def compute_results(
     freq: List[float], traces: Dict[str, List[complex]], params: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -257,7 +166,7 @@ def compute_results(
             if 0.2 <= factor <= 1.05:  # beyond this the delay is not real: the phase wrapped
                 summary["velocity_factor"] = factor
     for f in params.get("frequencies_of_interest") or []:
-        name = _frequency_label(f)
+        name = frequency_label(f)
         summary[f"loss_{name}_db"] = rf.value_at(freq, loss, f)
         if length:
             summary[f"loss_{name}_db_per_m"] = rf.value_at(freq, result["loss_db_per_m"], f)
@@ -291,39 +200,13 @@ class CableCharacterization(Measurement):
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):
             self._confirm_setup(ctx, mode)
-        handle.call(
-            "set_sweep",
-            start_frequency=sweep["start_hz"],
-            stop_frequency=sweep["stop_hz"],
-            points=sweep["points"],
-            sweep_type=sweep.get("scale", "linear"),
-            **{k: sweep[s] for k, s in (("if_bandwidth", "if_bandwidth_hz"), ("power", "power_dbm"))
-               if s in sweep},
-        )  # fmt: skip
         wanted = ["S21"] if mode == "transmission" else ["S11"]
         if mode == "transmission" and p.get("also_s11"):
             wanted.append("S11")
-        nominal = sweep_frequencies(sweep)
-        totals: Dict[str, List[complex]] = {}
-        freq: List[float] = []
-        averages = int(p.get("averages", 1))
-        for sweep_no in range(1, averages + 1):
-            for name in wanted:
-                ctx.checkpoint()
-                freq, values = as_trace(
-                    handle.call("read_sparameter", parameter=name), nominal, name
-                )
-                if name in totals and len(totals[name]) != len(values):
-                    raise MeasurementError(f"the number of points of {name} changed between sweeps")
-                totals[name] = (
-                    values if name not in totals else [a + b for a, b in zip(totals[name], values)]
-                )
-            ctx.progress(sweep_no, averages, f"sweep {sweep_no} of {averages}")
-        traces = {name: [v / averages for v in values] for name, values in totals.items()}
+        freq, traces = acquire(ctx, handle, sweep, wanted, int(p.get("averages", 1)))
         self._report(ctx, freq, traces)
 
     def _confirm_setup(self, ctx: MeasurementContext, mode: str) -> None:
-        sweep = self.params["sweep"]
         if mode == "transmission":
             connect = "Connect the cable under test between port 1 and port 2 of the VNA."
         else:
@@ -332,20 +215,7 @@ class CableCharacterization(Measurement):
                 f"Connect one end of the cable under test to port 1 and put an {far} circuit "
                 f"on the other end."
             )
-        text = (
-            "Is the VNA calibrated for this cable and this frequency range "
-            f"({format_si(sweep['start_hz'], 'Hz')} to {format_si(sweep['stop_hz'], 'Hz')})? "
-            f"{connect} Then continue."
-        )
-        data = {
-            "kind": "calibration",
-            "start_hz": sweep["start_hz"],
-            "stop_hz": sweep["stop_hz"],
-            "points": sweep["points"],
-            "mode": mode,
-        }
-        if ctx.ask(text, ["continue", "abort"], default="abort", data=data) == "abort":
-            raise Stopped()
+        ask_setup(ctx, connect, self.params["sweep"], mode=mode)
 
     def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
         p = self.params
