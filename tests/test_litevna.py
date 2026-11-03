@@ -23,7 +23,7 @@ CANDIDATES = [
 ]
 LIB = next((p for p in CANDIDATES if os.path.isfile(p)), None)
 needs_library = pytest.mark.skipif(
-    LIB is None or "network_analyzers_series" not in (open(LIB).read() if LIB else ""),
+    LIB is None or "calibration_begin" not in (open(LIB).read() if LIB else ""),
     reason="library with the VNA category not available",
 )
 
