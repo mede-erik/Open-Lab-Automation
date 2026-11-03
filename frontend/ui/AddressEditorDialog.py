@@ -114,8 +114,17 @@ class AddressEditorDialog(QDialog):
             
             # Aggiungi suggerimenti per campi specifici
             if param == 'com_port':
-                edit.setPlaceholderText("es: 3 (per COM3)")
-                edit.setToolTip("Numero della porta COM (Windows) o /dev/ttyUSB* (Linux)")
+                edit.setPlaceholderText("Windows: 3 (per COM3)  -  Linux: /dev/ttyUSB0")
+                edit.setToolTip(
+                    "Windows: il numero della porta COM (3 per COM3). "
+                    "Linux e macOS: il dispositivo, per esempio /dev/ttyUSB0 o /dev/ttyACM0."
+                )
+                try:  # suggest the ports that are present
+                    from PyQt6.QtWidgets import QCompleter
+                    from serial.tools import list_ports
+                    edit.setCompleter(QCompleter([p.device for p in list_ports.comports()], edit))
+                except Exception:
+                    pass  # pyserial missing: the port is typed by hand
             elif param == 'ip':
                 edit.setPlaceholderText("es: 192.168.1.100")
                 edit.setToolTip("Indirizzo IP dello strumento")
@@ -155,9 +164,10 @@ class AddressEditorDialog(QDialog):
             # Per indirizzi ASRL (seriali)
             if 'ASRL' in self.address:
                 import re
-                match = re.search(r'ASRL(\d+)::INSTR', self.address)
-                if match and 'com_port' in self.fields:
-                    self.fields['com_port'].setText(match.group(1))
+                from ola.serial_config import serial_port_of_address
+                port = serial_port_of_address(self.address)
+                if port and 'com_port' in self.fields:
+                    self.fields['com_port'].setText(port)
             
             # Per indirizzi TCPIP
             elif 'TCPIP' in self.address:
@@ -202,12 +212,15 @@ class AddressEditorDialog(QDialog):
         try:
             # Validazione speciale per campi seriali
             if self.conn_type in ['SERIAL', 'USB-SERIAL'] and 'com_port' in vals:
-                com_port = vals['com_port'].strip()
-                if not com_port.isdigit():
-                    QMessageBox.warning(self, "Errore validazione", 
-                                      "La porta COM deve essere un numero (es: 3 per COM3)")
+                from ola.serial_config import serial_port_value
+                try:
+                    vals['com_port'] = serial_port_value(vals['com_port'])
+                except ValueError:
+                    QMessageBox.warning(
+                        self, "Errore validazione",
+                        "Porta seriale non valida: usa il numero della porta COM (es: 3 per COM3) "
+                        "oppure il dispositivo (es: /dev/ttyUSB0)")
                     return None
-                vals['com_port'] = com_port
             
             # Validazione per GPIB
             elif self.conn_type == 'GPIB' and 'gpib_addr' in vals:

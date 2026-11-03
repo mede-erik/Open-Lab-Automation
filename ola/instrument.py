@@ -23,7 +23,7 @@ import threading
 import time
 from typing import Any, List, Optional, Protocol, Sequence
 
-from .call_errors import CallNotSupportedError, StepFailedError
+from .call_errors import CallError, CallNotSupportedError, StepFailedError
 from .steps import Step
 
 
@@ -131,5 +131,7 @@ class Instrument:
                 raise Aborted(f"call '{call}' aborted")
             try:
                 return [self.driver.call(function, args)]
+            except CallError:
+                raise  # the driver already reports a CALL-xxx error (value not handled, ...)
             except Exception as exc:
                 raise StepFailedError(call, 0, exc) from exc

@@ -23,6 +23,7 @@ CATEGORY_LABELS = {
     "switch_units_series": "Switch unit",
     "datalogger_modules": "Datalogger module",
     "multimeters_series": "Multimeter",
+    "network_analyzers_series": "Network analyzer (VNA)",
     "oscilloscopes_series": "Oscilloscope",
     "electronic_loads_series": "Electronic load",
 }
@@ -231,8 +232,11 @@ def open_simulated(answer: str = "1"):
 
 
 def make_handle(library: Library, model_id: str, connection, name: str = "instrument"):
-    """An ``InstrumentHandle`` of a model on an open connection."""
-    return InstrumentHandle(name, library, model_id, Instrument(name, connection))
+    """An ``InstrumentHandle`` of a model on an open connection (with its driver, if it has one)."""
+    from .drivers import driver_for
+
+    driver = driver_for(library, model_id, connection)
+    return InstrumentHandle(name, library, model_id, Instrument(name, connection, driver))
 
 
 def call_spec(library: Library, model_id: str, call: str) -> Optional[Dict[str, Any]]:
