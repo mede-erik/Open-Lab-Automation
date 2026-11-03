@@ -52,8 +52,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.efficiency_widgets import (
-    ERROR_COLOR,
-    WARNING_COLOR,
+    text_color,
     CallEdit,
     format_number,
     format_number_list,
@@ -174,8 +173,9 @@ class EfficiencyEditorDialog(QDialog):
         bottom_layout.addWidget(self.problem_title)
         bottom_layout.addWidget(self.problem_tree)
         splitter.addWidget(bottom)
-        splitter.setStretchFactor(0, 5)
+        splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
+        bottom.setMinimumHeight(190)
         root.addWidget(splitter, 1)
 
         buttons = QHBoxLayout()
@@ -608,15 +608,18 @@ class EfficiencyEditorDialog(QDialog):
             self.param_list.addItem(f"{i + 1}. {var.get('name') or '?'}   ({note})")
             severity = self._worst(self.editor.problems_at(f"variables[{i}]"))
             if severity:
-                color = ERROR_COLOR if severity == "error" else WARNING_COLOR
+                color = self._c("error" if severity == "error" else "warning")
                 self.param_list.item(i).setForeground(QBrush(QColor(color)))
         if keep is not None and 0 <= keep < self.param_list.count():
             self.param_list.setCurrentRow(keep)
         self._loading = False
 
-    @staticmethod
-    def _color(problem) -> str:
-        return ERROR_COLOR if problem.severity == "error" else WARNING_COLOR
+    def _c(self, kind: str) -> str:
+        """Colour for a coloured text, readable in light and dark themes."""
+        return text_color(kind, self)
+
+    def _color(self, problem) -> str:
+        return self._c("error" if problem.severity == "error" else "warning")
 
     @staticmethod
     def _worst(problems: Sequence) -> Optional[str]:
@@ -722,7 +725,7 @@ class EfficiencyEditorDialog(QDialog):
         self.value_group.setEnabled(has_set)
         values, error = self.editor.sweep_values(index), self.editor.sweep_error(index)
         if error:
-            text = f"<span style='color:{ERROR_COLOR}'>{error}</span>"
+            text = f"<span style='color:{self._c('error')}'>{error}</span>"
         elif values and mode not in ("none", "fixed"):
             shown_values = format_number_list(values[:8]) + (" …" if len(values) > 8 else "")
             text = self._t("eff_preview_values", n=len(values), values=shown_values)
@@ -843,8 +846,18 @@ class EfficiencyEditorDialog(QDialog):
             cell = QTableWidgetItem(str(text))
             cell.setFlags(cell.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.formula_table.setItem(row, 1, cell)
+        if not 0 <= selected < self.formula_table.rowCount():
+            selected = next(
+                (
+                    i
+                    for i, n in enumerate(self._formula_names)
+                    if self.editor.problems_at(f"derived.{n}")
+                ),
+                0,
+            )
         if 0 <= selected < self.formula_table.rowCount():
             self.formula_table.selectRow(selected)
+        self._color_formula_rows()
         self.names_list.clear()
         groups = self.editor.available_names()
         for key in ("setpoints", "readings", "derived"):
@@ -852,6 +865,15 @@ class EfficiencyEditorDialog(QDialog):
                 self.names_list.addItem(name)
         self._loading = False
         self._formula_selected()
+
+    def _color_formula_rows(self) -> None:
+        """Names of the formulas with a problem are shown in red (or amber)."""
+        for row, name in enumerate(getattr(self, "_formula_names", [])):
+            severity = self._worst(self.editor.problems_at(f"derived.{name}"))
+            color = self._c(severity and ("error" if severity == "error" else "warning") or "muted")
+            item = self.formula_table.item(row, 0)
+            if item is not None:
+                item.setForeground(QBrush(QColor(color)) if severity else QBrush())
 
     def _formula_selected(self) -> None:
         if self._loading:
@@ -923,6 +945,7 @@ class EfficiencyEditorDialog(QDialog):
             self.formula_edit.setFocus()
 
     def _show_formula_problems(self) -> None:
+        self._color_formula_rows()
         row = self.formula_table.currentRow()
         names = getattr(self, "_formula_names", [])
         problems = self.editor.problems_at(f"derived.{names[row]}") if 0 <= row < len(names) else []
@@ -993,7 +1016,7 @@ class EfficiencyEditorDialog(QDialog):
 
     # ================================================================ showing the state
     def _status(self, text: str, error: bool = False) -> None:
-        color = ERROR_COLOR if error else "gray"
+        color = self._c("error" if error else "muted")
         self.status_label.setText(f"<span style='color:{color}'>{text}</span>")
 
     def _refresh_all(self) -> None:
@@ -1020,13 +1043,13 @@ class EfficiencyEditorDialog(QDialog):
         self._apply_marks()
 
     def _refresh_problems(self) -> None:
-        problems = self.editor.problems()
+        problems = sorted(self.editor.problems(), key=lambda p: p.severity != "error")
         self.problem_tree.clear()
         for problem in problems:
             item = QTreeWidgetItem(
                 ["●" if problem.severity == "error" else "▲", problem.path, problem.message]
             )
-            color = ERROR_COLOR if problem.severity == "error" else WARNING_COLOR
+            color = self._color(problem)
             item.setForeground(0, QBrush(QColor(color)))
             item.setData(0, Qt.ItemDataRole.UserRole, problem.path)
             self.problem_tree.addTopLevelItem(item)
@@ -1042,10 +1065,10 @@ class EfficiencyEditorDialog(QDialog):
                 cooldowns=summary["cooldowns"],
                 time=self.editor.format_duration(summary["seconds"]),
             )
-            color = "green"
+            color = self._c("ok")
         else:
             text = self._t("eff_summary_invalid", errors=errors)
-            color = ERROR_COLOR
+            color = self._c("error")
         self.summary_label.setText(f"<span style='color:{color}'>{text}</span>")
         self.timing_summary.setText(text if summary["valid"] else "")
         name = os.path.basename(self.file_path) if self.file_path else self._t("eff_unsaved")
@@ -1085,7 +1108,7 @@ class EfficiencyEditorDialog(QDialog):
         own = self.editor.problems_at(f"variables[{index}]")
         self.param_messages.setText(
             "<br>".join(
-                f"<span style='color:{ERROR_COLOR if p.severity == 'error' else WARNING_COLOR}'>"
+                f"<span style='color:{self._color(p)}'>"
                 f"{'●' if p.severity == 'error' else '▲'} {p.message}</span>"
                 for p in own
             )

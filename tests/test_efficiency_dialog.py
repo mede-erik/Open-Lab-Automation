@@ -217,3 +217,59 @@ def test_new_dialog_without_file_starts_from_the_template(app):
     finally:
         d.dirty = False
         d.close()
+
+
+# ---- themes and many parameters ---------------------------------------------------------------
+def test_text_colours_follow_the_theme(app):
+    from PyQt6.QtGui import QColor, QPalette
+
+    from frontend.ui.efficiency_widgets import text_color
+
+    old = app.palette()
+    try:
+        dark = QPalette(old)
+        dark.setColor(QPalette.ColorRole.Window, QColor("#222222"))
+        app.setPalette(dark)
+        bright = text_color("ok")
+        light = QPalette(old)
+        light.setColor(QPalette.ColorRole.Window, QColor("#f0f0f0"))
+        app.setPalette(light)
+        assert bright != text_color("ok")
+    finally:
+        app.setPalette(old)
+
+
+def test_errors_are_listed_before_warnings(dialog):
+    dialog.param_list.setCurrentRow(1)
+    dialog.sweep_rows["values"][1].setText("9, 12, 25")  # an error (outside the limits)
+    dialog.param_list.setCurrentRow(2)
+    dialog.output_group.setChecked(True)  # adds warnings (no state call)
+    marks = [
+        dialog.problem_tree.topLevelItem(i).text(0)
+        for i in range(dialog.problem_tree.topLevelItemCount())
+    ]
+    assert marks == sorted(marks, key=lambda m: m != "●")
+    assert marks[0] == "●"
+
+
+def test_ten_parameters_all_appear_in_order(app):
+    params = good()
+    template = params["variables"][2]  # vaux: a set parameter with a fixed value
+    params["variables"] = params["variables"] + [dict(template, name=f"extra{i}") for i in range(5)]
+    d = EfficiencyEditorDialog(params=params, instruments=INSTRUMENTS)
+    try:
+        assert d.param_list.count() == 10
+        for row in range(10):
+            d.param_list.setCurrentRow(row)
+            assert d.name_edit.text() == d.editor.names()[row]
+    finally:
+        d.dirty = False
+        d.close()
+
+
+def test_a_formula_with_a_problem_is_selected_first(dialog):
+    dialog.editor.set_formula("bad", "vin * nothing_here")
+    dialog.formula_table.setCurrentCell(-1, -1)  # nothing selected, as when the window opens
+    dialog._refresh_formulas()
+    row = dialog.formula_table.currentRow()
+    assert dialog._formula_names[row] == "bad"

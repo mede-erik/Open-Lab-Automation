@@ -13,7 +13,7 @@ import re
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLineEdit, QWidget
 
 ERROR_COLOR = "#d32f2f"
 WARNING_COLOR = "#f9a825"
@@ -69,6 +69,16 @@ def format_number_list(values: Sequence[float]) -> str:
 
 
 # ---- marking widgets -------------------------------------------------------------------------
+
+
+def text_color(kind: str, widget: Optional[QWidget] = None) -> str:
+    """Colour of a coloured *text* (``error``, ``warning``, ``ok``, ``muted``) that is readable on
+    the current theme: brighter on a dark background, darker on a light one."""
+    palette = (widget or QApplication.instance()).palette()
+    dark = palette.window().color().lightness() < 128
+    light_theme = {"error": "#c62828", "warning": "#b26a00", "ok": "#2e7d32", "muted": "#666666"}
+    dark_theme = {"error": "#ff6b6b", "warning": "#ffb74d", "ok": "#81c784", "muted": "#a0a0a0"}
+    return (dark_theme if dark else light_theme)[kind]
 
 
 def mark_widget(widget: QWidget, severity: Optional[str], message: str = "") -> None:
