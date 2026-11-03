@@ -57,6 +57,8 @@ class RunModel:
         self.points: List[Dict[str, Any]] = []  # values of the main table, in order
         self.tables: Dict[str, List[Dict[str, Any]]] = {}  # the other tables
         self.columns: List[str] = []  # columns of ``points``, in order of first appearance
+        self.traces: Dict[str, Dict[str, Any]] = {}  # the latest trace of every name
+        self.trace_order: List[str] = []  # names in order of first appearance
         self.done: float = 0
         self.total: Optional[float] = None
         self.message: str = ""
@@ -97,6 +99,8 @@ class RunModel:
                         self.columns.append(key)
             else:
                 self.tables.setdefault(data["table"], []).append(row)
+        elif event.kind == "trace":
+            self._add_trace(data)
         elif event.kind == "progress":
             self.done, self.total = data.get("done", 0), data.get("total")
             self.message = data.get("message", "")
@@ -115,6 +119,23 @@ class RunModel:
                 self.waited_s += max(0.0, event.t - asked)
             if question is not None:
                 self.answers.append({**question, "choice": data.get("choice")})
+
+    def _add_trace(self, data: Mapping[str, Any]) -> None:
+        """Keep the newest trace of each name (a repeated sweep replaces the previous one)."""
+        name = data["name"]
+        y = data["y"]
+        if data.get("trace_kind") == "complex":
+            y = [complex(re, im) for re, im in y]
+        if name not in self.traces:
+            self.trace_order.append(name)
+        self.traces[name] = {
+            "name": name,
+            "kind": data.get("trace_kind", "real"),
+            "x": list(data["x"]),
+            "y": list(y),
+            "meta": dict(data.get("meta") or {}),
+            "count": self.traces.get(name, {}).get("count", 0) + 1,
+        }
 
     # ----- numbers for the top of the window --------------------------------------------------
     @property
@@ -230,3 +251,43 @@ def nice_ticks(low: float, high: float, count: int = 6) -> List[float]:
         ticks.append(round(value, decimals))
         value += step
     return ticks
+
+
+# How a trace can be shown. A real trace has only "value"; a complex one (S-parameters, spectra)
+# can be shown in any of these.
+VIEW_VALUE = "value"  # a real trace as it is
+VIEW_MAGNITUDE_DB = "magnitude_db"
+VIEW_PHASE = "phase_deg"
+VIEW_REAL = "real"
+VIEW_IMAG = "imag"
+VIEW_SMITH = "smith"  # the complex values as points of the plane (the Smith chart)
+VIEW_LOSS_DB = "loss_db"  # -20 log10 |S|: a loss as a positive number
+COMPLEX_VIEWS = (VIEW_MAGNITUDE_DB, VIEW_LOSS_DB, VIEW_PHASE, VIEW_REAL, VIEW_IMAG, VIEW_SMITH)
+
+
+def trace_views(kind: str) -> List[str]:
+    """The views that make sense for a trace of this kind (``"real"`` or ``"complex"``)."""
+    return [VIEW_VALUE] if kind != "complex" else list(COMPLEX_VIEWS)
+
+
+def trace_xy(trace: Mapping[str, Any], view: str) -> Tuple[List[float], List[float]]:
+    """The ``(x, y)`` numbers of a trace in a view. For ``smith`` they are the real and imaginary
+    parts of every point (x is the real part, y the imaginary part)."""
+    from . import rf
+
+    x, y = list(trace["x"]), list(trace["y"])
+    if trace.get("kind", "real") != "complex":
+        return x, [float(v) for v in y]
+    if view == VIEW_MAGNITUDE_DB:
+        return x, rf.magnitude_db(y)
+    if view == VIEW_LOSS_DB:
+        return x, rf.insertion_loss_db(y)
+    if view == VIEW_PHASE:
+        return x, rf.phase_deg(y)
+    if view == VIEW_REAL:
+        return x, [v.real for v in y]
+    if view == VIEW_IMAG:
+        return x, [v.imag for v in y]
+    if view == VIEW_SMITH:
+        return [v.real for v in y], [v.imag for v in y]
+    raise ValueError(f"unknown view {view!r}")

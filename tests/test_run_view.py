@@ -136,3 +136,42 @@ def test_format_duration():
     assert RunModel.format_duration(75) == "1 min 15 s"
     assert RunModel.format_duration(3725) == "1 h 02 min"
     assert RunModel.format_duration(7) == "7 s"
+
+
+# ---- traces -------------------------------------------------------------------------------------
+from ola.run_view import trace_views, trace_xy  # noqa: E402
+
+
+def trace_event(name, y, kind="real", t=0.0):
+    return ev("trace", t, name=name, trace_kind=kind, x=[1.0, 2.0], y=y, meta={"unit": "dB"})
+
+
+def test_traces_keep_the_latest_of_each_name_in_order_of_appearance():
+    m = RunModel()
+    m.apply(trace_event("S21", [[0.5, 0.0], [0.4, 0.0]], "complex"))
+    m.apply(trace_event("temp", [20.0, 21.0]))
+    m.apply(trace_event("S21", [[0.9, 0.0], [0.8, 0.0]], "complex"))  # a repeated sweep
+    assert m.trace_order == ["S21", "temp"]
+    assert m.traces["S21"]["y"] == [0.9 + 0j, 0.8 + 0j] and m.traces["S21"]["count"] == 2
+    assert m.traces["temp"]["meta"] == {"unit": "dB"}
+
+
+def test_views_of_a_complex_trace():
+    m = RunModel()
+    m.apply(trace_event("S21", [[0.5, 0.0], [0.0, 0.1]], "complex"))
+    trace = m.traces["S21"]
+    assert trace_views("complex")[0] == "magnitude_db" and trace_views("real") == ["value"]
+    x, y = trace_xy(trace, "magnitude_db")
+    assert x == [1.0, 2.0] and y == [pytest.approx(-6.0206, abs=1e-3), pytest.approx(-20)]
+    assert trace_xy(trace, "loss_db")[1] == [pytest.approx(6.0206, abs=1e-3), pytest.approx(20)]
+    assert trace_xy(trace, "real")[1] == [0.5, 0.0] and trace_xy(trace, "imag")[1] == [0.0, 0.1]
+    assert trace_xy(trace, "phase_deg")[1] == [pytest.approx(0), pytest.approx(90)]
+    assert trace_xy(trace, "smith") == ([0.5, 0.0], [0.0, 0.1])  # the plane, not the frequency
+    with pytest.raises(ValueError):
+        trace_xy(trace, "nonsense")
+
+
+def test_a_real_trace_has_one_view():
+    m = RunModel()
+    m.apply(trace_event("temp", [20.0, 21.0]))
+    assert trace_xy(m.traces["temp"], "value") == ([1.0, 2.0], [20.0, 21.0])
