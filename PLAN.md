@@ -559,6 +559,14 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   leggibili anche dopo un crash; export CSV), primo modulo `ola/modules/time_log`
   (`.tlg`, campionamento senza deriva). Interfaccia verso gli strumenti: `handle.call(nome,
   **argomenti)`, da collegare a libreria + planner + esecutore (lavoro dell'altra sessione).
+- 📌 **Decisioni dell'utente (2026-11-03):** nessuna retrocompatibilità con il vecchio
+  `.eff` (verrà riscritto e ripensato: nessun lettore né convertitore) e con il vecchio
+  formato di progetto; il pulsante "Avvia misura" nella GUI si farà quando saranno
+  definiti i tipi di misura.
+- 📌 **`backend/` (C): non estendere, da ritirare.** `backend/sweep.c` usa SCPI fissi
+  (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) contro la regola "solo comandi della libreria", e
+  `frontend/core/c_backend.py` non è chiamato dalla GUI. Si ritira insieme a `c_backend.py`
+  dopo il collegamento di `ola.transport` all'app.
 - ⏳ Non ancora fatto: collegare `ola.transport` al resto dell'app (il backend C e
   `c_backend.py` sono ancora in uso e non sono stati toccati), strato strumento
   generico, strumenti simulati, pipeline Python → CI per le wheel.

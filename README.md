@@ -51,13 +51,58 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 ## Project Structure
 
 - **Frontend:** Python (PyQt6) — Modern graphical interface with comprehensive instrument management and advanced sweep configuration
-- **Backend:** C — Fast, low-level communication layer for instrument control
+- **Engine (`ola/`, `native/`):** Python + Rust — Qt-free instrument transport, step executor and measurement core (see [Engine](#engine-ola-and-native) below)
+- **Legacy backend (`backend/`):** C — original communication layer, not used by the GUI any more (`frontend/core/c_backend.py` is not called from `frontend/`); it will be retired once the app uses `ola/`
 - **Instrument Library:** JSON (`Instruments_LIB/instruments_lib.json`) — Extensible database of supported instruments
 - **Configuration Files:**
   - `.inst` — Instrument configuration and channel setup
   - `.eff` — Efficiency measurement sweeps with nested variable support
   - `.was` — Oscilloscope waveform acquisition and trigger settings
   - `.json` — Project metadata and variable definitions
+
+## Engine (`ola/` and `native/`)
+
+The engine is everything that talks to instruments and runs measurements. It has **no Qt dependency**, so it can be used from the GUI, from scripts and from tests (`import frontend.core` needs PyQt6, `import ola` does not). It is not wired into the GUI yet.
+
+```
+measurement module (Python)         what to measure: setup / run / teardown
+        |  handle.call("set_voltage", value=5)       logical calls, no SCPI
+        v
+instrument layer  ola/instrument.py                  steps write / query / read / delay,
+        |                                            one lock per instrument per call
+        v
+transport  ola/transport.py                          TCP raw socket, serial (Rust)
+           ola/_visa.py                              USB-TMC, GPIB, VXI-11 (pyvisa)
+```
+
+| Path | Purpose |
+|---|---|
+| `native/` | Rust crate `ola_native` (PyO3): TCP (`TCP_NODELAY`, deadline-bounded buffered reads), serial, IEEE 488.2 blocks. The GIL is released during I/O. |
+| `ola/transport.py`, `ola/_pyconn.py` | Entry point; uses `ola_native` if installed, otherwise a pure-Python implementation with identical behaviour (`OLA_TRANSPORT=python` forces it). |
+| `ola/_visa.py` | pyvisa adapter with the same interface. It never leaves a shared pyvisa resource modified. |
+| `ola/steps.py`, `ola/instrument.py` | A call is a list of steps (`write`, `query`, `read`, `delay`) run in order; the first failure stops it (`CALL-004` with the step index). `driver` plans (e.g. Analog Discovery via its SDK) are dispatched to a driver object. |
+| `ola/measurement.py`, `ola/runner.py` | `Measurement` base class and the thread runner: `setup`, `run`, and **always** `teardown`; stop, pause/resume, errors with code and traceback. |
+| `ola/registry.py`, `ola/modules/` | Measurement modules, found from their `module.json`. Finding a module never runs its code; a module that is not built in needs explicit permission to load. |
+| `ola/project.py`, `ola/runs.py` | Project with several measurements, one file per measurement (the extension identifies the type); run results written while the measurement runs (JSON Lines). |
+| `ola/sim.py` | Simulated transport for development and dry runs without hardware. |
+
+**Why a new transport.** The old C backend needed about 44 ms per SCPI query on loopback (Nagle + delayed ACK: no `TCP_NODELAY`, command and terminator sent separately). The new transport needs about 35 µs (Rust) or 55 µs (pure-Python fallback); see `benchmarks/bench_transport.py`. On real instruments a query costs 1-50 ms, so the instrument dominates; the engine's job is to add nothing on top.
+
+**Project format (v2).** `<project>.json` has `"format_version": 2` and a `measurements` list (`id`, `type`, `name`, `file`). Each measurement lives in its own file whose extension is defined by its module (`.tlg` for the built-in time log). The old `eff_files` / `was_files` project format is not read.
+
+**Writing a measurement module.** A folder with a `module.json` (id, name, version, `api_version`, unique `extension`, `entry`, `roles`, `params_schema`) and a Python file with a `Measurement` subclass. Instruments are only reached through `ctx.instrument(role).call(name, **args)`. See `ola/modules/time_log/` for a complete example. Modules are searched in `ola/modules/` (built in), `~/.open_lab_automation/modules/` and `<project>/modules/`.
+
+**Build, test, benchmark**
+
+```bash
+pip install maturin
+cd native && maturin build --release && pip install target/wheels/ola_native-*.whl   # optional: fast transport
+cd native && cargo test        # Rust tests
+pytest tests                   # Python tests (native and pure-Python transport)
+python benchmarks/bench_transport.py
+```
+
+Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see `ERROR_CODES.md`. The design and the project status are in `PLAN.md`.
 
 ## Requirements
 
