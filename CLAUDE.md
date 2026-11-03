@@ -43,7 +43,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   * `tools.py` – Stateless helpers (file I/O, CSV export, date formatting, etc.).
   * `Translator.py` – Internationalisation; translation files live in `frontend/lang/`.
   * `logger.py` – Structured JSON logging used throughout the app.
-* **Backend** (`backend/backend.c`) – Low‑latency C layer exposing a simple API (via `ctypes`/`cffi` wrappers in `core/tools.py`) for VISA, USB, LAN, GPIB, or serial instrument communication. Adding a new protocol means implementing the C interface and rebuilding the binary.
+* **Backend** (`backend/*.c`) – Legacy C shared library (raw TCP for LXI instruments), loaded through the `ctypes` wrapper `frontend/core/c_backend.py`. It is not used by the GUI and will be retired: do not extend it.
+* **Engine** (`ola/`, `native/`) – Qt-free transport, step executor, call planner, measurement runner and instrument library loader, with tests in `tests/`. See the section *Engine (`ola/` and `native/`)* of `README.md`; do not duplicate that description here.
 
 ### Data Flow (simplified)
 

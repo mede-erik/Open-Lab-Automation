@@ -45,7 +45,8 @@ Automatic sweep (Python core) ──→ C backend (TCP raw) ──→ LXI instru
 | Entry points | `frontend/launcher.py`, `frontend/main.py` | App bootstrap |
 | UI dialogs | `frontend/ui/*.py` | One file per window/dialog. Layout & signal wiring only — **no business logic**. |
 | Core library | `frontend/core/*.py` | Validation, error handling, DB/project I/O, i18n, logging |
-| C backend | `backend/*.c`, `backend/*.h` | Shared library via ctypes. TCP socket I/O for LXI instruments during automatic sweeps. |
+| Engine | `ola/`, `native/` | Qt-free transport, steps, call planner, measurement runner. See the section *Engine (`ola/` and `native/`)* of `README.md`. |
+| C backend (legacy) | `backend/*.c`, `backend/*.h` | Shared library via ctypes, raw TCP for LXI instruments. Not used by the GUI; to be retired, do not extend. |
 | C Python wrapper | `frontend/core/c_backend.py` | ctypes wrapper: load, connect, send/receive SCPI, sweep_run |
 | Instrument lib | `Instruments_LIB/instruments_lib.json` | JSON-driven 3-level selector (type → series → model) |
 | Translations | `frontend/lang/*.json` | One file per locale. Accessed via `Translator.translate(key)`. |
