@@ -197,6 +197,26 @@ Check the `examples/` directory for sample configurations:
 - `test-dcdc-project/` — DC-DC converter efficiency measurement setup
 - `Test_scpi/` — Basic SCPI communication examples
 
+## Future features
+
+Things that are planned but not started. They are deliberately left for later, when the measurements work
+and the software reaches a beta state. The detailed plan (in Italian) is in [`PLAN.md`](PLAN.md#6b-misure-rf-e-roadmap).
+
+- **Measurement report**: an HTML report that can be saved as PDF, built from a template the user can edit
+  (project, measurement, instruments, parameters, plots, results). For now the results are exported as CSV
+  (and Touchstone for RF traces).
+- **Results comparison tool** (menu *Tools*, like the Hex/Dec converter): pick two or more saved results and
+  overlay them - for example the loss of two cables.
+- **Cable label tool** (menu *Tools*): generate a printable label template and fill in the data that identifies
+  a cable, so that every measurement is tied to the cable it was made on. To be designed after the RF
+  measurements (cable, return loss, filter, antenna) are done.
+- **Measurement templates**: ready-made measurement files to choose from *New measurement* (line and load
+  regulation, I-V curve...) for the measurements that are a variation of an existing module.
+- **More measurement modules**: ripple and noise, Bode plot, load transient, spectrum analysis, battery
+  discharge. See the table in `PLAN.md`.
+- **Instruments without SCPI**: the LiteVNA67 (text commands on a serial port) and the Analog Discovery 2/3
+  (driver system).
+
 ## Disclaimer
 > [!WARNING]
 > **This software is provided for hobbyist and non-professional use only.**

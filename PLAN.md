@@ -250,6 +250,42 @@ Candidate successive (a basso costo, riusano gli stessi mattoni): regolazione
 di linea e di carico, PSRR, impedenza di uscita, curva I-V, sequenza di
 accensione/spegnimento.
 
+## 6b. Misure RF e roadmap
+
+Decisioni del 2026-11-03 (discussione con l'utente):
+
+- **Un modulo vero per ogni misura**, separati e aggiornabili separatamente (nessun modulo "tuttofare"
+  con modalità). Le funzioni comuni stanno in librerie condivise senza Qt (`ola/rf.py`...), non nei moduli.
+- **Misure con il VNA** (il VNA arriva calibrato dall'utente, che fa la calibrazione sullo strumento; il
+  modulo mostra solo un promemoria "il VNA è calibrato?" con Continua/Annulla). Si ragiona in generale,
+  non sui limiti del singolo VNA: 1. **caratterizzazione del cavo** (S21 modalità principale, S11 con
+  aperto/corto come seconda: perdita in dB, valori a frequenze scelte, dB/m, ritardo di gruppo e fattore
+  di velocità, controllo su limite); 2. **return loss / VSWR**; 3. **filtro** (banda passante, taglio a
+  -3 dB, ripple, attenuazione fuori banda, Q); 4. **impedenza di un'antenna** (Z = R + jX, grafico di
+  Smith, risonanza, banda a VSWR < 2).
+- **Pezzi comuni da fare per primi**: misure che producono curve (tracce) nella finestra di esecuzione;
+  grafico di tracce (asse X logaritmico, ampiezza/fase/Re/Im, più curve, marker, linee limite,
+  **grafico di Smith**); esportazione **CSV delle tracce e Touchstone** (`.s1p`/`.s2p`); funzioni di
+  calcolo RF (dB, VSWR, impedenza, ritardo di gruppo); verdetto promosso/non promosso con limiti per
+  frequenza o banda; un editor per ogni tipo di misura (oggi solo l'efficienza).
+- **Ordine**: 1. pezzi comuni; 2. cavo; 3. return loss, filtro, antenna; 4. (modelli di misura:
+  regolazione di linea/carico, curva I-V); 5. ripple, Bode, transitorio; poi spettro, scarica batteria.
+- **Report**: per ora solo **CSV** (e Touchstone). Un **report HTML salvabile in PDF, con modello
+  personalizzabile**, è rimandato a quando le misure funzionano e il software è in beta (voce nella
+  sezione "Future features" del README).
+- **Confronto di risultati** (es. due cavi): non dentro la misura, ma come **strumento nel menu Tools**
+  (come il convertitore Hex/Dec): si scelgono due risultati e si sovrappongono.
+- **Etichetta del cavo** (strumento nel menu Tools): generare un modello di etichetta da stampare con i
+  dati che identificano il cavo, per legare ogni misura al suo cavo. Da progettare **dopo** le misure
+  della sezione 3 (return loss, filtro, antenna).
+- **Modelli di misura** (file precompilati scelti da "Nuova misura"): regolazione di linea/carico e curva
+  I-V sono il modulo efficienza con altre formule; la scarica di batteria richiede una condizione di
+  arresto (tensione minima) che il modulo oggi non ha.
+
+Cosa manca di strumenti: categoria `vna` nella libreria (dati del LiteVNA67 in attesa; si parte con un
+VNA simulato), categorie generatore di funzioni e analizzatore di spettro, driver per Analog Discovery,
+prova su hardware reale di qualunque misura.
+
 ## 7. Nuovi strumenti da aggiungere alla libreria
 
 Priorità alta (servono alle misure 2–7):
