@@ -1619,6 +1619,23 @@ Errors of the call layer: a logical call (for example `set_channel_scale`) is tr
 
 ---
 
+### CALL-006: Manual Action Cancelled
+**Description**: The operator cancelled an action asked for a manual instrument (an instrument without remote control)  
+**Common Cause**:
+- The operator pressed Cancel in the popup that asks to set a value or switch the output
+- The measurement was cancelled while waiting for the operator
+
+**Solution**:
+1. Repeat the action and press OK once the instrument has been set
+2. Restart the measurement if it was stopped
+
+**Log Example**:
+```
+[13:55:00] ERROR-CALL-006-the operator cancelled: Set 'Vin' 10.0 V
+```
+
+---
+
 ## SCPI - SCPI Command Errors (SCPI-XXX)
 
 Errors specific to SCPI command operations (distinct from general VISA errors).

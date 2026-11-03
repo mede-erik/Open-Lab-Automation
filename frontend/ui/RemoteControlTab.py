@@ -15,7 +15,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, 
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
 from ola.call_errors import CallNotSupportedError
+from ola.call_errors import ManualActionCancelledError
 from ola.datalogger_setup import datalogger_calls, scan_order
+from ola.manual_instrument import manual_handle_from_inst
 from ola.datalogger_setup import signature as datalogger_signature
 
 
@@ -1316,6 +1318,36 @@ class RemoteControlTab(QWidget):
                 text = f"{key} [format error]"
         return text
 
+    @staticmethod
+    def _is_load(inst):
+        """True for an electronic load (its calls are load_on, set_current_level, ...)."""
+        return str(inst.get('instrument_type', '')).lower() in ('electronic_load', 'electronic_loads')
+
+    def _setpoint_call(self, inst, quantity):
+        """Logical call that sets the voltage or the current of a supply or an electronic load."""
+        if self._is_load(inst):
+            return 'set_voltage_level' if quantity == 'voltage' else 'set_current_level'
+        return 'set_voltage' if quantity == 'voltage' else 'set_current'
+
+    def _output_call(self, inst, on):
+        """Logical call that switches the output of a supply or the input of a load."""
+        if self._is_load(inst):
+            return 'load_on' if on else 'load_off'
+        return 'output_on' if on else 'output_off'
+
+    def _report_call_error(self, title, exc):
+        """Print and log the error of a call."""
+        print(f"ERRORE: {title}: {exc}")
+        if self.logger:
+            self.logger.error(f"{title}: {exc}")
+
+    def _manual_prompt(self, request):
+        """Ask the operator to carry out a manual action: True after OK, False on Cancel."""
+        message = self._t(request.key, instrument=request.instrument, **request.args)
+        if message == request.key:  # no translation for this call: use the English sentence
+            message = request.text
+        return self._show_manual_prompt(message)
+
     def _show_manual_prompt(self, message):
         """
         Show a popup for a manual instrument action.
@@ -1447,6 +1479,12 @@ class RemoteControlTab(QWidget):
         """
         from ola.call_planner import plan_call
         library = self.instruments_manager.get_library() if self.instruments_manager else None
+        if inst.get('is_manual', False):
+            # not a library model: the operator carries the call out by hand
+            if library is None:
+                raise CallNotSupportedError("the instrument library is not loaded", call=call)
+            handle = manual_handle_from_inst(inst, library, prompt=self._manual_prompt)
+            return handle.call(call, **args)
         model_key = inst.get('model_id', inst.get('model', ''))
         model_id = library.resolve_model_id(model_key) if library else None
         if not model_id:
@@ -1577,19 +1615,14 @@ class RemoteControlTab(QWidget):
 
         print(f"[DEBUG] Valore validato: {value_float}V")
 
-        # Handle manual instruments with a confirmation popup
+        # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
-            msg = self._t(
-                'manual_set_voltage_prompt',
-                instrument=inst.get('instance_name', ''),
-                channel=ch.get('name', ''),
-                value=value_float
-            )
-            confirmed = self._show_manual_prompt(msg)
-            if confirmed:
-                print(f"[ManualInstrument] Voltaggio confermato: {value_float}V per {inst.get('instance_name', 'N/A')}")
-            else:
-                print("[ManualInstrument] Impostazione voltaggio annullata dall'utente")
+            try:
+                self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
+            except ManualActionCancelledError as exc:
+                print(f"[ManualInstrument] {exc}")
+            except Exception as exc:
+                self._report_call_error('Set Voltage Error', exc)
             return
 
         instr = self.get_visa_instrument(inst)
@@ -1600,7 +1633,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            self.run_call(inst, ch, 'set_voltage', value=value_float)
+            self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
             print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Voltage Error: {str(e)}'
@@ -1640,19 +1673,14 @@ class RemoteControlTab(QWidget):
 
         print(f"[DEBUG] Valore validato: {value_float}A")
 
-        # Handle manual instruments with a confirmation popup
+        # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
-            msg = self._t(
-                'manual_set_current_prompt',
-                instrument=inst.get('instance_name', ''),
-                channel=ch.get('name', ''),
-                value=value_float
-            )
-            confirmed = self._show_manual_prompt(msg)
-            if confirmed:
-                print(f"[ManualInstrument] Corrente confermata: {value_float}A per {inst.get('instance_name', 'N/A')}")
-            else:
-                print("[ManualInstrument] Impostazione corrente annullata dall'utente")
+            try:
+                self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
+            except ManualActionCancelledError as exc:
+                print(f"[ManualInstrument] {exc}")
+            except Exception as exc:
+                self._report_call_error('Set Current Error', exc)
             return
 
         instr = self.get_visa_instrument(inst)
@@ -1663,7 +1691,7 @@ class RemoteControlTab(QWidget):
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
 
         try:
-            self.run_call(inst, ch, 'set_current', value=value_float)
+            self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
             print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Current Error: {str(e)}'
@@ -1691,7 +1719,7 @@ class RemoteControlTab(QWidget):
     def _toggle_output_attempt(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Tenta di impostare l'output e programma la verifica via QTimer."""
         try:
-            self.run_call(inst, ch, 'output_on' if checked else 'output_off')
+            self.run_call(inst, ch, self._output_call(inst, checked))
 
             QTimer.singleShot(200, lambda: self._verify_output_state(
                 instr, inst, ch, button, checked, attempt, max_attempts))
@@ -1758,20 +1786,21 @@ class RemoteControlTab(QWidget):
 
     def _toggle_output_manual(self, inst, ch, button, checked):
         """Conferma manuale per strumenti non connessi via VISA."""
-        prompt_key = 'manual_output_on_prompt' if checked else 'manual_output_off_prompt'
-        msg = self._t(prompt_key,
-                      instrument=inst.get('instance_name', ''),
-                      channel=ch.get('name', ''))
-        confirmed = self._show_manual_prompt(msg)
-        if confirmed:
-            if checked:
-                button.setText('Output: ON')
-                button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
-            else:
-                button.setText('Output: OFF')
-                button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
-        else:
+        try:
+            self.run_call(inst, ch, self._output_call(inst, checked))
+        except ManualActionCancelledError:
             button.setChecked(not checked)
+            return
+        except Exception as exc:
+            self._report_call_error('Output Error', exc)
+            button.setChecked(not checked)
+            return
+        if checked:
+            button.setText('Output: ON')
+            button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+        else:
+            button.setText('Output: OFF')
+            button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
 
     def read_actual(self, inst, ch, label):
         """

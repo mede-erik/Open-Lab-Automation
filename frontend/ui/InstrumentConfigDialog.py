@@ -96,12 +96,15 @@ class InstrumentConfigDialog(QDialog):
         button_panel = QHBoxLayout()
         add_btn = QPushButton("Aggiungi strumento")
         add_btn.clicked.connect(self.add_instrument_dialog)
+        manual_btn = QPushButton(self.translator.t('manual_add_button'))
+        manual_btn.clicked.connect(self.add_manual_instrument_dialog)
         save_btn = QPushButton("Salva configurazione")
         save_btn.clicked.connect(self.save_instruments)
         # Pulsante: Cerca strumenti nella rete
         discover_btn = QPushButton("Cerca strumenti nella rete")
         discover_btn.clicked.connect(self.open_network_scan_dialog)
         button_panel.addWidget(add_btn)
+        button_panel.addWidget(manual_btn)
         button_panel.addWidget(save_btn)
         button_panel.addWidget(discover_btn)
         left_panel.addLayout(button_panel)
@@ -269,19 +272,7 @@ class InstrumentConfigDialog(QDialog):
         name_edit = QLineEdit(inst.get('instance_name', inst.get('name', '')))
         name_edit.textChanged.connect(lambda val: self.on_name_changed(val))
         form.addRow("Nome strumento", name_edit)
-        # Manual instrument checkbox
-        is_manual_chk = QCheckBox(self.translator.t('manual_instrument_label'))
-        is_manual_chk.setToolTip(self.translator.t('manual_instrument_tooltip'))
-        # Block signals during initial setup so setChecked() does not trigger
-        # on_is_manual_changed() (which calls save_instruments()) before the user
-        # has actually changed anything.
-        is_manual_chk.blockSignals(True)
-        is_manual_chk.setChecked(inst.get('is_manual', False))
-        is_manual_chk.blockSignals(False)
-        is_manual_chk.toggled.connect(self.on_is_manual_changed)
-        form.addRow(self.translator.t('manual_instrument'), is_manual_chk)
-        self.is_manual_chk = is_manual_chk
-        # Address editor (hidden when manual mode is active)
+        # Address editor (a manual instrument has no address)
         addr_btn = QPushButton("Address Editor")
         addr_btn.clicked.connect(self.open_address_editor)
         form.addRow("Indirizzo", addr_btn)
@@ -290,17 +281,14 @@ class InstrumentConfigDialog(QDialog):
         addr_label = QLabel(inst.get('visa_address', inst.get('address', '')))
         form.addRow("VISA Address", addr_label)
         self.addr_label = addr_label
-        # Hide address controls AND their row labels when manual mode is active
+        # Hide address controls AND their row labels for a manual instrument
         show_address = not inst.get('is_manual', False)
         addr_btn.setVisible(show_address)
         addr_label.setVisible(show_address)
-        # Store form label widgets so on_is_manual_changed can toggle them too
-        self._addr_btn_form_label = form.labelForField(addr_btn)
-        self._addr_label_form_label = form.labelForField(addr_label)
-        if self._addr_btn_form_label:
-            self._addr_btn_form_label.setVisible(show_address)
-        if self._addr_label_form_label:
-            self._addr_label_form_label.setVisible(show_address)
+        for widget in (addr_btn, addr_label):
+            row_label = form.labelForField(widget)
+            if row_label:
+                row_label.setVisible(show_address)
         # Tipo strumento
         type_label = QLabel(inst.get('instrument_type', inst.get('type', '')))
         form.addRow("Tipo", type_label)
@@ -641,21 +629,6 @@ class InstrumentConfigDialog(QDialog):
             if item is not None:
                 item.setText(val)
 
-    def on_is_manual_changed(self, state):
-        if self.current_instrument is not None:
-            self.current_instrument['is_manual'] = state
-            show_address = not state
-            # Show or hide address controls and their row labels based on manual mode
-            if hasattr(self, 'addr_btn'):
-                self.addr_btn.setVisible(show_address)
-            if hasattr(self, 'addr_label'):
-                self.addr_label.setVisible(show_address)
-            if hasattr(self, '_addr_btn_form_label') and self._addr_btn_form_label:
-                self._addr_btn_form_label.setVisible(show_address)
-            if hasattr(self, '_addr_label_form_label') and self._addr_label_form_label:
-                self._addr_label_form_label.setVisible(show_address)
-            self.save_instruments()
-
     def open_address_editor(self):
         if self.current_instrument is None:
             return
@@ -856,6 +829,66 @@ class InstrumentConfigDialog(QDialog):
             except Exception:
                 self.current_instrument['channels'][row]['integration_time'] = 0.0
             self.save_instruments()
+
+    def add_manual_instrument_dialog(self):
+        """
+        Add a manual instrument: a generic power supply or electronic load without remote
+        control. It is one channel with its limits and is not a model of the instrument
+        library (a supply with two outputs is two manual instruments).
+        """
+        from PyQt6.QtWidgets import QDoubleSpinBox, QMessageBox
+
+        t = self.translator.t
+        dlg = QDialog(self)
+        dlg.setWindowTitle(t('manual_dialog_title'))
+        form = QFormLayout(dlg)
+        hint = QLabel(t('manual_dialog_hint'))
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        type_combo = QComboBox()
+        type_combo.addItem(t('power_supply'), 'power_supply')
+        type_combo.addItem(t('electronic_load'), 'electronic_load')
+        form.addRow(t('manual_field_type'), type_combo)
+        name_edit = QLineEdit()
+        form.addRow(t('manual_field_name'), name_edit)
+        volt_spin = QDoubleSpinBox()
+        volt_spin.setRange(0.0, 10000.0)
+        volt_spin.setDecimals(3)
+        form.addRow(t('manual_field_max_voltage'), volt_spin)
+        curr_spin = QDoubleSpinBox()
+        curr_spin.setRange(0.0, 10000.0)
+        curr_spin.setDecimals(3)
+        form.addRow(t('manual_field_max_current'), curr_spin)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        form.addRow(buttons)
+        while dlg.exec() == QDialog.DialogCode.Accepted:
+            name = name_edit.text().strip()
+            if not name:
+                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_required'))
+                continue
+            if any(i.get('instance_name') == name for i in self.instruments):
+                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_exists'))
+                continue
+            self.instruments.append({
+                'instrument_type': type_combo.currentData(),
+                'instance_name': name,
+                'is_manual': True,
+                'num_channels': 1,
+                'channels': [{
+                    'enabled': True,
+                    'name': 'CH1',
+                    'max_current': curr_spin.value(),
+                    'max_voltage': volt_spin.value(),
+                }],
+            })
+            self.save_instruments()
+            self.list_widget.addItem(name)
+            self.list_widget.setCurrentRow(self.list_widget.count() - 1)
+            break
 
     def add_instrument_dialog(self):
         dlg = QDialog(self)
