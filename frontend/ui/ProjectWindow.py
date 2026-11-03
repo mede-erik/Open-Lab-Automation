@@ -11,7 +11,8 @@ cannot be used). On the selected one:
 * **Start measurement**: opens the run window (live table, plot, log, pop-ups) and starts it; the
   results are written to ``runs/`` in the project folder;
 * **Rename**, **Remove** (the file is only deleted if you ask);
-* the list of the runs already made, with **Export CSV**.
+* the list of the runs already made, with **Export CSV** and **Compare** (the runs of the selected
+  measurement, or others added by hand).
 
 The instruments come from the application through ``connect(name, cancel) -> handle`` (or a
 ``connector_factory(session)`` that builds it for each project); without it the
@@ -274,6 +275,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.compare_btn = QPushButton(self._t("prj_compare"))
+        self.compare_btn.clicked.connect(self.compare_runs)
+        row.addWidget(self.compare_btn)
         row.addStretch(1)
         root.addLayout(row)
 
@@ -408,6 +412,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
+        self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
     # ================================================================ actions
     def new_measurement(self) -> None:
@@ -537,6 +542,15 @@ class ProjectWindow(QMainWindow):
             if path == keep:
                 self.runs_table.selectRow(row)
         self._update_buttons()
+
+    def compare_runs(self) -> None:
+        """Open the comparison tool with the runs of the selected measurement."""
+        from frontend.ui.CompareDialog import CompareDialog
+
+        paths = [str(p) for p in getattr(self, "_run_paths", [])]
+        start = str(self.session.run_dir) if self.session is not None else ""
+        self._compare_tool = CompareDialog(paths, self.translator, self, start)
+        self._compare_tool.show()
 
     def export_run(self) -> None:
         path = self._selected_run()

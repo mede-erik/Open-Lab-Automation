@@ -381,3 +381,16 @@ def test_amplifier_example_in_the_docs_is_valid_and_runs():
     row = rows[0]
     assert row["verdict"] == "PASS" and row["unconditionally_stable"] == "yes"
     assert abs(row["p1db_input_dbm"] - vna.p1db_input_dbm) < 0.5
+
+
+def test_compare_doc_names_the_things_the_window_really_has():
+    """docs/compare.md names buttons and modes: each must exist in the window's strings."""
+    import json as _json
+
+    text = read(ROOT / "docs" / "compare.md")
+    strings = _json.loads(read(ROOT / "frontend" / "lang" / "modules" / "compare" / "en.json"))
+    for key in ("cmp_add", "cmp_rename", "cmp_reference", "cmp_export_csv", "cmp_save_image"):
+        assert strings[key].rstrip(".") in text, (key, strings[key])
+    assert strings["cmp_mode_overlay"].lower() in text.lower()
+    assert "Difference from the reference" in text and strings["cmp_mode_difference"] in text
+    assert "python -m frontend.ui.CompareDialog" in text

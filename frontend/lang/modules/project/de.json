@@ -49,6 +49,7 @@
   "prj_state_stopped": "gestoppt",
   "prj_state_failed": "fehlgeschlagen",
   "prj_state_interrupted": "unterbrochen",
+  "prj_compare": "Vergleichen...",
   "prj_export": "CSV exportieren",
   "prj_export_done": "{n} Zeilen nach {path} geschrieben",
   "prj_export_failed": "Export fehlgeschlagen: {error}",

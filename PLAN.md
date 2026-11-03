@@ -756,6 +756,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   potenza della sorgente viene **ripristinata** dopo il test di compressione anche se fallisce o si ferma.
   Servono S11, S21, S12, S22 (contratto `vna` aggiornato) e molte chiamate `set_sweep` con `power`.
   `SimAmplifier` (compressione nota) per i test. Non misurati: noise figure, IP3, armoniche.
+  **Strumento di confronto** (2026-11-03, richiesto dall'utente come strumento del menu Tools, non dentro
+  la misura): `ola/compare.py` (senza Qt) + `frontend/ui/CompareDialog.py`. Si scelgono due o più file di
+  esecuzione; ogni esecuzione ha il nome salvato con essa (cavo/filtro/dispositivo) e la data. **Curve**:
+  sovrapposte in qualunque vista (dB, perdita, fase, Smith) oppure **differenza dal riferimento** (altro −
+  riferimento, solo dove entrambe hanno dati) con massimo, media e RMS; **Riepilogo**: le cifre affiancate con
+  la variazione dal riferimento; **Tabelle**: per le esecuzioni con molti punti (efficienza) una colonna
+  contro un'altra. Esporta CSV e PNG. Voce nel menu Tools e pulsante *Confronta...* nella finestra del progetto.
+  Verificato su esecuzioni vere di cavi simulati (le differenze tornano con la lunghezza del cavo).
+  Rimane: confronto con un campione di riferimento salvato nel progetto, e l'etichetta del cavo.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

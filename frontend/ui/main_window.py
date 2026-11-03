@@ -32,6 +32,8 @@ from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
+from frontend.ui.CompareDialog import CompareDialog
+from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments, get_library_path
@@ -244,6 +246,11 @@ class MainWindow(QMainWindow):
         hexdec_action = QAction("Convertitore Hex/Dec", self)
         hexdec_action.triggered.connect(self.open_hexdec_converter)
         tools_menu.addAction(hexdec_action)
+        
+        # Compare saved results (two cables, a filter before and after...)
+        compare_action = QAction(CatalogTranslator("compare", self.translator).t("cmp_menu"), self)
+        compare_action.triggered.connect(self.open_compare_tool)
+        tools_menu.addAction(compare_action)
         
         # Pulse Generator Tool
         pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
@@ -890,6 +897,14 @@ class MainWindow(QMainWindow):
         dlg = HexDecConverterDialog(self)
         dlg.exec()
     
+    def open_compare_tool(self):
+        """Open the tool that compares saved results; it starts in the runs folder of the open
+        project (frontend/ui/CompareDialog.py)."""
+        session = getattr(self.project_tab, "session", None)
+        start = str(session.run_dir) if session is not None else ""
+        self._compare_tool = CompareDialog(translator=self.translator, parent=self, start_dir=start)
+        self._compare_tool.show()
+
     def open_pulse_generator(self):
         """Open the electronic load pulse generator tool."""
         # Check if project is open
