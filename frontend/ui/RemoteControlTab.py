@@ -83,7 +83,7 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Icona oscilloscopio caricata: {osc_icon_path}")
         else:
             self.osc_btn.setText('OSC')
-            print(f"[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
+            print("[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
         self.osc_btn.setFixedSize(64, 64)
         self.osc_btn.clicked.connect(self._configure_oscilloscope_from_was)
         top_layout.addWidget(self.osc_btn)
@@ -101,7 +101,7 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] Icona refresh caricata: {refresh_icon_path}")
         else:
             self.reload_btn.setText('↻')
-            print(f"[RemoteControlTab] Icona refresh non trovata, usando testo")
+            print("[RemoteControlTab] Icona refresh non trovata, usando testo")
         self.reload_btn.setFixedSize(64, 64)
         self.reload_btn.clicked.connect(self._reload_instruments_from_mainwindow)
         top_layout.addWidget(self.reload_btn)
@@ -234,7 +234,7 @@ class RemoteControlTab(QWidget):
 
             # Filtra solo gli oscilloscopi (gestisce sia 'oscilloscope' che 'oscilloscopes')
             oscilloscopes = []
-            print(f"[RemoteControlTab] Analisi strumenti nel file .inst:")
+            print("[RemoteControlTab] Analisi strumenti nel file .inst:")
             for idx, inst in enumerate(inst_data.get('instruments', [])):
                 inst_type = inst.get('instrument_type', '')
                 inst_name = inst.get('instance_name', 'N/A')
@@ -272,7 +272,7 @@ class RemoteControlTab(QWidget):
 
         # Connessione VISA
         if not self._ensure_visa_initialized():
-            print(f"[RemoteControlTab] VISA non inizializzato")
+            print("[RemoteControlTab] VISA non inizializzato")
             return
 
         try:
@@ -369,7 +369,7 @@ class RemoteControlTab(QWidget):
             if failed:
                 print(f"[RemoteControlTab] Configurazione completata con {len(failed)} chiamate non eseguite")
             else:
-                print(f"[RemoteControlTab] Configurazione completata con successo")
+                print("[RemoteControlTab] Configurazione completata con successo")
 
         except Exception as e:
             print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
@@ -977,7 +977,7 @@ class RemoteControlTab(QWidget):
                         })
                         total_enabled_channels += len(enabled_channels)
 
-            print(f"\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
+            print("\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
             print(f"Strumenti validi: {len(power_instruments)}")
             print(f"Totale canali abilitati: {total_enabled_channels}")
 
@@ -1278,7 +1278,7 @@ class RemoteControlTab(QWidget):
 
                     print(f"  ✓ Strumento aggiunto alla colonna {best_column_idx + 1} (carico: {column_loads[best_column_idx]})")
 
-            print(f"\n=== Distribuzione finale ===")
+            print("\n=== Distribuzione finale ===")
             for i, load in enumerate(column_loads):
                 print(f"Colonna {i+1}: {load} canali")
             print(f"Totale widget canali creati: {len(self.current_channel_widgets)}")
@@ -1513,7 +1513,7 @@ class RemoteControlTab(QWidget):
 
         # Manual instruments do not use VISA connections
         if inst.get('is_manual', False):
-            print(f"[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
+            print("[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
             return None
 
         if not self._ensure_visa_initialized():
@@ -1589,12 +1589,12 @@ class RemoteControlTab(QWidget):
             if confirmed:
                 print(f"[ManualInstrument] Voltaggio confermato: {value_float}V per {inst.get('instance_name', 'N/A')}")
             else:
-                print(f"[ManualInstrument] Impostazione voltaggio annullata dall'utente")
+                print("[ManualInstrument] Impostazione voltaggio annullata dall'utente")
             return
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
 
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
@@ -1657,7 +1657,7 @@ class RemoteControlTab(QWidget):
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print(f"[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
             return
 
         print(f"[DEBUG] Strumento VISA ottenuto: {instr}")

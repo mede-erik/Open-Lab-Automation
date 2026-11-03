@@ -2076,6 +2076,44 @@ Errors related to PostgreSQL project database operations.
 
 ---
 
+### PJDB-008: Project Database Read Data Error
+**Description**: Reading the rows of a project database table failed  
+**Common Cause**:
+- Table missing or renamed
+- Connection lost while reading
+- Insufficient privileges on the table
+
+**Solution**:
+1. Check that the table exists in the project database
+2. Check the connection and try again
+3. Check the database user's privileges
+
+**Log Example**:
+```
+[14:07:00] ERROR-PJDB-008-Error reading data from 'measurements': connection closed
+```
+
+---
+
+### PJDB-009: Project Database Delete Error
+**Description**: Deleting the project database failed (or no database name is set for the project)  
+**Common Cause**:
+- Project database name not specified
+- Other sessions are still connected to the database
+- Insufficient privileges to drop the database
+
+**Solution**:
+1. Check that the project has a database name
+2. Close the other connections to the database and try again
+3. Check the database user's privileges
+
+**Log Example**:
+```
+[14:08:00] ERROR-PJDB-009-Error deleting database 'dcdc_test': database is being accessed by other users
+```
+
+---
+
 ## SYS - System Errors (SYS-XXX)
 
 System-level errors and resource issues.
@@ -2343,7 +2381,7 @@ To add a new error code:
   - Added **LIB** category (8 codes): Instrument library errors
   - Added **SCPI** category (7 codes): SCPI command specific errors
   - Added **DATA** category (8 codes): Data acquisition/processing errors
-  - Added **PJDB** category (7 codes): Project database errors
+  - Added **PJDB** category (9 codes): Project database errors
   - Added **SYS** category (7 codes): System-level errors
   - Total: **99 error codes** covering comprehensive error scenarios
   - All new exception classes added to errorhandler.py

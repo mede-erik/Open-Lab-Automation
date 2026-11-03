@@ -151,6 +151,8 @@ class ErrorCode(Enum):
     PJDB_TIMEOUT = "[PJDB-005]"
     PJDB_SCHEMA_ERROR = "[PJDB-006]"
     PJDB_DATA_INTEGRITY = "[PJDB-007]"
+    PJDB_READ_DATA_ERROR = "[PJDB-008]"
+    PJDB_DELETE_ERROR = "[PJDB-009]"
     
     # System errors (SYS-XXX)
     SYS_RESOURCE_UNAVAILABLE = "[SYS-001]"

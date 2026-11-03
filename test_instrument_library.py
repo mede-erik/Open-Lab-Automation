@@ -160,3 +160,22 @@ def test_resolve_model_commands_override_remove_patch():
     assert 'set_x' not in out
     # the series must not be modified
     assert series['common_scpi_commands']['set_b']['parameters']['mode']['values'] == ['X', 'Y']
+
+
+def test_both_loaders_give_the_same_commands(lib):
+    """LoadInstruments (the GUI) and ola.library (the call planner) read the same JSON: they
+    must give the same series, models and command set for every model."""
+    from ola.library import Library
+    ola_lib = Library.load(LIB_PATH)
+    checked = 0
+    for type_name in lib.get_all_types():
+        for series in lib.get_series(type_name) or []:
+            for model in series.get('models', []) or []:
+                model_id = model.get('id')
+                found = ola_lib.find_model(model_id)
+                assert found is not None, model_id
+                assert found.series.get('series_id') == series.get('series_id'), model_id
+                assert lib.get_model_scpi(type_name, series.get('series_id'), model_id) == \
+                    ola_lib.commands(model_id), model_id
+                checked += 1
+    assert checked > 30
