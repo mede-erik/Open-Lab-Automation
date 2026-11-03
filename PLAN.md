@@ -694,6 +694,9 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   `charming-bell` e `wonderful-mccarthy` (`ci.yml`, `check_translations.py`) è risolto. Questo ramo si unisce
   a `main` senza conflitti: conviene aprire la PR **dopo** la PR #5, così i test di `connection.py` non
   vengono saltati.
+  **Aggiornamento**: la PR #5 è unita in `main` e `main` è unito in questo ramo (senza conflitti): i test di
+  `connection.py` ora girano (717 test passano con il sottomodulo `Instruments_LIB` inizializzato; senza,
+  falliscono i test della libreria). Righe del README aggiunte per i file della sessione libreria.
   **Pezzi comuni per le misure RF** (2026-11-03, 1ª parte della roadmap §6b): `ola/rf.py` (dB, perdita
   di inserzione e di ritorno, VSWR, impedenza, ritardo di gruppo, fattore di velocità, valore a una
   frequenza, incroci di livello, Touchstone `.s1p/.s2p` in lettura e scrittura), `ola/limits.py`
