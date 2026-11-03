@@ -1,73 +1,40 @@
-# Progetti di Esempio - Open Lab Automation
+# Example projects
 
-Questa cartella contiene progetti di esempio per dimostrare le funzionalità del software Open Lab Automation.
+The projects in this folder are **fictitious**: they show what the software does and are used to test it. The instrument addresses are examples (`192.168.1.xxx`), so without real instruments the measurements show `NC` (not connected). The project is kept consistent with the instrument library by `tests/test_example_project.py`.
 
-## 📁 Contenuto
+## `test-dcdc-project/`: DC-DC converter test
 
-### `test-dcdc-project/`
-Progetto di esempio per test di convertitori DC-DC con visualizzazione delle variabili di misura.
+| File | Content |
+|---|---|
+| `Test DC-DC Converter.json` | project file: variables, `.inst`, `.eff` and `.was` files |
+| `test_instruments.inst` | the instruments of the project |
+| `osc1.was` | oscilloscope settings (timebase, vertical scales, trigger) |
+| `Wav_setup.was` | a second oscilloscope setting (1 channel, 50 mV/div, 10 ms/div) |
+| `eff.eff` | efficiency sweep of the `Vaux` supply from 5 V to 10 V in 5 points |
 
-**File inclusi:**
-- `Test DC-DC Converter.json` - File progetto principale
-- `test_instruments.inst` - Configurazione strumenti di esempio
+### Instruments
 
-**Strumenti configurati:**
-- **Datalogger Keysight 34972A** - Monitoraggio tensioni e temperatura
-- **Multimetro Keysight 34450A** - Misure di precisione corrente
-- **Alimentatore Keysight E36312A** - Alimentazione e bias
+| Name | Type | What it is |
+|---|---|---|
+| `HC` | power supply | Keysight E36312A (library): `Vdrive` 6 V / 5 A, `Vcc` 25 V / 1 A |
+| `VIN` | power supply | **manual instrument**: the input supply, 60 V / 10 A |
+| `AUX` | power supply | **manual instrument**: the auxiliary supply `Vaux`, 15 V / 2 A |
+| `LOAD` | electronic load | **manual instrument**: `Iout`, 60 V / 20 A |
+| `DAQ` | datalogger | Keysight 34972A (library) with a 34901A in slot 1: `VOUT` (101), `VIN_monitor` (102, 10:1 divider), `Temp_Q1` (103, type K thermocouple) |
+| `OSC` | oscilloscope | Siglent SDS824X HD (library): `Vd_Q1` on CH1 and `Vs_Q1` on CH2, 10:1 probes |
 
-## 🚀 Come Usare gli Esempi
+### Manual instruments
 
-### 1. Avvia l'Applicazione
-```bash
-# dalla cartella del repository
-python frontend/launcher.py
-```
+`VIN`, `AUX` and `LOAD` have no remote control and are **not** in the instrument library: each one is a generic instrument with a type, a name and the limits of its single channel (`is_manual: true`, no `model_id`). When a measurement has to change one of them, a popup asks the operator to set it, and the measurement goes on after OK. They cannot be read, so the readings come from the datalogger. Add your own with *Add manual instrument* in the instrument editor.
 
-### 2. Apri il Progetto di Esempio
-1. **File** → **Apri Progetto**
-2. Naviga in `examples/test-dcdc-project/`
-3. Seleziona `Test DC-DC Converter.json`
+## `Test_scpi/`
 
-### 3. Visualizza le Funzionalità
-- **Tab "Remote Control"**: Pannello di controllo con visualizzazione misure
-- **Riquadro superiore**: Variabili di misura dai datalogger/multimetri
-  - Format: `Nome_variabile = valore unità`
-  - Aggiornamento automatico configurabile
-- **Riquadri inferiori**: Controlli per alimentatori
+A single OWON SPE6103 supply on the serial port `ASRL1::INSTR`, to try the remote control of a supply.
 
-## ⚙️ Configurazione Strumenti
+## How to use an example
 
-### Variabili di Misura Configurate
-- `Vin_Monitor = --- V` (Tensione ingresso, attenuazione 10:1)
-- `Vout_Monitor = --- V` (Tensione uscita)
-- `Iin_Monitor = --- A` (Corrente ingresso)
-- `Temperature = --- °C` (Temperatura)
-- `Iout_Precise = --- A` (Corrente uscita precisa)
+1. Start the application: `python frontend/launcher.py`.
+2. *File*, *Open project*, then choose `examples/test-dcdc-project/Test DC-DC Converter.json`.
+3. In the *Remote Control* tab the measurements of the datalogger are at the top and the controls of the supplies and the load below.
 
-### Controlli Alimentatori
-- **Vin_Supply**: Alimentazione principale (0-20V, 0-5A)
-- **Vbias_Supply**: Alimentazione ausiliaria (0-6V, 0-1A)
-
-## 📝 Note
-
-- Gli indirizzi VISA sono di esempio (`192.168.1.xxx`)
-- Senza strumenti reali connessi, le misure mostreranno `NC` (Non Connesso)
-- La configurazione può essere modificata tramite il pannello configurazione strumenti
-- I canali disabilitati non vengono mostrati nel pannello delle misure
-
-## 🔧 Personalizzazione
-
-Per creare il tuo progetto basato su questo esempio:
-
-1. Copia la cartella `test-dcdc-project`
-2. Rinomina i file con il nome del tuo progetto
-3. Modifica `test_instruments.inst` con i tuoi strumenti
-4. Aggiorna gli indirizzi VISA con quelli reali
-5. Configura canali, unità di misura e attenuazioni
-
-## 📚 Documentazione Aggiuntiva
-
-- Vedi `frontend/TODO.md` per specifiche implementazione
-- Controlla `Instruments_LIB/` per strumenti supportati
-- Leggi i commenti nel codice per dettagli tecnici
+To make your own project, copy the folder, rename the files, edit the instruments in the editor and set the real addresses.

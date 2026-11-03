@@ -22,11 +22,11 @@ def test_library_structure(lib):
     keys = set(lib.instruments.keys())
     assert {'power_supplies_series', 'dataloggers_series',
             'oscilloscopes_series', 'electronic_loads_series',
-            'datalogger_modules'} <= keys
+            'datalogger_modules', 'switch_units_series'} <= keys
 
 
 def test_get_all_types(lib):
-    assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load']
+    assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load', 'switch_unit']
 
 
 def test_get_series_key(lib):
@@ -36,8 +36,10 @@ def test_get_series_key(lib):
 
 
 def test_get_series(lib):
-    assert len(lib.get_series('power_supply')) == 4
-    assert len(lib.get_series('oscilloscope')) == 3
+    # the library grows: check that the known series are there, not how many there are
+    ids = {s.get('series_id') for s in lib.get_series('power_supply')}
+    assert {'OWON_ODP_Series', 'Keysight_E36300_Series'} <= ids
+    assert len(lib.get_series('oscilloscope')) >= 3
     assert lib.get_series('boh') is None
 
 
@@ -87,28 +89,6 @@ def test_get_enabled_compatible_modules(lib):
     assert '34901A' in ids and '34902A' in ids
 
 
-def test_remote_control_get_scpi_cmd_strings():
-    """get_scpi_cmd deve restituire stringhe (non dict) e formattabili."""
-    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
-    from frontend.core.LoadInstruments import LoadInstruments
-    from frontend.ui.RemoteControlTab import RemoteControlTab
-
-    li = LoadInstruments()
-    li.load_instruments(LIB_PATH)
-    tab = RemoteControlTab.__new__(RemoteControlTab)
-    tab.instruments_manager = li
-    tab.logger = None
-
-    inst = {'instrument_type': 'power_supply', 'series': 'OWON_ODP_Series',
-            'model_id': 'PSU_OWON_ODP3033'}
-    for action in ['set_voltage', 'set_current', 'read_voltage', 'read_current',
-                   'output_on', 'output_off', 'output_state_query']:
-        cmd = tab.get_scpi_cmd(inst, None, action)
-        assert isinstance(cmd, str), f'{action}: {cmd!r}'
-    cmd = tab.get_scpi_cmd(inst, None, 'set_voltage').replace('{value}', '5.0')
-    assert cmd == 'VOLT 5.0'
 
 
 def test_trigger_slope_in_library(lib):
@@ -132,76 +112,12 @@ def test_trigger_slope_in_library(lib):
         assert tuple(slope['parameters']['slope']['values']) == values
 
 
-def test_trigger_slope_semantic_mapping():
-    """RISE/FALL/EITHER del .was mappati sui valori accettati per serie."""
-    from frontend.ui.RemoteControlTab import RemoteControlTab as R
-    tektronix = ['RISe', 'FALL', 'EITher']
-    rigol = ['POSitive', 'NEGative', 'RFALl']
-    siglent = ['RISing', 'FALLing', 'ALTernate']
-    assert R._map_trigger_slope_value('RISE', tektronix) == 'RISe'
-    assert R._map_trigger_slope_value('FALL', tektronix) == 'FALL'
-    assert R._map_trigger_slope_value('EITHER', tektronix) == 'EITher'
-    assert R._map_trigger_slope_value('RISE', rigol) == 'POSitive'
-    assert R._map_trigger_slope_value('FALL', rigol) == 'NEGative'
-    assert R._map_trigger_slope_value('EITHER', rigol) == 'RFALl'
-    assert R._map_trigger_slope_value('RISE', siglent) == 'RISing'
-    assert R._map_trigger_slope_value('FALL', siglent) == 'FALLing'
-    assert R._map_trigger_slope_value('EITHER', siglent) == 'ALTernate'
-    assert R._map_trigger_slope_value('RISing', siglent) == 'RISing'
-    assert R._map_trigger_slope_value('RISE', None) == 'RISE'
 
 
-def test_trigger_slope_syntax_formatting(lib):
-    """La syntax usa placeholder {slope}: la formattazione deve funzionare."""
-    from frontend.ui.RemoteControlTab import RemoteControlTab as R
-    series_ids = ('Tektronix_5_Series_MSO', 'Rigol_DS1000Z_Series',
-                  'Siglent_SDS_HD_Series')
-    for series_id in series_ids:
-        series = next(s for s in lib.get_series('oscilloscope')
-                      if s.get('series_id') == series_id)
-        model_id = series['models'][0]['id']
-        slope_cmd = lib.get_model_scpi('oscilloscope', series_id, model_id)
-        slope = slope_cmd['set_trigger_slope']
-        syntax = slope['set']['syntax']
-        values = slope['parameters']['slope']['values']
-        value = R._map_trigger_slope_value('RISE', values)
-        assert '{slope}' in syntax
-        cmd = syntax.format(slope=value)
-        assert '{' not in cmd
 
 
-def test_trigger_slope_fallback():
-    """
-    Senza set_trigger_slope in libreria (il submodule non va modificato),
-    la sintassi viene derivata da set_trigger_source e il valore normalizzato.
-    """
-    from frontend.ui.RemoteControlTab import RemoteControlTab
-    # Tek-style: TRIGger:A:EDGE:SOUrce CH{n}
-    s = RemoteControlTab._get_trigger_slope_syntax_fallback(
-        'TRIGger:A:EDGE:SOUrce CH{channel_number}')
-    assert s == 'TRIGger:A:EDGE:SLOPe {value}'
-    # Rigol/Siglent-style: :TRIGger:EDGE:SOURce C{n}
-    s = RemoteControlTab._get_trigger_slope_syntax_fallback(
-        ':TRIGger:EDGE:SOURce C{channel_number}')
-    assert s == ':TRIGger:EDGE:SLOPe {value}'
-    assert RemoteControlTab._get_trigger_slope_syntax_fallback(None) == \
-        ':TRIGger:EDGE:SLOPe {value}'
-    assert RemoteControlTab._get_trigger_slope_syntax_fallback(':NOPE x') is None
-    # Normalizzazione valore (RISE non accettato da Siglent: -> RIS)
-    assert RemoteControlTab._normalize_trigger_slope('RISE') == 'RIS'
-    assert RemoteControlTab._normalize_trigger_slope('RISing') == 'RIS'
-    assert RemoteControlTab._normalize_trigger_slope('FALL') == 'FALL'
-    assert RemoteControlTab._normalize_trigger_slope('falling') == 'FALL'
 
 
-def test_trigger_slope_mapping():
-    """Il file .was usa RISE/FALL generici: mapping verso i valori accettati."""
-    from frontend.ui.RemoteControlTab import RemoteControlTab
-    assert RemoteControlTab._map_enum_value('RISE', ['RIS', 'FALL']) == 'RIS'
-    assert RemoteControlTab._map_enum_value('RISE', ['RISe', 'FALL']) == 'RISe'
-    assert RemoteControlTab._map_enum_value('FALL', ['RISE', 'FALL']) == 'FALL'
-    assert RemoteControlTab._map_enum_value('FALL', ['RIS', 'FALLing']) == 'FALLing'
-    assert RemoteControlTab._map_enum_value('RISE', None) == 'RISE'
 
 
 def test_was_applier_parsing():
@@ -215,3 +131,51 @@ def test_was_applier_parsing():
     assert RemoteControlTab._parse_voltage_value('100mV') == 0.1
     assert RemoteControlTab._parse_voltage_value('0.5') == 0.5
     assert RemoteControlTab._parse_voltage_value('zzz') is None
+
+
+def test_resolve_model_commands_override_remove_patch():
+    """Model scpi_commands: full definition replaces, null removes, patch deep-merges."""
+    from frontend.core.LoadInstruments import LoadInstruments
+    series = {
+        'common_scpi_commands': {
+            'set_a': {'set': {'syntax': 'A {value}'}, 'parameters': {'value': {'type': 'float'}}},
+            'set_b': {'set': {'syntax': 'B {mode}'},
+                      'parameters': {'mode': {'type': 'string', 'values': ['X', 'Y']}}},
+            'set_c': {'set': {'syntax': 'C'}},
+            'set_d': {'set': {'syntax': 'D'}},
+        }
+    }
+    model = {'id': 'M', 'scpi_commands': {
+        'set_a': {'set': {'syntax': 'A2 {value}'}, 'parameters': {'value': {'type': 'float'}}},
+        'set_b': {'patch': {'parameters': {'mode': {'values': ['X', 'Y', 'Z']}}}},
+        'set_c': None,
+        'set_x': {'patch': {'set': {'syntax': 'ignored'}}},
+    }}
+    out = LoadInstruments.resolve_model_commands(series, model)
+    assert out['set_a']['set']['syntax'] == 'A2 {value}'
+    assert out['set_b']['set']['syntax'] == 'B {mode}'
+    assert out['set_b']['parameters']['mode'] == {'type': 'string', 'values': ['X', 'Y', 'Z']}
+    assert 'set_c' not in out
+    assert out['set_d'] == {'set': {'syntax': 'D'}}
+    assert 'set_x' not in out
+    # the series must not be modified
+    assert series['common_scpi_commands']['set_b']['parameters']['mode']['values'] == ['X', 'Y']
+
+
+def test_both_loaders_give_the_same_commands(lib):
+    """LoadInstruments (the GUI) and ola.library (the call planner) read the same JSON: they
+    must give the same series, models and command set for every model."""
+    from ola.library import Library
+    ola_lib = Library.load(LIB_PATH)
+    checked = 0
+    for type_name in lib.get_all_types():
+        for series in lib.get_series(type_name) or []:
+            for model in series.get('models', []) or []:
+                model_id = model.get('id')
+                found = ola_lib.find_model(model_id)
+                assert found is not None, model_id
+                assert found.series.get('series_id') == series.get('series_id'), model_id
+                assert lib.get_model_scpi(type_name, series.get('series_id'), model_id) == \
+                    ola_lib.commands(model_id), model_id
+                checked += 1
+    assert checked > 30

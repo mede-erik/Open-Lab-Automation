@@ -65,3 +65,9 @@ class ResponseNotRecognisedError(CallError):
     """CALL-005: the answer could not be interpreted."""
 
     code = "CALL-005"
+
+
+class ManualActionCancelledError(CallError):
+    """CALL-006: the operator cancelled a manual action (a manual instrument was not set)."""
+
+    code = "CALL-006"

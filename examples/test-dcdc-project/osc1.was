@@ -6,17 +6,23 @@
       "name": "Vd_Q1",
       "enabled": true,
       "volt_per_div": "10V",
-      "probe_attenuation": 1.0
+      "probe_attenuation": 10.0
     },
     {
       "channel_id": "CH2",
       "name": "Vs_Q1",
       "enabled": true,
       "volt_per_div": "10V",
-      "probe_attenuation": 1.0
+      "probe_attenuation": 10.0
     }
   ],
   "settings": {
-    "time_per_div": 100.0
+    "time_per_div": 1e-06
+  },
+  "trigger": {
+    "source": "CH1",
+    "level": 5.0,
+    "slope": "RISE",
+    "mode": "NORMAL"
   }
 }

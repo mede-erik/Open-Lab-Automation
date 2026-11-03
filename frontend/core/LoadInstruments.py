@@ -3,6 +3,10 @@ import logging
 import os
 import warnings
 
+from ola.library import Library as _Library
+from ola.library import load_schemas as _load_schemas
+from ola.library import resolve_model_commands as _resolve_model_commands
+
 logger = logging.getLogger('frontend.core.LoadInstruments')
 
 
@@ -35,6 +39,8 @@ class LoadInstruments:
     def __init__(self):
         """Inizializza la lista strumenti vuota."""
         self.instruments = {}
+        self.library_path = None
+        self._ola_library = None
 
     def load_instruments(self, file_path=None):
         """
@@ -45,6 +51,8 @@ class LoadInstruments:
             bool: True if the library was loaded and has a valid structure.
         """
         file_path = file_path or get_library_path()
+        self.library_path = file_path
+        self._ola_library = None
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -446,7 +454,7 @@ class LoadInstruments:
         Restituisce la chiave della libreria (pluralizzata) per un tipo di strumento.
         Args:
             type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger',
-                             'oscilloscope', 'electronic_load').
+                             'oscilloscope', 'electronic_load', 'switch_unit').
         Returns:
             str | None: Chiave della libreria (es. 'power_supplies_series') o None.
         """
@@ -455,6 +463,7 @@ class LoadInstruments:
             'datalogger': 'dataloggers_series',
             'oscilloscope': 'oscilloscopes_series',
             'electronic_load': 'electronic_loads_series',
+            'switch_unit': 'switch_units_series',
         }
         return key_by_type.get(type_name)
 
@@ -561,12 +570,39 @@ class LoadInstruments:
         series_list = self.get_series(type_name) or []
         for series in series_list:
             if series.get('series_id') == series_id:
-                common = series.get('common_scpi_commands', {})
                 for model in series.get('models', []):
                     if model.get('id') == model_id:
-                        specific = model.get('scpi_commands', {})
-                        return {**common, **specific}
+                        return self.resolve_model_commands(series, model)
         return None
+
+    def get_library(self):
+        """
+        Return the Qt-free ola.library.Library built from the loaded instruments and the
+        call schemas found in the 'schema' folder next to the library file.
+        Returns:
+            ola.library.Library: library used by the call planner.
+        """
+        if self._ola_library is None:
+            schemas = {}
+            if self.library_path:
+                schema_dir = os.path.join(os.path.dirname(os.path.abspath(self.library_path)), 'schema')
+                if os.path.isdir(schema_dir):
+                    schemas = _load_schemas(schema_dir)
+            self._ola_library = _Library(self.instruments, schemas)
+        return self._ola_library
+
+    @staticmethod
+    def resolve_model_commands(series, model):
+        """
+        Build the SCPI command set of one model from its series (override, remove with null,
+        patch). Thin wrapper: the logic lives in the Qt-free module ola.library.
+        Args:
+            series (dict): Series dict from the library.
+            model (dict): Model dict belonging to the series.
+        Returns:
+            dict: Call name -> command definition for this model.
+        """
+        return _resolve_model_commands(series, model)
 
     def get_supported_connections(self, type_name, series_id, model_id):
         """
@@ -705,6 +741,7 @@ class LoadInstruments:
             ('dataloggers_series', 'datalogger'),
             ('oscilloscopes_series', 'oscilloscope'),
             ('electronic_loads_series', 'electronic_load'),
+            ('switch_units_series', 'switch_unit'),
         ]
         available = []
         for key, tname in mapping:

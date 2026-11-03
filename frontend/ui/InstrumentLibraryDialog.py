@@ -368,15 +368,23 @@ Documentazione: {model_data.get('documentation_path', 'N/A')}
         """Formatta un comando SCPI per la visualizzazione, compatibile con vecchio formato."""
         if isinstance(command_def, str):
             return command_def
+        if command_def is None:
+            return "not supported"
         if not isinstance(command_def, dict):
             return "N/A"
+        if 'patch' in command_def and 'set' not in command_def and 'query' not in command_def:
+            return f"patch: {command_def.get('patch')}"
         set_def = command_def.get('set')
         query_def = command_def.get('query')
         parts = []
         if isinstance(set_def, dict) and set_def.get('syntax'):
             parts.append(f"set: {set_def.get('syntax')}")
+        elif isinstance(set_def, dict) and set_def.get('steps'):
+            parts.append("set: " + " ; ".join(s.get('text', s.get('op', '')) for s in set_def['steps']))
         if isinstance(query_def, dict) and query_def.get('syntax'):
             parts.append(f"query: {query_def.get('syntax')}")
+        elif isinstance(query_def, dict) and query_def.get('steps'):
+            parts.append("query: " + " ; ".join(s.get('text', s.get('op', '')) for s in query_def['steps']))
         if parts:
             return " | ".join(parts)
         return "N/A"

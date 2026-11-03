@@ -11,22 +11,17 @@
     "osc1.was"
   ],
   "control_variables": [
-    "Vaux",
     "VIN",
+    "Vaux",
     "Vdrive",
-    "Iout1",
-    "Iout2",
-    "Iout3",
-    "Vaux2",
-    "Vaux3",
-    "Vaux4",
-    "Vaux5"
+    "Vcc",
+    "Iout"
   ],
   "measure_variables": [
-    "VIN",
-    "Vcc",
     "VOUT",
-    "Vaux",
-    "CH1"
+    "VIN_monitor",
+    "Temp_Q1",
+    "Vd_Q1",
+    "Vs_Q1"
   ]
 }

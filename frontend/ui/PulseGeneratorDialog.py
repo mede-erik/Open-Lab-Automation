@@ -24,14 +24,14 @@ import numpy as np
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
 from frontend.core.errorhandler import ErrorHandler, ErrorCode
+from ola.pulse_power import check_pulse_power, max_amplitude, max_base_level, max_duty
 
-# Fallback SCPI standard (sintassi Chroma 6330A) per i comandi dynamic mode
-# non presenti nella libreria. Usati SOLO per serie con capabilities.dynamic_mode == true.
-SCPI_DYNAMIC_FALLBACKS = {
-    'set_dynamic_frequency': 'CURR:DYN:FREQ {value}',
-    'enable_dynamic_mode': 'MODE CCDH',
-    'disable_dynamic_mode': 'MODE CCL',
-}
+# Logical calls the Pulse Generator needs from an electronic load (see schema/electronic_load.json).
+# A model that does not define all of them cannot be used here: there is no generic fallback.
+REQUIRED_CALLS = (
+    'load_on', 'load_off', 'set_dynamic_level_high', 'set_dynamic_level_low',
+    'set_dynamic_timing', 'enable_dynamic_mode', 'disable_dynamic_mode',
+)
 
 try:
     import matplotlib
@@ -79,6 +79,7 @@ class PulseGeneratorDialog(QDialog):
         self.current_scpi_commands = None
         self.current_limits = {'max_current': None, 'max_voltage': None, 'max_power': None}
         self.visa_instr = None
+        self.pulse_handle = None
         self.pulse_running = False
 
         # Track last modified parameter for power validation
@@ -144,7 +145,7 @@ class PulseGeneratorDialog(QDialog):
         self.width_spin.setDecimals(1)
         self.width_spin.setSuffix(" μs")
         self.width_spin.setValue(100.0)
-        self.width_spin.editingFinished.connect(self.update_waveform)
+        self.width_spin.editingFinished.connect(self.validate_width)
         params_layout.addRow(self.translator.t('pulse_width') + ":", self.width_spin)
 
         # Frequency
@@ -153,8 +154,18 @@ class PulseGeneratorDialog(QDialog):
         self.frequency_spin.setDecimals(3)
         self.frequency_spin.setSuffix(" Hz")
         self.frequency_spin.setValue(1000.0)
-        self.frequency_spin.editingFinished.connect(self.update_waveform)
+        self.frequency_spin.editingFinished.connect(self.validate_frequency)
         params_layout.addRow(self.translator.t('pulse_frequency') + ":", self.frequency_spin)
+
+        # Working voltage: the circuit under test decides it; needed to check the power
+        self.voltage_spin = QDoubleSpinBox()
+        self.voltage_spin.setRange(0.0, 10000.0)
+        self.voltage_spin.setDecimals(3)
+        self.voltage_spin.setSuffix(" V")
+        self.voltage_spin.setValue(0.0)
+        self.voltage_spin.setToolTip(self.translator.t('pulse_working_voltage_hint'))
+        self.voltage_spin.editingFinished.connect(self.validate_voltage)
+        params_layout.addRow(self.translator.t('pulse_working_voltage') + ":", self.voltage_spin)
 
         # Rise Time
         self.rise_time_spin = QDoubleSpinBox()
@@ -352,18 +363,10 @@ class PulseGeneratorDialog(QDialog):
                 self.start_button.setEnabled(False)
                 return
 
-            # Dynamic mode support: capabilities o comandi libreria
-            dynamic_supported = bool(
-                self.current_capabilities.get('dynamic_mode', False)
-                or 'set_dynamic_level_high' in self.current_scpi_commands
-                or 'set_dynamic_level_low' in self.current_scpi_commands
-            )
+            # The model must define every call the tool uses (no generic fallback)
+            missing_commands = [cmd for cmd in REQUIRED_CALLS if cmd not in self.current_scpi_commands]
 
-            # Validate required commands (load on/off sempre richiesti)
-            required_commands = ['load_on', 'load_off']
-            missing_commands = [cmd for cmd in required_commands if cmd not in self.current_scpi_commands]
-
-            if missing_commands or not dynamic_supported:
+            if missing_commands:
                 QMessageBox.critical(
                     self,
                     self.translator.t('error'),
@@ -384,7 +387,7 @@ class PulseGeneratorDialog(QDialog):
             )
             max_current = self.current_limits.get('max_current') or 100.0
             max_voltage = self.current_limits.get('max_voltage') or 80.0
-            max_power = self.current_limits.get('max_power') or 1000.0
+            max_power = self.current_limits.get('max_power')  # None: the library has no limit
 
             # Update spinbox limits
             self.amplitude_spin.setMaximum(max_current)
@@ -393,7 +396,8 @@ class PulseGeneratorDialog(QDialog):
             # Update info label
             info_text = (
                 f"✓ {self.translator.t('pulse_supported')}\n"
-                f"Max: {max_current}A, {max_voltage}V, {max_power}W"
+                f"Max: {max_current}A, {max_voltage}V, "
+                f"{str(max_power) + 'W' if max_power else 'power: n/a'}"
             )
             self.instrument_info_label.setText(info_text)
             self.instrument_info_label.setStyleSheet("color: #0a0; font-weight: bold;")
@@ -440,6 +444,7 @@ class PulseGeneratorDialog(QDialog):
         if not self.current_capabilities:
             return
 
+        self.last_modified_param = 'base_level'
         value = self.base_level_spin.value()
         max_current = self.current_limits.get('max_current') or 100.0
 
@@ -454,27 +459,133 @@ class PulseGeneratorDialog(QDialog):
             )
             self.base_level_spin.setValue(max_current)
 
+        self.validate_power()
         self.update_waveform()
 
+    def validate_width(self):
+        """The pulse width changed: check the power (the duty cycle changes)."""
+        self.last_modified_param = 'width'
+        self.validate_power()
+        self.update_waveform()
+
+    def validate_frequency(self):
+        """The frequency changed: check the power (the duty cycle changes)."""
+        self.last_modified_param = 'frequency'
+        self.validate_power()
+        self.update_waveform()
+
+    def validate_voltage(self):
+        """The working voltage changed: check the power."""
+        self.last_modified_param = 'voltage'
+        self.validate_power()
+
+    def _duty_percent(self):
+        """Duty cycle (percent of the period at the amplitude) from the width and frequency."""
+        return self.width_spin.value() * self.frequency_spin.value() / 10000.0
+
+    @staticmethod
+    def _floor(value, decimals):
+        """Round down to the decimals of a spin box, so the corrected value stays within the limit."""
+        factor = 10 ** decimals
+        return int(value * factor) / factor
+
+    def _power_message(self, result, max_power):
+        """Text for a pulse that exceeds the power limit: the powers and the limit."""
+        t = self.translator.t
+        return (
+            t('pulse_power_exceeded').format(power=round(result.worst, 3), max=max_power)
+            + "\n"
+            + t('pulse_power_summary').format(
+                peak=round(result.peak, 3), average=round(result.average, 3), max=max_power
+            )
+        )
+
     def validate_power(self):
-        """Validate combined power P = I * V"""
+        """
+        Check the peak and the average power (P = I * V) against the power limit of the load.
+        If a limit is exceeded, the parameter modified last is corrected. Nothing is checked
+        when the library gives no power limit or the working voltage is not entered (the
+        check at start then asks for it).
+        """
         if not self.current_capabilities:
             return
 
         max_power = self.current_limits.get('max_power')
-        if not max_power:
-            return  # No power limit defined
+        voltage = self.voltage_spin.value()
+        if not max_power or voltage <= 0:
+            return
 
-        # For simplicity, assume voltage is nominal (to be extended with voltage input)
-        # For now, just check if we have operating mode info
-        mode = self.mode_combo.currentText()
-
-        # This is simplified - in real implementation would need voltage parameter
-        # For now, just log that power validation is available
         amplitude = self.amplitude_spin.value()
+        base_level = self.base_level_spin.value()
+        duty = self._duty_percent()
+        result = check_pulse_power(amplitude, base_level, duty, voltage, max_power)
+        if not result.exceeded:
+            return
 
-        # Placeholder: full implementation would calculate P = I * V
-        # and correct last modified parameter if power exceeds max_power_w
+        param = self.last_modified_param
+        if param not in ('amplitude', 'base_level', 'width', 'frequency'):
+            param = 'amplitude'  # the voltage comes from the circuit: lower the current instead
+        t = self.translator.t
+        if param == 'amplitude':
+            value = self._floor(max_amplitude(base_level, duty, voltage, max_power), 3)
+            self.amplitude_spin.setValue(value)
+            shown, unit = t('pulse_amplitude'), f"{value} A"
+        elif param == 'base_level':
+            value = self._floor(max_base_level(amplitude, duty, voltage, max_power), 3)
+            self.base_level_spin.setValue(value)
+            shown, unit = t('pulse_base_level'), f"{value} A"
+        else:
+            new_duty = max_duty(amplitude, base_level, voltage, max_power)
+            if param == 'width':
+                value = self._floor(new_duty * 10000.0 / self.frequency_spin.value(), 1)
+                self.width_spin.setValue(max(value, self.width_spin.minimum()))
+                shown, unit = t('pulse_width'), f"{value} us"
+            else:
+                value = self._floor(new_duty * 10000.0 / self.width_spin.value(), 3)
+                self.frequency_spin.setValue(max(value, self.frequency_spin.minimum()))
+                shown, unit = t('pulse_frequency'), f"{value} Hz"
+
+        QMessageBox.warning(
+            self,
+            t('error'),
+            self._power_message(result, max_power)
+            + "\n" + t('pulse_power_corrected').format(parameter=shown, value=unit)
+            + "\n[TOOL-008]",
+        )
+
+    def _power_allowed_to_start(self, amplitude, base_level, duty):
+        """
+        Last check before the load is switched on: the voltage across the load is read from the
+        load and the larger of it and the entered working voltage is used. Returns False (and
+        closes the connection) if the voltage is unknown or a power limit is exceeded.
+        """
+        max_power = self.current_limits.get('max_power')
+        if not max_power:
+            return True
+        try:
+            measured = float(self.pulse_handle.call('read_voltage'))
+        except Exception:
+            measured = 0.0  # the load could not be read: only the entered voltage is known
+        voltage = max(self.voltage_spin.value(), measured)
+        if voltage <= 0:
+            self._refuse_start(self.translator.t('pulse_voltage_unknown'))
+            return False
+        result = check_pulse_power(amplitude, base_level, duty, voltage, max_power)
+        if result.exceeded:
+            self._refuse_start(self._power_message(result, max_power))
+            return False
+        return True
+
+    def _refuse_start(self, message):
+        """Tell why the pulse does not start and release the connection to the load."""
+        QMessageBox.critical(self, self.translator.t('error'), f"{message}\n[TOOL-008]")
+        if self.visa_instr:
+            try:
+                self.visa_instr.close()
+            except Exception:
+                pass
+        self.visa_instr = None
+        self.pulse_handle = None
 
     def plot_pulse_waveform(self):
         """Plot pulse waveform with matplotlib"""
@@ -546,17 +657,19 @@ class PulseGeneratorDialog(QDialog):
         """Update waveform plot"""
         self.plot_pulse_waveform()
 
-    def _get_scpi_cmd_with_fallback(self, key):
-        """
-        Restituisce la sintassi SCPI per un comando dalla libreria,
-        oppure il fallback standard se il comando non è definito.
-        I fallback coprono solo comandi dynamic mode standard (Chroma).
-        """
-        if self.current_scpi_commands and key in self.current_scpi_commands:
-            syntax = self._get_scpi_set_syntax(self.current_scpi_commands.get(key))
-            if syntax:
-                return syntax
-        return SCPI_DYNAMIC_FALLBACKS.get(key)
+    def _make_handle(self, visa_address):
+        """InstrumentHandle for the selected load: handle.call(name, **args) works for every brand."""
+        from ola._visa import VisaConnection
+        from ola.instrument import Instrument
+        from ola.instrument_handle import InstrumentHandle
+        library = self.load_instruments.get_library()
+        model_key = self.current_instrument.get('model_id', self.current_instrument.get('model', ''))
+        model_id = library.resolve_model_id(model_key)
+        if not model_id:
+            raise ValueError(f"model {model_key!r} is not in the instrument library")
+        name = self.current_instrument.get('instance_name', visa_address)
+        connection = VisaConnection(self.visa_instr, visa_address, 5000, pyvisa)
+        return InstrumentHandle(name, library, model_id, Instrument(name, connection))
 
     def start_pulse(self):
         """Start pulse generation"""
@@ -587,42 +700,32 @@ class PulseGeneratorDialog(QDialog):
                 )
                 return
 
-            # Connect to instrument
+            # Connect to instrument; the logical calls are translated for this model
             rm = pyvisa.ResourceManager()
             self.visa_instr = rm.open_resource(visa_address)
             self.visa_instr.timeout = 5000
+            self.pulse_handle = self._make_handle(visa_address)
 
             # Get parameters
             amplitude = self.amplitude_spin.value()
             base_level = self.base_level_spin.value()
             frequency = self.frequency_spin.value()
+            width_us = self.width_spin.value()
+            duty = width_us * frequency / 10000.0  # percent of the period
+            if not 0.0 < duty < 100.0:
+                raise ValueError(
+                    f"pulse width {width_us} us does not fit in the period of {frequency} Hz"
+                )
 
-            # Send SCPI commands (con fallback per dynamic mode)
-            cmd_high = self._get_scpi_cmd_with_fallback('set_dynamic_level_high')
-            cmd_low = self._get_scpi_cmd_with_fallback('set_dynamic_level_low')
-            cmd_on = self._get_scpi_cmd_with_fallback('load_on')
+            if not self._power_allowed_to_start(amplitude, base_level, duty):
+                return
 
-            if not cmd_high or not cmd_low or not cmd_on:
-                raise ValueError("Comandi SCPI richiesti mancanti o non validi")
-
-            cmd_high = cmd_high.format(value=amplitude)
-            cmd_low = cmd_low.format(value=base_level)
-
-            self.visa_instr.write(cmd_high)
-            self.visa_instr.write(cmd_low)
-
-            # Set dynamic frequency (fallback se manca nella libreria)
-            cmd_freq = self._get_scpi_cmd_with_fallback('set_dynamic_frequency')
-            if cmd_freq:
-                self.visa_instr.write(cmd_freq.format(value=frequency))
-
-            # Enable dynamic mode (fallback se manca nella libreria)
-            cmd_enable = self._get_scpi_cmd_with_fallback('enable_dynamic_mode')
-            if cmd_enable:
-                self.visa_instr.write(cmd_enable)
-
-            # Turn load on
-            self.visa_instr.write(cmd_on)
+            handle = self.pulse_handle
+            handle.call('set_dynamic_level_high', value=amplitude)
+            handle.call('set_dynamic_level_low', value=base_level)
+            handle.call('set_dynamic_timing', frequency=frequency, duty=duty)
+            handle.call('enable_dynamic_mode')
+            handle.call('load_on')
 
             # Update UI
             self.pulse_running = True
@@ -649,19 +752,14 @@ class PulseGeneratorDialog(QDialog):
             return
 
         try:
-            # Disable dynamic mode (fallback se manca nella libreria)
-            cmd_disable = self._get_scpi_cmd_with_fallback('disable_dynamic_mode')
-            if cmd_disable:
-                self.visa_instr.write(cmd_disable)
-
-            # Turn load off
-            cmd_off = self._get_scpi_cmd_with_fallback('load_off')
-            if cmd_off:
-                self.visa_instr.write(cmd_off)
+            # Disable dynamic mode and turn the load off
+            self.pulse_handle.call('disable_dynamic_mode')
+            self.pulse_handle.call('load_off')
 
             # Close connection
             self.visa_instr.close()
             self.visa_instr = None
+            self.pulse_handle = None
 
             # Update UI
             self.pulse_running = False
@@ -699,13 +797,3 @@ class PulseGeneratorDialog(QDialog):
                 event.ignore()
         else:
             event.accept()
-
-    def _get_scpi_set_syntax(self, command_def):
-        """Restituisce la sintassi SCPI per i comandi di set, compatibile con vecchio formato."""
-        if isinstance(command_def, str):
-            return command_def
-        if isinstance(command_def, dict):
-            set_def = command_def.get('set')
-            if isinstance(set_def, dict):
-                return set_def.get('syntax')
-        return None
