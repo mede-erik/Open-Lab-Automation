@@ -1,0 +1,18 @@
+{
+  "form_field": "Champ",
+  "form_problem": "Problème",
+  "form_problems": "Problèmes : {errors} erreur(s), {warnings} avertissement(s) - double-clic pour aller au champ",
+  "form_summary_ok": "Prête à mesurer",
+  "form_summary_errors": "Démarrage impossible : {errors} erreur(s) à corriger",
+  "form_choose_instrument": "Choisissez l'instrument pour '{role}'",
+  "form_save": "Enregistrer",
+  "form_close": "Fermer",
+  "form_saved": "Enregistré",
+  "form_save_failed": "Échec de l'enregistrement : {error}",
+  "form_save_with_errors": "Il y a {errors} erreur(s) : la mesure ne peut pas démarrer tant qu'elles ne sont pas corrigées. Enregistrer quand même ?",
+  "form_unsaved_changes": "Enregistrer les modifications ?",
+  "form_not_a_number": "Nombre non valide (vous pouvez écrire 433M, 2.4G...)",
+  "form_not_an_integer": "Doit être un nombre entier",
+  "form_json_invalid": "JSON non valide : {error}",
+  "form_no_form": "Le module '{module}' n'a pas de formulaire d'édition."
+}

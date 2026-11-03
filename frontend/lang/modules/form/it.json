@@ -1,0 +1,18 @@
+{
+  "form_field": "Campo",
+  "form_problem": "Problema",
+  "form_problems": "Problemi: {errors} errore/i, {warnings} avviso/i - doppio clic per andare al campo",
+  "form_summary_ok": "Pronta per misurare",
+  "form_summary_errors": "Non si può ancora avviare: {errors} errore/i da correggere",
+  "form_choose_instrument": "Scegli lo strumento per '{role}'",
+  "form_save": "Salva",
+  "form_close": "Chiudi",
+  "form_saved": "Salvato",
+  "form_save_failed": "Salvataggio non riuscito: {error}",
+  "form_save_with_errors": "Ci sono {errors} errore/i: la misura non può partire finché non sono corretti. Salvare comunque?",
+  "form_unsaved_changes": "Salvare le modifiche?",
+  "form_not_a_number": "Numero non valido (puoi scrivere 433M, 2.4G...)",
+  "form_not_an_integer": "Deve essere un numero intero",
+  "form_json_invalid": "JSON non valido: {error}",
+  "form_no_form": "Il modulo '{module}' non ha un modulo di modifica."
+}

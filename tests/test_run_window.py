@@ -89,7 +89,7 @@ def test_every_key_used_by_the_window_exists():
     used = set(re.findall(r'"(run_[a-z_0-9]+)"', source))
     states = ["idle", "running", "paused", "waiting", "stopping", "finished", "stopped", "failed"]
     used |= {f"run_state_{s}" for s in states}
-    used |= {f"run_q_{k}_title" for k in ("verify", "outputs_on", "generic")}
+    used |= {f"run_q_{k}_title" for k in ("verify", "outputs_on", "calibration", "generic")}
     used |= {f"run_choice_{c}" for c in ("retry", "abort", "skip", "continue")}
     assert sorted(used - set(_catalogs()["en"])) == []
 
@@ -339,3 +339,30 @@ def test_the_trace_plot_reads_values_and_ignores_a_log_axis_with_zero(app):
     assert plot.log_x and plot.readout(1.9e6) == ["a: 2  @ 2 MHz"]
     plot.set_curves([("a", [0.0, 2e6], [1.0, 2.0])], x_unit="Hz", log_x=True)
     assert not plot.log_x  # zero cannot be on a logarithmic axis
+
+
+def test_a_cable_run_in_the_window_shows_the_loss_and_asks_about_calibration(app, windows):
+    """The whole path: the cable measurement, its question pop-up, and the curves it makes."""
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+    from tests.test_cable import PARAMS
+
+    p = dict(PARAMS, confirm_setup=True, limits={"max": 3.0}, also_s11=True)
+    m = default_registry(user_dir="/nonexistent").create("cable", p)
+    w = window(windows, Runner(m, {"vna": [SimVna(length_m=2.0)]}), auto_start=True)
+    assert pump(app, lambda: w._dialog is not None)
+    from PyQt6.QtWidgets import QLabel
+
+    labels = [lab.text() for lab in w._dialog.findChildren(QLabel)]
+    assert any("calibrated" in text for text in labels)  # the question of the measurement
+    assert any("Sweep:" in text and "1 MHz" in text for text in labels)  # the structured summary
+    w._dialog.buttons["continue"].click()
+    assert pump(app, lambda: w.model.finished)
+    w._tick()
+    assert w.model.state == "finished"
+    shown = [c[0] for c in w.trace_plot.curves]
+    assert shown == ["loss_db"]  # the raw S-parameters and the delay start hidden
+    assert len(w.trace_plot.limits) == 1  # the limit of the measurement is drawn
+    assert w.trace_list.count() >= 5 and w.touchstone_btn.isEnabled() is False  # no run file here
+    row = w.model.points[0]
+    assert row["verdict"] == "PASS" and row["cable"] == "RG58 #3"

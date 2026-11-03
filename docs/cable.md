@@ -41,7 +41,7 @@ With `"also_s11": true` in transmission mode the return loss and the VSWR of the
 | `averages` | number of sweeps averaged (reduces noise) |
 | `confirm_setup` | `false` skips the question (for scripts) |
 
-The editor checks the file while it is filled in; every problem names the field.
+The editor (*Edit* in the project window, built from the module's `form.json`) checks the file while it is filled in: every problem is shown at its field, a number can be typed as `433M` or `2.4 GHz`, and the VNA is chosen from the instruments of the project.
 
 ## Results
 

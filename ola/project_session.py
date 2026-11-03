@@ -134,6 +134,12 @@ class ProjectSession:
             from .efficiency_editor import EfficiencyEditor
 
             params = EfficiencyEditor.template(self.instruments)
+        elif self.registry.get(type).builtin:  # a built-in module may give its own starting point
+            import sys
+
+            module = sys.modules.get(self.registry.load_class(type).__module__)
+            starting = getattr(module, "default_params", None)
+            params = dict(starting()) if callable(starting) else {}
         ref = self.project.add_measurement(type, name, self.registry, params)
         self.project.save()
         return ref

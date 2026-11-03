@@ -46,6 +46,8 @@
   "run_file": "Archivo de resultados: {path}",
   "run_q_verify_title": "La lectura no coincide",
   "run_q_outputs_on_title": "Salidas ya encendidas",
+  "run_q_calibration_title": "Calibración y conexión",
+  "run_q_calibration_details": "Barrido: de {start} a {stop}, {points} puntos. Calibre primero el VNA en este rango.",
   "run_q_generic_title": "La medición pregunta",
   "run_q_verify_details": "<b>{variable}</b>: ajustado {set_value}, leído {read_value} ({reading}).<br>Diferencia {error}; permitido {tol_abs} + {tol_rel} %.",
   "run_q_outputs_on_details": "Ya encendidas: {outputs}",

@@ -129,6 +129,38 @@ reflection coefficient, group delay, velocity factor, a curve at one frequency, 
 and `ola.limits` (`parse_limits({"max": 1.5})` -> `check(freq, y)` gives a pass / fail `Verdict`, and
 `lines(freq)` gives the limit as curves to put in `meta["limits"]`).
 
+## An editor with no code: `form.json`
+
+A module that puts a `form.json` next to its `module.json` gets an editor window for its files with no code of its
+own (`frontend/ui/FormEditorDialog.py`, opened by *Edit* in the project window). The form lists the fields:
+
+```json
+{"sections": [
+  {"title": {"en": "Sweep", "it": "Sweep"},
+   "fields": [
+     {"path": "sweep.start_hz", "kind": "number", "unit": "Hz", "label": {"en": "Start frequency", "it": "Frequenza iniziale"}},
+     {"path": "sweep.scale", "kind": "choice", "label": "Spacing",
+      "choices": [{"value": "linear", "label": "Linear"}, {"value": "log", "label": "Logarithmic"}]},
+     {"path": "termination", "kind": "choice", "visible_if": {"path": "mode", "equals": "reflection"}, "choices": [...]}]}]}
+```
+
+* `path`: where the value is in `params` (`sweep.start_hz`); for a field of kind `instrument` it is the name of a
+  **role**, and the file records the instrument chosen for it (`role_bindings`). A required role with no
+  instrument is an error at its field.
+* `kind`: `text`, `number`, `int`, `bool`, `choice`, `numlist` (a list of numbers), `json` (an object typed as
+  JSON, for what has no field of its own: limits), `instrument`. Numbers can be typed with an SI prefix
+  (`433M`, `2.4 GHz`); an empty field means "not given" and removes the key.
+* `label`, `help`, `placeholder`, the `title` of a section and the `label` of a choice are a text or
+  `{"en": ..., "it": ..., "fr": ..., "es": ..., "de": ...}` (the language of the application, then English).
+* `visible_if`: `{"path": ..., "equals": ...}` or `{"path": ..., "in": [...]}`: the field is shown only then.
+
+The **problems** shown at each field are the ones the module reports itself: give the measurement a method
+`check()` that returns `ola.efficiency_spec.Problem(path, message, severity)` for every wrong thing (`severity`
+`"error"` stops the measurement, `"warning"` does not), and make `validate()` return the errors as sentences. A
+module with only `validate()` still works: its problems are listed without a field. A built-in module may also
+define `default_params()` in `measurement.py`: the starting point of a new file. The model behind the window is
+`ola/form_model.py` (`FormModel`), tested without a screen.
+
 ## Rules
 
 * **Call `ctx.checkpoint()` or `ctx.sleep()` in every loop.** A loop that never does cannot be stopped or paused.

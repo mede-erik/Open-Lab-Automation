@@ -46,6 +46,8 @@
   "run_file": "Fichier des résultats : {path}",
   "run_q_verify_title": "La lecture ne correspond pas",
   "run_q_outputs_on_title": "Sorties déjà allumées",
+  "run_q_calibration_title": "Calibration et connexion",
+  "run_q_calibration_details": "Balayage : de {start} à {stop}, {points} points. Calibrez d'abord le VNA sur cette plage.",
   "run_q_generic_title": "La mesure demande",
   "run_q_verify_details": "<b>{variable}</b> : réglé {set_value}, lu {read_value} ({reading}).<br>Écart {error} ; admis {tol_abs} + {tol_rel} %.",
   "run_q_outputs_on_details": "Déjà allumées : {outputs}",

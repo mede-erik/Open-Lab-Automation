@@ -51,10 +51,12 @@ from frontend.ui.plot_widget import LinePlot
 from frontend.ui.trace_plot import SmithChart, TracePlot
 from ola.measurement import MeasurementError
 from ola.run_view import (
+    QUESTION_CALIBRATION,
     QUESTION_OUTPUTS_ON,
     QUESTION_VERIFY,
     VIEW_SMITH,
     RunModel,
+    format_si,
     question_kind,
     trace_views,
     trace_xy,
@@ -128,6 +130,13 @@ class QuestionDialog(QDialog):
                 error=number(data.get("error_abs")),
                 tol_abs=number(data.get("tol_abs")),
                 tol_rel=number((data.get("tol_rel") or 0) * 100),
+            )
+        if kind == QUESTION_CALIBRATION:
+            return t(
+                "run_q_calibration_details",
+                start=format_si(data.get("start_hz", 0), "Hz"),
+                stop=format_si(data.get("stop_hz", 0), "Hz"),
+                points=data.get("points", "?"),
             )
         if kind == QUESTION_OUTPUTS_ON:
             names = ", ".join(
@@ -495,7 +504,8 @@ class RunWindow(QWidget):
             if name not in have:
                 item = QListWidgetItem(name)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Checked)
+                hidden = m.traces[name].get("meta", {}).get("hidden")
+                item.setCheckState(Qt.CheckState.Unchecked if hidden else Qt.CheckState.Checked)
                 self.trace_list.addItem(item)
                 if not have and m.traces[name].get("meta", {}).get("log_x"):
                     self.log_x_box.setChecked(True)

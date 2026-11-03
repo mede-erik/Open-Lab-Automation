@@ -6,8 +6,8 @@ cannot be used). On the selected one:
 
 * **New**: choose the type (the measurement modules found) and a name; a file with the extension of
   the type is created in the project folder;
-* **Edit** (or double-click): the editor of the type - the efficiency editor for ``.eff``, a JSON
-  editor with validation for the other types;
+* **Edit** (or double-click): the editor of the type - the efficiency editor for ``.eff``, the form
+  built from the module's ``form.json`` if it has one, a JSON editor with validation otherwise;
 * **Start measurement**: opens the run window (live table, plot, log, pop-ups) and starts it; the
   results are written to ``runs/`` in the project folder;
 * **Rename**, **Remove** (the file is only deleted if you ask);
@@ -52,6 +52,7 @@ from PyQt6.QtWidgets import (
 
 from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator
+from ola.form_model import load_form_spec
 from ola.measurement import MeasurementError
 from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
@@ -443,6 +444,17 @@ class ProjectWindow(QMainWindow):
                     self.translator,
                     self.session.instruments,
                     parent=self,
+                )
+            elif load_form_spec(self.registry.get(ref.type)) is not None:
+                from frontend.ui.FormEditorDialog import FormEditorDialog
+
+                dialog = FormEditorDialog(
+                    str(self.session.path(ref)),
+                    self.registry,
+                    ref.type,
+                    self.translator,
+                    self.session.instruments,
+                    self,
                 )
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)

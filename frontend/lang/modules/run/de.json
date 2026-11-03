@@ -46,6 +46,8 @@
   "run_file": "Ergebnisdatei: {path}",
   "run_q_verify_title": "Der Messwert passt nicht",
   "run_q_outputs_on_title": "Ausgänge bereits an",
+  "run_q_calibration_title": "Kalibrierung und Anschluss",
+  "run_q_calibration_details": "Sweep: {start} bis {stop}, {points} Punkte. Kalibrieren Sie das VNA zuerst in diesem Bereich.",
   "run_q_generic_title": "Die Messung fragt",
   "run_q_verify_details": "<b>{variable}</b>: eingestellt {set_value}, gelesen {read_value} ({reading}).<br>Abweichung {error}; erlaubt {tol_abs} + {tol_rel} %.",
   "run_q_outputs_on_details": "Bereits an: {outputs}",

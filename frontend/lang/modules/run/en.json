@@ -46,6 +46,8 @@
   "run_file": "Results file: {path}",
   "run_q_verify_title": "The reading does not match",
   "run_q_outputs_on_title": "Outputs already on",
+  "run_q_calibration_title": "Calibration and connection",
+  "run_q_calibration_details": "Sweep: {start} to {stop}, {points} points. Calibrate the VNA over this range first.",
   "run_q_generic_title": "The measurement asks",
   "run_q_verify_details": "<b>{variable}</b>: set {set_value}, read {read_value} ({reading}).<br>Difference {error}; allowed {tol_abs} + {tol_rel} %.",
   "run_q_outputs_on_details": "Already on: {outputs}",

@@ -26,6 +26,9 @@ FINAL_NAMES = tuple(s.value for s in FINAL_STATES)
 # Kinds of question the window knows how to present; anything else is shown as plain text.
 QUESTION_VERIFY = "verify"  # a reading disagrees with the setpoint: retry / abort / skip
 QUESTION_OUTPUTS_ON = "outputs_on"  # outputs already on will be switched off: continue / abort
+QUESTION_CALIBRATION = (
+    "calibration"  # an instrument must be calibrated / connected: continue / abort
+)
 QUESTION_GENERIC = "generic"
 
 
@@ -36,6 +39,8 @@ def question_kind(question: Mapping[str, Any]) -> str:
         return QUESTION_VERIFY
     if "outputs" in data:
         return QUESTION_OUTPUTS_ON
+    if data.get("kind") == "calibration":
+        return QUESTION_CALIBRATION
     return QUESTION_GENERIC
 
 
@@ -332,3 +337,27 @@ def format_si(value: float, unit: str = "") -> str:
         if abs(value) >= scale * 0.99999:
             return f"{value / scale:.6g} {prefix}{unit}".strip()
     return f"{value:.3g} {unit}".strip()
+
+
+SI_PREFIXES = {
+    "T": 1e12, "G": 1e9, "M": 1e6, "k": 1e3, "m": 1e-3, "u": 1e-6, "n": 1e-9, "p": 1e-12,
+}  # fmt: skip
+
+
+def parse_si(text: str, unit: str = "") -> Optional[float]:
+    """A number typed with an SI prefix: ``"433M"`` or ``"433 MHz"`` -> 433e6, ``"2.4G"`` -> 2.4e9,
+    ``"10m"`` -> 0.01, ``"1e6"`` -> 1e6. ``unit`` (``"Hz"``) may be left out or written; the
+    prefix is case-sensitive (``M`` mega, ``m`` milli). None if it is not a number."""
+    text = text.strip().replace(",", ".")
+    if unit and text.endswith(unit):
+        text = text[: -len(unit)].strip()
+    if not text:
+        return None
+    scale = 1.0
+    if text[-1] in SI_PREFIXES and len(text) > 1:
+        scale, text = SI_PREFIXES[text[-1]], text[:-1].strip()
+    try:
+        value = float(text) * scale
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None

@@ -706,6 +706,19 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   limite dai `meta` della traccia, lettura sotto il mouse, esportazione) con `frontend/ui/trace_plot.py`
   (`TracePlot`, `SmithChart`, senza librerie esterne). **Resta dei pezzi comuni**: un editor per ogni tipo
   di misura (oggi solo l'efficienza; gli altri usano JSON) e lo strumento di confronto nel menu Tools.
+  **Misura del cavo + editor a moduli** (2026-11-03, punto 2 della roadmap §6b): modulo `cable` (`.cbl`):
+  perdita di un cavo RF con un VNA (calibrato prima dall'utente) in trasmissione (S21) o riflessione
+  (S11 con aperto/corto, perdita = metà), in dB e dB/m, a frequenze scelte, ritardo di gruppo e fattore
+  di velocità, return loss/VSWR, verdetto PASS/FAIL su limite (un limite fallito è un **risultato**, non
+  un errore). Domanda iniziale su calibrazione e collegamento (pop-up con riepilogo dello sweep).
+  Avviso se lo sweep è troppo rado per la lunghezza del cavo (la fase si avvolge: ritardo e fattore di
+  velocità non calcolabili, la perdita sì; il modulo non inventa il numero). Chiamate logiche richieste al
+  VNA: `set_sweep` e `read_sparameter` (contratto della categoria `vna`, da scrivere nella libreria).
+  `ola/sim_vna.py` = VNA simulato con cavo. **Editor senza codice**: `form.json` accanto al `module.json`
+  + `ola/form_model.py` + `frontend/ui/FormEditorDialog.py` (campi con prefissi SI, problemi del modulo a
+  fianco di ogni campo, ruolo obbligatorio senza strumento = errore, campi condizionati, 5 lingue): gli
+  altri moduli RF lo riusano. Le tracce con `meta.hidden` partono deselezionate nella scheda Curve.
+  **Provato solo con il VNA simulato**; mancano la categoria `vna` nella libreria e il LiteVNA67.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

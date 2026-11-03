@@ -46,6 +46,8 @@
   "run_file": "File dei risultati: {path}",
   "run_q_verify_title": "La lettura non corrisponde",
   "run_q_outputs_on_title": "Uscite già accese",
+  "run_q_calibration_title": "Calibrazione e collegamento",
+  "run_q_calibration_details": "Sweep: da {start} a {stop}, {points} punti. Calibra prima il VNA su questo intervallo.",
   "run_q_generic_title": "La misura chiede",
   "run_q_verify_details": "<b>{variable}</b>: impostato {set_value}, letto {read_value} ({reading}).<br>Differenza {error}; ammessa {tol_abs} + {tol_rel} %.",
   "run_q_outputs_on_details": "Già accese: {outputs}",
