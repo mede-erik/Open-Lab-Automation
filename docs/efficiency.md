@@ -33,6 +33,7 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
      "reads": {"load": {"instrument": "load1", "call": "read_current"}},
      "output": {"on": {"instrument": "load1", "call": "load_on"},
                 "off": {"instrument": "load1", "call": "load_off"},
+                "state": {"instrument": "load1", "call": "query_input_state"},
                 "mode": "off_during_cooldown"}},
     {"name": "vin",
      "set": {"instrument": "psu1", "call": "set_voltage", "args": {"channel_number": 1}},
@@ -43,6 +44,7 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
      "limits": {"min": 5, "max": 20},
      "output": {"on": {"instrument": "psu1", "call": "output_on"},
                 "off": {"instrument": "psu1", "call": "output_off"},
+                "state": {"instrument": "psu1", "call": "output_state_query"},
                 "mode": "off_during_cooldown"}},
     {"name": "vaux",
      "set": {"instrument": "psu2", "call": "set_voltage"}, "value": 12,
@@ -147,6 +149,18 @@ the measurement, so:
   `shutdown` call that switches it off is refused as an error.
 
 The answer of the `state` call can be a boolean, a number (0 / not 0) or the text ON/OFF/1/0.
+
+### An output that is already on and will be switched off
+
+If an output is defined to be switched off (it has an `off` call and is not always on) the program switches it
+off at the end, **also if it was already on before the measurement**. To make that visible, the measurement
+checks the outputs that have a `state` call **before it touches anything**. If some are already on, one
+pop-up (a `question` event) says so: *"These outputs are already on and will be switched off when the
+measurement ends: 'vin' (psu1). Continue, or stop to change the file?"*, with the choices **continue** and
+**abort**. Abort ends the measurement as *stopped* with nothing changed and nothing switched off, so you can
+edit the file (for example mark the output as always on). An unattended run (`unattended=...`) answers with
+the question's default, which is *abort*: pass `unattended="continue"` to go on. An output without a `state`
+call cannot be checked, and the validation warns about it.
 
 ### Other rules
 

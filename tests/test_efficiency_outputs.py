@@ -244,7 +244,7 @@ def test_without_a_state_call_on_is_sent():
 def test_a_managed_output_that_is_already_on_is_not_switched_on_again_but_is_switched_off_at_end():
     p = with_outputs(modes=("keep_on", "keep_on", "always_on"))
     p["variables"][VIN]["output"]["state"] = call("psu1", "output_state_query")
-    runner, lab = build(p)
+    runner, lab = build(p, unattended="continue")
     lab.on["psu1"] = True
     run_to_end(runner)
     assert "psu1.output_on" not in switching(lab)
@@ -348,3 +348,120 @@ def test_an_always_on_output_with_only_an_off_call_survives_an_error():
     run_to_end(runner)
     assert runner.state is RunState.FAILED and aux_off(lab) == []
     assert "psu1.output_off" in switching(lab)  # the managed outputs are switched off
+
+
+# ---- the pop-up: an output that is already on and will be switched off --------------------
+
+
+def with_state(p, *variables):
+    """Give the outputs of these parameters a 'state' call."""
+    states = {IOUT: call("load1", "query_input_state"), VIN: call("psu1", "output_state_query")}
+    for v in variables:
+        p["variables"][v]["output"]["state"] = states[v]
+    return p
+
+
+def questions(runner):
+    return [e.data for e in runner.drain() if e.kind == "question"]
+
+
+def test_the_user_is_asked_before_anything_is_touched_and_can_continue():
+    p = with_state(with_outputs(), VIN)
+    runner, lab = build(p)
+    lab.on["psu1"] = True
+    runner.start()
+    assert wait_for(lambda: runner.pending_questions)
+    q = runner.pending_questions[0]
+    assert "'vin' (psu1)" in q["text"]
+    assert "will be switched off when the measurement ends" in q["text"]
+    assert q["choices"] == ["continue", "abort"] and q["default"] == "abort"
+    assert q["data"]["outputs"] == [{"variable": "vin", "instrument": "psu1", "off": "output_off"}]
+    assert runner.state is RunState.WAITING
+    assert [c for c in lab.log if c[1] != "output_state_query"] == []  # nothing touched yet
+    runner.answer(q["id"], "continue")
+    assert runner.join(5) and runner.state is RunState.FINISHED, runner.error
+    assert switching(lab)[-2:] == ["psu1.output_off", "load1.load_off"]  # and it is switched off
+
+
+def test_abort_changes_nothing_and_switches_nothing_off():
+    p = with_state(with_outputs(), VIN)
+    runner, lab = build(p)
+    lab.on["psu1"] = True  # the user's supply, already running
+    given, thread = answer_questions(runner, ["abort"])
+    run_to_end(runner)
+    thread.join(2)
+    assert runner.state is RunState.STOPPED and runner.error is None
+    assert [c for c in lab.log if c[1] != "output_state_query"] == []  # no set, no on, no off
+    assert lab.on["psu1"] is True  # still running: the file can be edited
+
+
+def test_unattended_runs_stop_by_default_and_go_on_when_told_to():
+    p = with_state(with_outputs(), VIN)
+    runner, lab = build(p, unattended="skip")  # not one of the choices: the default
+    lab.on["psu1"] = True
+    run_to_end(runner)
+    assert runner.state is RunState.STOPPED and lab.on["psu1"] is True
+    runner, lab = build(p, unattended="continue")
+    lab.on["psu1"] = True
+    run_to_end(runner)
+    assert runner.state is RunState.FINISHED and lab.on["psu1"] is False  # switched off at the end
+
+
+def test_one_question_lists_all_the_outputs_that_are_on():
+    p = with_state(with_outputs(), IOUT, VIN)
+    runner, lab = build(p, unattended="continue")
+    lab.on["psu1"] = lab.on["load1"] = True
+    run_to_end(runner)
+    asked = questions(runner)
+    assert len(asked) == 1
+    assert [o["variable"] for o in asked[0]["data"]["outputs"]] == ["iout", "vin"]
+
+
+def test_no_question_when_nothing_would_be_switched_off_while_on():
+    p = with_state(with_outputs(), IOUT, VIN)
+    runner, lab = build(p)  # everything off: nothing to ask
+    run_to_end(runner)
+    assert runner.state is RunState.FINISHED and questions(runner) == []
+    # an always-on output that is on is not a reason to ask: it is left alone
+    runner, lab = build(with_state(with_outputs(), VIN))
+    lab.on["psu2"] = True
+    run_to_end(runner)
+    assert questions(runner) == []
+    # an output that is on but has no state call cannot be checked
+    runner, lab = build(with_outputs())
+    lab.on["psu1"] = True
+    run_to_end(runner)
+    assert questions(runner) == []
+    # an output that is on but will not be switched off (no off call) is not mentioned
+    p = with_state(with_outputs(), VIN)
+    p["variables"][VIN]["output"].pop("off")
+    p["variables"][VIN]["output"]["mode"] = "keep_on"
+    runner, lab = build(p)
+    lab.on["psu1"] = True
+    run_to_end(runner)
+    assert questions(runner) == []
+
+
+def test_a_failure_before_anything_is_touched_does_not_switch_anything_off():
+    p = with_state(with_outputs(), VIN)
+    runner, lab = build(p)
+    lab.on["psu1"] = True
+    lab.state_answer = lambda on: "maybe"  # cannot be understood
+    run_to_end(runner)
+    assert runner.state is RunState.FAILED
+    assert lab.on["psu1"] is True
+    assert not [c for c in lab.log if c[1] in ("output_off", "load_off", "set_voltage")]
+
+
+def test_an_unbound_instrument_stops_with_nothing_switched_off():
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from tests.efficiency_lab import Handle, Lab
+
+    lab = Lab()
+    lab.on["psu1"] = True
+    m = default_registry(user_dir="/nonexistent").create("efficiency", with_outputs())
+    handles = [Handle(n, lab) for n in ("psu1", "daq1", "load1")]  # psu2 missing
+    runner = Runner(m, {"instruments": handles})
+    run_to_end(runner)
+    assert runner.state is RunState.FAILED and lab.log == [] and lab.on["psu1"] is True

@@ -1,6 +1,10 @@
 """Efficiency measurement (see ``ola/efficiency_spec.py`` for the parameters, ``docs/efficiency.md``
 for the user guide).
 
+Before touching anything: if an output that this measurement will switch off at the end is already
+on (it needs a ``state`` call to know), the user is asked -- continue, or stop to change the file.
+If the user stops here nothing has been touched and nothing is switched off.
+
 Start (before the first point): every parameter is set; the outputs marked ``always_on`` are
 checked and switched on only if they are off (an output that is already on is left alone); then the
 other outputs are switched on in the ``power_order``; then the ``startup`` calls.
@@ -52,6 +56,7 @@ class Efficiency(Measurement):
         except SpecError as exc:
             raise MeasurementError(str(exc)) from exc
         self._handles = {h.name: h for h in ctx.instruments("instruments")}
+        self._touched = False  # becomes True when the first instrument is changed
         used = set()
         for var in self._spec.variables.values():
             if var.set:
@@ -97,6 +102,8 @@ class Efficiency(Measurement):
         sweep_length = spec.sweep_length()
         powered_down = False
         started = False
+        self._confirm_outputs_already_on(ctx)
+        self._touched = True  # from here on teardown has things to put back
         for index, point in enumerate(iter_points(spec.axes)):
             ctx.checkpoint()
             if index and spec.cooldown_count() and index % sweep_length == 0:
@@ -135,12 +142,9 @@ class Efficiency(Measurement):
         Every call is made even if an earlier one fails (the other outputs must still be switched
         off); the first error is raised at the end. Outputs marked ``always_on`` are never touched.
         """
-        spec = getattr(self, "_spec", None)
-        if spec is None:
-            try:
-                spec = parse_params(self.params)
-            except SpecError:
-                return
+        if not getattr(self, "_touched", False):
+            return  # nothing was changed (set-up failed, or the user stopped at the first question)
+        spec = self._spec
         handles = {h.name: h for h in ctx.instruments("instruments")}
         calls = list(spec.shutdown)
         for name in reversed(spec.power_order):
@@ -166,6 +170,40 @@ class Efficiency(Measurement):
     def _calls(self, calls) -> None:
         for call in calls:
             self._handles[call.instrument].call(call.call, **call.args)
+
+    def _confirm_outputs_already_on(self, ctx) -> None:
+        """Warn the user about outputs that are on now but will be switched off at the end.
+
+        Only outputs with a ``state`` call can be checked. One question lists them all; the choices
+        are ``continue`` or ``abort`` (to change the file). Nothing has been changed yet."""
+        already = [
+            var
+            for var in self._spec.variables.values()
+            if var.output
+            and var.output.mode != "always_on"
+            and var.output.off
+            and var.output.state
+            and self._is_on(var, var.output.state)
+        ]
+        if not already:
+            return
+        names = ", ".join(f"'{v.name}' ({v.output.off.instrument})" for v in already)
+        text = (
+            f"These outputs are already on and will be switched off when the measurement ends: "
+            f"{names}. Continue, or stop to change the file?"
+        )
+        data = {
+            "outputs": [
+                {
+                    "variable": v.name,
+                    "instrument": v.output.off.instrument,
+                    "off": v.output.off.call,
+                }
+                for v in already
+            ]
+        }
+        if ctx.ask(text, ["continue", "abort"], default="abort", data=data) == "abort":
+            raise Stopped()
 
     def _outputs_on(self, variables) -> None:
         """Switch the outputs on, in the given order (no question asked)."""

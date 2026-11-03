@@ -613,8 +613,11 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   accendono prima di tutto il resto. Se l'uscita ha una chiamata `state` il programma chiede se è già
   accesa: se lo è la lascia com'è, se è spenta la accende; un'uscita sempre attiva non viene **mai**
   spenta (né nel cooldown né alla fine, dopo un errore, uno stop o un annullamento). Un `shutdown`
-  che la spegne è un errore di validazione. Aperto: un'uscita gestita dal programma che era già accesa
-  all'inizio viene comunque spenta a fine misura (ripristinare lo stato iniziale?).
+  che la spegne è un errore di validazione. Un'uscita gestita dal programma (da spegnere a fine misura) che
+  è già accesa all'avvio viene comunque spenta a fine misura (decisione dell'utente), ma **prima di toccare
+  qualsiasi strumento** compare un pop-up che la elenca e chiede Continua / Annulla (per modificare il
+  file); Annulla termina la misura come "fermata" senza cambiare né spegnere nulla. Serve la chiamata
+  `state`; senza, la validazione avvisa che il controllo non è possibile.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), il dialog di modifica dell'efficienza e l'azione "Avvia misura" nella GUI,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

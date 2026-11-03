@@ -602,6 +602,12 @@ class _Checker:
             )
         elif off is None:
             self.warn(path, f"no 'off' call: the output of '{name}' stays on at the end")
+        elif state is None:
+            self.warn(
+                path,
+                f"no 'state' call: if the output of '{name}' is already on when the measurement "
+                "starts, the program cannot warn you that it will be switched off at the end",
+            )
         if mode == "always_on" and on is not None and state is None:
             self.warn(
                 path,

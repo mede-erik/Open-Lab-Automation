@@ -46,7 +46,7 @@ class Lab:
             self.on[instrument] = True
         elif call in ("output_off", "load_off"):
             self.on[instrument] = False
-        elif call == "output_state_query":
+        elif call in ("output_state_query", "query_input_state"):
             return self.state_answer(self.on[instrument])
         if (instrument, call) == ("psu1", "set_voltage"):
             self.vin = args["value"]
