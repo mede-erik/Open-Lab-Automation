@@ -233,6 +233,25 @@ application asks the instrument library whether each call exists and whether eac
 every sweep) is acceptable for that instrument, so *"20 V is above the 15 V maximum of psu1"* appears while the
 value is typed. The same check is made again before the measurement starts, for files edited by hand.
 
+## The editor window
+
+`python -m frontend.ui.EfficiencyEditorDialog [file.eff]` opens the editor (the application opens it with the
+instruments of the project). It is split in two so that it can be tested without a screen:
+
+* `ola/efficiency_editor.py` (`EfficiencyEditor`) owns the data: add, duplicate, remove, move and rename a
+  parameter (formulas that use the name are rewritten), readings, sweeps, formulas, power order, extra calls,
+  and `problems()` / `summary()` after every change;
+* `frontend/ui/EfficiencyEditorDialog.py` only shows it. Every field is bound to a path of the parameters
+  (`variables[1].set.call`); a mistake gives a **red border** (error) or **amber** (warning) and a tooltip on
+  the field, and is listed at the bottom (double-click goes to the field). The top line says what the file
+  would do: points, sweeps, cooldowns and the time spent waiting.
+
+Tabs: *Parameters* (the ordered list, with up / down: the first is set first and is the fastest sweep; for the
+selected one: the set call, the value or sweep, the readings, the check, the limits, the output switching),
+*Timing*, *Formulas* (double-click a name to insert it), *Power-on order* (and the extra start / end calls) and
+a preview of the file. A file with errors can be saved after a confirmation. The texts are in
+`frontend/lang/modules/efficiency/<lang>.json`; a test checks that every language has the same keys.
+
 ## Results
 
 Two tables, written while the measurement runs ([engine.md](engine.md#files)):
@@ -246,5 +265,5 @@ Two tables, written while the measurement runs ([engine.md](engine.md#files)):
 
 ## Not done yet
 
-The editor dialog (`frontend/ui/`), the "start measurement" action of the GUI, and the plots. The measurement
+The "start measurement" action and the run window of the GUI (progress, pop-ups, plots), and opening the editor from the project window. The measurement
 has been tested against simulated instruments only, not on real hardware.

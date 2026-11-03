@@ -618,8 +618,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   qualsiasi strumento** compare un pop-up che la elenca e chiede Continua / Annulla (per modificare il
   file); Annulla termina la misura come "fermata" senza cambiare né spegnere nulla. Serve la chiamata
   `state`; senza, la validazione avvisa che il controllo non è possibile.
+  **GUI, editor dell'efficienza** (2026-11-03): modello senza Qt `ola/efficiency_editor.py` (29 test) +
+  finestra PyQt6 sottile `frontend/ui/EfficiencyEditorDialog.py` (test offscreen con pytest-qt). Ogni
+  campo è legato a un percorso dei parametri; errori in rosso/avvisi in ambra sul campo, elenco dei
+  problemi con doppio clic per andare al campo, riga di riepilogo (punti, sweep, raffreddamenti, tempo).
+  Schede: Parametri (lista ordinabile con Su/Giù), Tempi, Formule, Ordine di accensione (+ chiamate
+  extra), Anteprima del file. Stringhe in `frontend/lang/modules/efficiency/{en,it,fr,es,de}.json`
+  (test: stesse chiavi in tutte le lingue). Salvataggio con errori solo dopo conferma.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), il dialog di modifica dell'efficienza e l'azione "Avvia misura" nella GUI,
+  ancora nel repo e non sono stati toccati), la finestra di esecuzione (avvio/pausa/stop, pop-up, grafici) e l'azione "Avvia misura" nella GUI, l'apertura dell'editor dal progetto,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
   attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
 
