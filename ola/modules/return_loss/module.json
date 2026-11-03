@@ -14,7 +14,7 @@
     "sweep": {"type": "object", "required": true,
               "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
     "device": {"type": "object", "required": false,
-               "description": "label: identifies the device under test"},
+               "description": "label identifies the device under test; asset_id is its code in the registry of cables and devices"},
     "z0": {"type": "number", "min": 0, "unit": "ohm", "required": false,
            "description": "reference impedance of the VNA (50 by default)"},
     "vswr_max": {"type": "number", "required": false,

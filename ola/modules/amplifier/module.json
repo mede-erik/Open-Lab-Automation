@@ -14,7 +14,7 @@
     "sweep": {"type": "object", "required": true,
               "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm: the VNA source power, keep it low"},
     "device": {"type": "object", "required": false,
-               "description": "label: identifies the amplifier"},
+               "description": "label identifies the amplifier; asset_id is its code in the registry of cables and devices"},
     "input_attenuation_db": {"type": "number", "unit": "dB", "min": 0, "required": false,
                              "description": "attenuation between the VNA source and the amplifier input (the power at the amplifier is this much lower)"},
     "max_input_dbm": {"type": "number", "unit": "dBm", "required": false,

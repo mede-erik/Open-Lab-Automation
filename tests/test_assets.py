@@ -1,6 +1,7 @@
 """The registry of cables and devices."""
 
 import json
+import re
 
 import pytest
 
@@ -278,3 +279,118 @@ def test_a_snapshot_is_the_card_as_it_was(registry):
         "length_m": 1.0
     }
     assert snapshots_for(params, None) == {}
+
+
+# ---- the label's "last measurement" line ------------------------------------------------------
+def test_the_last_measurement_line_of_a_cable_run(tmp_path):
+    from ola.assets import RunRef, last_measurement_line
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    params = {
+        "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 301},
+        "cable": {"label": "x", "asset_id": "CBL-0001", "length_m": 2.0},
+        "frequencies_of_interest": [868e6],
+        "confirm_setup": False,
+    }
+    runner = Runner(
+        default_registry(user_dir="/nonexistent").create("cable", params),
+        {"vna": [SimVna(length_m=2.0)]},
+    )
+    path = tmp_path / "runs" / "c_20261103_100000.jsonl"
+    runner.add_listener(RunWriter(path, RunWriter.header_for(runner)))
+    runner.start()
+    assert runner.join(20)
+    ref = history("CBL-0001", [tmp_path / "runs"])[0]
+    line = last_measurement_line(ref)
+    assert re.fullmatch(r"1\.2 dB @ 868MHz, 2026-11-03", line), line
+    assert last_measurement_line(None) == ""
+    assert (
+        last_measurement_line(
+            RunRef(tmp_path / "missing.jsonl", "2026-11-03 10:00", "cable", "finished")
+        )
+        == ""
+    )
+
+
+def test_the_figure_chosen_for_each_kind_of_measurement(tmp_path):
+    from ola.assets import RunRef, last_measurement_line
+
+    def run_with(summary):
+        path = tmp_path / "r_20261103_100000.jsonl"
+        point = {"kind": "point", "table": "points", "index": 0, "elapsed_s": 0, "values": summary}
+        lines = [{"kind": "run", "run_id": "r", "measurement": "m", "params": {}}, point]
+        path.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+        return RunRef(path, "2026-11-03 10:00", "m", "finished")
+
+    assert (
+        last_measurement_line(run_with({"insertion_loss_db": 1.234}))
+        == "insertion loss 1.2 dB, 2026-11-03"
+    )
+    assert last_measurement_line(run_with({"peak_gain_db": 19.96})) == "gain 20 dB, 2026-11-03"
+    assert last_measurement_line(run_with({"min_vswr": 1.105})) == "VSWR 1.1, 2026-11-03"
+    assert (
+        last_measurement_line(run_with({"max_loss_db": 2.5, "points": 3}))
+        == "max loss 2.5 dB, 2026-11-03"
+    )
+    assert last_measurement_line(run_with({"verdict": "PASS"})) == ""  # nothing to say
+
+
+# ---- the card of the day in a run -------------------------------------------------------------
+def test_a_run_started_from_a_project_keeps_the_card_of_that_day(tmp_path):
+    from ola.project import MeasurementFile, Project
+    from ola.project_session import ProjectSession
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+
+    reg = AssetRegistry(tmp_path / "assets.json")
+    cable = reg.create("cable", "RG316 SMA-SMA", attributes={"length_m": 2.0})
+    registry = default_registry(user_dir="/nonexistent")
+    project = Project.new("P", tmp_path / "proj")
+    session = ProjectSession(
+        project,
+        registry,
+        connect=lambda n, c=None: SimVna(length_m=2.0),
+        instruments=["vna1"],
+        assets=reg,
+    )
+    ref = session.create("cable", "C")
+    params = {
+        "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 101},
+        "cable": {"label": "", "asset_id": cable.id, "length_m": 2.0},
+        "confirm_setup": False,
+    }
+    MeasurementFile(type="cable", role_bindings={"vna": ["vna1"]}, params=params).save(
+        session.path(ref)
+    )
+    runner, path = session.build_runner(ref)
+    runner.start()
+    assert runner.join(20)
+    reg.update(cable.id, name="renamed later")  # the card changes after the run
+    header = read_header(path)
+    assert header["assets"]["CBL-0001"]["name"] == "RG316 SMA-SMA"  # the run still says what it was
+    assert header["params"]["cable"]["asset_id"] == "CBL-0001"
+    from ola.compare import load_run
+
+    run = load_run(path)
+    assert run.asset_id == "CBL-0001" and run.name == "RG316 SMA-SMA"
+    assert run.label.startswith("CBL-0001 RG316 SMA-SMA - ")
+
+
+def test_a_run_without_a_registry_or_a_code_has_no_cards(tmp_path):
+    from ola.project import Project
+    from ola.project_session import ProjectSession
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+
+    registry = default_registry(user_dir="/nonexistent")
+    session = ProjectSession(
+        Project.new("P", tmp_path),
+        registry,
+        connect=lambda n, c=None: SimVna(),
+        instruments=["vna1"],
+    )
+    ref = session.create("cable", "C")  # the default parameters name no cable
+    _, path = session.build_runner(ref)
+    assert "assets" not in read_header(path)  # nothing named, so nothing saved

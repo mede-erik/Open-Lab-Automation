@@ -12,8 +12,9 @@ of their summary rows side by side with the change from the reference::
     difference_stats(xs, d)                           # largest difference, where, mean, RMS
     summary_table(runs, reference=0)                  # the summary figures, with the changes
 
-A run is described by its **label**: the name of the cable / filter / device saved with it, and the
-date. Comparing runs of different kinds of measurement is allowed (``mixed_types`` says so).
+A run is described by its **label**: the code (if it has one), the name of the cable / filter /
+device saved with it, and the date. Comparing runs of different kinds of measurement is allowed
+(``mixed_types`` says so).
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from . import rf
+from .assets import asset_ids_in
 from .run_view import trace_xy
 from .runs import last_traces, read_run
 
@@ -47,6 +49,7 @@ class RunData:
     label: str
     measurement: str
     name: str  # what was measured: the cable, filter or device name (may be empty)
+    asset_id: str  # its code in the registry (``CBL-0042``), or ''
     when: str  # the date, ``2026-11-03 21:52``
     state: str
     traces: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # name -> trace
@@ -104,14 +107,21 @@ def load_run(path: Union[str, Path], label: Optional[str] = None) -> RunData:
     if not traces and not points:
         raise CompareError(f"{path.name}: the run has no results to compare")
     params = header.get("params") or {}
-    name = measured_name(params)
+    codes = asset_ids_in(params)
+    asset_id = codes[0] if codes else ""
+    cards = header.get("assets") if isinstance(header.get("assets"), dict) else {}
+    card_name = str((cards.get(asset_id) or {}).get("name", "")) if asset_id else ""
+    name = (
+        measured_name(params) or card_name
+    )  # the name typed in the file, else the card's of that day
     when = run_date(path)
     kind = str(header.get("measurement", "?"))
     return RunData(
         path=path,
-        label=label or f"{name or kind} - {when}",
+        label=label or f"{asset_id + ' ' if asset_id else ''}{name or kind} - {when}",
         measurement=kind,
         name=name,
+        asset_id=asset_id,
         when=when,
         state=(run["end"] or {}).get("state", "interrupted"),
         traces=traces,

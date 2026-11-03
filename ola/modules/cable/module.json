@@ -18,7 +18,7 @@
     "sweep": {"type": "object", "required": true,
               "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
     "cable": {"type": "object", "required": false,
-              "description": "label (identifies the cable) and length_m (gives dB/m and the velocity factor)"},
+              "description": "label (identifies the cable), asset_id (its code in the registry) and length_m (gives dB/m and the velocity factor)"},
     "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
                                 "description": "the loss is reported at these frequencies"},
     "limits": {"type": "object", "required": false,

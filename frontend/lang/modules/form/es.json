@@ -5,6 +5,8 @@
   "form_summary_ok": "Lista para medir",
   "form_summary_errors": "Aún no se puede iniciar: {errors} error(es) por corregir",
   "form_choose_instrument": "Elija el instrumento para '{role}'",
+  "form_asset_placeholder": "código o escaneo, p. ej. CBL-0001",
+  "form_asset_invalid": "No es un código (es como CBL-0001)",
   "form_save": "Guardar",
   "form_close": "Cerrar",
   "form_saved": "Guardado",

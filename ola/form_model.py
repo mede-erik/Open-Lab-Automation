@@ -28,7 +28,7 @@ from .efficiency_spec import Problem
 from .project import MeasurementFile
 from .registry import ModuleInfo
 
-KINDS = ("text", "number", "int", "bool", "choice", "numlist", "json", "instrument")
+KINDS = ("text", "number", "int", "bool", "choice", "numlist", "json", "instrument", "asset")
 Text = Union[str, Mapping[str, str]]
 Check = Callable[[Dict[str, Any]], List[Problem]]
 
@@ -66,6 +66,8 @@ class FormField:
     choices: List[Choice] = field(default_factory=list)
     placeholder: Text = ""
     visible_if: Optional[Dict[str, Any]] = None  # {"path": "mode", "equals": "reflection"}
+    asset_kind: Optional[str] = None  # for ``asset``: only cards of this kind are offered
+    label_path: Optional[str] = None  # for ``asset``: the name field to fill when it is empty
 
 
 @dataclass
@@ -134,6 +136,8 @@ def parse_form_spec(raw: Any, where: str = "form.json") -> FormSpec:
                     choices=choices,
                     placeholder=rf.get("placeholder", ""),
                     visible_if=visible,
+                    asset_kind=rf.get("asset_kind"),
+                    label_path=rf.get("label_path"),
                 )
             )
         sections.append(FormSection(rs.get("title", ""), fields))
@@ -165,17 +169,20 @@ class FormModel:
         module_version: str = "",
         required_roles: Sequence[str] = (),
         role_message: Optional[Callable[[str], str]] = None,
+        assets: Optional[Any] = None,
     ):
         """``check(params)`` returns the ``Problem`` list of the parameters (the module's own
         ``check()``, or its ``validate()`` strings as problems without a path). A role in
         ``required_roles`` with no instrument chosen is an error at the field of that role
-        (``role_message(role)`` is its text)."""
+        (``role_message(role)`` is its text). ``assets``: the registry of cables and devices; a
+        code in an ``asset`` field that it does not know is a warning."""
         self.spec = spec
         self.params: Dict[str, Any] = copy.deepcopy(dict(params))
         self.role_bindings: Dict[str, Any] = copy.deepcopy(dict(role_bindings or {}))
         self._check = check
         self.type, self.version = measurement_type, module_version
         self.required_roles = list(required_roles)
+        self.assets = assets
         self._role_message = role_message or (lambda role: f"no instrument chosen for '{role}'")
         self._problems: Optional[List[Problem]] = None
 
@@ -235,8 +242,27 @@ class FormModel:
         if self._problems is None:
             found = list(self._check(self.params)) if self._check else []
             missing = [r for r in self.required_roles if not self.instrument(r)]
-            self._problems = [Problem(r, self._role_message(r)) for r in missing] + found
+            self._problems = (
+                [Problem(r, self._role_message(r)) for r in missing]
+                + found
+                + self._unknown_assets()
+            )
         return self._problems
+
+    def _unknown_assets(self) -> List[Problem]:
+        """A warning for each ``asset`` field that holds a code the registry does not have."""
+        if self.assets is None:
+            return []
+        out = []
+        for f in self.spec.fields():
+            code = self.get(f.path) if f.kind == "asset" else None
+            if isinstance(code, str) and code and self.assets.get(code) is None:
+                out.append(
+                    Problem(
+                        f.path, "this code is not in the registry of cables and devices", "warning"
+                    )
+                )
+        return out
 
     def problems_at(self, prefix: str) -> List[Problem]:
         """The problems of a field or of everything under it."""
@@ -273,6 +299,7 @@ class FormModel:
         expected_type: Optional[str] = None,
         required_roles: Sequence[str] = (),
         role_message: Optional[Callable[[str], str]] = None,
+        assets: Optional[Any] = None,
     ) -> "FormModel":
         """Open a measurement file (``MeasurementError`` if it is not one, or of another type)."""
         from .measurement import MeasurementError
@@ -282,7 +309,7 @@ class FormModel:
             raise MeasurementError(f"{path} is a '{file.type}' file, not a '{expected_type}' file")
         return cls(
             spec, file.params, file.role_bindings, check, file.type, file.module_version,
-            required_roles, role_message,
+            required_roles, role_message, assets,
         )  # fmt: skip
 
 

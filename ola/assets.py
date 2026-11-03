@@ -366,6 +366,37 @@ def history(code: str, run_dirs: Iterable[Union[str, Path]]) -> List[RunRef]:
     return sorted(out, key=lambda r: (r.when, r.path.name))
 
 
+# the figure that tells the most about each kind of measurement, in order of preference
+_FIGURES = (
+    (re.compile(r"^loss_(.+)_db$"), "{v:.2g} dB @ {f}"),  # a cable's loss at a chosen frequency
+    (re.compile(r"^(max_loss)_db$"), "max loss {v:.2g} dB"),
+    (re.compile(r"^(insertion_loss)_db$"), "insertion loss {v:.2g} dB"),
+    (re.compile(r"^(peak_gain)_db$"), "gain {v:.3g} dB"),
+    (re.compile(r"^(min_vswr)$"), "VSWR {v:.2g}"),
+)
+
+
+def last_measurement_line(ref: Optional[RunRef]) -> str:
+    """One line for a label from a run (the latest of an object, see ``history``): its most telling
+    figure and the date, for example ``"0.6 dB @ 868MHz, 2026-11-03"``. ``""`` if there is no run
+    or nothing to say. The figure is only as current as the run: reprint after a new measurement."""
+    if ref is None:
+        return ""
+    from .compare import CompareError, load_run
+
+    try:
+        summary = load_run(ref.path).summary
+    except CompareError:
+        return ""
+    for pattern, template in _FIGURES:
+        for key, value in summary.items():
+            match = pattern.match(key)
+            if match and isinstance(value, (int, float)) and not isinstance(value, bool):
+                freq = match.group(1) if match.groups() else ""
+                return template.format(v=value, f=freq) + f", {ref.when[:10]}"
+    return ""
+
+
 def snapshots_for(params: Mapping[str, Any], registry: Optional[AssetRegistry]) -> Dict[str, Any]:
     """The cards of the objects a measurement names, as they are now: ``{code: card}``. Saved in the
     header of the run, so the card of that day stays with its results. A code that is not in the
@@ -382,5 +413,6 @@ def snapshots_for(params: Mapping[str, Any], registry: Optional[AssetRegistry]) 
 
 __all__: Sequence[str] = [
     "Asset", "AssetError", "AssetRegistry", "KINDS", "RunRef", "asset_ids_in", "default_path",
-    "history", "normalize_code", "qr_text", "read_header", "snapshots_for",
+    "history", "last_measurement_line", "normalize_code", "qr_text", "read_header",
+    "snapshots_for",
 ]  # fmt: skip

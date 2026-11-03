@@ -40,6 +40,7 @@ from ola.run_view import format_si
 from ola.vna_common import (
     acquire,
     ask_setup,
+    check_asset,
     check_common,
     check_sweep,
     frequency_label,
@@ -93,6 +94,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if warning:
         out.append(Problem("sweep.points", warning, "warning"))
 
+    check_asset(params, "cable", out)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     return out
 

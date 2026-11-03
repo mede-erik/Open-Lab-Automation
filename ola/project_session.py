@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from .assets import snapshots_for
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
 from .registry import ModuleInfo, ModuleRegistry
@@ -68,12 +69,16 @@ class ProjectSession:
         connect: Optional[Connect] = None,
         instruments: Optional[Sequence[str]] = None,
         run_dir: Optional[Path] = None,
+        assets: Optional[Any] = None,
     ):
         """``instruments``: the names of the project's instruments; by default those of the
         ``.inst`` file of the project. ``run_dir``: where the run files go (default: the
-        ``runs`` folder of the project)."""
+        ``runs`` folder of the project). ``assets``: the registry of cables and devices
+        (``ola.assets.AssetRegistry``): the card of every object a measurement names is saved in
+        the header of its runs."""
         self.project, self.registry, self.connect = project, registry, connect
         self._instruments = list(instruments) if instruments is not None else None
+        self.assets = assets
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
 
     # ----- the project ------------------------------------------------------------------------
@@ -227,8 +232,16 @@ class ProjectSession:
         while path.exists():  # two runs in the same second
             path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{suffix}.jsonl"
             suffix += 1
+        extra: Dict[str, Any] = {}
+        cards = snapshots_for(measurement_file.params, self.assets)
+        if cards:  # what the cable / device was on the day, kept with its results
+            extra["assets"] = cards
         header = RunWriter.header_for(
-            runner, measurement_id=ref.id, measurement_name=ref.name, project=self.project.name
+            runner,
+            measurement_id=ref.id,
+            measurement_name=ref.name,
+            project=self.project.name,
+            **extra,
         )
         runner.add_listener(RunWriter(path, header))
         return runner, path

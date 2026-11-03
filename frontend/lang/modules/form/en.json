@@ -5,6 +5,8 @@
   "form_summary_ok": "Ready to measure",
   "form_summary_errors": "Cannot start yet: {errors} error(s) to fix",
   "form_choose_instrument": "Choose the instrument for '{role}'",
+  "form_asset_placeholder": "code or scan, e.g. CBL-0001",
+  "form_asset_invalid": "Not a code (it looks like CBL-0001)",
   "form_save": "Save",
   "form_close": "Close",
   "form_saved": "Saved",

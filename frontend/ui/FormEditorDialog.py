@@ -53,6 +53,7 @@ from ola.form_model import (
     load_form_spec,
     localized,
 )
+from ola.assets import normalize_code
 from ola.run_view import format_si, parse_si
 
 
@@ -84,6 +85,7 @@ class FormEditorDialog(QDialog):
         type_id: str,
         translator: Any = None,
         instruments: Sequence[str] = (),
+        assets: Any = None,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
@@ -92,6 +94,7 @@ class FormEditorDialog(QDialog):
         self.lang = self.tr_.lang
         self.file_path, self.registry, self.type_id = file_path, registry, type_id
         self.instruments = list(instruments)
+        self.assets = assets  # the registry of cables and devices (ola.assets), or None
         self.dirty = False
         self._loading = False
         self.rows: Dict[str, _Row] = {}
@@ -104,10 +107,16 @@ class FormEditorDialog(QDialog):
         say = lambda role: self._t("form_choose_instrument", role=role)  # noqa: E731
         if os.path.isfile(file_path):
             self.model = FormModel.from_file(
-                spec, file_path, check, type_id, required_roles=roles, role_message=say
+                spec,
+                file_path,
+                check,
+                type_id,
+                required_roles=roles,
+                role_message=say,
+                assets=assets,
             )
         else:
-            self.model = FormModel(spec, {}, {}, check, type_id, info.version, roles, say)
+            self.model = FormModel(spec, {}, {}, check, type_id, info.version, roles, say, assets)
         if not self.model.params:
             self.model.params = default_params_of(registry, type_id)
         self.setWindowTitle(f"{info.name} - {os.path.basename(file_path)}")
@@ -202,6 +211,14 @@ class FormEditorDialog(QDialog):
             for name in self.instruments:
                 widget.addItem(name, name)
             widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
+        elif field.kind == "asset":
+            widget = QComboBox()
+            widget.setEditable(True)  # a code can be typed, or scanned: a scanner types it
+            widget.addItem("", None)
+            for choice in self.assets.choices(field.asset_kind) if self.assets is not None else []:
+                widget.addItem(choice, choice.split(" - ")[0])
+            widget.lineEdit().setPlaceholderText(self._t("form_asset_placeholder"))
+            widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
         elif field.kind == "json":
             widget = QPlainTextEdit()
             widget.setMaximumHeight(90)
@@ -232,6 +249,10 @@ class FormEditorDialog(QDialog):
             w.setCurrentText(name)
             return
         value = self.model.get(f.path)
+        if f.kind == "asset":
+            card = self.assets.get(value) if (self.assets is not None and value) else None
+            w.setCurrentText(f"{card.id} - {card.name}" if card else (value or ""))
+            return
         if f.kind == "bool":
             w.setChecked(bool(value))
         elif f.kind == "choice":
@@ -267,6 +288,15 @@ class FormEditorDialog(QDialog):
             return True, w.currentData()
         if f.kind == "instrument":
             return True, w.currentText().strip() or None
+        if f.kind == "asset":
+            text = w.currentText().strip()
+            if not text:
+                return True, None
+            code = normalize_code(text.split(" - ")[0])  # "CBL-0001 - name", "OLA:CBL-0001"...
+            if code is None:
+                row.invalid = self._t("form_asset_invalid")
+                return False, None
+            return True, code
         if f.kind == "json":
             text = w.toPlainText().strip()
             if not text:
@@ -309,8 +339,22 @@ class FormEditorDialog(QDialog):
                 self.model.set_instrument(field.path, value)
             else:
                 self.model.set(field.path, value)
+            if field.kind == "asset":
+                self._fill_name_from(field, value)
         self.dirty = True
         self._refresh_state()
+
+    def _fill_name_from(self, field: FormField, code: Optional[str]) -> None:
+        """A code of the registry was chosen: its name goes in the name field if that is empty."""
+        card = self.assets.get(code) if (self.assets is not None and code) else None
+        if card is None or not field.label_path or self.model.get(field.label_path):
+            return
+        self.model.set(field.label_path, card.name)
+        target = self.rows.get(field.label_path)
+        if target is not None:
+            self._loading = True
+            self._show_value(target)
+            self._loading = False
 
     # ================================================================ showing the state
     def _refresh_all(self) -> None:

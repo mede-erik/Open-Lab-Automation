@@ -47,6 +47,7 @@ from ola.vna_common import (
     as_trace,
     acquire,
     ask_setup,
+    check_asset,
     check_common,
     check_sweep,
     frequency_label,
@@ -136,6 +137,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     comp = params.get("compression")
     if comp is not None:
         out += _check_compression(comp, start, stop, attenuation, limit)
+    check_asset(params, "device", out)
     check_common(params, out, start, stop)
     return out
 

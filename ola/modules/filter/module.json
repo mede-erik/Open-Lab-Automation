@@ -12,7 +12,7 @@
   ],
   "params_schema": {
     "filter": {"type": "object", "required": true,
-               "description": "type (lowpass|highpass|bandpass|bandstop) and label (identifies the filter)"},
+               "description": "type (lowpass|highpass|bandpass|bandstop), label (identifies the filter) and asset_id (its code in the registry)"},
     "sweep": {"type": "object", "required": true,
               "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
     "edge_db": {"type": "number", "unit": "dB", "required": false,

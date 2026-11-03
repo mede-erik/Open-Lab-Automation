@@ -59,7 +59,7 @@ def edit(dialog, path, text):
     return row
 
 
-# ---- translations -------------------------------------------------------------------------------
+# ---- translations -----------------------------------------------------------------------------
 def test_window_strings_are_in_every_language_with_the_same_placeholders():
     catalogs = {}
     for path in glob.glob(os.path.join(LANG_DIR, "*.json")):
@@ -75,7 +75,7 @@ def test_window_strings_are_in_every_language_with_the_same_placeholders():
     assert sorted(set(re.findall(r'"(form_[a-z_]+)"', source)) - set(catalogs["en"])) == []
 
 
-# ---- the window ---------------------------------------------------------------------------------
+# ---- the window -------------------------------------------------------------------------------
 def test_shows_the_values_of_the_file(dialog):
     assert dialog.rows["cable.label"].widget.text() == "RG58 #3"
     assert dialog.rows["cable.length_m"].widget.text() == "2 m"
@@ -232,7 +232,7 @@ def test_a_double_click_on_a_problem_goes_to_its_field(dialog, monkeypatch):
     dialog.navigate(None)
 
 
-# ---- inside the project window ------------------------------------------------------------------
+# ---- inside the project window ----------------------------------------------------------------
 def test_new_cable_measurement_starts_valid_and_opens_the_form(app, registry, tmp_path):
     from ola.project import Project
     from ola.project_session import ProjectSession
@@ -245,6 +245,103 @@ def test_new_cable_measurement_starts_valid_and_opens_the_form(app, registry, tm
     d = FormEditorDialog(str(session.path(ref)), registry, "cable", instruments=session.instruments)
     try:
         assert d.rows["sweep.points"].widget.text() == "401"
+    finally:
+        d.dirty = False
+        d.close()
+
+
+# ---- a cable or device from the registry ------------------------------------------------------
+@pytest.fixture
+def cards(tmp_path):
+    from ola.assets import AssetRegistry
+
+    registry = AssetRegistry(tmp_path / "assets.json")
+    registry.create("cable", "RG316 SMA-SMA", attributes={"length_m": 1.0})
+    registry.create("cable", "RG58 N-N")
+    registry.create("antenna", "whip")
+    return registry
+
+
+@pytest.fixture
+def asset_dialog(app, registry, tmp_path, cards):
+    path = tmp_path / "c.cbl"
+    params = {k: v for k, v in PARAMS.items()}
+    params["cable"] = {"label": "", "length_m": 2.0}
+    MeasurementFile(type="cable", role_bindings={"vna": ["vna1"]}, params=params).save(path)
+    d = FormEditorDialog(str(path), registry, "cable", instruments=["vna1"], assets=cards)
+    yield d
+    d.dirty = False
+    d.close()
+
+
+def test_the_registry_offers_the_cables_and_not_the_antennas(asset_dialog):
+    box = asset_dialog.rows["cable.asset_id"].widget
+    items = [box.itemText(i) for i in range(box.count())]
+    assert items == ["", "CBL-0001 - RG316 SMA-SMA", "CBL-0002 - RG58 N-N"]  # the kind of the field
+
+
+def test_choosing_a_cable_sets_its_code_and_fills_the_empty_name(asset_dialog):
+    box = asset_dialog.rows["cable.asset_id"].widget
+    box.setCurrentIndex(1)
+    assert asset_dialog.model.get("cable.asset_id") == "CBL-0001"
+    assert asset_dialog.model.get("cable.label") == "RG316 SMA-SMA"
+    assert asset_dialog.rows["cable.label"].widget.text() == "RG316 SMA-SMA"  # shown too
+
+
+def test_a_name_already_typed_is_not_overwritten(asset_dialog):
+    asset_dialog.rows["cable.label"].widget.setText("my own name")
+    asset_dialog.rows["cable.asset_id"].widget.setCurrentIndex(2)
+    assert asset_dialog.model.get("cable.asset_id") == "CBL-0002"
+    assert asset_dialog.model.get("cable.label") == "my own name"
+
+
+def test_a_scanned_code_is_normalised(asset_dialog):
+    box = asset_dialog.rows["cable.asset_id"].widget
+    box.setCurrentText("OLA:cbl-2")  # what a scanner types
+    assert asset_dialog.model.get("cable.asset_id") == "CBL-0002"
+    assert not asset_dialog.rows["cable.asset_id"].invalid
+    box.setCurrentText("")  # cleared: the key goes away
+    assert asset_dialog.model.get("cable.asset_id") is None
+
+
+def test_something_that_is_not_a_code_marks_the_field(asset_dialog):
+    row = asset_dialog.rows["cable.asset_id"]
+    row.widget.setCurrentText("my cable")
+    assert "Not a code" in row.invalid and "border" in row.widget.styleSheet()
+    assert asset_dialog.model.get("cable.asset_id") is None  # nothing wrong is stored
+
+
+def test_a_code_that_is_not_in_the_registry_is_a_warning_at_its_field(asset_dialog):
+    asset_dialog.rows["cable.asset_id"].widget.setCurrentText("CBL-0099")
+    assert asset_dialog.model.get("cable.asset_id") == "CBL-0099"
+    assert not asset_dialog.model.has_errors()  # it can still be measured
+    assert any("not in the registry" in asset_dialog.problem_tree.topLevelItem(i).text(2)
+               for i in range(asset_dialog.problem_tree.topLevelItemCount()))  # fmt: skip
+
+
+def test_a_saved_code_is_shown_with_its_name_when_the_file_is_opened_again(
+    app, registry, tmp_path, cards
+):
+    path = tmp_path / "again.cbl"
+    params = {**PARAMS, "cable": {"label": "x", "asset_id": "CBL-0002"}}
+    MeasurementFile(type="cable", role_bindings={"vna": ["v"]}, params=params).save(path)
+    d = FormEditorDialog(str(path), registry, "cable", instruments=["v"], assets=cards)
+    try:
+        assert d.rows["cable.asset_id"].widget.currentText() == "CBL-0002 - RG58 N-N"
+        assert d.model.get("cable.asset_id") == "CBL-0002"  # showing it did not change it
+        assert not d.dirty
+    finally:
+        d.close()
+
+
+def test_without_a_registry_the_field_still_takes_a_typed_code(app, registry, tmp_path):
+    d = FormEditorDialog(str(tmp_path / "n.cbl"), registry, "cable", instruments=["v"])
+    try:
+        box = d.rows["cable.asset_id"].widget
+        assert box.count() == 1  # only the empty entry
+        box.setCurrentText("CBL-0007")
+        d.rows["vna"].widget.setCurrentText("v")  # (a new file also needs its instrument)
+        assert d.model.get("cable.asset_id") == "CBL-0007" and not d.model.has_errors()
     finally:
         d.dirty = False
         d.close()

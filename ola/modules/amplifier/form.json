@@ -28,6 +28,26 @@
           }
         },
         {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label_path": "device.label",
+          "label": {
+            "en": "Amplifier from the registry",
+            "it": "Amplificatore dal registro",
+            "fr": "Amplificateur du registre",
+            "es": "Amplificador del registro",
+            "de": "Verstärker aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "amplifier"
+        },
+        {
           "path": "device.label",
           "kind": "text",
           "label": {

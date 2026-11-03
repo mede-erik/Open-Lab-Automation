@@ -5,6 +5,8 @@
   "form_summary_ok": "Pronta per misurare",
   "form_summary_errors": "Non si può ancora avviare: {errors} errore/i da correggere",
   "form_choose_instrument": "Scegli lo strumento per '{role}'",
+  "form_asset_placeholder": "codice o scansione, es. CBL-0001",
+  "form_asset_invalid": "Non è un codice (è del tipo CBL-0001)",
   "form_save": "Salva",
   "form_close": "Chiudi",
   "form_saved": "Salvato",

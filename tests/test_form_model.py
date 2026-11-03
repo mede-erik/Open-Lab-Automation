@@ -6,6 +6,7 @@ import json
 import pytest
 
 from ola.form_model import (
+    KINDS,
     FormModel,
     FormSpecError,
     check_from_measurement,
@@ -37,7 +38,7 @@ def model(registry):
     )
 
 
-# ---- numbers with SI prefixes --------------------------------------------------------------------
+# ---- numbers with SI prefixes -----------------------------------------------------------------
 @pytest.mark.parametrize(
     "text,unit,value",
     [
@@ -56,21 +57,12 @@ def test_parse_si_refuses_what_is_not_a_number(text):
     assert parse_si(text, "Hz") is None
 
 
-# ---- the form.json of a module ------------------------------------------------------------------
+# ---- the form.json of a module ----------------------------------------------------------------
 def test_the_cable_form_loads_and_covers_the_parameters(registry):
     spec = load_form_spec(registry.get("cable"))
     paths = [f.path for f in spec.fields()]
     assert paths[0] == "vna" and "sweep.points" in paths and "limits" in paths
-    assert {f.kind for f in spec.fields()} <= {
-        "text",
-        "number",
-        "int",
-        "bool",
-        "choice",
-        "numlist",
-        "json",
-        "instrument",
-    }
+    assert {f.kind for f in spec.fields()} <= set(KINDS)
     # every field a measurement of this type understands can be edited
     schema = set(registry.get("cable").params_schema)
     assert schema <= {p.split(".")[0] for p in paths}, schema - {p.split(".")[0] for p in paths}
@@ -122,7 +114,7 @@ def test_a_module_without_a_form_has_none(registry):
     assert load_form_spec(registry.get("time_log")) is None
 
 
-# ---- editing ------------------------------------------------------------------------------------
+# ---- editing ----------------------------------------------------------------------------------
 def test_values_are_read_and_set(model):
     assert model.get("sweep.points") == 401 and model.get("cable.label") == "RG58 #3"
     model.set("sweep.points", 801)
@@ -191,7 +183,7 @@ def test_a_module_with_only_validate_gives_problems_without_a_path(registry):
     assert problems and all(p.path == "" for p in problems)
 
 
-# ---- the file -----------------------------------------------------------------------------------
+# ---- the file ---------------------------------------------------------------------------------
 def test_save_and_open_keep_everything(model, registry, tmp_path):
     model.set("cable.label", "Cable B")
     path = tmp_path / "b.cbl"
@@ -209,7 +201,7 @@ def test_the_original_parameters_stay_valid_json(model):
     json.dumps(copy.deepcopy(model.params))
 
 
-# ---- a role with no instrument -------------------------------------------------------------------
+# ---- a role with no instrument ----------------------------------------------------------------
 def test_a_required_role_without_an_instrument_is_an_error_at_its_field(registry):
     info = registry.get("cable")
     check = check_from_measurement(lambda p: registry.create("cable", p))
@@ -228,3 +220,61 @@ def test_the_text_of_the_role_problem_can_be_translated(registry):
         role_message=lambda role: f"scegli {role}",
     )  # fmt: skip
     assert model.problems()[0].message == "scegli vna"
+
+
+# ---- a code from the registry -----------------------------------------------------------------
+def test_the_asset_field_of_the_forms_asks_for_its_kind_and_the_name_it_fills(registry):
+    wanted = {
+        "cable": ("cable.asset_id", "cable", "cable.label"),
+        "return_loss": ("device.asset_id", None, "device.label"),
+        "antenna": ("device.asset_id", "antenna", "device.label"),
+        "amplifier": ("device.asset_id", "amplifier", "device.label"),
+        "filter": ("filter.asset_id", "filter", "filter.label"),
+    }
+    for module, (path, kind, label) in wanted.items():
+        field = next(f for f in load_form_spec(registry.get(module)).fields() if f.kind == "asset")
+        assert (field.path, field.asset_kind, field.label_path) == (path, kind, label), module
+
+
+def test_an_unknown_code_is_a_warning_not_an_error(registry, tmp_path):
+    from ola.assets import AssetRegistry
+
+    cards = AssetRegistry(tmp_path / "assets.json")
+    cards.create("cable", "RG316")
+    info = registry.get("cable")
+    params = {**PARAMS, "cable": {"label": "x", "asset_id": "CBL-0001"}}
+    check = check_from_measurement(lambda p: registry.create("cable", p))
+    model = FormModel(load_form_spec(info), params, {"vna": ["v"]}, check, "cable", assets=cards)
+    assert model.problems() == []
+    model.set("cable.asset_id", "CBL-0099")
+    found = model.problems()
+    assert [(p.path, p.severity) for p in found] == [("cable.asset_id", "warning")]
+    assert not model.has_errors() and "not in the registry" in found[0].message
+    without = FormModel(load_form_spec(info), params, {"vna": ["v"]}, check, "cable")
+    without.set("cable.asset_id", "CBL-0099")
+    assert without.problems() == []  # no registry: nothing to say
+
+
+@pytest.mark.parametrize(
+    "module,group",
+    [
+        ("cable", "cable"),
+        ("return_loss", "device"),
+        ("antenna", "device"),
+        ("amplifier", "device"),
+        ("filter", "filter"),
+    ],
+)
+def test_every_measurement_checks_the_code_it_is_given(registry, module, group):
+    import sys
+
+    start = sys.modules[registry.load_class(module).__module__].default_params()
+    assert registry.create(module, start).check() == []  # the starting point is valid
+    for good in ("CBL-0001", "ola:ant-7", "", None):
+        ok = {**start, group: {**start.get(group, {}), "asset_id": good}}
+        assert registry.create(module, ok).check() == [], (module, good)
+    bad = {**start, group: {**start.get(group, {}), "asset_id": "my cable"}}
+    found = registry.create(module, bad).check()
+    assert [(p.path, p.severity) for p in found] == [(f"{group}.asset_id", "error")]
+    assert "CBL-0042" in found[0].message
+    assert registry.create(module, bad).validate()  # and it stops the measurement from starting

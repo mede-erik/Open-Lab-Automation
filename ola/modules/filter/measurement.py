@@ -38,6 +38,7 @@ from ola.run_view import format_si
 from ola.vna_common import (
     acquire,
     ask_setup,
+    check_asset,
     check_common,
     check_sweep,
     frequency_label,
@@ -83,6 +84,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
             out.append(Problem("passband", "needs from_hz below to_hz (Hz)"))
         elif start is not None and stop is not None and (low < start or high > stop):
             out.append(Problem("passband", "must be inside the sweep"))
+    check_asset(params, "filter", out)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     return out
 

@@ -5,6 +5,8 @@
   "form_summary_ok": "Prête à mesurer",
   "form_summary_errors": "Démarrage impossible : {errors} erreur(s) à corriger",
   "form_choose_instrument": "Choisissez l'instrument pour '{role}'",
+  "form_asset_placeholder": "code ou scan, p. ex. CBL-0001",
+  "form_asset_invalid": "Ce n'est pas un code (du type CBL-0001)",
   "form_save": "Enregistrer",
   "form_close": "Fermer",
   "form_saved": "Enregistré",

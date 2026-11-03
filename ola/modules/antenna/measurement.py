@@ -32,6 +32,7 @@ from ola.run_view import format_si
 from ola.vna_common import (
     acquire,
     ask_setup,
+    check_asset,
     check_common,
     check_sweep,
     frequency_label,
@@ -67,6 +68,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         out.append(Problem("z0", "the reference impedance must be a number above 0 (ohm)"))
     if "vswr_max" in params and (not is_number(params["vswr_max"]) or params["vswr_max"] <= 1):
         out.append(Problem("vswr_max", "the VSWR limit must be a number above 1 (2 is common)"))
+    check_asset(params, "device", out)
     check_common(params, out, start, stop)
     return out
 

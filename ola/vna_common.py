@@ -73,6 +73,18 @@ def check_sweep(
     return start, stop
 
 
+def check_asset(params: Mapping[str, Any], group: str, out: List[Problem]) -> None:
+    """Check ``params[group]["asset_id"]``, the code of the cable or device from the registry
+    (optional): it must be a code like ``CBL-0042``."""
+    from .assets import normalize_code
+
+    item = params.get(group)
+    if isinstance(item, dict) and "asset_id" in item:
+        value = item["asset_id"]
+        if value not in (None, "") and not (isinstance(value, str) and normalize_code(value)):
+            out.append(Problem(f"{group}.asset_id", "not a code (it looks like CBL-0042)"))
+
+
 def check_common(
     params: Mapping[str, Any],
     out: List[Problem],
