@@ -9,16 +9,18 @@ with the extension `.eff` (the old `.eff` format is not read).
 ## How a measurement runs
 
 ```
+start:    set every parameter; switch the outputs on (always-on ones first, then the power order)
 for every point of the sweep:
     set the parameters that changed          (in the order of your list)
     wait  settle_s
     take  samples  readings, interval_s apart   -> each one is stored (table "samples")
     average every reading, compute the formulas -> the point (table "points")
+    when the innermost sweep has finished its run and an outer parameter advances:
+        cooldown: switch some outputs off, wait cooldown_s, switch them on again
+end:      switch the outputs off (except the always-on ones)
 ```
 
-At the very first point everything is set, then the outputs are switched on. What happens to the outputs
-afterwards is **your choice, parameter by parameter** (see "Outputs" below). At the end, and after any error
-or stop, the outputs that are allowed to be switched off are switched off.
+What happens to the outputs is **your choice, parameter by parameter** (see "Outputs" below).
 
 ## The file
 
@@ -28,7 +30,10 @@ or stop, the outputs that are allowed to be switched off are switched off.
     {"name": "iout",
      "set": {"instrument": "load1", "call": "set_current_level"},
      "sweep": {"start": 0.5, "stop": 2.5, "points": 3},
-     "reads": {"load": {"instrument": "load1", "call": "read_current"}}},
+     "reads": {"load": {"instrument": "load1", "call": "read_current"}},
+     "output": {"on": {"instrument": "load1", "call": "load_on"},
+                "off": {"instrument": "load1", "call": "load_off"},
+                "mode": "off_during_cooldown"}},
     {"name": "vin",
      "set": {"instrument": "psu1", "call": "set_voltage", "args": {"channel_number": 1}},
      "sweep": {"values": [9, 12, 15]},
@@ -38,16 +43,19 @@ or stop, the outputs that are allowed to be switched off are switched off.
      "limits": {"min": 5, "max": 20},
      "output": {"on": {"instrument": "psu1", "call": "output_on"},
                 "off": {"instrument": "psu1", "call": "output_off"},
-                "mode": "off_between_points"}},
+                "mode": "off_during_cooldown"}},
     {"name": "vaux",
      "set": {"instrument": "psu2", "call": "set_voltage"}, "value": 12,
-     "output": {"on": {"instrument": "psu2", "call": "output_on"}, "mode": "always_on"}},
+     "output": {"on": {"instrument": "psu2", "call": "output_on"},
+                "state": {"instrument": "psu2", "call": "output_state_query"},
+                "mode": "always_on"}},
     {"name": "iin",
      "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "102"}, "scale": 10}}},
     {"name": "vout",
      "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "103"}}}}
   ],
-  "timing": {"settle_s": 8, "samples": 5, "interval_s": 10},
+  "timing": {"settle_s": 8, "samples": 5, "interval_s": 10, "cooldown_s": 600},
+  "power_order": ["vin", "iout"],
   "derived": {
     "pin": "vin@daq * iin@daq",
     "pout": "vout@daq * iout@load",
@@ -90,29 +98,62 @@ With `iout` first and `vin` second in the example above, the points are
 `(vin 9, iout 0.5)`, `(9, 1.5)`, `(9, 2.5)`, `(12, 0.5)`, `(12, 1.5)`... Move `vin` to the top and the
 supply voltage becomes the fast sweep.
 
-## Outputs: what may be switched off
+## Outputs, cooldown and power order
 
 Some converters hold state that must not be lost: a microcontroller without non-volatile memory loses its
-program when its supply is cut. So the program never decides alone: every parameter that is set can have an
-`output` block with the calls that switch its output (`on`, `off`) and a `mode`:
+program when its supply is cut. And a converter that has just been measured needs to cool down. So the
+program never decides alone: every parameter that is set can have an `output` block with the calls that
+switch its output (`on`, `off`, and optionally `state`) and a `mode`:
 
-| `mode` | Switched on | Between points | At the end, after an error or a stop |
+| `mode` | At the start | During the cooldown | At the end, after an error or a stop |
 |---|---|---|---|
-| `keep_on` (default) | at the start | stays on | switched off |
-| `off_between_points` | at the start | switched off after each point, set again and switched on again before the next | switched off |
-| `always_on` | at the start, if an `on` call is given | **never switched off** | **never switched off** |
+| `keep_on` (default) | switched on | stays on | switched off |
+| `off_during_cooldown` | switched on | **switched off**, then on again | switched off |
+| `always_on` | switched on **only if it is off** | stays on | **never switched off** |
 
-* **Always on** is the "never switch this off" tick: an auxiliary supply that keeps a microcontroller alive,
-  or an input that must stay up for the whole measurement. The program does not touch its output at the end
-  either, also when the measurement fails or is stopped: leaving it on is then your decision, and the file
+### Cooldown between sweeps
+
+`timing.cooldown_s` is a rest for the converter. It happens **between sweeps, not between points**: every
+time the innermost sweep (the first swept parameter of your list) has finished its whole run and an outer
+parameter advances, the outputs marked `off_during_cooldown` are switched off (in reverse power order), the
+measurement waits `cooldown_s`, then those parameters are set again and the outputs are switched on again (in
+power order). Between the points of the innermost sweep nothing is switched off. With three swept parameters
+there is a cooldown every time the first one has finished, whichever outer parameter moves. There is no
+cooldown after the last sweep: the measurement ends. A stop during the cooldown ends the measurement at once.
+
+The validation warns when the pieces do not fit: outputs marked for the cooldown but `cooldown_s` 0, a
+`cooldown_s` with no output marked (the converter keeps running while the program waits), or only one sweep
+(there is no second sweep, so the cooldown is never used).
+
+### Power order
+
+The order in which the outputs are switched on is its own list, `power_order`, separate from the order of the
+sweeps: `["vin", "iout"]` switches the supply on first and the load second. Outputs go off in the reverse
+order. If you do not give it, the order of the parameter list is used. Outputs that are always on are **not**
+part of this list: they are handled first, before anything in the list.
+
+### Always on
+
+`always_on` is the "never switch this off" tick: an auxiliary supply that keeps a microcontroller alive, or an
+input that must stay up. Such instruments are usually switched on from the instruments' own interface before
+the measurement, so:
+
+* if the output has a `state` call (for example the library call `output_state_query`) the program **asks
+  first**: an output that is already on is **left alone**; one that is off is switched on;
+* without a `state` call the `on` call is sent anyway (the validation warns about it);
+* the program **never** switches it off: not between points, not in the cooldown, not at the end, also when the
+  measurement fails, is stopped or is aborted from the pop-up. Leaving it on is then your decision, and the
   editor shows a warning to remind you. An `off` call given to an always-on output is ignored, and a
   `shutdown` call that switches it off is refused as an error.
-* **Off between points** is for outputs that must be power-cycled at every point (for example the load and
-  the input supply, but not the auxiliary one). The setpoint of a cycled parameter is sent again before it is
-  switched on again, in case the instrument forgot it.
-* Outputs are switched **on in the order of the list and off in the reverse order**. The same list that
-  decides the order of the sweeps decides this, so put the parameters in the order you want to power them.
+
+The answer of the `state` call can be a boolean, a number (0 / not 0) or the text ON/OFF/1/0.
+
+### Other rules
+
+* The setpoint of a parameter whose output was cooled is sent again before it is switched on again, in case
+  the instrument forgot it.
 * A parameter without an `output` block is never switched on or off by the program.
+* An output that has an `off` call but no `on` call is switched off at the end, not switched on at the start.
 * `startup` and `shutdown` are optional extra calls: `startup` after the outputs are on, `shutdown` before they
   are switched off. They are for anything else that is not the output of a parameter.
 
@@ -134,7 +175,8 @@ missing value), that value is stored empty and the measurement goes on.
 
 ## At every point
 
-`timing`: `settle_s` (wait after setting), `samples` (how many readings), `interval_s` (time between them).
+`timing`: `settle_s` (wait after setting), `samples` (how many readings), `interval_s` (time between them),
+and `cooldown_s` (rest between sweeps, see below; default 0).
 The point is the **average of each reading**; the formulas are computed on the averages. "Five readings
 every 10 s" is `samples: 5, interval_s: 10`; "one reading after 8 s" is `settle_s: 8, samples: 1`. Every
 single reading is also stored, so you can see the converter warming up.

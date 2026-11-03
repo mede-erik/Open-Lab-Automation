@@ -2,6 +2,7 @@
 logger and an ideal converter of efficiency 90 % between them."""
 
 import threading
+import time
 
 from ola.registry import default_registry
 from ola.runner import Runner
@@ -22,6 +23,9 @@ class Lab:
         self.daq_errors_left = None  # None: always; n: only the next n reads of channel 101
         self.fail = {}  # (instrument, call) -> exception to raise
         self.vin_noise = []  # values added to the logger's vin, one per read
+        self.on = {"psu1": False, "psu2": False, "load1": False}  # state of the outputs
+        self.state_answer = lambda on: on  # how the instruments answer "is the output on?"
+        self.stamps = []  # time of every call, parallel to ``log``
 
     # converter
     @property
@@ -35,8 +39,15 @@ class Lab:
     # instruments
     def do(self, instrument, call, args):
         self.log.append((instrument, call, dict(args)))
+        self.stamps.append(time.monotonic())
         if (instrument, call) in self.fail:
             raise self.fail[(instrument, call)]
+        if call in ("output_on", "load_on"):
+            self.on[instrument] = True
+        elif call in ("output_off", "load_off"):
+            self.on[instrument] = False
+        elif call == "output_state_query":
+            return self.state_answer(self.on[instrument])
         if (instrument, call) == ("psu1", "set_voltage"):
             self.vin = args["value"]
         elif (instrument, call) == ("psu2", "set_voltage"):

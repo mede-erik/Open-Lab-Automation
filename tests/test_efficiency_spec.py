@@ -407,10 +407,10 @@ def warnings(params, **kw):
 
 def test_output_blocks_are_parsed():
     p = good()
-    p["variables"][VIN]["output"] = out(mode="off_between_points")
+    p["variables"][VIN]["output"] = out(mode="off_during_cooldown")
     p["variables"][VAUX]["output"] = out(off=None, mode="always_on", instrument="psu2")
     spec = parse_params(p, INSTRUMENTS)
-    assert spec.variables["vin"].output.mode == "off_between_points"
+    assert spec.variables["vin"].output.mode == "off_during_cooldown"
     assert spec.variables["vin"].output.on.call == "output_on"
     assert (
         spec.variables["vaux"].output.mode == "always_on"
@@ -429,7 +429,7 @@ def test_output_problems():
     p = good()
     p["variables"][VIN]["output"] = out(mode="sometimes")
     path, msg = only_error(p)
-    assert path == "variables[1].output.mode" and "keep_on, off_between_points, always_on" in msg
+    assert path == "variables[1].output.mode" and "keep_on, off_during_cooldown, always_on" in msg
     p = good()
     p["variables"][IIN]["output"] = out()  # a read-only parameter has no output
     assert only_error(p)[0] == "variables[3].output"
@@ -448,10 +448,10 @@ def test_output_problems():
     }
 
 
-def test_switching_off_between_points_needs_both_calls():
+def test_switching_off_during_cooldown_needs_both_calls():
     for block in (
-        out(off=None, mode="off_between_points"),
-        out(on=None, mode="off_between_points"),
+        out(off=None, mode="off_during_cooldown"),
+        out(on=None, mode="off_during_cooldown"),
     ):
         p = good()
         p["variables"][VIN]["output"] = block
@@ -462,16 +462,29 @@ def test_switching_off_between_points_needs_both_calls():
 def test_warnings_say_what_stays_on():
     p = good()
     p["variables"][VAUX]["output"] = out(mode="always_on", instrument="psu2")
-    found = dict(warnings(p))
-    assert (
-        "always on" in found["variables[2].output"] and "stays ON" in found["variables[2].output"]
-    )
-    assert "also after an error or a stop" in found["variables[2].output"]
-    assert "ignored" in found["variables[2].output.off"]  # an off call that will never be used
+    found = warnings(p)
+    on_output = [m for path, m in found if path == "variables[2].output"]
+    assert any("always on" in m and "stays ON" in m for m in on_output)
+    assert any("also after an error or a stop" in m for m in on_output)
+    assert any("no 'state' call" in m and "already on" in m for m in on_output)
+    assert any("ignored" in m for path, m in found if path == "variables[2].output.off")
     p = good()
     p["variables"][VIN]["output"] = out(off=None)
-    assert "stays on at the end" in dict(warnings(p))["variables[1].output"]
+    assert any("stays on at the end" in m for path, m in warnings(p))
     assert errors(p) == []
+
+
+def test_a_state_call_removes_the_state_warning_and_is_parsed():
+    p = good()
+    p["variables"][VAUX]["output"] = {
+        **out(off=None, mode="always_on", instrument="psu2"),
+        "state": {"instrument": "psu2", "call": "output_state_query"},
+    }
+    assert not [m for _, m in warnings(p) if "no 'state' call" in m]
+    spec = parse_params(p, INSTRUMENTS)
+    assert spec.variables["vaux"].output.state.call == "output_state_query"
+    p["variables"][VAUX]["output"]["state"] = {"instrument": "ghost", "call": "x"}
+    assert only_error(p)[0] == "variables[2].output.state.instrument"
 
 
 def test_a_shutdown_call_cannot_switch_off_an_always_on_output():
@@ -490,3 +503,91 @@ def test_the_library_checker_also_sees_the_output_calls():
     p["variables"][VIN]["output"] = out()
     found = errors(p, checker=FakeChecker(missing={("psu1", "output_off")}))
     assert found == [("variables[1].output.off", "psu1 does not support 'output_off'")]
+
+
+# ---- cooldown and power order ------------------------------------------------------------
+
+
+def cooldown_params(
+    cooldown_s=600, modes=("off_during_cooldown", "off_during_cooldown", "always_on")
+):
+    p = good()
+    p["variables"][IOUT]["output"] = out("load_on", "load_off", modes[0], "load1")
+    p["variables"][VIN]["output"] = out(mode=modes[1])
+    p["variables"][VAUX]["output"] = out(off=None, mode=modes[2], instrument="psu2")
+    p["variables"][VAUX]["output"]["state"] = {"instrument": "psu2", "call": "output_state_query"}
+    p["timing"]["cooldown_s"] = cooldown_s
+    p["startup"], p["shutdown"] = [], []
+    return p
+
+
+def test_cooldown_is_parsed_and_counted():
+    p = cooldown_params()
+    spec = parse_params(p, INSTRUMENTS)
+    assert spec.timing.cooldown_s == 600
+    # iout (3 points) is the innermost sweep, vin has 3 values -> 3 sweeps -> 2 cooldowns
+    assert spec.sweep_length() == 3 and spec.point_count() == 9 and spec.cooldown_count() == 2
+    assert spec.estimated_seconds() == 9 * (8 + 4 * 10) + 2 * 600
+    assert errors(p) == []
+
+
+def test_no_cooldown_without_cooldown_s_or_with_a_single_sweep():
+    p = cooldown_params(cooldown_s=0)
+    assert parse_params(p, INSTRUMENTS).cooldown_count() == 0
+    p = cooldown_params()
+    p["variables"][VIN].pop("sweep")
+    p["variables"][VIN]["value"] = 12
+    spec = parse_params(p, INSTRUMENTS)
+    assert spec.cooldown_count() == 0 and spec.estimated_seconds() == 3 * (8 + 4 * 10)
+
+
+def test_cooldown_settings_that_do_not_fit_together_are_warned_about():
+    texts = [
+        m for path, m in warnings(cooldown_params(cooldown_s=0)) if path == "timing.cooldown_s"
+    ]
+    assert any("cooldown_s is 0" in m for m in texts)
+    p = cooldown_params(modes=("keep_on", "keep_on", "keep_on"))
+    texts = [m for path, m in warnings(p) if path == "timing.cooldown_s"]
+    assert any("keeps running" in m for m in texts)
+    p = cooldown_params()
+    p["variables"][VIN].pop("sweep")
+    p["variables"][VIN]["value"] = 12
+    texts = [m for path, m in warnings(p) if path == "timing.cooldown_s"]
+    assert any("never used" in m for m in texts)
+    assert errors(cooldown_params()) == [] and not [
+        m for path, m in warnings(cooldown_params()) if path == "timing.cooldown_s"
+    ]
+
+
+def test_cooldown_s_must_be_a_non_negative_number():
+    for bad in (-1, "10", True):
+        p = cooldown_params(cooldown_s=bad)
+        assert only_error(p)[0] == "timing.cooldown_s"
+
+
+def test_power_order_defaults_to_the_list_order_without_the_always_on_outputs():
+    spec = parse_params(cooldown_params(), INSTRUMENTS)
+    assert spec.power_order == ["iout", "vin"]  # vaux is always on: not in the list
+
+
+def test_power_order_can_be_chosen_by_the_user():
+    p = cooldown_params()
+    p["power_order"] = ["vin", "iout"]  # the supply first, then the load
+    assert parse_params(p, INSTRUMENTS).power_order == ["vin", "iout"]
+
+
+def test_power_order_problems():
+    p = cooldown_params()
+    p["power_order"] = ["vin", "vaux", "iout"]
+    path, msg = only_error(p)
+    assert path == "power_order[1]" and "always on" in msg and "before this list" in msg
+    p["power_order"] = ["vin", "vinn"]
+    found = errors(p)
+    assert found[0][0] == "power_order[1]" and "did you mean 'vin'" in found[0][1]
+    assert any(path == "power_order" and "iout" in msg for path, msg in found)  # missing one
+    p["power_order"] = ["vin", "iout", "vin"]
+    assert any("appears twice" in m for _, m in errors(p))
+    p["power_order"] = ["vin", "iin"]  # iin has no output
+    assert any("no output with an 'on' call" in m for _, m in errors(p))
+    p["power_order"] = "vin"
+    assert errors(p)[0][0] == "power_order"

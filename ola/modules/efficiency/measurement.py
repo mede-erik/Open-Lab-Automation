@@ -1,17 +1,23 @@
 """Efficiency measurement (see ``ola/efficiency_spec.py`` for the parameters, ``docs/efficiency.md``
 for the user guide).
 
+Start (before the first point): every parameter is set; the outputs marked ``always_on`` are
+checked and switched on only if they are off (an output that is already on is left alone); then the
+other outputs are switched on in the ``power_order``; then the ``startup`` calls.
+
 For every point of the sweep:
 
-1. set the parameters that changed, in the order of the list (the first one first); at the very
-   first point everything is set, then the outputs are switched on (list order) and the ``startup``
-   calls are made; an output marked ``off_between_points`` was switched off after the previous
-   point, so it is set again and switched on again;
+1. set the parameters that changed, in the order of the list (the first one first);
 2. wait ``settle_s``;
 3. take ``samples`` readings of every reading, ``interval_s`` apart (scheduled from the first one,
    so a slow instrument does not shift the others); each one is stored in the ``samples`` table;
 4. the point is the **average** of each reading; the formulas are computed on the averages and the
    row goes to the ``points`` table.
+
+Cooldown: each time the innermost sweep has done its whole run and an outer parameter advances
+(never between the points of the innermost sweep), if ``cooldown_s`` is set, the outputs marked
+``off_during_cooldown`` are switched off, the measurement waits ``cooldown_s`` (a stop interrupts
+it), then those parameters are set again and switched on again.
 
 A parameter with ``verify`` is compared with the setpoint on every sample; if it is off by more
 than the tolerance the measurement stops and asks (retry / abort / skip), or only warns, or fails,
@@ -19,9 +25,9 @@ depending on ``on_fail``. *Skip* is remembered while the setpoint stays the same
 still flagged ``verify_skipped``); a new setpoint is checked and asked about again.
 
 At the end, and after any error or stop, the ``shutdown`` calls are made and the outputs are
-switched off in the reverse order -- except those marked ``always_on``, which this measurement never
-switches off (for example an auxiliary supply that keeps a microcontroller without non-volatile
-memory alive).
+switched off in the reverse ``power_order`` -- except those marked ``always_on``, which this
+measurement never switches off (for example an auxiliary supply that keeps a microcontroller
+without non-volatile memory alive).
 """
 
 import statistics
@@ -53,7 +59,9 @@ class Efficiency(Measurement):
             used.update(r.instrument for r in var.reads.values())
         for var in self._spec.variables.values():
             if var.output:
-                used.update(c.instrument for c in (var.output.on, var.output.off) if c)
+                used.update(
+                    c.instrument for c in (var.output.on, var.output.off, var.output.state) if c
+                )
         used.update(c.instrument for c in self._spec.startup + self._spec.shutdown)
         missing = sorted(used - set(self._handles))
         if missing:
@@ -75,28 +83,36 @@ class Efficiency(Measurement):
 
     # ----- the measurement ------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
-        """Walk the sweep: set, settle, sample, average, publish."""
+        """Walk the sweep: set, settle, sample, average, publish; rest between the sweeps."""
         spec = self._spec
         setters = [v for v in spec.variables.values() if v.set is not None]
         total = spec.point_count()
         last = {}  # last value sent for every parameter
         self._accepted = {}  # parameter -> setpoint whose mismatch the user chose to skip
-        outputs = [v for v in spec.variables.values() if v.output]
-        cycled = [v for v in outputs if v.output.mode == "off_between_points"]
+        always_on = [
+            v for v in spec.variables.values() if v.output and v.output.mode == "always_on"
+        ]
+        managed = [spec.variables[name] for name in spec.power_order]
+        cooled = [v for v in managed if v.output.mode == "off_during_cooldown"]
+        sweep_length = spec.sweep_length()
         powered_down = False
         started = False
         for index, point in enumerate(iter_points(spec.axes)):
             ctx.checkpoint()
+            if index and spec.cooldown_count() and index % sweep_length == 0:
+                self._cooldown(ctx, cooled, last, index // sweep_length, total)
+                powered_down = bool(cooled)
             targets = {v.name: point.get(v.name, v.value) for v in setters}
             attempt = 1
             while True:
                 self._apply(setters, targets, last)
                 if not started:
-                    self._outputs_on(outputs)
+                    for var in always_on + managed:
+                        self._ensure_on(ctx, var)
                     self._calls(spec.startup)
                     started = True
                 elif powered_down:
-                    self._outputs_on(cycled)
+                    self._outputs_on(cooled)
                     powered_down = False
                 ctx.sleep(spec.timing.settle_s)
                 result = self._sample_point(ctx, index, attempt, targets)
@@ -106,15 +122,12 @@ class Efficiency(Measurement):
                 attempt += 1
             means, skipped = result
             row = {**targets, **means, "n_samples": spec.timing.samples}
+            if sweep_length:
+                row["sweep"] = index // sweep_length
             if skipped:
                 row["verify_skipped"] = ",".join(sorted(skipped))
             ctx.emit_point(row)
             ctx.progress(index + 1, total, f"point {index + 1} of {total}")
-            if cycled and index + 1 < total:
-                self._outputs_off(cycled)  # the last point is switched off by teardown
-                for var in cycled:
-                    last.pop(var.name, None)  # set again before it is switched on again
-                powered_down = True
 
     def teardown(self, ctx: MeasurementContext) -> None:
         """Make the ``shutdown`` calls, then switch the outputs off in reverse order.
@@ -130,9 +143,15 @@ class Efficiency(Measurement):
                 return
         handles = {h.name: h for h in ctx.instruments("instruments")}
         calls = list(spec.shutdown)
+        for name in reversed(spec.power_order):
+            output = spec.variables[name].output
+            if output.mode != "always_on" and output.off:
+                calls.append(output.off)
+        # (outputs that have an 'off' call but no 'on' call are not in the power order)
         for var in reversed(list(spec.variables.values())):
-            if var.output and var.output.mode != "always_on" and var.output.off:
-                calls.append(var.output.off)
+            output = var.output
+            if output and output.mode != "always_on" and output.off and not output.on:
+                calls.append(output.off)
         first_error = None
         for call in calls:
             try:
@@ -149,16 +168,54 @@ class Efficiency(Measurement):
             self._handles[call.instrument].call(call.call, **call.args)
 
     def _outputs_on(self, variables) -> None:
-        """Switch the outputs on, in the order of the list."""
+        """Switch the outputs on, in the given order (no question asked)."""
         for var in variables:
             if var.output.on:
                 self._calls([var.output.on])
 
     def _outputs_off(self, variables) -> None:
-        """Switch the outputs off, in the reverse order of the list."""
+        """Switch the outputs off, in the reverse of the given order."""
         for var in reversed(variables):
             if var.output.off:
                 self._calls([var.output.off])
+
+    def _ensure_on(self, ctx, var) -> None:
+        """Switch the output of ``var`` on, unless it is already on (if it can be asked)."""
+        output = var.output
+        if output.state is not None and self._is_on(var, output.state):
+            ctx.log(f"output of '{var.name}' is already on: left as it is")
+            return
+        if output.on:
+            self._calls([output.on])
+
+    def _is_on(self, var, state_call) -> bool:
+        """Ask an output whether it is on. Understands booleans, numbers and ON/OFF, 1/0 text."""
+        value = self._handles[state_call.instrument].call(state_call.call, **state_call.args)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str) and value.strip().upper() in ("1", "ON", "TRUE"):
+            return True
+        if isinstance(value, str) and value.strip().upper() in ("0", "OFF", "FALSE"):
+            return False
+        raise MeasurementError(
+            f"cannot tell if the output of '{var.name}' is on: {state_call.instrument}."
+            f"{state_call.call} answered {value!r}"
+        )
+
+    def _cooldown(self, ctx, cooled, last, sweeps_done, total) -> None:
+        """Rest between two sweeps: switch the cooled outputs off and wait (back on afterwards)."""
+        seconds = self._spec.timing.cooldown_s
+        ctx.log(f"cooldown of {seconds:g} s after sweep {sweeps_done} of the innermost parameter")
+        self._outputs_off(cooled)
+        for var in cooled:
+            last.pop(var.name, None)  # set again before it is switched on again
+        ctx.progress(self._done_points(sweeps_done), total, f"cooling down {seconds:g} s")
+        ctx.sleep(seconds)
+
+    def _done_points(self, sweeps_done) -> int:
+        return sweeps_done * self._spec.sweep_length()
 
     def _apply(self, setters, targets, last) -> None:
         """Set the parameters whose value changed, in the order of the list."""

@@ -189,3 +189,6 @@ def test_efficiency_guide_example_is_valid_and_has_the_documented_order():
     spec = parse_params(params, bound)
     points = list(iter_points(spec.axes))
     assert [(p["vin"], p["iout"]) for p in points[:4]] == [(9, 0.5), (9, 1.5), (9, 2.5), (12, 0.5)]
+    assert spec.timing.cooldown_s == 600 and spec.cooldown_count() == 2
+    assert spec.power_order == ["vin", "iout"]  # the supply first, then the load
+    assert spec.variables["vaux"].output.mode == "always_on" and spec.variables["vaux"].output.state

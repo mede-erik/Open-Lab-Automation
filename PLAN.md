@@ -602,12 +602,19 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   **mentre si compila il dialog** (`validate_params`, errori con il percorso del campo).
   Nel nucleo: più tabelle di righe (`points`, `samples`), `ctx.ask` / `runner.answer`, stato
   `waiting`. Provata solo su strumenti simulati.
-  **Uscite** (2026-11-03): ogni parametro impostato può avere un blocco `output` (chiamate `on`/`off`
-  e `mode`): `keep_on` (predefinito), `off_between_points` (spento e riacceso tra un punto e l'altro,
-  con impostazione rinviata) e `always_on` ("sempre attivo": **mai** spento dal programma, né tra i
-  punti né alla fine, dopo un errore o uno stop; per l'alimentazione ausiliaria di un convertitore con
-  microcontrollore senza memoria non volatile). Accensione nell'ordine dell'elenco, spegnimento in
-  ordine inverso. Un `shutdown` che spegne un'uscita sempre attiva è un errore di validazione.
+  **Uscite, cooldown e ordine di accensione** (2026-11-03): ogni parametro impostato può avere un
+  blocco `output` (chiamate `on`, `off` e, facoltativa, `state`; e `mode`): `keep_on` (predefinito),
+  `off_during_cooldown` e `always_on` ("sempre attivo"). Il **cooldown** (`timing.cooldown_s`) è un
+  riposo del convertitore **tra uno sweep e l'altro, non tra i punti**: quando lo sweep più interno ha
+  finito il suo giro e un parametro esterno avanza, le uscite `off_during_cooldown` si spengono, si
+  attende, poi i parametri vengono reimpostati e le uscite riaccese; non c'è cooldown dopo l'ultimo
+  sweep. L'**ordine di accensione** è una lista a parte (`power_order`, riordinabile; spegnimento in
+  ordine inverso; predefinito = ordine dei parametri) che **esclude** le uscite sempre attive: queste si
+  accendono prima di tutto il resto. Se l'uscita ha una chiamata `state` il programma chiede se è già
+  accesa: se lo è la lascia com'è, se è spenta la accende; un'uscita sempre attiva non viene **mai**
+  spenta (né nel cooldown né alla fine, dopo un errore, uno stop o un annullamento). Un `shutdown`
+  che la spegne è un errore di validazione. Aperto: un'uscita gestita dal programma che era già accesa
+  all'inizio viene comunque spenta a fine misura (ripristinare lo stato iniziale?).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), il dialog di modifica dell'efficienza e l'azione "Avvia misura" nella GUI,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

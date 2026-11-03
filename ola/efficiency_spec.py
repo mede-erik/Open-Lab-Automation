@@ -27,11 +27,23 @@ sweep; and so on.
 
 The ``output`` of a parameter says what the program may do with the output of its instrument:
 ``keep_on`` (default) switches it on at the start and off at the end, also after an error or a stop;
-``off_between_points`` also switches it off after every point and on again before the next one;
+``off_during_cooldown`` also switches it off during the cooldown (see below) and on again after it;
 ``always_on`` switches it on at the start if an ``on`` call is given and **never switches it off**,
 not even at the end, after an error or after a stop (an auxiliary supply that keeps a
 microcontroller without non-volatile memory alive). Outputs go on in the order of the list and
 off in the reverse order.
+
+The **cooldown** (``timing.cooldown_s``) is a rest for the converter between two sweeps: every
+time the innermost sweep (the first swept parameter of the list) has done its whole run and an
+outer parameter advances, the outputs marked ``off_during_cooldown`` are switched off, the
+measurement waits ``cooldown_s`` and everything is switched on again. Between the points of the
+innermost sweep nothing is switched off. There is no cooldown after the last sweep.
+
+The **power order** (``power_order``, a list of parameter names) is the order in which the outputs
+are switched on; they go off in the reverse order. Outputs marked ``always_on`` are not in this
+list: they are handled before it. If an output has a ``state`` call, the program asks whether it is
+already on: an output that is on is left alone, one that is off is switched on (and, if it is
+``always_on``, never switched off).
 
 Names in formulas: ``vin`` is the value that was **set**, ``vin@daq`` is the **reading** labelled
 ``daq`` of ``vin``, ``pin`` is another derived quantity. See ``docs/efficiency.md``.
@@ -49,8 +61,8 @@ from .formula import FUNCTIONS, Formula, FormulaError
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown")
-OUTPUT_MODES = ("keep_on", "off_between_points", "always_on")
+TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order")
+OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
 
 
@@ -139,11 +151,13 @@ class Variable:
 @dataclass(frozen=True)
 class Timing:
     """What happens at every point: wait ``settle_s`` after setting, then ``samples`` readings
-    ``interval_s`` apart; the point is their average."""
+    ``interval_s`` apart; the point is their average. ``cooldown_s`` is the rest between two
+    sweeps of the innermost parameter (0: none)."""
 
     settle_s: float = 0.0
     samples: int = 1
     interval_s: float = 0.0
+    cooldown_s: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -158,11 +172,13 @@ class CallSpec:
 @dataclass(frozen=True)
 class OutputSpec:
     """The output of the instrument that sets a parameter: ``on`` / ``off`` calls (either may be
-    missing) and the ``mode`` (``keep_on``, ``off_between_points`` or ``always_on``)."""
+    missing), the ``mode`` (``keep_on``, ``off_during_cooldown`` or ``always_on``) and an optional
+    ``state`` call that tells whether the output is on."""
 
     on: Optional[CallSpec]
     off: Optional[CallSpec]
     mode: str = "keep_on"
+    state: Optional[CallSpec] = None
 
 
 @dataclass
@@ -175,6 +191,7 @@ class EfficiencySpec:
     timing: Timing
     startup: List[CallSpec] = field(default_factory=list)
     shutdown: List[CallSpec] = field(default_factory=list)
+    power_order: List[str] = field(default_factory=list)  # outputs, in switch-on order
 
     def point_count(self) -> int:
         """Number of points of the sweep."""
@@ -184,7 +201,19 @@ class EfficiencySpec:
         """Time spent waiting for the whole sweep (settling + sample intervals); the time the
         instruments need to answer is not included."""
         t = self.timing
-        return self.point_count() * (t.settle_s + (t.samples - 1) * t.interval_s)
+        total = self.point_count() * (t.settle_s + (t.samples - 1) * t.interval_s)
+        return total + self.cooldown_count() * t.cooldown_s
+
+    def sweep_length(self) -> int:
+        """Points in one run of the innermost sweep (0 if nothing is swept)."""
+        return len(self.axes[0][1]) if self.axes else 0
+
+    def cooldown_count(self) -> int:
+        """How many cooldowns the measurement makes: one between every two runs of the innermost
+        sweep (none if there is only one sweep, or if ``cooldown_s`` is 0)."""
+        if self.timing.cooldown_s <= 0 or len(self.axes) < 2:
+            return 0
+        return self.point_count() // self.sweep_length() - 1
 
 
 # ---- validation -----------------------------------------------------------------
@@ -469,15 +498,16 @@ class _Checker:
                 "timing", 'must be an object like {"settle_s": 8, "samples": 5, "interval_s": 10}'
             )
             return Timing()
-        self.unknown_keys(raw, ("settle_s", "samples", "interval_s"), "timing")
+        self.unknown_keys(raw, ("settle_s", "samples", "interval_s", "cooldown_s"), "timing")
         settle = self.number(raw, "settle_s", "timing", default=0.0, minimum=0.0)
         samples = self.number(
             raw, "samples", "timing", default=1, minimum=1, maximum=MAX_SAMPLES, integer=True
         )
         interval = self.number(raw, "interval_s", "timing", default=0.0, minimum=0.0)
+        cooldown = self.number(raw, "cooldown_s", "timing", default=0.0, minimum=0.0)
         if samples == 1 and interval:
             self.warn("timing.interval_s", "with a single sample the interval is not used")
-        return Timing(settle or 0.0, samples or 1, interval or 0.0)
+        return Timing(settle or 0.0, samples or 1, interval or 0.0, cooldown or 0.0)
 
     def limits(
         self,
@@ -548,17 +578,18 @@ class _Checker:
                 path, 'must be an object like {"on": {...}, "off": {...}, "mode": "keep_on"}'
             )
             return None
-        self.unknown_keys(raw, ("on", "off", "mode"), path)
+        self.unknown_keys(raw, ("on", "off", "mode", "state"), path)
         mode = raw.get("mode", "keep_on")
         if mode not in OUTPUT_MODES:
             self.error(f"{path}.mode", f"must be one of: {', '.join(OUTPUT_MODES)}")
             mode = "keep_on"
         on = self.call_spec(raw["on"], f"{path}.on") if "on" in raw else None
         off = self.call_spec(raw["off"], f"{path}.off") if "off" in raw else None
-        if ("on" in raw and on is None) or ("off" in raw and off is None):
+        state = self.call_spec(raw["state"], f"{path}.state") if "state" in raw else None
+        if any(k in raw and v is None for k, v in (("on", on), ("off", off), ("state", state))):
             return None  # already reported
-        if mode == "off_between_points" and (on is None or off is None):
-            self.error(path, "to switch it off between points give both 'on' and 'off' calls")
+        if mode == "off_during_cooldown" and (on is None or off is None):
+            self.error(path, "to switch it off during the cooldown give both 'on' and 'off' calls")
         if mode == "always_on":
             if off is not None:
                 self.warn(
@@ -571,7 +602,77 @@ class _Checker:
             )
         elif off is None:
             self.warn(path, f"no 'off' call: the output of '{name}' stays on at the end")
-        return OutputSpec(on, off, mode)
+        if mode == "always_on" and on is not None and state is None:
+            self.warn(
+                path,
+                f"no 'state' call: 'on' is sent without checking whether '{name}' is already on",
+            )
+        return OutputSpec(on, off, mode, state)
+
+    def power_order(self, raw: Any, variables: Mapping[str, Variable]) -> List[str]:
+        """The switch-on order of the outputs the program manages (not the always-on ones).
+
+        Without ``power_order`` it is the order of the parameter list."""
+        managed = [
+            name
+            for name, var in variables.items()
+            if var.output and var.output.mode != "always_on" and var.output.on
+        ]
+        if raw is None:
+            return managed
+        if not isinstance(raw, list) or not all(isinstance(n, str) for n in raw):
+            self.error("power_order", 'must be a list of parameter names, like ["vin", "iout"]')
+            return managed
+        seen: List[str] = []
+        for i, name in enumerate(raw):
+            where = f"power_order[{i}]"
+            var = variables.get(name)
+            if var is None:
+                self.error(where, f"unknown parameter '{name}'{self.hint(name, variables)}")
+            elif var.output and var.output.mode == "always_on":
+                self.error(
+                    where,
+                    f"'{name}' is always on: it is switched on before this list, not part of it",
+                )
+            elif name not in managed:
+                self.error(where, f"'{name}' has no output with an 'on' call to switch on")
+            elif name in seen:
+                self.error(where, f"'{name}' appears twice")
+            else:
+                seen.append(name)
+        missing = [n for n in managed if n not in seen and n not in raw]
+        if missing:
+            self.error("power_order", f"these outputs are not in the list: {', '.join(missing)}")
+        return seen if not self.problems_in("power_order") else managed
+
+    def problems_in(self, prefix: str) -> bool:
+        return any(p.severity == "error" and p.path.startswith(prefix) for p in self.problems)
+
+    def cooldown_warnings(
+        self, variables: Mapping[str, Variable], axes: List[Tuple[str, List[float]]], timing: Timing
+    ) -> None:
+        """Say so when the cooldown settings do not fit together (nothing would happen)."""
+        cooled = [
+            v for v in variables.values() if v.output and v.output.mode == "off_during_cooldown"
+        ]
+        if cooled and timing.cooldown_s <= 0:
+            self.warn(
+                "timing.cooldown_s",
+                "some outputs are set to switch off during the cooldown, but cooldown_s is 0: "
+                "there is no cooldown, so they are never switched off before the end",
+            )
+        if timing.cooldown_s > 0 and not cooled:
+            self.warn(
+                "timing.cooldown_s",
+                "no output is set to switch off during the cooldown: the converter keeps "
+                "running while the measurement waits",
+            )
+        if (timing.cooldown_s > 0 or cooled) and len(axes) < 2:
+            self.warn(
+                "timing.cooldown_s",
+                "the cooldown happens between two sweeps, and there is only one (or none): "
+                "it is never used",
+            )
 
     def derived(self, raw: Any, variables: Mapping[str, Variable]) -> Dict[str, Formula]:
         formulas: Dict[str, Formula] = {}
@@ -694,8 +795,11 @@ def _analyse(
             c.error(
                 f"shutdown[{i}]", f"this switches off the output of '{owner}', which is always on"
             )
+    c.cooldown_warnings(variables, axes, timing)
+    power_order = c.power_order(params.get("power_order"), variables)
     if not any(p.severity == "error" for p in c.problems):
-        return EfficiencySpec(variables, axes, derived, timing, startup, shutdown), c.problems
+        spec = EfficiencySpec(variables, axes, derived, timing, startup, shutdown, power_order)
+        return spec, c.problems
     return None, c.problems
 
 
