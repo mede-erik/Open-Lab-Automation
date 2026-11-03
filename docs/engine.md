@@ -222,6 +222,14 @@ to reach an instrument: the application gives it `connect(name) -> handle` (an o
 `.call(call_name, **args)`, see [`instrument-calls.md`](instrument-calls.md)). Without it, **Start** says that the
 instruments are not connected and sends nothing; an instrument that cannot be reached is named in the message.
 
+**In the main window.** `frontend/ui/main_window.py` shows the project window as the *Measurements* tab (it replaces
+the old "Avvia Efficienza - in arrivo" placeholder). Its `connect` is `not_connected` (in `ProjectWindow.py`), which
+raises "the connection to the instruments is not available in this build yet": the window then says
+"cannot reach instrument '<name>'" and starts nothing. **To connect the real instruments, replace that one
+function** with one that returns the handle of the instrument `name` of the project (the `InstrumentHandle` of the
+library branch, built from the `.inst` entry: model, address, transport). The old project flow of the main window
+(`eff_files`, left list) is untouched and still works on its own format.
+
 `python -m frontend.ui.ProjectWindow [project.json]` opens a project; with no argument it creates a demo project
 with simulated instruments in a temporary folder. A project in the old format (`eff_files`) is not read: the
 window says so.

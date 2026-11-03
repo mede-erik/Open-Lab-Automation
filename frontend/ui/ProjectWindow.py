@@ -554,6 +554,13 @@ class ProjectWindow(QMainWindow):
         event.accept()
 
 
+def not_connected(name: str):
+    """The ``connect`` of an application that cannot reach instruments yet: raises, and the project
+    window shows "cannot reach instrument '<name>': ..." instead of starting. Replace it with a
+    function that returns the handle of the instrument ``name`` of the project."""
+    raise RuntimeError("the connection to the instruments is not available in this build yet")
+
+
 def demo_project(folder: str):
     """A project with one efficiency measurement for the simulated lab (``DemoLab``); the file
     names the instruments it uses, as the efficiency editor writes it."""

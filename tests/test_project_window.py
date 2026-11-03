@@ -196,3 +196,45 @@ def test_json_editor_validates_and_saves(window, monkeypatch):
     dialog2.edit.setPlainText("{ not json")
     dialog2.save()
     assert window.session.load(ref).params == before
+
+
+# ---- inside the main window ---------------------------------------------------------------------
+def test_the_window_can_be_a_tab_of_the_main_window(app, tmp_path):
+    from PyQt6.QtWidgets import QTabWidget
+
+    from frontend.ui.ProjectWindow import not_connected
+
+    tabs = QTabWidget()
+    panel = ProjectWindow(
+        demo_project(str(tmp_path)),
+        connect=not_connected,
+        registry=default_registry(user_dir="/nonexistent"),
+    )
+    try:
+        tabs.addTab(panel, panel.tr_.t("prj_tab"))
+        tabs.show()
+        assert tabs.tabText(0) == "Measurements"
+        assert panel.table.rowCount() == 1
+    finally:
+        panel._timer.stop()
+        tabs.close()
+
+
+def test_not_connected_gives_a_readable_reason_and_sends_nothing(window, monkeypatch):
+    from frontend.ui.ProjectWindow import not_connected
+
+    shown = []
+    monkeypatch.setattr(QMessageBox, "critical", staticmethod(lambda *a, **k: shown.append(a[2])))
+    window.session.connect = not_connected
+    window.table.selectRow(0)
+    window.run_measurement()
+    assert shown and "cannot reach instrument" in shown[0] and "not available" in shown[0]
+    assert not window.run_windows and not window.session.run_dir.exists()
+
+
+def test_main_window_uses_the_project_tab():
+    """main_window.py is not instantiated here (it opens a database); check the wiring."""
+    path = os.path.join(os.path.dirname(project_module.__file__), "main_window.py")
+    source = open(path, encoding="utf-8").read()
+    assert "ProjectWindow(translator=self.translator, connect=not_connected)" in source
+    assert "Funzionalità in arrivo" not in source

@@ -23,6 +23,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QSettings
 
 from frontend.ui.RemoteControlTab import RemoteControlTab
+from frontend.ui.ProjectWindow import ProjectWindow, not_connected
 from frontend.ui.SettingsDialog import SettingsDialog
 from frontend.core.Translator import Translator
 from frontend.ui.EffFileDialog import EffFileDialog
@@ -111,16 +112,11 @@ class MainWindow(QMainWindow):
         self.remote_tab = RemoteControlTab(self.load_instruments)
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         
-        # Tab Avvia Efficienza (futura implementazione)
-        self.efficiency_tab = QWidget()
-        efficiency_layout = QVBoxLayout()
-        efficiency_label = QLabel('Avvia Efficienza - Funzionalità in arrivo...')
-        efficiency_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        efficiency_label.setStyleSheet('font-size: 16px; color: gray; padding: 50px;')
-        efficiency_layout.addWidget(efficiency_label)
-        self.efficiency_tab.setLayout(efficiency_layout)
-        self.tabs.addTab(self.efficiency_tab, 'Avvia Efficienza')
-        
+        # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
+        # `not_connected` is the one place to replace with the real way to reach the instruments.
+        self.project_tab = ProjectWindow(translator=self.translator, connect=not_connected)
+        self.tabs.addTab(self.project_tab, self.project_tab.tr_.t('prj_tab'))
+
         self.project_files_list = QListWidget()
         self.logger.debug("UI tabs and lists created.")
         
