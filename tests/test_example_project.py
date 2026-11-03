@@ -58,10 +58,9 @@ def test_manual_instruments_make_a_handle(library, instruments):
     assert {i["instrument_type"] for i in manual} == {"power_supply", "electronic_load"}
     for inst in manual:
         assert inst["num_channels"] == 1 and len(inst["channels"]) == 1
-        assert (
-            manual_handle_from_inst(inst, library).supports("output_on")
-            or inst["instrument_type"] == "electronic_load"
-        )
+        handle = manual_handle_from_inst(inst, library)
+        on_call = "load_on" if inst["instrument_type"] == "electronic_load" else "output_on"
+        assert handle.supports(on_call)
 
 
 def test_datalogger_configuration_plans_for_its_model(library, instruments):
