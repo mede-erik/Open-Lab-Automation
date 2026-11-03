@@ -299,7 +299,7 @@ def test_filter_example_in_the_docs_is_valid_and_runs():
 
 
 def test_simulated_vna_takes_the_sweep_types_the_planner_takes():
-    """The planner turns an enum into upper case and applies the aliases: SimVna must accept the same."""
+    """The planner upper-cases an enum and applies the aliases: SimVna must accept the same."""
     import pytest
 
     from ola.sim_vna import SimVna
