@@ -602,6 +602,12 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   **mentre si compila il dialog** (`validate_params`, errori con il percorso del campo).
   Nel nucleo: più tabelle di righe (`points`, `samples`), `ctx.ask` / `runner.answer`, stato
   `waiting`. Provata solo su strumenti simulati.
+  **Uscite** (2026-11-03): ogni parametro impostato può avere un blocco `output` (chiamate `on`/`off`
+  e `mode`): `keep_on` (predefinito), `off_between_points` (spento e riacceso tra un punto e l'altro,
+  con impostazione rinviata) e `always_on` ("sempre attivo": **mai** spento dal programma, né tra i
+  punti né alla fine, dopo un errore o uno stop; per l'alimentazione ausiliaria di un convertitore con
+  microcontrollore senza memoria non volatile). Accensione nell'ordine dell'elenco, spegnimento in
+  ordine inverso. Un `shutdown` che spegne un'uscita sempre attiva è un errore di validazione.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), il dialog di modifica dell'efficienza e l'azione "Avvia misura" nella GUI,
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

@@ -16,8 +16,9 @@ for every point of the sweep:
     average every reading, compute the formulas -> the point (table "points")
 ```
 
-At the very first point everything is set, then the `startup` calls are made (outputs on). At the end,
-and after any error or stop, the `shutdown` calls are made (outputs off).
+At the very first point everything is set, then the outputs are switched on. What happens to the outputs
+afterwards is **your choice, parameter by parameter** (see "Outputs" below). At the end, and after any error
+or stop, the outputs that are allowed to be switched off are switched off.
 
 ## The file
 
@@ -34,9 +35,13 @@ and after any error or stop, the `shutdown` calls are made (outputs off).
      "reads": {"psu": {"instrument": "psu1", "call": "read_voltage", "args": {"channel_number": 1}},
                "daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "101"}}},
      "verify": {"read": "daq", "tol_rel": 0.01, "tol_abs": 0.02},
-     "limits": {"min": 5, "max": 20}},
+     "limits": {"min": 5, "max": 20},
+     "output": {"on": {"instrument": "psu1", "call": "output_on"},
+                "off": {"instrument": "psu1", "call": "output_off"},
+                "mode": "off_between_points"}},
     {"name": "vaux",
-     "set": {"instrument": "psu2", "call": "set_voltage"}, "value": 12},
+     "set": {"instrument": "psu2", "call": "set_voltage"}, "value": 12,
+     "output": {"on": {"instrument": "psu2", "call": "output_on"}, "mode": "always_on"}},
     {"name": "iin",
      "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "102"}, "scale": 10}}},
     {"name": "vout",
@@ -48,8 +53,8 @@ and after any error or stop, the `shutdown` calls are made (outputs off).
     "pout": "vout@daq * iout@load",
     "efficiency": "100 * pout / pin"
   },
-  "startup": [{"instrument": "psu1", "call": "output_on"}],
-  "shutdown": [{"instrument": "psu1", "call": "output_off"}]
+  "startup": [],
+  "shutdown": []
 }
 ```
 
@@ -68,6 +73,7 @@ are the names of the instruments of the project.
 | `reads` | zero or more readings: `{label: {instrument, call, args, scale, offset}}`; the result is `reading * scale + offset` (for a shunt, `scale` is 1 / resistance) |
 | `verify` | compare the setpoint with one of its readings (below) |
 | `limits` | `{"min", "max"}`: allowed setpoints, checked against every value of the sweep |
+| `output` | how the output of its instrument is switched on and off: `on`, `off` and `mode` (below) |
 
 A parameter that has `set` needs `value` **or** `sweep`. A parameter without `set` is only read (for
 example the input current taken from a shunt).
@@ -83,6 +89,32 @@ The list is **ordered** and you can move parameters up and down. The order is tw
 With `iout` first and `vin` second in the example above, the points are
 `(vin 9, iout 0.5)`, `(9, 1.5)`, `(9, 2.5)`, `(12, 0.5)`, `(12, 1.5)`... Move `vin` to the top and the
 supply voltage becomes the fast sweep.
+
+## Outputs: what may be switched off
+
+Some converters hold state that must not be lost: a microcontroller without non-volatile memory loses its
+program when its supply is cut. So the program never decides alone: every parameter that is set can have an
+`output` block with the calls that switch its output (`on`, `off`) and a `mode`:
+
+| `mode` | Switched on | Between points | At the end, after an error or a stop |
+|---|---|---|---|
+| `keep_on` (default) | at the start | stays on | switched off |
+| `off_between_points` | at the start | switched off after each point, set again and switched on again before the next | switched off |
+| `always_on` | at the start, if an `on` call is given | **never switched off** | **never switched off** |
+
+* **Always on** is the "never switch this off" tick: an auxiliary supply that keeps a microcontroller alive,
+  or an input that must stay up for the whole measurement. The program does not touch its output at the end
+  either, also when the measurement fails or is stopped: leaving it on is then your decision, and the file
+  editor shows a warning to remind you. An `off` call given to an always-on output is ignored, and a
+  `shutdown` call that switches it off is refused as an error.
+* **Off between points** is for outputs that must be power-cycled at every point (for example the load and
+  the input supply, but not the auxiliary one). The setpoint of a cycled parameter is sent again before it is
+  switched on again, in case the instrument forgot it.
+* Outputs are switched **on in the order of the list and off in the reverse order**. The same list that
+  decides the order of the sweeps decides this, so put the parameters in the order you want to power them.
+* A parameter without an `output` block is never switched on or off by the program.
+* `startup` and `shutdown` are optional extra calls: `startup` after the outputs are on, `shutdown` before they
+  are switched off. They are for anything else that is not the output of a parameter.
 
 ## Names in formulas
 

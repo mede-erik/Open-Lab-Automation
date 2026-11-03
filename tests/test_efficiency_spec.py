@@ -298,13 +298,15 @@ def test_verify_defaults_to_asking_the_user():
         assert parse_params(p, INSTRUMENTS).variables["vin"].verify.on_fail == value
 
 
-def test_startup_without_shutdown_is_a_warning_not_an_error():
+def test_startup_and_shutdown_are_extra_calls_and_their_instruments_are_checked():
     p = good()
     p.pop("shutdown")
-    assert errors(p) == []
-    assert [x for x in problems(p) if x[1] == "warning"][0][0] == "shutdown"
+    assert errors(p) == [] and problems(p) == []  # extra calls: neither is required
     p["startup"] = [{"instrument": "ghost", "call": "output_on"}]
     assert only_error(p)[0] == "startup[0].instrument"
+    p = good()
+    p["shutdown"].append({"instrument": "psu2"})
+    assert only_error(p)[0] == "shutdown[1].call"
 
 
 def test_several_problems_are_all_reported_at_once():
@@ -383,3 +385,108 @@ def test_validation_does_not_modify_the_parameters():
     validate_params(p, INSTRUMENTS, FakeChecker())
     parse_params(p, INSTRUMENTS)
     assert repr(p) == before
+
+
+# ---- outputs: keep on, off between points, always on ---------------------------------------------
+
+
+def out(on="output_on", off="output_off", mode=None, instrument="psu1"):
+    block = {}
+    if on:
+        block["on"] = {"instrument": instrument, "call": on}
+    if off:
+        block["off"] = {"instrument": instrument, "call": off}
+    if mode:
+        block["mode"] = mode
+    return block
+
+
+def warnings(params, **kw):
+    return [(path, msg) for path, sev, msg in problems(params, **kw) if sev == "warning"]
+
+
+def test_output_blocks_are_parsed():
+    p = good()
+    p["variables"][VIN]["output"] = out(mode="off_between_points")
+    p["variables"][VAUX]["output"] = out(off=None, mode="always_on", instrument="psu2")
+    spec = parse_params(p, INSTRUMENTS)
+    assert spec.variables["vin"].output.mode == "off_between_points"
+    assert spec.variables["vin"].output.on.call == "output_on"
+    assert (
+        spec.variables["vaux"].output.mode == "always_on"
+        and spec.variables["vaux"].output.off is None
+    )
+    assert spec.variables["iout"].output is None
+
+
+def test_output_mode_defaults_to_keep_on():
+    p = good()
+    p["variables"][VIN]["output"] = out()
+    assert parse_params(p, INSTRUMENTS).variables["vin"].output.mode == "keep_on"
+
+
+def test_output_problems():
+    p = good()
+    p["variables"][VIN]["output"] = out(mode="sometimes")
+    path, msg = only_error(p)
+    assert path == "variables[1].output.mode" and "keep_on, off_between_points, always_on" in msg
+    p = good()
+    p["variables"][IIN]["output"] = out()  # a read-only parameter has no output
+    assert only_error(p)[0] == "variables[3].output"
+    p = good()
+    p["variables"][VIN]["output"] = {"on": {"instrument": "psu1", "call": "output_on"}, "typo": 1}
+    assert only_error(p)[0] == "variables[1].output.typo"
+    p = good()
+    p["variables"][VIN]["output"] = "off"
+    assert only_error(p)[0] == "variables[1].output"
+    p = good()
+    p["variables"][VIN]["output"] = out(instrument="psu_1")
+    found = errors(p)
+    assert {path for path, _ in found} == {
+        "variables[1].output.on.instrument",
+        "variables[1].output.off.instrument",
+    }
+
+
+def test_switching_off_between_points_needs_both_calls():
+    for block in (
+        out(off=None, mode="off_between_points"),
+        out(on=None, mode="off_between_points"),
+    ):
+        p = good()
+        p["variables"][VIN]["output"] = block
+        path, msg = only_error(p)
+        assert path == "variables[1].output" and "both 'on' and 'off'" in msg
+
+
+def test_warnings_say_what_stays_on():
+    p = good()
+    p["variables"][VAUX]["output"] = out(mode="always_on", instrument="psu2")
+    found = dict(warnings(p))
+    assert (
+        "always on" in found["variables[2].output"] and "stays ON" in found["variables[2].output"]
+    )
+    assert "also after an error or a stop" in found["variables[2].output"]
+    assert "ignored" in found["variables[2].output.off"]  # an off call that will never be used
+    p = good()
+    p["variables"][VIN]["output"] = out(off=None)
+    assert "stays on at the end" in dict(warnings(p))["variables[1].output"]
+    assert errors(p) == []
+
+
+def test_a_shutdown_call_cannot_switch_off_an_always_on_output():
+    p = good()
+    p["variables"][VAUX]["output"] = out(mode="always_on", instrument="psu2")
+    p["shutdown"] = [{"instrument": "psu2", "call": "output_off"}]
+    path, msg = only_error(p)
+    assert path == "shutdown[0]" and "'vaux', which is always on" in msg
+    p["shutdown"] = [{"instrument": "psu1", "call": "output_off"}]  # another output: fine
+    assert errors(p) == []
+
+
+def test_the_library_checker_also_sees_the_output_calls():
+    p = good()
+    p["shutdown"] = []
+    p["variables"][VIN]["output"] = out()
+    found = errors(p, checker=FakeChecker(missing={("psu1", "output_off")}))
+    assert found == [("variables[1].output.off", "psu1 does not support 'output_off'")]

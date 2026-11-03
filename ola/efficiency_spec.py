@@ -14,15 +14,24 @@ The parameters (the ``params`` of an ``.eff`` file), in short::
     variables   an ORDERED LIST of parameters; each one is
                 {"name": ..., "set": how to set it (optional), "value": fixed value or
                  "sweep": axis (one of them, if it is set), "reads": {label: how to read it},
-                 "verify": check against a reading, "limits": {"min", "max"}}
+                 "verify": check against a reading, "limits": {"min", "max"},
+                 "output": {"on", "off", "mode"}: how its output is switched (see below)}
     timing      {"settle_s", "samples", "interval_s"}: what to do at every point
     derived     name -> formula over the names below
-    startup / shutdown   lists of {"instrument", "call", "args"} (outputs on / off)
+    startup / shutdown   extra calls made once, after the outputs are on / before they go off
 
 The order of the list is chosen by the user and means two things: it is the order in which the
 parameters are set, and it is the nesting of the sweeps. The **first** parameter changes first and
 fastest (innermost sweep); the second advances one step only when the first has done its whole
 sweep; and so on.
+
+The ``output`` of a parameter says what the program may do with the output of its instrument:
+``keep_on`` (default) switches it on at the start and off at the end, also after an error or a stop;
+``off_between_points`` also switches it off after every point and on again before the next one;
+``always_on`` switches it on at the start if an ``on`` call is given and **never switches it off**,
+not even at the end, after an error or after a stop (an auxiliary supply that keeps a
+microcontroller without non-volatile memory alive). Outputs go on in the order of the list and
+off in the reverse order.
 
 Names in formulas: ``vin`` is the value that was **set**, ``vin@daq`` is the **reading** labelled
 ``daq`` of ``vin``, ``pin`` is another derived quantity. See ``docs/efficiency.md``.
@@ -41,6 +50,7 @@ from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown")
+OUTPUT_MODES = ("keep_on", "off_between_points", "always_on")
 MAX_SAMPLES = 10_000
 
 
@@ -123,6 +133,7 @@ class Variable:
     verify: Optional[VerifySpec]
     axis: Optional[List[float]] = None  # the values of its sweep, if it is swept
     limits: Optional[Tuple[Optional[float], Optional[float]]] = None  # allowed (min, max)
+    output: Optional["OutputSpec"] = None  # how its output is switched on and off
 
 
 @dataclass(frozen=True)
@@ -142,6 +153,16 @@ class CallSpec:
     instrument: str
     call: str
     args: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class OutputSpec:
+    """The output of the instrument that sets a parameter: ``on`` / ``off`` calls (either may be
+    missing) and the ``mode`` (``keep_on``, ``off_between_points`` or ``always_on``)."""
+
+    on: Optional[CallSpec]
+    off: Optional[CallSpec]
+    mode: str = "keep_on"
 
 
 @dataclass
@@ -301,7 +322,7 @@ class _Checker:
                 self.error(path, "must be an object with 'name' and 'set' and/or 'reads'")
                 continue
             self.unknown_keys(
-                body, ("name", "set", "value", "sweep", "reads", "verify", "limits"), path
+                body, ("name", "set", "value", "sweep", "reads", "verify", "limits", "output"), path
             )
             name = body.get("name")
             if "name" not in body:
@@ -347,7 +368,12 @@ class _Checker:
                 else None
             )
             limits = self.limits(body.get("limits"), name, has_set, value, axis, f"{path}.limits")
-            out[name] = Variable(name, setter, value, reads, verify, axis, limits)
+            output = (
+                self.output(body.get("output"), has_set, name, f"{path}.output")
+                if "output" in body
+                else None
+            )
+            out[name] = Variable(name, setter, value, reads, verify, axis, limits, output)
         return out
 
     def setter(self, raw: Any, path: str) -> Optional[SetSpec]:
@@ -496,17 +522,56 @@ class _Checker:
             self.error(path, 'must be a list of {"instrument": .., "call": ..}')
             return out
         for i, item in enumerate(raw):
-            where = f"{path}[{i}]"
-            if not isinstance(item, dict):
-                self.error(where, "must be an object with 'instrument' and 'call'")
-                continue
-            self.unknown_keys(item, ("instrument", "call", "args"), where)
-            instrument = self.instrument(item, where)
-            call, args = self.call_and_args(item, where)
-            self.library_check(instrument, call, args, where)
-            if instrument and call:
-                out.append(CallSpec(instrument, call, args))
+            spec = self.call_spec(item, f"{path}[{i}]")
+            if spec is not None:
+                out.append(spec)
         return out
+
+    def call_spec(self, item: Any, where: str) -> Optional[CallSpec]:
+        if not isinstance(item, dict):
+            self.error(where, "must be an object with 'instrument' and 'call'")
+            return None
+        self.unknown_keys(item, ("instrument", "call", "args"), where)
+        instrument = self.instrument(item, where)
+        call, args = self.call_and_args(item, where)
+        self.library_check(instrument, call, args, where)
+        if instrument and call:
+            return CallSpec(instrument, call, args)
+        return None
+
+    def output(self, raw: Any, has_set: bool, name: str, path: str) -> Optional[OutputSpec]:
+        if not has_set:
+            self.error(path, f"'{name}' is not set by the program, so it has no output to switch")
+            return None
+        if not isinstance(raw, dict):
+            self.error(
+                path, 'must be an object like {"on": {...}, "off": {...}, "mode": "keep_on"}'
+            )
+            return None
+        self.unknown_keys(raw, ("on", "off", "mode"), path)
+        mode = raw.get("mode", "keep_on")
+        if mode not in OUTPUT_MODES:
+            self.error(f"{path}.mode", f"must be one of: {', '.join(OUTPUT_MODES)}")
+            mode = "keep_on"
+        on = self.call_spec(raw["on"], f"{path}.on") if "on" in raw else None
+        off = self.call_spec(raw["off"], f"{path}.off") if "off" in raw else None
+        if ("on" in raw and on is None) or ("off" in raw and off is None):
+            return None  # already reported
+        if mode == "off_between_points" and (on is None or off is None):
+            self.error(path, "to switch it off between points give both 'on' and 'off' calls")
+        if mode == "always_on":
+            if off is not None:
+                self.warn(
+                    f"{path}.off", "ignored: an output that is always on is never switched off"
+                )
+            self.warn(
+                path,
+                f"'{name}' is always on: the program never switches it off, so it stays ON when "
+                "the measurement ends, also after an error or a stop",
+            )
+        elif off is None:
+            self.warn(path, f"no 'off' call: the output of '{name}' stays on at the end")
+        return OutputSpec(on, off, mode)
 
     def derived(self, raw: Any, variables: Mapping[str, Variable]) -> Dict[str, Formula]:
         formulas: Dict[str, Formula] = {}
@@ -618,8 +683,17 @@ def _analyse(
     derived = c.derived(params.get("derived"), variables)
     startup = c.call_list(params.get("startup"), "startup")
     shutdown = c.call_list(params.get("shutdown"), "shutdown")
-    if startup and not shutdown:
-        c.warn("shutdown", "there is a startup but no shutdown: the outputs stay on at the end")
+    protected = {
+        (var.output.off.instrument, var.output.off.call, repr(var.output.off.args)): var.name
+        for var in variables.values()
+        if var.output and var.output.mode == "always_on" and var.output.off
+    }
+    for i, call in enumerate(shutdown):
+        owner = protected.get((call.instrument, call.call, repr(call.args)))
+        if owner:
+            c.error(
+                f"shutdown[{i}]", f"this switches off the output of '{owner}', which is always on"
+            )
     if not any(p.severity == "error" for p in c.problems):
         return EfficiencySpec(variables, axes, derived, timing, startup, shutdown), c.problems
     return None, c.problems

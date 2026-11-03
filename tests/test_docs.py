@@ -181,7 +181,11 @@ def test_efficiency_guide_example_is_valid_and_has_the_documented_order():
     assert block, "example block not found in docs/efficiency.md"
     params = _json.loads(block.group(1))
     bound = ["psu1", "psu2", "daq1", "load1"]
-    assert [str(p) for p in validate_params(params, bound)] == []
+    found = validate_params(params, bound)
+    assert [str(p) for p in found if p.severity == "error"] == []
+    # the one thing worth a warning in the example: the always-on auxiliary supply
+    warned = [p.path for p in found if p.severity == "warning"]
+    assert warned == ["variables[2].output"], warned
     spec = parse_params(params, bound)
     points = list(iter_points(spec.axes))
     assert [(p["vin"], p["iout"]) for p in points[:4]] == [(9, 0.5), (9, 1.5), (9, 2.5), (12, 0.5)]

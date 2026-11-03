@@ -4,7 +4,9 @@ for the user guide).
 For every point of the sweep:
 
 1. set the parameters that changed, in the order of the list (the first one first); at the very
-   first point everything is set, then the ``startup`` calls (outputs on) are made;
+   first point everything is set, then the outputs are switched on (list order) and the ``startup``
+   calls are made; an output marked ``off_between_points`` was switched off after the previous
+   point, so it is set again and switched on again;
 2. wait ``settle_s``;
 3. take ``samples`` readings of every reading, ``interval_s`` apart (scheduled from the first one,
    so a slow instrument does not shift the others); each one is stored in the ``samples`` table;
@@ -15,7 +17,11 @@ A parameter with ``verify`` is compared with the setpoint on every sample; if it
 than the tolerance the measurement stops and asks (retry / abort / skip), or only warns, or fails,
 depending on ``on_fail``. *Skip* is remembered while the setpoint stays the same (the points are
 still flagged ``verify_skipped``); a new setpoint is checked and asked about again.
-At the end, or after any error or stop, the ``shutdown`` calls are made.
+
+At the end, and after any error or stop, the ``shutdown`` calls are made and the outputs are
+switched off in the reverse order -- except those marked ``always_on``, which this measurement never
+switches off (for example an auxiliary supply that keeps a microcontroller without non-volatile
+memory alive).
 """
 
 import statistics
@@ -45,6 +51,9 @@ class Efficiency(Measurement):
             if var.set:
                 used.add(var.set.instrument)
             used.update(r.instrument for r in var.reads.values())
+        for var in self._spec.variables.values():
+            if var.output:
+                used.update(c.instrument for c in (var.output.on, var.output.off) if c)
         used.update(c.instrument for c in self._spec.startup + self._spec.shutdown)
         missing = sorted(used - set(self._handles))
         if missing:
@@ -72,6 +81,9 @@ class Efficiency(Measurement):
         total = spec.point_count()
         last = {}  # last value sent for every parameter
         self._accepted = {}  # parameter -> setpoint whose mismatch the user chose to skip
+        outputs = [v for v in spec.variables.values() if v.output]
+        cycled = [v for v in outputs if v.output.mode == "off_between_points"]
+        powered_down = False
         started = False
         for index, point in enumerate(iter_points(spec.axes)):
             ctx.checkpoint()
@@ -80,8 +92,12 @@ class Efficiency(Measurement):
             while True:
                 self._apply(setters, targets, last)
                 if not started:
+                    self._outputs_on(outputs)
                     self._calls(spec.startup)
                     started = True
+                elif powered_down:
+                    self._outputs_on(cycled)
+                    powered_down = False
                 ctx.sleep(spec.timing.settle_s)
                 result = self._sample_point(ctx, index, attempt, targets)
                 if result is not None:
@@ -94,9 +110,18 @@ class Efficiency(Measurement):
                 row["verify_skipped"] = ",".join(sorted(skipped))
             ctx.emit_point(row)
             ctx.progress(index + 1, total, f"point {index + 1} of {total}")
+            if cycled and index + 1 < total:
+                self._outputs_off(cycled)  # the last point is switched off by teardown
+                for var in cycled:
+                    last.pop(var.name, None)  # set again before it is switched on again
+                powered_down = True
 
     def teardown(self, ctx: MeasurementContext) -> None:
-        """Make every ``shutdown`` call even if one fails; then raise the first error."""
+        """Make the ``shutdown`` calls, then switch the outputs off in reverse order.
+
+        Every call is made even if an earlier one fails (the other outputs must still be switched
+        off); the first error is raised at the end. Outputs marked ``always_on`` are never touched.
+        """
         spec = getattr(self, "_spec", None)
         if spec is None:
             try:
@@ -104,8 +129,12 @@ class Efficiency(Measurement):
             except SpecError:
                 return
         handles = {h.name: h for h in ctx.instruments("instruments")}
+        calls = list(spec.shutdown)
+        for var in reversed(list(spec.variables.values())):
+            if var.output and var.output.mode != "always_on" and var.output.off:
+                calls.append(var.output.off)
         first_error = None
-        for call in spec.shutdown:
+        for call in calls:
             try:
                 handles[call.instrument].call(call.call, **call.args)
             except Exception as exc:  # keep going: the other outputs must still be switched off
@@ -118,6 +147,18 @@ class Efficiency(Measurement):
     def _calls(self, calls) -> None:
         for call in calls:
             self._handles[call.instrument].call(call.call, **call.args)
+
+    def _outputs_on(self, variables) -> None:
+        """Switch the outputs on, in the order of the list."""
+        for var in variables:
+            if var.output.on:
+                self._calls([var.output.on])
+
+    def _outputs_off(self, variables) -> None:
+        """Switch the outputs off, in the reverse order of the list."""
+        for var in reversed(variables):
+            if var.output.off:
+                self._calls([var.output.off])
 
     def _apply(self, setters, targets, last) -> None:
         """Set the parameters whose value changed, in the order of the list."""
