@@ -1514,6 +1514,23 @@ Errors related to the instrument library database.
 
 Errors of the call layer: a logical call (for example `set_channel_scale`) is translated into the commands of one instrument model and executed. They are raised by `ola.call_planner` / `ola.instrument` and shown with the same code.
 
+### CALL-000: Generic Call Error
+**Description**: Base code of the call layer; a call error with no more specific code  
+**Common Cause**:
+- A call failed for a reason that has no dedicated CALL code
+- Raised directly by code that uses the base error class
+
+**Solution**:
+1. Read the message: it names the call and, when known, the step
+2. Check the log for the cause that is attached to the error
+
+**Log Example**:
+```
+[13:49:00] ERROR-CALL-000-call 'read_waveform' failed
+```
+
+---
+
 ### CALL-001: Call Not Supported
 **Description**: The call is not defined for this instrument model (or the model has no connection/driver)  
 **Common Cause**:
