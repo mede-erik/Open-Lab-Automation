@@ -792,6 +792,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   previsto = sottrazione in dB sul solo S21 con avviso "corretto solo in modulo" (approssimazione: riflessi non tolti);
   poi eventualmente la versione complessa con file Touchstone (S-parametri completi). I valori misurati restano salvati
   e la correzione si applica sopra, indicando il codice dell'oggetto tolto.
+  **Ripple e rumore** (2026-11-04, prima delle misure "da fare" scelta dall'utente): modulo `ripple` (`.rpl`) con
+  oscilloscopio (e carico elettronico facoltativo): picco-picco, rms della parte AC (accoppiamento AC e limite
+  20 MHz di default), frequenza del ripple e armoniche dallo spettro (finestra di Hann), rumore = rms di ciò che resta
+  tolti i picchi, il peggiore tra più acquisizioni, verdetto su `max_pp_v`/`max_rms_v` (fuori limite = risultato),
+  e **ripple in funzione della corrente di carico** (il carico viene spento in teardown anche dopo errore).
+  Avvisi: segnale che tocca il bordo dello schermo, pochi livelli del convertitore (scala troppo grossa), meno di 5
+  periodi nel record, campionamento sotto 5× la frequenza. Nuovi pezzi comuni: `ola/spectrum.py` (FFT, picchi, rumore;
+  riusabile per lo spettro) e `ola/sim_scope.py`. Il test contro la libreria vera ha mostrato che la profondità di
+  memoria accetta solo valori discreti per modello (10k, 100k, 1M...): documentato, l'errore del planner è chiaro.
+  Guida: `docs/ripple.md`. Non provato su hardware. Da aggiungere: ripple al variare della tensione d'ingresso, picchi
+  di commutazione come cifre a sé.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

@@ -443,3 +443,34 @@ def test_attenuator_example_in_the_docs_is_valid_and_runs():
     assert abs(row["mean_attenuation_db"] - 10.275) < 0.02
     for name in ("`attenuator.asset_id`", "ATT-0007"):
         assert name in text
+
+
+def test_ripple_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/ripple.md is a real file: it validates and runs on the simulation."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_scope import SimLoad, SimScope
+
+    text = read(ROOT / "docs" / "ripple.md")
+    block = re.search(r"```json ripple\.rpl\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/ripple.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("ripple", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    scope = SimScope(ripple_pp_v=0.010, ripple_per_a_v=0.010, noise_rms_v=0.0005)
+    runner = Runner(m, {"oscilloscope": [scope], "load": [SimLoad(scope)]})
+    runner.start()
+    assert runner.join(60) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    assert [r["load_current_a"] for r in rows] == [0.0, 1.0, 2.0]
+    assert [r["verdict"] for r in rows] == ["PASS", "PASS", "PASS"]
+    assert rows[0]["captures"] == 3 and rows[2]["pp_v"] > rows[0]["pp_v"]
+    assert abs(rows[1]["ripple_frequency_hz"] - 500e3) < 5e3
+    for name in ("max_pp_v", "max_rms_v", "set_acquisition_depth", "read_waveform_full"):
+        assert name in text
