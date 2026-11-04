@@ -1,0 +1,17 @@
+{
+  "wir_title": "Conexiones - {name}",
+  "wir_button": "Conexiones...",
+  "wir_intro_run": "Conecte los instrumentos como se muestra y luego inicie la medición.",
+  "wir_intro_view": "Cómo se conectan los instrumentos para esta medición.",
+  "wir_connections": "Conexiones",
+  "wir_notes": "Antes de empezar",
+  "wir_start": "Iniciar",
+  "wir_cancel": "Cancelar",
+  "wir_close": "Cerrar",
+  "wir_show_before": "Mostrar esto antes de cada medición",
+  "wir_none": "Esta medición no tiene esquema de conexión.",
+  "wir_save_svg": "Guardar SVG...",
+  "wir_saved": "Guardado {path}",
+  "wir_failed": "No se pudo guardar: {error}",
+  "wir_error": "No se puede mostrar el esquema de conexión: {error}"
+}

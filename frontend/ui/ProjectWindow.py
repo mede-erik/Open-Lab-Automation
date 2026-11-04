@@ -190,9 +190,16 @@ class ProjectWindow(QMainWindow):
         assets: Optional[Any] = None,
         registry: Optional[ModuleRegistry] = None,
         parent: Optional[QWidget] = None,
+        wiring_before_run: bool = False,
+        on_wiring_preference: Optional[Callable[[bool], None]] = None,
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
+        self.wir_ = CatalogTranslator("wiring", translator)
+        # show the connection diagram of a measurement before it starts (a tick in that window
+        # turns it off; ``on_wiring_preference`` is told so that it can be remembered)
+        self.wiring_before_run = wiring_before_run
+        self.on_wiring_preference = on_wiring_preference
         self._t = self.tr_.t
         self.translator, self.connect = translator, connect
         self.connector_factory, self.connector = connector_factory, None
@@ -252,10 +259,13 @@ class ProjectWindow(QMainWindow):
             ("prj_new", self.new_measurement),
             ("prj_edit", self.edit_measurement),
             ("prj_run", self.run_measurement),
+            ("wir_button", self.show_connections),
             ("prj_rename", self.rename_measurement),
             ("prj_remove", self.remove_measurement),
         ):
-            button = QPushButton(self._t(key))
+            button = QPushButton(
+                self.wir_.t(key) if key.startswith("wir_") else self._t(key)
+            )
             button.clicked.connect(lambda _c=False, h=handler: h())
             self.buttons[key] = button
             row.addWidget(button)
@@ -413,6 +423,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_new"].setEnabled(self.session is not None)
         self.buttons["prj_edit"].setEnabled(usable)
         self.buttons["prj_run"].setEnabled(usable)
+        self.buttons["wir_button"].setEnabled(usable)
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
@@ -474,10 +485,55 @@ class ProjectWindow(QMainWindow):
         dialog.exec()
         self._refresh()
 
+    def _wiring_dialog(self, ref: MeasurementRef, confirm: bool):
+        """The connection-diagram window of a measurement, or None if its module has none (or
+        the diagram cannot be built: the reason is shown)."""
+        from frontend.ui.WiringDialog import WiringDialog
+        from ola.wiring import WiringError
+
+        try:
+            diagram = self.session.wiring(ref, self.wir_.lang)
+        except (WiringError, MeasurementError) as exc:
+            QMessageBox.warning(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc))
+            return None
+        if diagram is None:
+            return None
+        return WiringDialog(
+            diagram, self.translator, ref.name, confirm, self.wiring_before_run, parent=self
+        )
+
+    def show_connections(self) -> None:
+        """Show how the instruments are connected for the selected measurement."""
+        ref = self._selected()
+        if ref is None:
+            return
+        dialog = self._wiring_dialog(ref, confirm=False)
+        if dialog is None:
+            QMessageBox.information(self, self._t("prj_title"), self.wir_.t("wir_none"))
+            return
+        dialog.exec()
+
+    def _confirm_wiring(self, ref: MeasurementRef) -> bool:
+        """Before a run: show the diagram and ask to start. False if the user cancels."""
+        if not self.wiring_before_run:
+            return True
+        dialog = self._wiring_dialog(ref, confirm=True)
+        if dialog is None:
+            return True
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        keep = dialog.show_before.isChecked()
+        if keep != self.wiring_before_run:
+            self.wiring_before_run = keep
+            if self.on_wiring_preference is not None:
+                self.on_wiring_preference(keep)
+        return accepted
+
     def run_measurement(self) -> None:
         """Start the selected measurement in a run window."""
         ref = self._selected()
         if ref is None:
+            return
+        if not self._confirm_wiring(ref):
             return
         try:
             runner, run_file = self.session.build_runner(ref)

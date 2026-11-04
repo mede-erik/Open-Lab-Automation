@@ -130,6 +130,8 @@ class MainWindow(QMainWindow):
             connector_factory=lambda session: make_connector(
                 session, default_library_path(), self.translator, self
             ),
+            wiring_before_run=self._wiring_preference(),
+            on_wiring_preference=self._save_wiring_preference,
         )
         self.tabs.addTab(self.project_tab, self.project_tab.tr_.t('prj_tab'))
 
@@ -930,6 +932,17 @@ class MainWindow(QMainWindow):
 
         self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
         self._assets_tool.show()
+
+    @staticmethod
+    def _wiring_preference() -> bool:
+        """Whether the connection diagram is shown before every measurement (on by default)."""
+        value = QSettings('LabAutomation', 'App').value('show_wiring_before_run', True)
+        return str(value).lower() not in ('false', '0')
+
+    @staticmethod
+    def _save_wiring_preference(value: bool) -> None:
+        """Remember the tick of the connection diagram window."""
+        QSettings('LabAutomation', 'App').setValue('show_wiring_before_run', bool(value))
 
     def open_compare_tool(self):
         """Open the tool that compares saved results; it starts in the runs folder of the open

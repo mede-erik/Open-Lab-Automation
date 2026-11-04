@@ -1,0 +1,233 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        },
+        {
+          "id": "p2",
+          "side": "right",
+          "label": {
+            "en": "Port 2",
+            "it": "Porta 2",
+            "fr": "Port 2",
+            "es": "Puerto 2",
+            "de": "Tor 2"
+          },
+          "when": "mode!=reflection"
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "{cable.label|Cable}",
+        "it": "{cable.label|Cavo}",
+        "fr": "{cable.label|Câble}",
+        "es": "{cable.label|Cable}",
+        "de": "{cable.label|Kabel}"
+      },
+      "ports": [
+        {
+          "id": "a",
+          "side": "left",
+          "label": {
+            "en": "End A",
+            "it": "Capo A",
+            "fr": "Extrémité A",
+            "es": "Extremo A",
+            "de": "Ende A"
+          }
+        },
+        {
+          "id": "b",
+          "side": "left",
+          "label": {
+            "en": "End B",
+            "it": "Capo B",
+            "fr": "Extrémité B",
+            "es": "Extremo B",
+            "de": "Ende B"
+          },
+          "when": "mode!=reflection"
+        },
+        {
+          "id": "far",
+          "side": "right",
+          "label": {
+            "en": "End B",
+            "it": "Capo B",
+            "fr": "Extrémité B",
+            "es": "Extremo B",
+            "de": "Ende B"
+          },
+          "when": "mode=reflection"
+        }
+      ]
+    },
+    {
+      "id": "open",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "when": [
+        "mode=reflection",
+        "termination!=short"
+      ],
+      "title": {
+        "en": "Open",
+        "it": "Aperto",
+        "fr": "Ouvert",
+        "es": "Abierto",
+        "de": "Offen"
+      },
+      "ports": [
+        {
+          "id": "c",
+          "side": "left",
+          "label": {
+            "en": "Far end",
+            "it": "Capo lontano",
+            "fr": "Extrémité lointaine",
+            "es": "Extremo lejano",
+            "de": "Fernes Ende"
+          }
+        }
+      ]
+    },
+    {
+      "id": "short",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "when": [
+        "mode=reflection",
+        "termination=short"
+      ],
+      "title": {
+        "en": "Short",
+        "it": "Cortocircuito",
+        "fr": "Court-circuit",
+        "es": "Cortocircuito",
+        "de": "Kurzschluss"
+      },
+      "ports": [
+        {
+          "id": "c",
+          "side": "left",
+          "label": {
+            "en": "Far end",
+            "it": "Capo lontano",
+            "fr": "Extrémité lointaine",
+            "es": "Extremo lejano",
+            "de": "Fernes Ende"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "dut.a",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    },
+    {
+      "from": "vna.p2",
+      "to": "dut.b",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "mode!=reflection"
+    },
+    {
+      "from": "dut.far",
+      "to": "open.c",
+      "label": {
+        "en": "cable",
+        "it": "cavo",
+        "fr": "câble",
+        "es": "cable",
+        "de": "Kabel"
+      },
+      "when": [
+        "mode=reflection",
+        "termination!=short"
+      ],
+      "style": "dashed"
+    },
+    {
+      "from": "dut.far",
+      "to": "short.c",
+      "label": {
+        "en": "cable",
+        "it": "cavo",
+        "fr": "câble",
+        "es": "cable",
+        "de": "Kabel"
+      },
+      "when": [
+        "mode=reflection",
+        "termination=short"
+      ],
+      "style": "dashed"
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA beforehand (open / short / load or thru) at the ends of the test leads, over the sweep you will use.",
+      "it": "Calibra il VNA prima (open / short / load oppure thru) alle estremità dei cavi di test, sull'intervallo dello sweep che userai.",
+      "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
+      "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
+      "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    },
+    {
+      "en": "Transmission: the cable goes between port 1 and port 2. Reflection: only port 1; leave the far end open or short it, as set in the file.",
+      "it": "Trasmissione: il cavo va tra la porta 1 e la porta 2. Riflessione: solo la porta 1; lascia aperto il capo lontano o mettilo in corto, come nel file.",
+      "fr": "Transmission : le câble va entre le port 1 et le port 2. Réflexion : seulement le port 1 ; laissez l'extrémité lointaine ouverte ou court-circuitée, comme dans le fichier.",
+      "es": "Transmisión: el cable va entre el puerto 1 y el puerto 2. Reflexión: solo el puerto 1; deje el extremo lejano abierto o en corto, como en el archivo.",
+      "de": "Transmission: das Kabel liegt zwischen Tor 1 und Tor 2. Reflexion: nur Tor 1; das ferne Ende offen lassen oder kurzschließen, wie in der Datei."
+    }
+  ]
+}

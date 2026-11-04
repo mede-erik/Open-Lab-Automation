@@ -803,6 +803,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   memoria accetta solo valori discreti per modello (10k, 100k, 1M...): documentato, l'errore del planner è chiaro.
   Guida: `docs/ripple.md`. Non provato su hardware. Da aggiungere: ripple al variare della tensione d'ingresso, picchi
   di commutazione come cifre a sé.
+  **Schema di collegamento** (2026-11-04, richiesta dell'utente: "quando si inizializza la misura venga mostrato uno
+  schema di collegamento dei dispositivi"): `ola/wiring.py` (senza Qt) legge un `wiring.json` che ogni modulo porta con
+  sé (si aggiorna con il modulo): nodi (strumenti e dispositivo in prova) su una griglia, porte, collegamenti con
+  l'etichetta del cavo, note; i testi nelle 5 lingue con `{parametro|predefinito}` e condizioni `when` (l'amplificatore
+  mostra l'attenuatore solo se c'è, il cavo la porta 2 oppure l'estremo aperto/in corto, il ripple il carico solo con
+  `conditions`); sotto ogni strumento i nomi legati al ruolo. Disegno in mm con le stesse primitive delle etichette
+  (anche SVG). `frontend/ui/WiringDialog.py`: prima dell'avvio una domanda Avvia/Annulla con la spunta "mostra prima di
+  ogni misura" (ricordata in QSettings), il pulsante "Collegamenti..." nella finestra del progetto, Salva SVG.
+  Disponibile per le misure RF, ripple ed efficienza (qui uno schema **tipico**); il time log non lo ha. Guida:
+  `docs/wiring.md`. Da fare: i pin dentro il dispositivo, i canali del datalogger e lo shunt nello schema
+  dell'efficienza, una versione stampabile nel report.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

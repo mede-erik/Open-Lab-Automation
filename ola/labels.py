@@ -117,7 +117,7 @@ SHEETS: Dict[str, SheetSpec] = {
 # ----- what is drawn -------------------------------------------------------------------------
 @dataclass
 class Text:
-    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start`` or ``middle``."""
+    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start``, ``middle`` or ``end``."""
 
     x: float
     y: float

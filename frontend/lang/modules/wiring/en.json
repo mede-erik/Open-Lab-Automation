@@ -1,0 +1,17 @@
+{
+  "wir_title": "Connections - {name}",
+  "wir_button": "Connections...",
+  "wir_intro_run": "Connect the instruments as shown, then start the measurement.",
+  "wir_intro_view": "How the instruments are connected for this measurement.",
+  "wir_connections": "Connections",
+  "wir_notes": "Before you start",
+  "wir_start": "Start",
+  "wir_cancel": "Cancel",
+  "wir_close": "Close",
+  "wir_show_before": "Show this before each measurement",
+  "wir_none": "This measurement has no connection diagram.",
+  "wir_save_svg": "Save SVG...",
+  "wir_saved": "Saved {path}",
+  "wir_failed": "Could not save: {error}",
+  "wir_error": "The connection diagram cannot be shown: {error}"
+}

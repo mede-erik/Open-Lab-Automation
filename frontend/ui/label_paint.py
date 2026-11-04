@@ -43,6 +43,8 @@ def paint_drawing(painter: QPainter, drawing: Drawing, scale: float, dx: float =
             x = item.x * scale
             if item.anchor == "middle":
                 x -= painter.fontMetrics().horizontalAdvance(item.text) / 2
+            elif item.anchor == "end":
+                x -= painter.fontMetrics().horizontalAdvance(item.text)
             painter.drawText(QPointF(x, item.y * scale), item.text)
         elif isinstance(item, Box):
             painter.setPen(QPen(black, 0.2 * scale))

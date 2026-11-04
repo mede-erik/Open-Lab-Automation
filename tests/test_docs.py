@@ -474,3 +474,23 @@ def test_ripple_example_in_the_docs_is_valid_and_runs():
     assert abs(rows[1]["ripple_frequency_hz"] - 500e3) < 5e3
     for name in ("max_pp_v", "max_rms_v", "set_acquisition_depth", "read_waveform_full"):
         assert name in text
+
+
+def test_wiring_doc_matches_the_code():
+    """docs/wiring.md: its example is a valid file and the window and fields it names exist."""
+    import json as _json
+
+    from ola.wiring import diagram_for
+
+    text = read(ROOT / "docs" / "wiring.md")
+    block = re.search(r"```json\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/wiring.md"
+    diagram = diagram_for(_json.loads(block.group(1)), {"filter": {"label": "SAW"}}, {"vna": ["V"]})
+    assert diagram.node("dut").title == "SAW" and len(diagram.links) == 2
+    assert diagram.node("vna").subtitle == "V"
+    for name in ("Show this before each measurement", "Connections...", "Save SVG..."):
+        assert name in text
+    catalog = _json.loads(read(ROOT / "frontend" / "lang" / "modules" / "wiring" / "en.json"))
+    assert catalog["wir_show_before"] == "Show this before each measurement"
+    assert catalog["wir_button"] == "Connections..." and catalog["wir_save_svg"] == "Save SVG..."
+    assert "wiring.md" in read(ROOT / "docs" / "measurement-modules.md")

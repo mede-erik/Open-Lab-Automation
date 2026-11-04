@@ -1,0 +1,82 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "{device.label|Device under test}",
+        "it": "{device.label|Dispositivo in prova}",
+        "fr": "{device.label|Dispositif testé}",
+        "es": "{device.label|Dispositivo en prueba}",
+        "de": "{device.label|Prüfling}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Connector",
+            "it": "Connettore",
+            "fr": "Connecteur",
+            "es": "Conector",
+            "de": "Anschluss"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "dut.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA beforehand (open / short / load or thru) at the ends of the test leads, over the sweep you will use.",
+      "it": "Calibra il VNA prima (open / short / load oppure thru) alle estremità dei cavi di test, sull'intervallo dello sweep che userai.",
+      "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
+      "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
+      "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    }
+  ]
+}

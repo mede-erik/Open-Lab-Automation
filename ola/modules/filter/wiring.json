@@ -1,0 +1,115 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        },
+        {
+          "id": "p2",
+          "side": "right",
+          "label": {
+            "en": "Port 2",
+            "it": "Porta 2",
+            "fr": "Port 2",
+            "es": "Puerto 2",
+            "de": "Tor 2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "{filter.label|Filter}",
+        "it": "{filter.label|Filtro}",
+        "fr": "{filter.label|Filtre}",
+        "es": "{filter.label|Filtro}",
+        "de": "{filter.label|Filter}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "left",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "dut.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    },
+    {
+      "from": "vna.p2",
+      "to": "dut.out",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA beforehand (open / short / load or thru) at the ends of the test leads, over the sweep you will use.",
+      "it": "Calibra il VNA prima (open / short / load oppure thru) alle estremità dei cavi di test, sull'intervallo dello sweep che userai.",
+      "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
+      "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
+      "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    }
+  ]
+}

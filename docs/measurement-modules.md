@@ -161,6 +161,14 @@ module with only `validate()` still works: its problems are listed without a fie
 define `default_params()` in `measurement.py`: the starting point of a new file. The model behind the window is
 `ola/form_model.py` (`FormModel`), tested without a screen.
 
+## A connection diagram: `wiring.json`
+
+A module that puts a `wiring.json` next to its `module.json` has a **connection diagram**: how the instruments and the
+device under test are connected. It is shown before the measurement starts (a window with *Start* and *Cancel*, which
+the user can turn off with a tick) and by the *Connections...* button of the project window. The file is data, so it
+is updated with the module; see [`wiring.md`](wiring.md) for the format. Add `"when": "scope.channel"`-style
+conditions to show a part only when the parameters ask for it, and `{path|default}` to write a parameter into a text.
+
 ## Rules
 
 * **Call `ctx.checkpoint()` or `ctx.sleep()` in every loop.** A loop that never does cannot be stopped or paused.
@@ -197,3 +205,4 @@ program asks the user first. Finding modules (`discover()`) never runs any code.
 3. `ctx.checkpoint()` / `ctx.sleep()` in the loops.
 4. A test with a fake handle (see `tests/test_time_log.py`): normal run, a failing read, and a stop.
 5. Add it to the README table if it is built in (`ola/modules/<id>/`).
+6. A `wiring.json` if the measurement needs instruments connected to something ([`wiring.md`](wiring.md)).
