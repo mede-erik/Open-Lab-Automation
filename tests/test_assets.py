@@ -394,3 +394,20 @@ def test_a_run_without_a_registry_or_a_code_has_no_cards(tmp_path):
     ref = session.create("cable", "C")  # the default parameters name no cable
     _, path = session.build_runner(ref)
     assert "assets" not in read_header(path)  # nothing named, so nothing saved
+
+
+def test_one_pass_gives_the_runs_of_every_cable(tmp_path):
+    from ola.assets import index_runs
+
+    runs = tmp_path / "runs"
+    a = make_run(runs, "a", {"cable": {"asset_id": "CBL-0001"}}, stamp="20261103_100000")
+    both = make_run(
+        runs, "b", {"cable": {"asset_id": "CBL-0001"}, "device": {"asset_id": "ANT-0002"}},
+        stamp="20261103_110000",
+    )  # fmt: skip
+    make_run(runs, "none", {"cable": {"label": "no code"}})
+    index = index_runs([runs, tmp_path / "missing"])
+    assert sorted(index) == ["ANT-0002", "CBL-0001"]
+    assert [r.path for r in index["CBL-0001"]] == [a, both]  # oldest first
+    assert [r.path for r in index["ANT-0002"]] == [both]  # a run can name two objects
+    assert index_runs([]) == {} and history("CBL-0009", [runs]) == []

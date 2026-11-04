@@ -394,3 +394,21 @@ def test_compare_doc_names_the_things_the_window_really_has():
     assert strings["cmp_mode_overlay"].lower() in text.lower()
     assert "Difference from the reference" in text and strings["cmp_mode_difference"] in text
     assert "python -m frontend.ui.CompareDialog" in text
+
+
+def test_assets_doc_matches_the_code():
+    """docs/assets.md states prefixes, formats and file names: they must be the ones in the code."""
+    from ola.assets import ENV_FILE, KINDS
+    from ola.labels import PRESETS, SHEETS
+
+    text = read(ROOT / "docs" / "assets.md")
+    for kind, info in KINDS.items():
+        assert f"`{info['prefix']}`" in text, kind
+    assert ENV_FILE in text and "assets.json.bak" in text and "OLA:CBL-0042" in text
+    for name in ("50 x 25", "40 x 20", "62 x 29", "70 x 37", "60 x 15"):
+        assert name in text, name
+    for sheet in SHEETS:
+        grid = re.search(r"A4 (\d+x\d+)", sheet).group(1).replace("x", " x ")
+        assert grid in text, sheet
+    assert all(s in PRESETS for s in ("50x25", "40x20", "62x29", "70x37", "flag 60x15"))
+    assert "pip install segno" in text and "segno" in read(ROOT / "requirements.txt")

@@ -30,7 +30,6 @@ MIN_MODULE_MM = 0.3  # a QR module smaller than this is hard to print and to rea
 QUIET_MODULES = (
     2  # empty border around a QR code, in modules (the standard asks 4; labels are small)
 )
-CHAR_WIDTH = 0.56  # the width of an average character as a fraction of the font size (conservative)
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
 # the lines of a label: the first is always kept, the last goes first when there is no room
 FIELDS = ("id", "name", "description", "connectors", "length", "date", "last_measurement",
@@ -233,9 +232,26 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
     return ""
 
 
+def char_width(ch: str) -> float:
+    """The width of one character as a fraction of the font size, for a typical sans-serif font:
+    capitals and digits are wide, lower case narrower, spaces and punctuation narrow. Rounded up,
+    so that text is never wider than estimated."""
+    if ch == " ":
+        return 0.32
+    if ch in "il.,:;'|!":
+        return 0.30
+    if ch in "-()[]/\\":
+        return 0.40
+    if ch in "mwMW@%":
+        return 1.10
+    if ch.isupper() or ch.isdigit():
+        return 0.70
+    return 0.58  # lower case
+
+
 def text_width(text: str, size: float, bold: bool = False) -> float:
     """The width a text takes at font size ``size`` mm (an estimate that errs on the long side)."""
-    return len(text) * size * (CHAR_WIDTH + (0.05 if bold else 0.0))
+    return sum(char_width(c) for c in text) * size * (1.08 if bold else 1.0)
 
 
 def fit_text(text: str, width: float, start: float, floor: float = MIN_FONT_MM, bold: bool = False):
@@ -246,9 +262,10 @@ def fit_text(text: str, width: float, start: float, floor: float = MIN_FONT_MM, 
         size = max(floor, size - 0.1)
     if text_width(text, size, bold) <= width:
         return size, text
-    per_char = size * (CHAR_WIDTH + (0.05 if bold else 0.0))
-    keep = max(1, int(width / per_char) - 1)
-    return size, text[:keep].rstrip() + "…"
+    cut = text
+    while len(cut) > 1 and text_width(cut + "…", size, bold) > width:
+        cut = cut[:-1]
+    return size, cut.rstrip() + "…"
 
 
 # ----- one label -----------------------------------------------------------------------------

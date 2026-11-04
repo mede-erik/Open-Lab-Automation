@@ -765,6 +765,23 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   contro un'altra. Esporta CSV e PNG. Voce nel menu Tools e pulsante *Confronta...* nella finestra del progetto.
   Verificato su esecuzioni vere di cavi simulati (le differenze tornano con la lunghezza del cavo).
   Rimane: confronto con un campione di riferimento salvato nel progetto, e l'etichetta del cavo.
+  **Etichetta del cavo e registro di cavi e dispositivi** (2026-11-04, discussa e decisa con l'utente:
+  "come raccomandi, usa segno e fai la versione generale"): `ola/assets.py` (registro JSON unico per tutti i
+  progetti, `~/.open_lab_automation/assets.json` o `OLA_ASSETS_FILE`; codici `CBL-0042` per tipo, **mai
+  riutilizzati**; scrittura atomica con `.bak`; file danneggiato segnalato e non sovrascritto; ricerca da
+  scanner `OLA:cbl-2`), `ola/labels.py` (layout in mm: singola, **bandierina** per cavi sottili, **fogli** con i
+  posti già usati saltati; QR normale con `segno`, mai Micro QR; righe che non entrano scartate dalla fine **e
+  segnalate**; SVG), `frontend/ui/label_paint.py` (anteprima, PNG, PDF alla misura reale; un test controlla **ogni
+  modulo del QR** nell'immagine) e le finestre `AssetsDialog` (Tools > Cavi e dispositivi: schede, scansione,
+  ritira/elimina, storia con Confronta, etichette), `AssetEditDialog`, `LabelDialog`. Le misure RF hanno il campo
+  "dal registro" (scelta/scrittura/scansione; il nome si riempie da solo; codice sconosciuto = avviso) e ogni
+  esecuzione salva **la scheda di quel giorno** nell'intestazione; il confronto riconosce i cavi dal codice.
+  Scelte: la perdita non è un dato fisso sull'etichetta ma una riga facoltativa "ultima misura" da ristampare;
+  niente stampa diretta (PDF a 100 %); registro generale (cavo, antenna, filtro, amplificatore, adattatore,
+  altro). Difetto trovato dallo screenshot e corretto: la stima della larghezza del testo era troppo
+  ottimistica per le maiuscole (ora per carattere, confrontata nei test con la larghezza reale di Qt).
+  Rimane: modelli di etichetta modificabili (con il sistema del report HTML), andamento della perdita di un cavo
+  nel tempo, lettura del QR con la fotocamera.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

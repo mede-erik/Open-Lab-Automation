@@ -344,26 +344,39 @@ def _end_state(path: Path) -> str:
     return "interrupted"
 
 
-def history(code: str, run_dirs: Iterable[Union[str, Path]]) -> List[RunRef]:
-    """The runs that used the object with this code, oldest first: found by the code every run
-    saved in its header (only the first line of each file is read). Folders that do not exist
-    are skipped."""
+def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
+    """Every run file of the folders, grouped by the codes it names: ``{code: [RunRef, ...]}``,
+    each list oldest first. One pass over the files (the first line of each), for a table of all
+    the cables with how many times each was measured."""
     from .compare import run_date
 
-    wanted = normalize_code(code) or code
-    out: List[RunRef] = []
+    out: Dict[str, List[RunRef]] = {}
     for folder in run_dirs:
         folder = Path(folder)
         if not folder.is_dir():
             continue
         for path in sorted(folder.glob("*.jsonl")):
             header = read_header(path)
-            if header is None or wanted not in asset_ids_in(header.get("params") or {}):
+            if header is None:
                 continue
-            out.append(
-                RunRef(path, run_date(path), str(header.get("measurement", "?")), _end_state(path))
+            codes = asset_ids_in(header.get("params") or {})
+            if not codes:
+                continue
+            ref = RunRef(
+                path, run_date(path), str(header.get("measurement", "?")), _end_state(path)
             )
-    return sorted(out, key=lambda r: (r.when, r.path.name))
+            for code in codes:
+                out.setdefault(code, []).append(ref)
+    for refs in out.values():
+        refs.sort(key=lambda r: (r.when, r.path.name))
+    return out
+
+
+def history(code: str, run_dirs: Iterable[Union[str, Path]]) -> List[RunRef]:
+    """The runs that used the object with this code, oldest first: found by the code every run
+    saved in its header (only the first line of each file is read). Folders that do not exist
+    are skipped."""
+    return index_runs(run_dirs).get(normalize_code(code) or code, [])
 
 
 # the figure that tells the most about each kind of measurement, in order of preference
@@ -413,6 +426,6 @@ def snapshots_for(params: Mapping[str, Any], registry: Optional[AssetRegistry]) 
 
 __all__: Sequence[str] = [
     "Asset", "AssetError", "AssetRegistry", "KINDS", "RunRef", "asset_ids_in", "default_path",
-    "history", "last_measurement_line", "normalize_code", "qr_text", "read_header",
+    "history", "index_runs", "last_measurement_line", "normalize_code", "qr_text", "read_header",
     "snapshots_for",
 ]  # fmt: skip

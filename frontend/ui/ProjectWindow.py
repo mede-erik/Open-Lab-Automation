@@ -187,6 +187,7 @@ class ProjectWindow(QMainWindow):
         translator: Any = None,
         connect: Optional[Callable[..., Any]] = None,
         connector_factory: Optional[Callable[[ProjectSession], Callable[..., Any]]] = None,
+        assets: Optional[Any] = None,
         registry: Optional[ModuleRegistry] = None,
         parent: Optional[QWidget] = None,
     ):
@@ -195,6 +196,7 @@ class ProjectWindow(QMainWindow):
         self._t = self.tr_.t
         self.translator, self.connect = translator, connect
         self.connector_factory, self.connector = connector_factory, None
+        self.assets = assets  # the registry of cables and devices (ola.assets), or None
         self.registry = registry or default_registry()
         self.session: Optional[ProjectSession] = None
         self.run_windows: list = []
@@ -285,7 +287,9 @@ class ProjectWindow(QMainWindow):
     def set_project(self, project: Project) -> None:
         """Show this project (``connect`` is kept)."""
         self._close_connector()
-        self.session = ProjectSession(project, self.registry, connect=self.connect)
+        self.session = ProjectSession(
+            project, self.registry, connect=self.connect, assets=self.assets
+        )
         if self.connector_factory is not None:  # built for this project, closed when it changes
             self.connector = self.connector_factory(self.session)
             self.session.connect = self.connector
@@ -459,7 +463,8 @@ class ProjectWindow(QMainWindow):
                     ref.type,
                     self.translator,
                     self.session.instruments,
-                    self,
+                    assets=self.assets,
+                    parent=self,
                 )
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)

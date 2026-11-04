@@ -33,6 +33,9 @@ from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
 from frontend.ui.CompareDialog import CompareDialog
+from frontend.ui.AssetsDialog import AssetsDialog
+from ola.assets import AssetError, AssetRegistry
+from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
@@ -119,8 +122,10 @@ class MainWindow(QMainWindow):
         # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
         # The instruments are reached through the library and the project's .inst file
         # (frontend/ui/connector_setup.py); `not_connected` is the fallback if that is not possible.
+        self.assets = self._open_assets()  # the registry of cables and devices (or None)
         self.project_tab = ProjectWindow(
             translator=self.translator,
+            assets=self.assets,
             connect=not_connected,
             connector_factory=lambda session: make_connector(
                 session, default_library_path(), self.translator, self
@@ -251,6 +256,11 @@ class MainWindow(QMainWindow):
         compare_action = QAction(CatalogTranslator("compare", self.translator).t("cmp_menu"), self)
         compare_action.triggered.connect(self.open_compare_tool)
         tools_menu.addAction(compare_action)
+        
+        # Cables and devices: codes, cards and labels
+        assets_action = QAction(CatalogTranslator("assets", self.translator).t("ast_menu"), self)
+        assets_action.triggered.connect(self.open_assets_tool)
+        tools_menu.addAction(assets_action)
         
         # Pulse Generator Tool
         pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
@@ -897,6 +907,30 @@ class MainWindow(QMainWindow):
         dlg = HexDecConverterDialog(self)
         dlg.exec()
     
+    def _open_assets(self):
+        """The registry of cables and devices, or None if its file is damaged (the program still
+        works: the cards are just not available until the file is repaired)."""
+        try:
+            return AssetRegistry()
+        except AssetError as exc:
+            self.logger.error(f"Registry of cables and devices not available: {exc}")
+            return None
+
+    def open_assets_tool(self):
+        """Open the window of the cables and devices (cards, labels, history)."""
+        if self.assets is None:
+            error = f"{default_assets_path()} (damaged or not readable)"
+            text = CatalogTranslator("assets", self.translator).t("ast_open_failed", error=error)
+            QMessageBox.warning(self, "Open Lab Automation", text)
+            return
+
+        def run_dirs():  # the runs folder of the project that is open now
+            session = getattr(self.project_tab, "session", None)
+            return [session.run_dir] if session is not None else []
+
+        self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
+        self._assets_tool.show()
+
     def open_compare_tool(self):
         """Open the tool that compares saved results; it starts in the runs folder of the open
         project (frontend/ui/CompareDialog.py)."""

@@ -98,3 +98,27 @@ def test_a_sheet_pdf_is_a4_with_several_pages(app, tmp_path):
 def test_there_must_be_something_to_write(app, tmp_path):
     with pytest.raises(ValueError, match="no label"):
         write_pdf(str(tmp_path / "x.pdf"), [])
+
+
+@pytest.mark.parametrize("bold", [False, True])
+def test_the_width_estimate_is_never_less_than_the_real_text_width(app, bold):
+    """Text that the layout says fits must really fit, whatever the system font is."""
+    from PyQt6.QtGui import QFont, QFontMetricsF
+
+    from frontend.ui.label_paint import FONT_FAMILY
+    from ola.labels import text_width
+
+    samples = [
+        "CBL-0042", "RG316 SMA-SMA", "LMR195 N-SMA", "1 m low-loss test lead", "868 MHz whip",
+        "MMMMMMMM", "WWWWW", "iiiiiiii", "0.6 dB @ 868MHz, 2026-11-03", "Semi-rigid 0.141 SMA-SMA",
+        "RF lab", "S/N X123", "calibrated with the VNA on the left bench",
+    ]  # fmt: skip
+    font = QFont(FONT_FAMILY)
+    font.setStyleHint(QFont.StyleHint.SansSerif)
+    font.setPixelSize(100)
+    font.setBold(bold)
+    metrics = QFontMetricsF(font)
+    for text in samples:
+        real = metrics.horizontalAdvance(text) / 100  # in units of the font size
+        assert text_width(text, 1.0, bold) >= real, (text, text_width(text, 1.0, bold), real)
+        assert text_width(text, 1.0, bold) <= real * 1.6  # and not absurdly wasteful
