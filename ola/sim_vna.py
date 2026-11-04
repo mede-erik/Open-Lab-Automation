@@ -13,8 +13,9 @@ plus a term proportional to the frequency (dielectric loss)::
 other port: only a small mismatch is seen), ``"open"`` or ``"short"`` (the signal goes to the end
 and back), or ``"antenna"``: a resonant device (``antenna_f0_hz``, ``antenna_r_ohm``,
 ``antenna_q``) directly on port 1, as after a calibration at the port. ``filter_type`` puts a
-Butterworth filter between the ports (S21 is its response). ``noise_db`` adds a little random
-error to every point; ``calls`` records what was asked.
+Butterworth filter between the ports (S21 is its response); ``attenuator_db`` (and a
+``attenuator_slope_db_per_ghz``) an attenuator instead of the cable. ``noise_db`` adds a little
+random error to every point; ``calls`` records what was asked.
 """
 
 from __future__ import annotations
@@ -49,6 +50,8 @@ class SimVna:
         filter_bw_hz: float = 20e6,
         filter_order: int = 4,
         filter_loss_db: float = 0.5,
+        attenuator_db: float = 0.0,
+        attenuator_slope_db_per_ghz: float = 0.0,
     ):
         self.name = name
         self.length_m = length_m
@@ -57,6 +60,7 @@ class SimVna:
         self.termination, self.noise_db = termination, noise_db
         self.antenna = (antenna_f0_hz, antenna_r_ohm, antenna_q)
         self.filter = (filter_type, filter_f0_hz, filter_bw_hz, filter_order, filter_loss_db)
+        self.attenuator_db, self.attenuator_slope = attenuator_db, attenuator_slope_db_per_ghz
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -93,6 +97,9 @@ class SimVna:
         """What a cable (or the filter, if there is one) does to a signal going through (S21)."""
         if self.filter[0]:
             return self.filter_response(f)
+        if self.attenuator_db:  # a fixed attenuator: flat, with a slope, a very short delay
+            loss = self.attenuator_db + self.attenuator_slope * f / 1e9
+            return cmath.rect(10 ** (-loss / 20), -2 * math.pi * f * 0.1e-9)
         return cmath.rect(10 ** (-self.one_way_loss_db(f) / 20), -2 * math.pi * f * self.delay_s())
 
     def antenna_gamma(self, f: float) -> complex:

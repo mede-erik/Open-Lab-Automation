@@ -33,7 +33,7 @@ from .run_view import trace_xy
 from .runs import last_traces, read_run
 
 # keys of the measurement parameters that hold the name of what was measured
-LABEL_GROUPS = ("cable", "device", "filter")
+LABEL_GROUPS = ("cable", "device", "filter", "attenuator")
 _STAMP = re.compile(r"_(\d{8})_(\d{6})")
 
 
@@ -64,7 +64,7 @@ class RunData:
 
 def measured_name(params: Dict[str, Any]) -> str:
     """The name of what was measured, from the parameters of the run (``cable.label``,
-    ``device.label``, ``filter.label``), or ``""``."""
+    ``device.label``, ``filter.label``, ``attenuator.label``), or ``""``."""
     for group in LABEL_GROUPS:
         item = params.get(group)
         if isinstance(item, dict) and isinstance(item.get("label"), str) and item["label"].strip():

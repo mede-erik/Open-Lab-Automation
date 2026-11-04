@@ -782,6 +782,16 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   ottimistica per le maiuscole (ora per carattere, confrontata nei test con la larghezza reale di Qt).
   Rimane: modelli di etichetta modificabili (con il sistema del report HTML), andamento della perdita di un cavo
   nel tempo, lettura del QR con la fotocamera.
+  **Attenuatore** (2026-11-04, richiesta dell'utente): modulo `attenuator` (`.att`): attenuazione (positiva) di un attenuatore
+  in funzione della frequenza con il VNA, media/minimo/massimo, piattezza, pendenza, scostamento dal valore nominale,
+  return loss delle due porte, verdetto su nominale ± tolleranza o su una maschera (fuori tolleranza = risultato, non
+  errore); un gradino per misura (`setting`). Nel registro il nuovo tipo **ATT** (valore nominale, tolleranza, potenza e
+  frequenza massime, connettori) e la riga di etichetta "dati principali" (`10 dB, 6 GHz, 2 W`; anche `20 dB gain` per gli
+  amplificatori). `SimVna(attenuator_db=, attenuator_slope_db_per_ghz=)`. Guida: `docs/attenuator.md`.
+  **Da discutere/da fare: de-embedding** (togliere dal risultato un cavo o attenuatore già misurato): primo passo
+  previsto = sottrazione in dB sul solo S21 con avviso "corretto solo in modulo" (approssimazione: riflessi non tolti);
+  poi eventualmente la versione complessa con file Touchstone (S-parametri completi). I valori misurati restano salvati
+  e la correzione si applica sopra, indicando il codice dell'oggetto tolto.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

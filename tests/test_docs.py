@@ -412,3 +412,34 @@ def test_assets_doc_matches_the_code():
         assert grid in text, sheet
     assert all(s in PRESETS for s in ("50x25", "40x20", "62x29", "70x37", "flag 60x15"))
     assert "pip install segno" in text and "segno" in read(ROOT / "requirements.txt")
+
+
+def test_attenuator_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/attenuator.md is a real file: it validates and gives its verdict."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "attenuator.md")
+    block = re.search(r"```json attenuator\.att\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/attenuator.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("attenuator", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    params["confirm_setup"] = False
+    m = default_registry(user_dir="/nonexistent").create("attenuator", params)
+    runner = Runner(m, {"vna": [SimVna(attenuator_db=10.2, attenuator_slope_db_per_ghz=0.05)]})
+    runner.start()
+    assert runner.join(20) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert row["verdict"] == "PASS" and "attenuation_433MHz_db" in row
+    assert abs(row["mean_attenuation_db"] - 10.275) < 0.02
+    for name in ("`attenuator.asset_id`", "ATT-0007"):
+        assert name in text

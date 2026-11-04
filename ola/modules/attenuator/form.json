@@ -1,0 +1,360 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Attenuator and instrument",
+        "it": "Attenuatore e strumento",
+        "fr": "Atténuateur et instrument",
+        "es": "Atenuador e instrumento",
+        "de": "Dämpfungsglied und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "attenuator.asset_id",
+          "kind": "asset",
+          "label_path": "attenuator.label",
+          "label": {
+            "en": "Attenuator from the registry",
+            "it": "Attenuatore dal registro",
+            "fr": "Atténuateur du registre",
+            "es": "Atenuador del registro",
+            "de": "Dämpfungsglied aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "attenuator"
+        },
+        {
+          "path": "attenuator.label",
+          "kind": "text",
+          "label": {
+            "en": "Attenuator name",
+            "it": "Nome dell'attenuatore",
+            "fr": "Nom de l'atténuateur",
+            "es": "Nombre del atenuador",
+            "de": "Name des Dämpfungsglieds"
+          },
+          "help": {
+            "en": "Identifies the attenuator: it is saved with every run.",
+            "it": "Identifica l'attenuatore: viene salvato con ogni esecuzione.",
+            "fr": "Identifie l'atténuateur : il est enregistré avec chaque exécution.",
+            "es": "Identifica el atenuador: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Dämpfungsglied: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. 10 dB SMA #3",
+            "it": "es. 10 dB SMA n.3",
+            "fr": "p. ex. 10 dB SMA n°3",
+            "es": "p. ej. 10 dB SMA n.º 3",
+            "de": "z. B. 10 dB SMA Nr. 3"
+          }
+        },
+        {
+          "path": "attenuator.nominal_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Nominal attenuation",
+            "it": "Attenuazione nominale",
+            "fr": "Atténuation nominale",
+            "es": "Atenuación nominal",
+            "de": "Nenndämpfung"
+          },
+          "help": {
+            "en": "The value written on it. With the tolerance it gives the pass / fail check (the whole sweep must be inside).",
+            "it": "Il valore scritto sopra. Con la tolleranza dà il controllo promosso / non promosso (tutto lo sweep deve stare dentro).",
+            "fr": "La valeur inscrite dessus. Avec la tolérance, elle donne le contrôle réussi / échoué (tout le balayage doit être dedans).",
+            "es": "El valor escrito en él. Con la tolerancia da la comprobación aprobado / suspendido (todo el barrido debe estar dentro).",
+            "de": "Der aufgedruckte Wert. Mit der Toleranz ergibt er die Bestanden-Prüfung (der ganze Sweep muss innerhalb liegen)."
+          }
+        },
+        {
+          "path": "attenuator.tolerance_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Tolerance (plus / minus)",
+            "it": "Tolleranza (più / meno)",
+            "fr": "Tolérance (plus / moins)",
+            "es": "Tolerancia (más / menos)",
+            "de": "Toleranz (plus / minus)"
+          },
+          "help": {
+            "en": "Optional. Ignored if you give a mask below.",
+            "it": "Facoltativa. Ignorata se scrivi una maschera sotto.",
+            "fr": "Facultative. Ignorée si vous donnez un gabarit ci-dessous.",
+            "es": "Opcional. Se ignora si da una máscara abajo.",
+            "de": "Optional. Wird ignoriert, wenn unten eine Maske steht."
+          }
+        },
+        {
+          "path": "attenuator.setting",
+          "kind": "text",
+          "label": {
+            "en": "Setting",
+            "it": "Posizione",
+            "fr": "Position",
+            "es": "Posición",
+            "de": "Stellung"
+          },
+          "help": {
+            "en": "For a step attenuator: which step is set (free text, saved in the result). One setting per measurement.",
+            "it": "Per un attenuatore a gradini: quale gradino è impostato (testo libero, salvato nel risultato). Una posizione per misura.",
+            "fr": "Pour un atténuateur à pas : quel pas est réglé (texte libre, enregistré dans le résultat). Une position par mesure.",
+            "es": "Para un atenuador por pasos: qué paso está puesto (texto libre, se guarda en el resultado). Una posición por medición.",
+            "de": "Für ein Stufendämpfungsglied: welche Stufe eingestellt ist (freier Text, im Ergebnis gespeichert). Eine Stellung pro Messung."
+          }
+        },
+        {
+          "path": "also_return_loss",
+          "kind": "bool",
+          "label": {
+            "en": "Also measure the return loss of both ports (S11, S22)",
+            "it": "Misura anche il return loss delle due porte (S11, S22)",
+            "fr": "Mesurer aussi l'affaiblissement de retour des deux ports (S11, S22)",
+            "es": "Medir también la pérdida de retorno de los dos puertos (S11, S22)",
+            "de": "Auch die Rückflussdämpfung beider Tore messen (S11, S22)"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "Enough points to see the slope and any resonance of the attenuator.",
+            "it": "Abbastanza punti per vedere la pendenza e le eventuali risonanze dell'attenuatore.",
+            "fr": "Assez de points pour voir la pente et les éventuelles résonances de l'atténuateur.",
+            "es": "Suficientes puntos para ver la pendiente y las posibles resonancias del atenuador.",
+            "de": "Genug Punkte, um Steigung und eventuelle Resonanzen des Dämpfungsglieds zu sehen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Results and checks",
+        "it": "Risultati e controlli",
+        "fr": "Résultats et contrôles",
+        "es": "Resultados y controles",
+        "de": "Ergebnisse und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the attenuation at",
+            "it": "Riporta l'attenuazione a",
+            "fr": "Indiquer l'atténuation à",
+            "es": "Informar la atenuación en",
+            "de": "Dämpfung angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 433M, 868M, 2.4G",
+            "it": "es. 433M, 868M, 2.4G",
+            "fr": "p. ex. 433M, 868M, 2.4G",
+            "es": "p. ej. 433M, 868M, 2.4G",
+            "de": "z. B. 433M, 868M, 2.4G"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Mask on the attenuation (dB)",
+            "it": "Maschera sull'attenuazione (dB)",
+            "fr": "Gabarit sur l'atténuation (dB)",
+            "es": "Máscara de la atenuación (dB)",
+            "de": "Maske für die Dämpfung (dB)"
+          },
+          "help": {
+            "en": "Optional pass / fail check instead of the nominal value and tolerance. The attenuation is a positive number: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]} = between 9 and 11 dB up to 6 GHz.",
+            "it": "Controllo promosso / non promosso facoltativo al posto di valore nominale e tolleranza. L'attenuazione è positiva: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]} = tra 9 e 11 dB fino a 6 GHz.",
+            "fr": "Contrôle réussi / échoué facultatif à la place de la valeur nominale et de la tolérance. L'atténuation est positive : {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]} = entre 9 et 11 dB jusqu'à 6 GHz.",
+            "es": "Comprobación aprobado / suspendido opcional en lugar del valor nominal y la tolerancia. La atenuación es positiva: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]} = entre 9 y 11 dB hasta 6 GHz.",
+            "de": "Optionale Bestanden-Prüfung anstelle von Nennwert und Toleranz. Die Dämpfung ist positiv: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]} = zwischen 9 und 11 dB bis 6 GHz."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

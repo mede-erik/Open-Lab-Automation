@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
 
 from .assets import Asset, qr_text
+from .run_view import format_si
 
 MIN_MODULE_MM = 0.3  # a QR module smaller than this is hard to print and to read
 QUIET_MODULES = (
@@ -32,9 +33,9 @@ QUIET_MODULES = (
 )
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
 # the lines of a label: the first is always kept, the last goes first when there is no room
-FIELDS = ("id", "name", "description", "connectors", "length", "date", "last_measurement",
-          "owner", "serial", "notes")  # fmt: skip
-DEFAULT_FIELDS = ("id", "name", "description", "length", "date")
+FIELDS = ("id", "name", "description", "specs", "connectors", "length", "date",
+          "last_measurement", "owner", "serial", "notes")  # fmt: skip
+DEFAULT_FIELDS = ("id", "name", "description", "specs", "length", "date")
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,7 @@ PRESETS: Dict[str, LabelSpec] = {
     "50x25": LabelSpec("50x25", 50, 25),
     "40x20": LabelSpec("40x20", 40, 20, fields=("id", "name", "length")),
     "62x29": LabelSpec("62x29", 62, 29),  # the Brother QL 62 mm tape
-    "70x37": LabelSpec("70x37", 70, 37, fields=FIELDS[:6] + ("owner",)),
+    "70x37": LabelSpec("70x37", 70, 37, fields=FIELDS[:7] + ("owner",)),
     "flag 60x15": LabelSpec("flag 60x15", 60, 15, layout="flag", fields=("id", "name"), qr=False),
 }
 
@@ -205,6 +206,29 @@ def qr_matrix(text: str, error: str = "q") -> List[List[bool]]:
     return [[bool(v) for v in row] for row in code.matrix]
 
 
+def specs_text(asset: Asset) -> str:
+    """The key figures of a card on one line: an attenuator ``10 dB, 6 GHz, 2 W``, an amplifier
+    ``20 dB gain``; '' for the kinds that have none."""
+    a = asset.attributes
+
+    def num(name: str) -> Optional[float]:
+        value = a.get(name)
+        ok = isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+        return float(value) if ok else None
+
+    parts: List[str] = []
+    if asset.kind == "attenuator":
+        if num("nominal_db") is not None:
+            parts.append(f"{num('nominal_db'):g} dB")
+        if num("max_frequency") is not None:
+            parts.append(format_si(num("max_frequency"), "Hz"))
+        if num("max_power_w") is not None:
+            parts.append(f"{num('max_power_w'):g} W")
+    elif asset.kind == "amplifier" and num("nominal_gain_db") is not None:
+        parts.append(f"{num('nominal_gain_db'):g} dB gain")
+    return ", ".join(parts)
+
+
 def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
     """The text of one line of a label ('' if the card has nothing for it)."""
     if key == "id":
@@ -213,6 +237,8 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
         return asset.name
     if key == "description":
         return asset.description
+    if key == "specs":
+        return specs_text(asset)
     if key == "connectors":
         value = asset.attributes.get("connectors") or asset.attributes.get("connector")
         return str(value) if value else ""

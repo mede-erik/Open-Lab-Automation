@@ -13,7 +13,8 @@ measurements made on an object are found by the code that every run of it has sa
     registry.find("OLA:CBL-0001")                    # what a barcode scanner or a QR gives
     history("CBL-0001", [project_dir / "runs"])      # the runs that used this cable
 
-Kinds: ``cable``, ``antenna``, ``filter``, ``amplifier``, ``adapter``, ``other`` (see ``KINDS``).
+Kinds: ``cable``, ``antenna``, ``filter``, ``amplifier``, ``attenuator``, ``adapter``, ``other``
+(see ``KINDS``).
 Reading is forgiving (keys it does not know are kept) and saving is atomic (a power cut never
 leaves a half-written file; the previous version is kept as ``assets.json.bak``).
 """
@@ -51,11 +52,26 @@ KINDS: Dict[str, Dict[str, Any]] = {
         "prefix": "AMP",
         "attributes": [("nominal_gain_db", "dB"), ("supply", ""), ("connectors", "")],
     },
+    "attenuator": {
+        "prefix": "ATT",
+        "attributes": [
+            ("nominal_db", "dB"),
+            ("tolerance_db", "dB"),
+            ("max_power_w", "W"),
+            ("max_frequency", "Hz"),
+            ("connectors", ""),
+        ],
+    },
     "adapter": {"prefix": "ADP", "attributes": [("connectors", "")]},
     "other": {"prefix": "DUT", "attributes": []},
 }
 PREFIX_KIND = {v["prefix"]: k for k, v in KINDS.items()}
-ASSET_GROUPS = ("cable", "device", "filter")  # where a measurement file names what it measures
+ASSET_GROUPS = (
+    "cable",
+    "device",
+    "filter",
+    "attenuator",
+)  # where a measurement file names what it measures
 _CODE = re.compile(r"^(?:OLA:)?\s*([A-Za-z]{3})\s*-\s*(\d{1,6})\s*$", re.I)
 
 
@@ -292,7 +308,7 @@ class AssetRegistry:
 # ----- the cards and the measurements ------------------------------------------------------------
 def asset_ids_in(params: Mapping[str, Any]) -> List[str]:
     """The codes a measurement file names (``cable.asset_id``, ``device.asset_id``,
-    ``filter.asset_id``), normalised, without repeats."""
+    ``filter.asset_id``, ``attenuator.asset_id``), normalised, without repeats."""
     found: List[str] = []
     for group in ASSET_GROUPS:
         item = params.get(group)

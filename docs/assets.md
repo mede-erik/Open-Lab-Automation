@@ -1,6 +1,6 @@
 # Cables and devices: codes, cards and labels
 
-Every physical object that is measured (a cable, an antenna, a filter, an amplifier, an adapter...) can have a **code**
+Every physical object that is measured (a cable, an antenna, a filter, an amplifier, an attenuator, an adapter...) can have a **code**
 (`CBL-0042`) and a **card** that says what it is. The code is printed on a **label** stuck on the object, with a QR
 code, and is saved in every measurement made on it, so a result always says **which** cable it was made on, and a
 cable has a history. Open it from **Tools > Cables and devices**; from the command line:
@@ -16,12 +16,12 @@ rendered label.
 One JSON file for **all projects** (a cable is used in many): `~/.open_lab_automation/assets.json`, or the file named by
 the environment variable `OLA_ASSETS_FILE` (for example in a shared folder). It holds cards only, not results.
 
-* **Code**: a prefix for the kind and a number: `CBL` cable, `ANT` antenna, `FLT` filter, `AMP` amplifier, `ADP` adapter,
+* **Code**: a prefix for the kind and a number: `CBL` cable, `ANT` antenna, `FLT` filter, `AMP` amplifier, `ATT` attenuator, `ADP` adapter,
   `DUT` any other device. Numbers count up per kind and are **never used again**, not even after a deletion or a restart.
   If two people work on separate copies of the file the numbers can clash: share one file.
 * **Card**: name (required), what it is, manufacturer, serial number, owner, notes, the date it was created, and
   *details* that depend on the kind (a cable: type, connectors, length; an antenna: frequency range, connector, gain; a
-  filter: type, frequency, connectors; an amplifier: nominal gain, supply). A detail that is a measure is stored as a
+  filter: type, frequency, connectors; an amplifier: nominal gain, supply; an attenuator: nominal value, tolerance, maximum power and frequency, connectors). A detail that is a measure is stored as a
   number (`1.5 m`, `868M` become `1.5` and `868000000`), anything else as text; *Other details* takes `name = value` lines.
 * **Retire** a cable that is no longer used: it stays in the list (greyed) and in its old results, and is not offered for
   new measurements. **Delete** only a card made by mistake: the results that name it keep the code but lose the card
@@ -33,7 +33,7 @@ the environment variable `OLA_ASSETS_FILE` (for example in a shared folder). It 
 
 ## In the measurements
 
-The editors of the cable, return-loss, antenna, amplifier and filter measurements have a field **"... from the registry"**:
+The editors of the cable, return-loss, antenna, amplifier, filter and [attenuator](attenuator.md) measurements have a field **"... from the registry"**:
 pick the code, type it or scan the label. The name field is filled from the card if it is empty (a name you typed is kept).
 A code that is not in the registry is a warning, not an error; something that is not a code marks the field.
 
@@ -49,7 +49,7 @@ measurement, result) and **Compare...** puts their curves together in the [compa
 * the **code**, big and bold, always;
 * a **QR code** holding `OLA:CBL-0042`. It is a normal QR code (not a *Micro* QR code, which many readers do not read);
   its modules must print at least 0.3 mm: a QR code too small for the label is flagged and can be left out;
-* up to nine more lines: name, what it is, connectors, length, date, **latest measurement** (for example
+* up to ten more lines: name, what it is, the **key figures** (an attenuator `10 dB, 6 GHz, 2 W`, an amplifier `20 dB gain`), connectors, length, date, **latest measurement** (for example
   `0.6 dB @ 868MHz, 2026-11-03`, from the newest run of the object; it is only as current as that run, so print it again after a
   new measurement), owner, serial number, notes. Lines that do not fit are left out from the end (notes first) and
   listed under the preview, never hidden silently.

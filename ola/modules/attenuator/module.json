@@ -1,0 +1,29 @@
+{
+  "id": "attenuator",
+  "name": "Attenuator",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".att",
+  "entry": "measurement.py:AttenuatorSweep",
+  "description": "How much an attenuator attenuates as a function of frequency, with a vector network analyzer (VNA): the attenuation (S21) over the sweep, its mean, spread and slope, the deviation from the nominal value, the match at both ports, the attenuation at chosen frequencies, and a pass / fail check against the nominal value with a tolerance or against a mask. For fixed and step attenuators (one setting per measurement). The VNA is calibrated beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "vna", "required": true,
+     "description": "The network analyzer, calibrated for the connection of the attenuator between port 1 and port 2"}
+  ],
+  "params_schema": {
+    "attenuator": {"type": "object", "required": true,
+                   "description": "label (identifies the attenuator), asset_id (its code in the registry), nominal_db (the value it should have), tolerance_db (plus / minus, around the nominal value) and setting (which step, for a step attenuator; free text)"},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the attenuation is reported at these frequencies"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail mask on the attenuation in dB (positive numbers); replaces the check on nominal_db and tolerance_db: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]}"},
+    "also_return_loss": {"type": "boolean", "required": false,
+                         "description": "also read S11 and S22 to report the return loss of both ports (true by default)"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the attenuator"}
+  }
+}
