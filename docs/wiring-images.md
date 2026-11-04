@@ -1,6 +1,6 @@
 # Immagini degli schemi di collegamento: cosa disegnare
 
-Elenco delle immagini che i moduli cercano. Sono **12**. Ogni immagine è facoltativa: finché manca, la finestra dei
+Elenco delle immagini che i moduli cercano. Sono **13**. Ogni immagine è facoltativa: finché manca, la finestra dei
 collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
 Puoi farle una alla volta, in qualsiasi ordine.
 
@@ -51,7 +51,7 @@ dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amp
 
 ---
 
-# Le 12 immagini
+# Le 13 immagini
 
 Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
 esserci**.
@@ -194,6 +194,18 @@ esserci**.
   Un **alimentatore ausiliario** (per il controllo del convertitore) disegnato **tratteggiato**, perché non c'è
   sempre.
 
+## 13. Regolazione di linea e di carico
+
+* **File**: `regulation`
+* **Cartella**: `ola/modules/regulation/`
+* **Quando si vede**: misura della regolazione di linea e di carico di un convertitore (una sola immagine per tutti i casi).
+* **Cosa disegnare**: da sinistra a destra: l'**alimentatore** (con **+ in rosso** e **− in blu**) che va all'**ingresso**
+  del **convertitore in prova**; l'**uscita** del convertitore va al **carico elettronico** (cavi **corti e spessi**) e,
+  con fili **sottili**, al **voltmetro** (o a un canale del **datalogger**).
+* **Dettagli**: i fili sottili del voltmetro **attaccati ai morsetti d'uscita del convertitore**, non in fondo ai cavi del
+  carico (la caduta nei cavi non è regolazione); se vuoi, un **secondo filo sottile** dal voltmetro ai **morsetti
+  d'ingresso** (tratteggiato: serve solo se si legge anche l'ingresso). Etichette corte: **VIN**, **VOUT**, **GND**.
+
 ---
 
 # Foglio di controllo
@@ -212,6 +224,7 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 10. `ripple` — `ola/modules/ripple/`
 - [ ] 11. `ripple_with_load` — `ola/modules/ripple/`
 - [ ] 12. `efficiency` — `ola/modules/efficiency/`
+- [ ] 13. `regulation` — `ola/modules/regulation/`
 
 ## Un'idea per fare meno lavoro
 

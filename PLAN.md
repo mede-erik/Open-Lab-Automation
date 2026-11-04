@@ -823,6 +823,18 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   mostra immagine, lista numerata e note; `python -m frontend.ui.WiringDialog <modulo> [file] [lingua]` per provare.
   Da fare: un testo libero per parametro nell'editor dell'efficienza ("ingresso del convertitore, pin +") perché le frasi
   dicano dove va il cavo invece del solo nome del parametro.
+  **Regolazione di linea e di carico** (2026-11-04, scelta dell'utente: "procediamo con la 3, al posto del multimetro si
+  può anche usare un datalogger"): modulo vero `regulation` (`.reg`), non un modello dell'efficienza. Alimentatore +
+  carico elettronico + voltmetro (ruolo `meter`: qualunque strumento che risponde a `measure_dc_voltage`, quindi
+  **datalogger o multimetro**, con `args` propri: il datalogger vuole `range`, `resolution` e `channels`, il multimetro
+  numeri e niente canali). Prova di linea (Vin variabile a corrente fissa: scarto in mV, % e mV/V) e di carico (corrente
+  variabile a Vin fissa: % "a vuoto → pieno carico" e resistenza d'uscita in mΩ), ingresso letto **al convertitore** su
+  richiesta (mostra la caduta nei cavi), verdetto su limiti. Sicurezza: carico a 0 A prima di accendere
+  l'alimentatore, `safety` (Vin/corrente massime) rifiuta prima di accendere qualunque cosa, carico e alimentatore
+  spenti in teardown anche dopo errore. Il test sulla libreria vera ha trovato che `measure_dc_voltage` richiede
+  `range` e `resolution` (e il 34401A numeri, non `AUTO`/`DEF`; l'HP 3478A non ha la chiamata): documentato nel form e
+  nella guida. `ola/sim_bench.py` (banco simulato). Guida: `docs/regulation.md`. Non provato su hardware. Da fare:
+  regolazione incrociata (più uscite), in temperatura, transitorio di carico (misura a parte).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

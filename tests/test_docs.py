@@ -516,3 +516,39 @@ def test_wiring_doc_matches_the_code():
     assert catalog["wir_show_before"] == "Show this before each measurement"
     assert catalog["wir_button"] == "Connections..." and catalog["wir_save_svg"] == "Save SVG..."
     assert "wiring.md" in read(ROOT / "docs" / "measurement-modules.md")
+
+
+def test_regulation_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/regulation.md is a real file: it validates and runs on the simulation."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_bench import SimBench
+
+    text = read(ROOT / "docs" / "regulation.md")
+    block = re.search(r"```json regulation\.reg\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/regulation.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("regulation", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    bench = SimBench(line_mv_per_v=2.0, output_mohm=40.0)
+    runner = Runner(m, {"supply": [bench.supply], "load": [bench.load], "meter": [bench.meter]})
+    runner.start()
+    assert runner.join(60) and runner.state.value == "finished", runner.error
+    rows = {
+        e.data["values"]["test"]: e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "summary"
+    }
+    assert abs(rows["load"]["output_resistance_mohm"] - 40.0) < 2
+    assert rows["line"]["verdict"] == "PASS" and rows["load"]["verdict"] == "PASS"
+    assert "max_vin_drop_v" in rows["line"]
+    for name in (
+        "measure_dc_voltage",
+        "34401A",
+        "max_vin_v",
+        "output_resistance_mohm",
+        "datalogger",
+    ):
+        assert name in text

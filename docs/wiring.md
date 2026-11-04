@@ -32,6 +32,7 @@ you can add them one at a time. The names each module is already looking for are
 | `amplifier` | `amplifier` (direct), `amplifier_with_attenuator` (shown when `input_attenuation_db` is set) |
 | `ripple` | `ripple` (probe on the output), `ripple_with_load` (shown when the file has `conditions`) |
 | `efficiency` | `efficiency` |
+| `regulation` | `regulation` |
 
 Advice: **SVG** stays sharp at any size (a PNG should be at least 1500 pixels wide); a white or transparent
 background; the picture is shown as wide as the window allows, keeping its proportions. If the drawing has words, make
@@ -101,7 +102,7 @@ SVG.
 ## Which measurements have one
 
 The six RF measurements (cable, return loss, antenna, filter, amplifier, attenuator) with a VNA, ripple and noise with
-an oscilloscope (and the electronic load), the efficiency measurement and the time log.
+an oscilloscope (and the electronic load), the efficiency and regulation measurements and the time log.
 
 * The **steps** of the efficiency measurement and the time log are written from the file: for every parameter that is
   set (*"Connect channel 1 of psu1 to «vin» of the converter: it sets «vin» (set_voltage)"*) and every reading that
