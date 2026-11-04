@@ -183,5 +183,75 @@
       "es": "El amplificador necesita su propia alimentación: conéctela y enciéndala según la hoja de datos. Compruebe que su salida no puede superar la potencia máxima de entrada del puerto 2 (añada un atenuador si puede).",
       "de": "Der Verstärker braucht seine eigene Versorgung: nach Datenblatt anschließen und einschalten. Prüfen, dass sein Ausgang die maximale Eingangsleistung von Tor 2 nicht überschreiten kann (sonst ein Dämpfungsglied einfügen)."
     }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA to the input of the {input_attenuation_db} dB attenuator.",
+        "it": "Collega la porta 1 del VNA all'ingresso dell'attenuatore da {input_attenuation_db} dB.",
+        "fr": "Connectez le port 1 du VNA à l'entrée de l'atténuateur de {input_attenuation_db} dB.",
+        "es": "Conecte el puerto 1 del VNA a la entrada del atenuador de {input_attenuation_db} dB.",
+        "de": "Tor 1 des VNA mit dem Eingang des {input_attenuation_db}-dB-Dämpfungsglieds verbinden."
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect the output of the attenuator to the input of the amplifier ({device.label|amplifier}).",
+        "it": "Collega l'uscita dell'attenuatore all'ingresso dell'amplificatore ({device.label|amplificatore}).",
+        "fr": "Connectez la sortie de l'atténuateur à l'entrée de l'amplificateur ({device.label|amplificateur}).",
+        "es": "Conecte la salida del atenuador a la entrada del amplificador ({device.label|amplificador}).",
+        "de": "Den Ausgang des Dämpfungsglieds mit dem Eingang des Verstärkers ({device.label|Verstärker}) verbinden."
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA to the input of the amplifier ({device.label|amplifier}).",
+        "it": "Collega la porta 1 del VNA all'ingresso dell'amplificatore ({device.label|amplificatore}).",
+        "fr": "Connectez le port 1 du VNA à l'entrée de l'amplificateur ({device.label|amplificateur}).",
+        "es": "Conecte el puerto 1 del VNA a la entrada del amplificador ({device.label|amplificador}).",
+        "de": "Tor 1 des VNA mit dem Eingang des Verstärkers ({device.label|Verstärker}) verbinden."
+      },
+      "when": "!input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect the output of the amplifier to port 2 of the VNA. If it can exceed the maximum input power of the VNA, put an attenuator in between (and in the calibration).",
+        "it": "Collega l'uscita dell'amplificatore alla porta 2 del VNA. Se può superare la potenza massima d'ingresso del VNA, metti in mezzo un attenuatore (anche nella calibrazione).",
+        "fr": "Connectez la sortie de l'amplificateur au port 2 du VNA. Si elle peut dépasser la puissance d'entrée maximale du VNA, mettez un atténuateur entre les deux (et dans l'étalonnage).",
+        "es": "Conecte la salida del amplificador al puerto 2 del VNA. Si puede superar la potencia máxima de entrada del VNA, ponga un atenuador en medio (y en la calibración).",
+        "de": "Den Ausgang des Verstärkers mit Tor 2 des VNA verbinden. Kann er die maximale Eingangsleistung des VNA überschreiten, ein Dämpfungsglied dazwischensetzen (auch in der Kalibrierung)."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the supply of the amplifier as its data sheet says, and switch it on.",
+        "it": "Collega l'alimentazione dell'amplificatore come dice il datasheet e accendila.",
+        "fr": "Branchez l'alimentation de l'amplificateur comme l'indique la fiche technique, et allumez-la.",
+        "es": "Conecte la alimentación del amplificador como indica la hoja de datos y enciéndala.",
+        "de": "Die Versorgung des Verstärkers nach Datenblatt anschließen und einschalten."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "amplifier_with_attenuator",
+      "optional": true,
+      "when": "input_attenuation_db"
+    },
+    {
+      "file": "amplifier",
+      "optional": true
+    }
   ]
 }

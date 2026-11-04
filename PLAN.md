@@ -814,6 +814,15 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   Disponibile per le misure RF, ripple ed efficienza (qui uno schema **tipico**); il time log non lo ha. Guida:
   `docs/wiring.md`. Da fare: i pin dentro il dispositivo, i canali del datalogger e lo shunt nello schema
   dell'efficienza, una versione stampabile nel report.
+  **Schema di collegamento, seconda versione** (2026-11-04, richiesta dell'utente: disegni migliori, immagini sue, e la
+  lista scritta "collega X a Y"): `wiring.json` ha ora `steps` (frasi numerate, anche con `foreach` sui parametri del file:
+  per l'efficienza "Collega il canale 101 di daq1 a «vin» del convertitore", per ogni parametro impostato e per ogni
+  lettura con un canale; per il time log idem) e `images` (disegni dell'utente accanto a `wiring.json`, scelti in base ai
+  parametri, senza estensione = .svg/.png/.jpg/.webp, `{lang}` per la lingua, `optional` per non avvisare se mancano:
+  i moduli elencano già i nomi attesi, vedi `docs/wiring.md`). Senza immagine resta il disegno del programma. La finestra
+  mostra immagine, lista numerata e note; `python -m frontend.ui.WiringDialog <modulo> [file] [lingua]` per provare.
+  Da fare: un testo libero per parametro nell'editor dell'efficienza ("ingresso del convertitore, pin +") perché le frasi
+  dicano dove va il cavo invece del solo nome del parametro.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

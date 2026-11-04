@@ -126,5 +126,103 @@
       "es": "Un montaje típico. Los instrumentos y canales son los del archivo: el registrador mide la tensión de entrada, la corriente de entrada (en un shunt) y la tensión de salida, y una fuente auxiliar puede alimentar el control del convertidor. Conecte todo como dice el archivo antes de empezar.",
       "de": "Ein typischer Aufbau. Geräte und Kanäle sind die in der Datei genannten: der Datenlogger misst Eingangsspannung, Eingangsstrom (über einen Shunt) und Ausgangsspannung, ein Hilfsnetzteil kann die Steuerung des Wandlers versorgen. Vor dem Start alles wie in der Datei anschließen."
     }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "The names between « » are the parameters of the file. Connect each instrument where its parameter is applied or measured on the converter.",
+        "it": "I nomi tra « » sono i parametri del file. Collega ogni strumento dove il suo parametro viene applicato o misurato sul convertitore.",
+        "fr": "Les noms entre « » sont les paramètres du fichier. Connectez chaque instrument là où son paramètre est appliqué ou mesuré sur le convertisseur.",
+        "es": "Los nombres entre « » son los parámetros del archivo. Conecte cada instrumento donde su parámetro se aplica o se mide en el convertidor.",
+        "de": "Die Namen in « » sind die Parameter der Datei. Jedes Gerät dort anschließen, wo sein Parameter am Wandler angelegt oder gemessen wird."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect channel {v.set.args.channel_number} of {v.set.instrument} to «{v.name}» of the converter: it sets «{v.name}» ({v.set.call}).",
+        "it": "Collega il canale {v.set.args.channel_number} di {v.set.instrument} a «{v.name}» del convertitore: imposta «{v.name}» ({v.set.call}).",
+        "fr": "Connectez la voie {v.set.args.channel_number} de {v.set.instrument} à «{v.name}» du convertisseur : elle règle «{v.name}» ({v.set.call}).",
+        "es": "Conecte el canal {v.set.args.channel_number} de {v.set.instrument} a «{v.name}» del convertidor: ajusta «{v.name}» ({v.set.call}).",
+        "de": "Kanal {v.set.args.channel_number} von {v.set.instrument} mit «{v.name}» des Wandlers verbinden: er stellt «{v.name}» ein ({v.set.call})."
+      },
+      "when": "v.set.args.channel_number",
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect {v.set.instrument} to «{v.name}» of the converter: it sets «{v.name}» ({v.set.call}).",
+        "it": "Collega {v.set.instrument} a «{v.name}» del convertitore: imposta «{v.name}» ({v.set.call}).",
+        "fr": "Connectez {v.set.instrument} à «{v.name}» du convertisseur : il règle «{v.name}» ({v.set.call}).",
+        "es": "Conecte {v.set.instrument} a «{v.name}» del convertidor: ajusta «{v.name}» ({v.set.call}).",
+        "de": "{v.set.instrument} mit «{v.name}» des Wandlers verbinden: es stellt «{v.name}» ein ({v.set.call})."
+      },
+      "when": [
+        "v.set.instrument",
+        "!v.set.args.channel_number"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect channel {r.args.channels} of {r.instrument} to «{v.name}» of the converter (the reading is multiplied by {r.scale}).",
+        "it": "Collega il canale {r.args.channels} di {r.instrument} a «{v.name}» del convertitore (la lettura viene moltiplicata per {r.scale}).",
+        "fr": "Connectez la voie {r.args.channels} de {r.instrument} à «{v.name}» du convertisseur (la lecture est multipliée par {r.scale}).",
+        "es": "Conecte el canal {r.args.channels} de {r.instrument} a «{v.name}» del convertidor (la lectura se multiplica por {r.scale}).",
+        "de": "Kanal {r.args.channels} von {r.instrument} mit «{v.name}» des Wandlers verbinden (der Messwert wird mit {r.scale} multipliziert)."
+      },
+      "when": [
+        "r.args.channels",
+        "r.scale"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ],
+        [
+          "v.reads",
+          "r"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect channel {r.args.channels} of {r.instrument} to «{v.name}» of the converter.",
+        "it": "Collega il canale {r.args.channels} di {r.instrument} a «{v.name}» del convertitore.",
+        "fr": "Connectez la voie {r.args.channels} de {r.instrument} à «{v.name}» du convertisseur.",
+        "es": "Conecte el canal {r.args.channels} de {r.instrument} a «{v.name}» del convertidor.",
+        "de": "Kanal {r.args.channels} von {r.instrument} mit «{v.name}» des Wandlers verbinden."
+      },
+      "when": [
+        "r.args.channels",
+        "!r.scale"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ],
+        [
+          "v.reads",
+          "r"
+        ]
+      ]
+    }
+  ],
+  "images": [
+    {
+      "file": "efficiency",
+      "optional": true
+    }
   ]
 }

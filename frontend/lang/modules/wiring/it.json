@@ -4,6 +4,7 @@
   "wir_intro_run": "Collega gli strumenti come mostrato, poi avvia la misura.",
   "wir_intro_view": "Come sono collegati gli strumenti per questa misura.",
   "wir_connections": "Collegamenti",
+  "wir_steps": "Come collegare",
   "wir_notes": "Prima di iniziare",
   "wir_start": "Avvia",
   "wir_cancel": "Annulla",
@@ -13,5 +14,6 @@
   "wir_save_svg": "Salva SVG...",
   "wir_saved": "Salvato {path}",
   "wir_failed": "Salvataggio non riuscito: {error}",
+  "wir_image_failed": "Impossibile leggere l'immagine {path}.",
   "wir_error": "Impossibile mostrare lo schema di collegamento: {error}"
 }

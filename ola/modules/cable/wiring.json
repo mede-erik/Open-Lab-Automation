@@ -229,5 +229,80 @@
       "es": "Transmisión: el cable va entre el puerto 1 y el puerto 2. Reflexión: solo el puerto 1; deje el extremo lejano abierto o en corto, como en el archivo.",
       "de": "Transmission: das Kabel liegt zwischen Tor 1 und Tor 2. Reflexion: nur Tor 1; das ferne Ende offen lassen oder kurzschließen, wie in der Datei."
     }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect one end of the cable ({cable.label|cable under test}) to port 1 of the VNA.",
+        "it": "Collega un capo del cavo ({cable.label|cavo in prova}) alla porta 1 del VNA.",
+        "fr": "Connectez une extrémité du câble ({cable.label|câble testé}) au port 1 du VNA.",
+        "es": "Conecte un extremo del cable ({cable.label|cable en prueba}) al puerto 1 del VNA.",
+        "de": "Ein Ende des Kabels ({cable.label|Prüfkabel}) mit Tor 1 des VNA verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the other end of the cable to port 2 of the VNA.",
+        "it": "Collega l'altro capo del cavo alla porta 2 del VNA.",
+        "fr": "Connectez l'autre extrémité du câble au port 2 du VNA.",
+        "es": "Conecte el otro extremo del cable al puerto 2 del VNA.",
+        "de": "Das andere Ende des Kabels mit Tor 2 des VNA verbinden."
+      },
+      "when": "mode!=reflection"
+    },
+    {
+      "text": {
+        "en": "Leave the other end of the cable open: nothing connected (or an open standard).",
+        "it": "Lascia aperto l'altro capo del cavo: niente collegato (o uno standard open).",
+        "fr": "Laissez l'autre extrémité du câble ouverte : rien de connecté (ou un étalon open).",
+        "es": "Deje abierto el otro extremo del cable: nada conectado (o un estándar open).",
+        "de": "Das andere Ende des Kabels offen lassen: nichts angeschlossen (oder ein Open-Standard)."
+      },
+      "when": [
+        "mode=reflection",
+        "termination!=short"
+      ]
+    },
+    {
+      "text": {
+        "en": "Put a short on the other end of the cable.",
+        "it": "Metti un cortocircuito sull'altro capo del cavo.",
+        "fr": "Mettez un court-circuit sur l'autre extrémité du câble.",
+        "es": "Ponga un cortocircuito en el otro extremo del cable.",
+        "de": "Das andere Ende des Kabels kurzschließen."
+      },
+      "when": [
+        "mode=reflection",
+        "termination=short"
+      ]
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "cable_reflection_short",
+      "optional": true,
+      "when": [
+        "mode=reflection",
+        "termination=short"
+      ]
+    },
+    {
+      "file": "cable_reflection_open",
+      "optional": true,
+      "when": "mode=reflection"
+    },
+    {
+      "file": "cable_transmission",
+      "optional": true
+    }
   ]
 }

@@ -39,10 +39,9 @@ def diagram(registry, module="filter", params=None, names=None):
 def test_the_window_shows_the_diagram_the_connections_and_the_notes(app, registry):
     d = WiringDialog(diagram(registry, names={"vna": ["LiteVNA"]}), None, "Filter test")
     assert "Filter test" in d.windowTitle()
-    assert (
-        "VNA Port 1 -&gt; SAW 868 Input (test lead)".replace("&gt;", "&gt;") in d.connections.text()
-    )
-    assert "Calibrate the VNA" in d.notes.text() and not d.notes.isHidden() or True
+    assert "How to connect" in d.connections.text()
+    assert "Connect the input of the filter (SAW 868) to port 1 of the VNA." in d.connections.text()
+    assert "Calibrate the VNA" in d.notes.text() and not d.notes.isHidden()
     assert d.view.drawing is d.drawing and d.view.scale() > 0
     assert d.view.sizeHint().width() > 0 and d.view.minimumHeight() > 0
     d.resize(300, 200)  # a narrow window shrinks the diagram instead of cutting it
@@ -259,3 +258,111 @@ def test_the_main_window_remembers_the_preference(app):
             settings.remove("show_wiring_before_run")
         else:
             settings.setValue("show_wiring_before_run", before)
+
+
+# ---- pictures and steps in the window ----------------------------------------------------------
+def write_svg(path, text="drawn"):
+    path.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">'
+        f'<rect width="200" height="100" fill="#eef"/><text x="10" y="50">{text}</text></svg>',
+        encoding="utf-8",
+    )
+
+
+def test_a_picture_replaces_the_drawn_diagram(app, registry, tmp_path):
+    write_svg(tmp_path / "mine.svg")
+    raw = {
+        "nodes": [{"id": "a", "title": "A"}],
+        "steps": ["Do it"],
+        "images": [{"file": "mine.svg"}],
+    }
+    d = WiringDialog(wiring.diagram_for(raw, {}, None, "en", tmp_path), None, "x")
+    assert d.picture is not None and d.picture.ok and d.view is None
+    assert d.picture.natural_size().width() == 200 and d.picture.sizeHint().width() == 200
+    assert not d.save_btn.isVisibleTo(d)  # nothing drawn by the program to save
+    assert "Do it" in d.connections.text()
+    image = d.picture.grab()
+    assert not image.isNull()
+    d.picture.resize(400, 400)  # a square window: the 2:1 picture keeps its proportions
+    assert not d.picture.grab().isNull()
+
+
+def test_a_raster_picture_is_shown_too(app, tmp_path):
+    from PyQt6.QtGui import QColor, QImage
+
+    image = QImage(300, 150, QImage.Format.Format_RGB32)
+    image.fill(QColor("steelblue"))
+    assert image.save(str(tmp_path / "mine.png"))
+    view = dialog_module.ImageView(str(tmp_path / "mine.png"))
+    assert view.ok and view.natural_size().width() == 300
+    view.resize(600, 300)
+    grabbed = view.grab().toImage()
+    assert grabbed.pixelColor(300, 150) == QColor("steelblue")  # the picture fills the view
+
+
+def test_a_picture_that_cannot_be_read_falls_back_to_the_drawing_and_says_so(
+    app, registry, tmp_path
+):
+    (tmp_path / "broken.svg").write_text("this is not an svg", encoding="utf-8")
+    (tmp_path / "broken.png").write_bytes(b"not a png")
+    raw = {"nodes": EXAMPLE_NODES, "images": [{"file": "broken.svg"}]}
+    d = WiringDialog(wiring.diagram_for(raw, {}, None, "en", tmp_path), None, "x")
+    assert d.picture is None and d.view is not None and "broken.svg" in d.status.text()
+    raw = {"nodes": EXAMPLE_NODES, "images": [{"file": "broken.png"}]}
+    d = WiringDialog(wiring.diagram_for(raw, {}, None, "en", tmp_path), None, "x")
+    assert d.picture is None and "cannot be read" in d.status.text()
+
+
+def test_a_missing_picture_is_reported_in_the_window(app, tmp_path):
+    raw = {"nodes": EXAMPLE_NODES, "images": [{"file": "gone.svg"}]}
+    d = WiringDialog(wiring.diagram_for(raw, {}, None, "en", tmp_path), None, "x")
+    assert d.view is not None and "picture not found: gone.svg" in d.status.text()
+
+
+def test_without_steps_the_links_are_listed_and_steps_without_a_drawing_work(app):
+    raw = {"nodes": EXAMPLE_NODES, "links": [{"from": "a.p", "to": "b.q", "label": "lead"}]}
+    d = WiringDialog(wiring.diagram_for(raw, {}), None, "x")
+    assert "Connections" in d.connections.text() and "A P -&gt; B Q (lead)" in d.connections.text()
+    only = WiringDialog(wiring.diagram_for({"steps": ["Connect it", "Then that"]}, {}), None, "x")
+    assert only.view is None and only.picture is None and not only.save_btn.isVisibleTo(only)
+    assert "<ol><li>Connect it</li><li>Then that</li></ol>" in only.connections.text()
+
+
+def test_the_step_list_of_the_efficiency_is_in_the_window(app, registry):
+    from ola.demo_lab import demo_params
+
+    raw = wiring.load_wiring(registry.get("efficiency").path)
+    d = WiringDialog(wiring.diagram_for(raw, demo_params(), {}, "en"), None, "Efficiency")
+    text = d.connections.text()
+    assert text.count("<li>") == len(d.diagram.steps) >= 6
+    assert "channel 101 of daq1 to «vin»" in text
+
+
+def test_the_command_line_shows_a_module(app, registry, monkeypatch, tmp_path, capsys):
+    shown = []
+    monkeypatch.setattr(WiringDialog, "show", lambda self: shown.append(self))
+    monkeypatch.setattr(QApplication, "exec", lambda *a: 0)
+    assert (
+        dialog_module.main([]) == 2
+        and "python -m frontend.ui.WiringDialog" in capsys.readouterr().out
+    )
+    assert dialog_module.main(["filter", "it"]) == 0
+    assert "Connetti" in shown[0].diagram.steps[0] or "Collega" in shown[0].diagram.steps[0]
+    file = tmp_path / "m.eff"
+    file.write_text(
+        json.dumps({"params": {"filter": {"label": "SAW"}}, "role_bindings": {"vna": "lite"}})
+    )
+    assert dialog_module.main(["filter", str(file)]) == 0
+    assert (
+        shown[1].diagram.node("vna").subtitle == "lite"
+        and shown[1].diagram.node("dut").title == "SAW"
+    )
+    assert dialog_module.main(["ripple", "en"]) == 0
+    assert dialog_module.main(["nosuchmodule"]) == 1
+    assert "unknown measurement type" in capsys.readouterr().out
+
+
+EXAMPLE_NODES = [
+    {"id": "a", "title": "A", "at": [0, 0], "ports": [{"id": "p", "side": "right", "label": "P"}]},
+    {"id": "b", "title": "B", "at": [1, 0], "ports": [{"id": "q", "side": "left", "label": "Q"}]},
+]

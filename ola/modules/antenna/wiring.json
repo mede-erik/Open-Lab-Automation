@@ -85,5 +85,40 @@
       "es": "Mantenga la antena lejos de metales y personas durante la medición, a la altura y en el lugar donde se usará.",
       "de": "Die Antenne bei der Messung von Metall und Personen fernhalten, in der Höhe und am Ort, wo sie verwendet wird."
     }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the connector of the antenna ({device.label|antenna}) to port 1 of the VNA.",
+        "it": "Collega il connettore del antenna ({device.label|antenna}) alla porta 1 del VNA.",
+        "fr": "Connectez le connecteur du antenne ({device.label|antenne}) au port 1 du VNA.",
+        "es": "Conecte el conector del antena ({device.label|antena}) al puerto 1 del VNA.",
+        "de": "Den Anschluss des Antenne ({device.label|Antenne}) mit Tor 1 des VNA verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    },
+    {
+      "text": {
+        "en": "Put the antenna where it will be used, away from metal objects and from people.",
+        "it": "Metti l'antenna dove sarà usata, lontano da oggetti metallici e da persone.",
+        "fr": "Placez l'antenne là où elle sera utilisée, loin des objets métalliques et des personnes.",
+        "es": "Ponga la antena donde se usará, lejos de objetos metálicos y de personas.",
+        "de": "Die Antenne dort aufstellen, wo sie verwendet wird, weit weg von Metallteilen und Personen."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "antenna",
+      "optional": true
+    }
   ]
 }

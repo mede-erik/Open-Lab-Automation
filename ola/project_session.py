@@ -250,7 +250,8 @@ class ProjectSession:
     def wiring(self, ref: MeasurementRef, lang: str = "en") -> Optional[Diagram]:
         """The connection diagram of a measurement (see ``ola.wiring``): the one of its module,
         for the parameters of its file and with the names of the instruments the file binds to
-        each role; None if the module has no diagram. ``WiringError`` if the file is wrong."""
+        each role; None if the module has no diagram or it has nothing to show for this file.
+        ``WiringError`` if the file is wrong."""
         row = next((r for r in self.rows() if r.ref.id == ref.id), None)
         if row is None or row.info is None:
             return None
@@ -261,7 +262,8 @@ class ProjectSession:
         names: Dict[str, List[str]] = {}
         for role, bound in measurement_file.role_bindings.items():
             names[role] = [bound] if isinstance(bound, str) else [str(n) for n in bound]
-        return diagram_for(wiring, measurement_file.params, names, lang)
+        diagram = diagram_for(wiring, measurement_file.params, names, lang, row.info.path)
+        return None if diagram.empty else diagram
 
     def runs(self, ref: MeasurementRef) -> List[Path]:
         """The run files of this measurement (made from its file), newest first."""

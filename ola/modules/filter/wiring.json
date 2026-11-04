@@ -111,5 +111,40 @@
       "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
       "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
     }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the input of the filter ({filter.label|filter}) to port 1 of the VNA.",
+        "it": "Collega l'ingresso del filtro ({filter.label|filtro}) alla porta 1 del VNA.",
+        "fr": "Connectez l'entrée du filtre ({filter.label|filtre}) au port 1 du VNA.",
+        "es": "Conecte la entrada del filtro ({filter.label|filtro}) al puerto 1 del VNA.",
+        "de": "Den Eingang des Filters ({filter.label|Filters}) mit Tor 1 des VNA verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the output of the filter to port 2 of the VNA.",
+        "it": "Collega l'uscita del filtro alla porta 2 del VNA.",
+        "fr": "Connectez la sortie du filtre au port 2 du VNA.",
+        "es": "Conecte la salida del filtro al puerto 2 del VNA.",
+        "de": "Den Ausgang des Filters mit Tor 2 des VNA verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "filter",
+      "optional": true
+    }
   ]
 }

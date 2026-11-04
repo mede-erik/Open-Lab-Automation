@@ -4,6 +4,7 @@
   "wir_intro_run": "Connectez les instruments comme indiqué, puis lancez la mesure.",
   "wir_intro_view": "Comment les instruments sont connectés pour cette mesure.",
   "wir_connections": "Connexions",
+  "wir_steps": "Comment connecter",
   "wir_notes": "Avant de commencer",
   "wir_start": "Démarrer",
   "wir_cancel": "Annuler",
@@ -13,5 +14,6 @@
   "wir_save_svg": "Enregistrer le SVG...",
   "wir_saved": "Enregistré {path}",
   "wir_failed": "Échec de l'enregistrement : {error}",
+  "wir_image_failed": "Impossible de lire l'image {path}.",
   "wir_error": "Impossible d'afficher le schéma de connexion : {error}"
 }

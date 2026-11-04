@@ -22,10 +22,22 @@ updated with the module)::
 * A node with a ``role`` shows the names of the instruments bound to that role under its title.
 * A ``link`` goes from a port to a port (``node.port``); ``style`` can be ``dashed`` for a link that
   is not a signal (a control line).
+* ``steps`` is the list of what to connect, in order, as sentences: a text, a dictionary of
+  languages or ``{"text": ..., "when": ..., "foreach": [["variables", "v"], ["v.reads", "r"]]}``.
+  ``foreach`` repeats the step for every item of a list (or of a dictionary: the item then has a
+  ``key``) of the parameters, the item being available as ``{v.name}``: the sentences are written
+  from the file the user edited (the efficiency measurement says "connect channel 101 of daq1 to
+  vin").
+* ``images`` is a list of ``{"file": "name", "when": ..., "optional": true}``: pictures drawn by
+  hand. The first whose condition holds and whose file exists (next to ``wiring.json``) is shown
+  instead of the drawn diagram. A name without an extension is looked for as ``.svg``, ``.png``,
+  ``.jpg``, ``.jpeg`` and ``.webp``; ``{lang}`` in it is the language (the English file is the
+  fallback). A file that is not there is reported, unless the entry is ``optional``: a module can
+  list the pictures it would like and the user drops them in.
 
-``diagram_for`` builds the diagram for a measurement, ``layout`` draws it as a
-``ola.labels.Drawing`` (millimetres, so it can be painted, written as SVG, or printed) and
-``connection_lines`` lists the same connections as sentences.
+A file needs ``nodes``, ``steps`` or ``images`` (at least one). ``diagram_for`` builds the diagram
+for a measurement, ``layout`` draws it as a ``ola.labels.Drawing`` (millimetres, so it can be
+painted, written as SVG, or printed) and ``connection_lines`` lists the links as sentences.
 """
 
 from __future__ import annotations
@@ -39,6 +51,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from .labels import Box, Drawing, Line, Text, text_width
 
 FALLBACK_LANG = "en"
+IMAGE_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
 FILE_NAME = "wiring.json"
 TITLE_MM = 3.4
 PORT_MM = 2.7
@@ -96,6 +109,15 @@ class Diagram:
     nodes: List[Node] = field(default_factory=list)
     links: List[Link] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    steps: List[str] = field(default_factory=list)  # what to connect, in order
+    image: Optional[Path] = None  # a picture that replaces the drawn diagram
+    warnings: List[str] = field(default_factory=list)  # e.g. a listed image that is missing
+
+    @property
+    def empty(self) -> bool:
+        """True if there is nothing worth a window: no drawing, picture or step (a note alone
+        is not enough)."""
+        return not (self.nodes or self.steps or self.image)
 
     def node(self, node_id: str) -> Node:
         """The node with this id (``KeyError`` if there is none)."""
@@ -119,8 +141,12 @@ def load_wiring(module_path: Any) -> Optional[Dict[str, Any]]:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise WiringError(f"{path}: cannot read: {exc}") from exc
-    if not isinstance(raw, dict) or not isinstance(raw.get("nodes"), list) or not raw["nodes"]:
-        raise WiringError(f"{path}: needs an object with a non-empty list of 'nodes'")
+    if not isinstance(raw, dict) or not any(
+        isinstance(raw.get(key), list) and raw[key] for key in ("nodes", "steps", "images")
+    ):
+        raise WiringError(
+            f"{path}: needs an object with a non-empty list of 'nodes', 'steps' or 'images'"
+        )
     return raw
 
 
@@ -171,14 +197,16 @@ def diagram_for(
     params: Optional[Mapping[str, Any]] = None,
     names: Optional[Mapping[str, Sequence[str]]] = None,
     lang: str = FALLBACK_LANG,
+    directory: Any = None,
 ) -> Diagram:
     """The diagram of a measurement: the file's nodes and links that apply to ``params``, with
     their texts in ``lang`` and, under each node that has a ``role``, the instrument names of
-    ``names`` (role -> names). ``WiringError`` for a link to a port that is not drawn."""
+    ``names`` (role -> names). ``directory`` is the folder of the module: the pictures of
+    ``images`` are looked for there. ``WiringError`` for a link to a port that is not drawn."""
     params = params or {}
     names = names or {}
     diagram = Diagram()
-    for raw in wiring["nodes"]:
+    for raw in wiring.get("nodes", []):
         if not is_on(raw.get("when"), params):
             continue
         at = raw.get("at") or [0, 0]
@@ -215,7 +243,88 @@ def diagram_for(
         if isinstance(note, Mapping) and "text" in note:
             note = note["text"]
         diagram.notes.append(text_of(note, lang, params))
+    diagram.steps = steps_for(wiring.get("steps", []), params, lang)
+    diagram.image = pick_image(wiring.get("images", []), params, lang, directory, diagram.warnings)
     return diagram
+
+
+def contexts(foreach: Any, params: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """The parameter sets a ``foreach`` step is repeated for: ``[["variables", "v"], ["v.reads",
+    "r"]]`` gives one for every reading of every variable, with ``v`` and ``r`` set (``r.key`` is
+    the name of the reading). No ``foreach``: just the parameters."""
+    found: List[Dict[str, Any]] = [dict(params)]
+    for path, name in foreach or []:
+        step: List[Dict[str, Any]] = []
+        for ctx in found:
+            value = lookup(ctx, path)
+            if isinstance(value, Mapping):
+                items = [
+                    ({**v, "key": k} if isinstance(v, Mapping) else {"key": k, "value": v})
+                    for k, v in value.items()
+                ]
+            else:
+                items = list(value) if isinstance(value, (list, tuple)) else []
+            for number, item in enumerate(items, 1):
+                step.append({**ctx, name: item, f"{name}_number": number})
+        found = step
+    return found
+
+
+def steps_for(raw_steps: Sequence[Any], params: Mapping[str, Any], lang: str) -> List[str]:
+    """The sentences of the ``steps`` of the file that apply to ``params``, in order."""
+    out: List[str] = []
+    for raw in raw_steps:
+        spec = raw if isinstance(raw, Mapping) and "text" in raw else {"text": raw}
+        for ctx in contexts(spec.get("foreach"), params):
+            if is_on(spec.get("when"), ctx):
+                out.append(text_of(spec["text"], lang, ctx))
+    return out
+
+
+def pick_image(
+    images: Sequence[Mapping[str, Any]],
+    params: Mapping[str, Any],
+    lang: str,
+    directory: Any,
+    warnings: List[str],
+) -> Optional[Path]:
+    """The picture to show: the first of ``images`` whose ``when`` holds and whose file exists in
+    ``directory`` (the file for ``lang``, then the English one; see the module docstring for the
+    extensions). A listed file that is missing is reported in ``warnings``, unless it is
+    ``optional``, and the next one is tried."""
+    if directory is None:
+        return None
+    for raw in images:
+        if not is_on(raw.get("when"), params):
+            continue
+        name = str(raw.get("file", ""))
+        for language in dict.fromkeys((lang, FALLBACK_LANG)):
+            base = name.replace("{lang}", language)
+            names = [base] if base.lower().endswith(IMAGE_EXTENSIONS) else [
+                base + ext for ext in IMAGE_EXTENSIONS
+            ]  # fmt: skip
+            found = next(
+                (Path(directory) / n for n in names if (Path(directory) / n).is_file()), None
+            )
+            if found is not None:
+                return found
+            if "{lang}" not in name:
+                break
+        if not raw.get("optional"):
+            warnings.append(f"picture not found: {name.replace('{lang}', lang)}")
+    return None
+    for raw in images:
+        if not is_on(raw.get("when"), params):
+            continue
+        name = str(raw.get("file", ""))
+        for language in dict.fromkeys((lang, FALLBACK_LANG)):
+            candidate = Path(directory) / name.replace("{lang}", language)
+            if candidate.is_file():
+                return candidate
+            if "{lang}" not in name:
+                break
+        warnings.append(f"picture not found: {name.replace('{lang}', lang)}")
+    return None
 
 
 def connection_lines(diagram: Diagram) -> List[str]:
@@ -241,7 +350,10 @@ def _box_size(node: Node) -> Tuple[float, float]:
 
 def layout(diagram: Diagram) -> Drawing:
     """The diagram as a ``Drawing`` in millimetres: a box per node with its ports, the links as
-    right-angled lines with their labels, a double border for the device under test."""
+    right-angled lines with their labels, a double border for the device under test (an empty
+    drawing if there are no nodes)."""
+    if not diagram.nodes:
+        return Drawing(0, 0)
     sizes = {n.id: _box_size(n) for n in diagram.nodes}
     columns = sorted({n.column for n in diagram.nodes})
     rows = sorted({n.row for n in diagram.nodes})

@@ -490,6 +490,21 @@ def test_wiring_doc_matches_the_code():
     assert diagram.node("vna").subtitle == "V"
     for name in ("Show this before each measurement", "Connections...", "Save SVG..."):
         assert name in text
+    # the picture names the guide asks the user to draw are the ones the modules look for
+    from ola.registry import default_registry
+    from ola.wiring import load_wiring
+
+    registry = default_registry(user_dir="/nonexistent")
+    wanted = {
+        e["file"]
+        for i in registry.list()
+        if load_wiring(i.path)
+        for e in load_wiring(i.path).get("images", [])
+    }
+    assert wanted, "no module lists pictures"
+    for name in wanted:
+        assert f"`{name}`" in text, f"docs/wiring.md does not name the picture {name}"
+    assert "python -m frontend.ui.WiringDialog" in text and "foreach" in text
     catalog = _json.loads(read(ROOT / "frontend" / "lang" / "modules" / "wiring" / "en.json"))
     assert catalog["wir_show_before"] == "Show this before each measurement"
     assert catalog["wir_button"] == "Connections..." and catalog["wir_save_svg"] == "Save SVG..."
