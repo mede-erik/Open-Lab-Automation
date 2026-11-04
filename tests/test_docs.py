@@ -505,6 +505,13 @@ def test_wiring_doc_matches_the_code():
     for name in wanted:
         assert f"`{name}`" in text, f"docs/wiring.md does not name the picture {name}"
     assert "python -m frontend.ui.WiringDialog" in text and "foreach" in text
+    # the work list names every picture, with its folder
+    work = read(ROOT / "docs" / "wiring-images.md")
+    for info in registry.list():
+        for entry in (load_wiring(info.path) or {}).get("images", []):
+            assert f"`{entry['file']}`" in work, f"docs/wiring-images.md lacks {entry['file']}"
+            assert f"ola/modules/{info.id}/" in work
+    assert "wiring-images.md" in text
     catalog = _json.loads(read(ROOT / "frontend" / "lang" / "modules" / "wiring" / "en.json"))
     assert catalog["wir_show_before"] == "Show this before each measurement"
     assert catalog["wir_button"] == "Connections..." and catalog["wir_save_svg"] == "Save SVG..."

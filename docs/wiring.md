@@ -19,6 +19,8 @@ together with the module. A module without the file simply has no diagram.
 
 ## Your own pictures
 
+The list of the pictures to draw, with what each must show, is in [`wiring-images.md`](wiring-images.md) (in Italian).
+
 Draw the pictures you like and drop them **next to the module's `wiring.json`** (`ola/modules/<id>/`): when a picture
 with the right name is there it is shown instead of the program's diagram; without it the program's diagram is shown, so
 you can add them one at a time. The names each module is already looking for are:
