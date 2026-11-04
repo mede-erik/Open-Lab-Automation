@@ -55,6 +55,7 @@ class LiteVnaDriver:
         self._selected: Tuple[str, ...] = ("S11", "S21")
         self._channels_written = False
         self._swept = False
+        self._kit = cal.CalKit()  # ideal standards until set_calibration_kit
         self._kind: Optional[str] = None  # calibration kind chosen with calibration_begin
         self._ports: Tuple[int, Optional[int]] = (1, None)
         self._standards: Dict[str, List[complex]] = {}
@@ -269,13 +270,32 @@ class LiteVnaDriver:
             raise InvalidArgumentError("the standards were measured for another frequency sweep")
         if self._cal_grid not in (None, self._standards_grid):
             self._reflection = self._thru = None  # the earlier correction is for another sweep
+        start, step, points = self._standards_grid
+        frequencies = [start + i * step for i in range(points)]
         if self._kind == "ONE_PORT":
-            s = self._standards
-            self._reflection = cal.reflection_terms(s["OPEN"], s["SHORT"], s["LOAD"])
+            s, kit = self._standards, self._kit
+            self._reflection = cal.reflection_terms(
+                s["OPEN"],
+                s["SHORT"],
+                s["LOAD"],
+                cal.ideal_reflection("OPEN", frequencies, kit),
+                cal.ideal_reflection("SHORT", frequencies, kit),
+            )
         else:
-            self._thru = list(self._standards["THRU"])
+            # the reference is the measured THRU divided by the known transmission of the THRU
+            self._thru = [
+                m / ideal
+                for m, ideal in zip(
+                    self._standards["THRU"], cal.ideal_transmission(frequencies, self._kit)
+                )
+            ]
         self._cal_grid = self._standards_grid
         self._correction = True
+
+    def fn_set_calibration_kit(self, kit) -> None:
+        """The kit used by the next calibration (the values of ``vna_calibration.CalKit``;
+        an empty dict gives ideal standards)."""
+        self._kit = cal.CalKit.from_dict(kit)
 
     def fn_set_correction_state(self, state) -> None:
         """Use or bypass the calibration."""

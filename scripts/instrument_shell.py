@@ -422,6 +422,47 @@ class Shell:
             except ValueError:
                 self.say("  not a valid value")
 
+    def ask_kit(self, flow):
+        """The calibration kit: ideal standards (None), values from a file or typed values.
+        Returns False if the person gives up."""
+        self.say("  calibration kit (a real kit has a capacitance on the OPEN, an inductance on")
+        self.say("  the SHORT and offset delays; with the values the calibration is more exact):")
+        self.say("    1) ideal standards (OPEN +1, SHORT -1, LOAD 50 ohm, THRU 0 ps)")
+        self.say("    2) read the values of my kit from a JSON file")
+        self.say("    3) type the values of my kit")
+        choice = self.ask_number("kit (number)", 1)
+        if choice == 1:
+            return None
+        if choice == 2:
+            path = self.ask("  file: ").strip()
+            try:
+                return flow.load_kit(path) or None
+            except CallError as exc:
+                self.say(f"  {exc}")
+                return False
+        if choice != 3:
+            self.say("  not a valid choice")
+            return False
+        self.say("  Enter keeps 0 (ideal); the values are in the data sheet of the kit.")
+        questions = list(flow.KIT_BASIC)
+        if (
+            self.ask("  also the losses and impedances of the offsets? [y/N] ").strip().lower()
+            == "y"
+        ):
+            questions += flow.KIT_ADVANCED
+        kit = {}
+        for name, text in questions:
+            default = 50.0 if name.endswith("_z0") else 0.0
+            value = self.ask_number(text, default, float)
+            if value != default:
+                kit[name] = value
+        if kit:
+            path = self.ask("  save this kit to a file to reuse it (empty: no): ").strip()
+            if path:
+                flow.save_kit(path, kit)
+                self.say(f"  kit saved: {path}")
+        return kit or None
+
     def calibrate(self, words):
         """Guided calibration of a network analyzer: what to connect, one standard at a time."""
         from ola import vna_calibration_flow as flow
@@ -456,8 +497,11 @@ class Shell:
             "stop": self.ask_number("stop frequency", "100M", flow.parse_frequency),
             "points": self.ask_number("number of points", 201),
         }
+        kit = self.ask_kit(flow) if self.handle.supports("set_calibration_kit") else None
+        if kit is False:
+            return
         try:
-            session = flow.CalibrationSession(self.handle, kind, port, port2, sweep)
+            session = flow.CalibrationSession(self.handle, kind, port, port2, sweep, kit)
             session.start()
         except CallError as exc:
             self.say(f"  {exc}")

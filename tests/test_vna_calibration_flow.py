@@ -190,8 +190,8 @@ def test_terminal_tool_walks_through_the_steps(tmp_path):
     sim = SimLiteVna()
     sim.e00, sim.e11, sim.t = 0j, 0j, 1 + 0j
     shown = []
-    # answers: kind 1, port default, start, stop, points, then Enter for each standard
-    answers = iter(["1", "", "1M", "2M", "21", "", "", ""])
+    # answers: kind 1, port default, start, stop, points, kit, then Enter for each standard
+    answers = iter(["1", "", "1M", "2M", "21", "1", "", "", ""])  # kit 1: ideal standards
 
     def ask(question):
         shown.append(question)  # the operator connects what the question says
@@ -212,3 +212,60 @@ def test_terminal_tool_walks_through_the_steps(tmp_path):
     assert (tmp_path / "calibrations").is_dir() and "calibrations" in json.loads(
         project.read_text()
     )
+
+
+@needs_library
+def test_terminal_tool_with_the_values_of_a_real_kit(tmp_path, monkeypatch):
+    from ola import vna_calibration as cal
+
+    monkeypatch.chdir(tmp_path)  # the record is saved in the current folder
+
+    sys.path.insert(0, os.path.join(HERE, "scripts"))
+    import instrument_shell
+
+    library = Library.load(LIB)
+    sim = SimLiteVna()
+    kit = cal.CalKit(open_c0=50.0, open_delay=30.0, short_l0=2.0, short_delay=30.0)
+    frequencies = [1e6 + i * 5e4 for i in range(21)]
+    shown = []
+    # kind 1, default port, 1M..2M, 21 points; kit 3 (type), no losses, then the values in the
+    # order of the questions, no file; then Enter for each of the three standards
+    values = ["50", "", "", "", "30", "2", "", "", "", "30", ""]
+    answers = iter(["1", "", "1M", "2M", "21", "3", ""] + values + [""] + ["", "", ""])
+
+    def ask(question):
+        shown.append(question)
+        for standard in ("OPEN", "SHORT", "50 ohm LOAD"):
+            if standard in question:
+                name = standard.split()[-1]
+                table = dict(zip(frequencies, cal.ideal_reflection(name, frequencies, kit)))
+                sim.connect(lambda f, tb=table: tb[min(tb, key=lambda k: abs(k - f))])
+        return next(answers)
+
+    shell = instrument_shell.Shell(library, input_fn=ask, print_fn=shown.append)
+    shell.model_id = "VNA_Zenko_LiteVNA67"
+    shell.handle = make_handle(library, shell.model_id, sim, "vna")
+    shell.calibrate([])
+    assert "calibration done and switched on" in "\n".join(shown)
+    record = flow.load_record(next(tmp_path.glob("*.cal.json")))
+    assert record.kit == {"open_c0": 50.0, "open_delay": 30.0, "short_l0": 2.0, "short_delay": 30.0}
+
+
+@needs_library
+def test_scpi_vna_takes_no_kit_values():
+    library = Library.load(LIB)
+    sim = SimTransport(lambda cmd: "1" if cmd == "*OPC?" else None)
+    handle = make_handle(library, "VNA_Siglent_SNA5002A", sim, "vna")
+    assert not handle.supports("set_calibration_kit")  # the kit is defined on the instrument
+    session = flow.CalibrationSession(handle, "ONE_PORT", 1, None, SWEEP, kit={"open_c0": 50.0})
+    with pytest.raises(CallNotSupportedError):
+        session.start()
+
+
+def test_kit_files(tmp_path):
+    path = tmp_path / "kit.json"
+    flow.save_kit(path, {"open_c0": 50.0, "short_l0": 2.0})
+    assert flow.load_kit(path) == {"open_c0": 50.0, "short_l0": 2.0}
+    path.write_text('{"open_capacity": 1}')
+    with pytest.raises(InvalidArgumentError):
+        flow.load_kit(path)
