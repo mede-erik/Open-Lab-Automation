@@ -287,3 +287,43 @@ class LiteVnaDriver:
         self._reflection = self._thru = self._cal_grid = None
         self._correction = False
         self._kind = None
+
+    def fn_calibration_export(self) -> Dict[str, Any]:
+        """The software calibration as plain data (lists of [real, imaginary]) to be saved."""
+        if self._cal_grid is None:
+            raise InvalidArgumentError("there is no calibration to export")
+
+        def pairs(values):
+            return [[v.real, v.imag] for v in values]
+
+        refl = self._reflection
+        return {
+            "grid": list(self._cal_grid),
+            "reflection": (
+                None
+                if refl is None
+                else {"e00": pairs(refl.e00), "e11": pairs(refl.e11), "e10e01": pairs(refl.e10e01)}
+            ),
+            "transmission": None if self._thru is None else pairs(self._thru),
+        }
+
+    def fn_calibration_import(self, data) -> None:
+        """Restore a calibration exported earlier; the frequency sweep must be the same."""
+        grid = tuple(data.get("grid", ()))
+        if grid != self._need_sweep():
+            raise InvalidArgumentError(
+                "the calibration was made for another frequency sweep: set the same sweep first"
+            )
+
+        def values(pairs):
+            return [complex(re, im) for re, im in pairs]
+
+        refl = data.get("reflection")
+        self._reflection = (
+            None
+            if refl is None
+            else cal.Reflection(values(refl["e00"]), values(refl["e11"]), values(refl["e10e01"]))
+        )
+        self._thru = None if data.get("transmission") is None else values(data["transmission"])
+        self._cal_grid = grid
+        self._correction = True

@@ -21,6 +21,8 @@ Commands once connected (type 'help'):
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
     loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
+    calibrate [PROJECT.json]  guided calibration of a network analyzer (saved next to the project)
+    calibrate restore FILE    restore a saved software calibration (same sweep)
     was FILE.was [plan]   apply the settings of an oscilloscope .was file (asks before sending;
                           'plan' only shows the commands); then check them with 'readback'
     fullwave CH [bits=16] read the whole memory of channel CH (stops the acquisition, blocks joined)
@@ -56,6 +58,7 @@ def default_library():
 
 COMMANDS = (
     "help calls missing call plan readback test serial raw probe loopback save stats fullwave was "
+    "calibrate "
     "reconnect quit"
 ).split()
 HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".ola_instrument_shell_history")
@@ -353,6 +356,8 @@ class Shell:
                 self.reconnect()
             elif cmd == "reconnect" and self.address:
                 self.reconnect()
+            elif cmd == "calibrate":
+                self.calibrate(rest)
             elif cmd == "was" and rest:
                 self.apply_was(rest[0], dry="plan" in rest[1:])
             elif cmd == "raw" and rest:
@@ -407,6 +412,95 @@ class Shell:
             writer.writerow(["time_s", "voltage_V"])
             writer.writerows(zip(wave["time"][::step], wave["voltage"][::step]))
         self.say(f"  saved {len(wave['time'][::step])} points to {path}")
+
+    def ask_number(self, question, default, parse=int):
+        """Ask until the answer is a value of the right kind (empty answer: the default)."""
+        while True:
+            text = self.ask(f"  {question} [{default}]: ").strip()
+            try:
+                return parse(text) if text else parse(str(default))
+            except ValueError:
+                self.say("  not a valid value")
+
+    def calibrate(self, words):
+        """Guided calibration of a network analyzer: what to connect, one standard at a time."""
+        from ola import vna_calibration_flow as flow
+
+        if words and words[0] == "restore" and len(words) > 1:
+            try:
+                flow.restore(self.handle, flow.load_record(words[1]))
+                self.say("  calibration restored")
+            except CallError as exc:
+                self.say(f"  {exc}")
+            return
+        if not self.handle.supports("calibration_begin"):
+            self.say("  this model has no calibration calls: it is not a network analyzer")
+            return
+        project = words[0] if words and words[0].endswith(".json") else None
+        kinds = flow.supported_kinds(self.library, self.model_id)
+        self.say("  calibration kinds of this model:")
+        for number, kind in enumerate(kinds, 1):
+            self.say(f"    {number}) {flow.KIND_TEXT[kind]}")
+        choice = self.ask_number("kind (number)", 1)
+        if not 1 <= choice <= len(kinds):
+            self.say("  not a valid choice")
+            return
+        kind = kinds[choice - 1]
+        port = self.ask_number("test port", 1)
+        port2 = None if kind == "ONE_PORT" else self.ask_number("second test port", 2)
+        self.say("  A calibration is valid for one sweep: use the sweep of your measurement.")
+        sweep = {
+            "start": self.ask_number(
+                "start frequency (1M, 100k, 2.4G)", "1M", flow.parse_frequency
+            ),
+            "stop": self.ask_number("stop frequency", "100M", flow.parse_frequency),
+            "points": self.ask_number("number of points", 201),
+        }
+        try:
+            session = flow.CalibrationSession(self.handle, kind, port, port2, sweep)
+            session.start()
+        except CallError as exc:
+            self.say(f"  {exc}")
+            return
+        for step in session.steps:
+            while True:
+                question = f"  {step.text}, then press Enter to measure (q = cancel): "
+                if self.ask(question).strip().lower() == "q":
+                    self.say("  calibration cancelled")
+                    try:
+                        self.handle.call("calibration_clear")
+                    except CallError:
+                        pass
+                    return
+                try:
+                    session.measure(step)
+                    self.say(f"  measured {step.standard}")
+                    break
+                except CallError as exc:
+                    self.say(f"  {exc}")
+                    if self.ask("  try again? [Y/n] ").strip().lower() == "n":
+                        return
+        try:
+            session.finish()
+        except CallError as exc:
+            self.say(f"  {exc}")
+            return
+        self.say("  calibration done and switched on")
+        record = session.record(self.model_id, self.model_id)
+        if project:
+            folder = os.path.join(os.path.dirname(os.path.abspath(project)), "calibrations")
+        else:
+            folder = "."
+        path = flow.save_record(record, folder)
+        self.say(f"  saved: {path}")
+        if project:
+            try:
+                flow.attach_to_project(project, path, record)
+                self.say(f"  listed in {project}")
+            except (OSError, ValueError) as exc:
+                self.say(f"  the project file was not updated: {exc}")
+        if record.data is None:
+            self.say("  this instrument keeps the calibration: it is lost when it is switched off")
 
     def apply_was(self, path, dry=False):
         """Apply the settings of an oscilloscope .was file call by call, as the application does."""
