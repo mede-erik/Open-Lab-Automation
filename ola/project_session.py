@@ -27,7 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from .assets import snapshots_for
+from .assets import normalize_code, snapshots_for
+from .deembed import latest_cable_run
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
 from .registry import ModuleInfo, ModuleRegistry
@@ -81,6 +82,7 @@ class ProjectSession:
         self._instruments = list(instruments) if instruments is not None else None
         self.assets = assets
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
+        self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
 
     # ----- the project ------------------------------------------------------------------------
     @property
@@ -225,7 +227,9 @@ class ProjectSession:
             )
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
         handles = self.bind(measurement_file, row.info, cancel)
-        measurement = self.registry.create(ref.type, measurement_file.params)
+        measurement = self.registry.create(
+            ref.type, self.resolve_correction(measurement_file.params)
+        )
         runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
         stamp = time.strftime("%Y%m%d_%H%M%S")
         path = self.run_dir / f"{Path(ref.file).stem}_{stamp}.jsonl"
@@ -246,6 +250,32 @@ class ProjectSession:
         )
         runner.add_listener(RunWriter(path, header))
         return runner, path
+
+    def resolve_correction(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """The parameters with the cable of a ``correction`` found: a cable named by its registry
+        code (``correction.cable.asset_id``) becomes the newest finished cable measurement of that
+        code in the runs folder (``correction.cable.run``), which is then saved in the header of the
+        run, so it is known later which measurement of the cable was used. ``MeasurementError`` if
+        there is none. Parameters without a correction, or with a file already named, are returned
+        unchanged."""
+        correction = params.get("correction")
+        spec = correction.get("cable") if isinstance(correction, dict) else None
+        if not isinstance(spec, dict) or spec.get("run") or spec.get("touchstone"):
+            return params
+        code = normalize_code(str(spec.get("asset_id", "")))
+        if not code:
+            return params
+        folders = [self.run_dir, *self.extra_run_dirs]
+        found = latest_cable_run(code, folders)
+        if found is None:
+            raise MeasurementError(
+                f"no finished cable measurement of {code} in {', '.join(str(f) for f in folders)}: "
+                "measure the cable first (a cable measurement with this code in its card), or name "
+                "a run file or a Touchstone file in the correction"
+            )
+        resolved = json.loads(json.dumps(params))
+        resolved["correction"]["cable"]["run"] = str(found)
+        return resolved
 
     def wiring(self, ref: MeasurementRef, lang: str = "en") -> Optional[Diagram]:
         """The connection diagram of a measurement (see ``ola.wiring``): the one of its module,

@@ -28,7 +28,7 @@ you can add them one at a time. The names each module is already looking for are
 | Module | Picture names (`.svg` preferred; `.png`, `.jpg`, `.webp` also work) |
 |---|---|
 | `cable` | `cable_transmission` (the cable between the two ports), `cable_reflection_open`, `cable_reflection_short` |
-| `return_loss`, `antenna`, `filter`, `attenuator` | `return_loss`, `antenna`, `filter`, `attenuator` |
+| `return_loss`, `antenna`, `filter`, `attenuator` | `return_loss`, `antenna`, `filter`, `attenuator`; and `return_loss_with_cable`, `antenna_with_cable` (shown when the file has a `correction`: the device is behind a cable that was measured) |
 | `amplifier` | `amplifier` (direct), `amplifier_with_attenuator` (shown when `input_attenuation_db` is set) |
 | `ripple` | `ripple` (probe on the output), `ripple_with_load` (shown when the file has `conditions`) |
 | `efficiency` | `efficiency` |

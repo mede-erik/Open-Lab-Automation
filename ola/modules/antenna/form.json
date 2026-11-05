@@ -325,6 +325,145 @@
           }
         }
       ]
+    },
+    {
+      "title": {
+        "en": "Correct for a cable",
+        "it": "Correzione per un cavo",
+        "fr": "Correction d'un câble",
+        "es": "Corrección de un cable",
+        "de": "Kabelkorrektur"
+      },
+      "fields": [
+        {
+          "path": "correction.cable.asset_id",
+          "kind": "asset",
+          "asset_kind": "cable",
+          "label": {
+            "en": "Cable from the registry",
+            "it": "Cavo dal registro",
+            "fr": "Câble du registre",
+            "es": "Cable del registro",
+            "de": "Kabel aus dem Register"
+          },
+          "help": {
+            "en": "If the device is measured at the end of a cable, pick the cable: its loss is taken out (the newest finished measurement of that cable in the project is used). Leave empty for no correction.",
+            "it": "Se il dispositivo è misurato in fondo a un cavo, scegli il cavo: la sua perdita viene tolta (si usa l'ultima misura finita di quel cavo nel progetto). Lascia vuoto per non correggere.",
+            "fr": "Si le dispositif est mesuré au bout d'un câble, choisissez le câble : sa perte est retirée (la dernière mesure terminée de ce câble dans le projet est utilisée). Laissez vide pour ne pas corriger.",
+            "es": "Si el dispositivo se mide al final de un cable, elija el cable: se quita su pérdida (se usa la última medición terminada de ese cable en el proyecto). Déjelo vacío para no corregir.",
+            "de": "Wird das Gerät am Ende eines Kabels gemessen, das Kabel wählen: sein Verlust wird herausgerechnet (die neueste abgeschlossene Messung dieses Kabels im Projekt wird verwendet). Leer lassen für keine Korrektur."
+          }
+        },
+        {
+          "path": "correction.cable.run",
+          "kind": "text",
+          "label": {
+            "en": "or a run file of the cable",
+            "it": "oppure un file di misura del cavo",
+            "fr": "ou un fichier de mesure du câble",
+            "es": "o un archivo de medición del cable",
+            "de": "oder eine Messdatei des Kabels"
+          },
+          "help": {
+            "en": "Optional: the path of a run file (.jsonl) of a cable measurement, instead of the registry.",
+            "it": "Facoltativo: il percorso di un file di misura (.jsonl) di un cavo, al posto del registro.",
+            "fr": "Facultatif : le chemin d'un fichier de mesure (.jsonl) d'un câble, à la place du registre.",
+            "es": "Opcional: la ruta de un archivo de medición (.jsonl) de un cable, en lugar del registro.",
+            "de": "Optional: der Pfad einer Messdatei (.jsonl) einer Kabelmessung, anstelle des Registers."
+          }
+        },
+        {
+          "path": "correction.cable.touchstone",
+          "kind": "text",
+          "label": {
+            "en": "or a Touchstone file of the cable",
+            "it": "oppure un file Touchstone del cavo",
+            "fr": "ou un fichier Touchstone du câble",
+            "es": "o un archivo Touchstone del cable",
+            "de": "oder eine Touchstone-Datei des Kabels"
+          },
+          "help": {
+            "en": "Optional: a .s2p file (the cable in transmission) or a .s1p (the cable with an open or short at the far end).",
+            "it": "Facoltativo: un file .s2p (il cavo in trasmissione) o un .s1p (il cavo con un aperto o un corto all'altro capo).",
+            "fr": "Facultatif : un fichier .s2p (le câble en transmission) ou un .s1p (le câble avec un ouvert ou un court à l'autre bout).",
+            "es": "Opcional: un archivo .s2p (el cable en transmisión) o un .s1p (el cable con un abierto o un corto en el otro extremo).",
+            "de": "Optional: eine .s2p-Datei (das Kabel in Transmission) oder eine .s1p (das Kabel mit Offen oder Kurzschluss am fernen Ende)."
+          }
+        },
+        {
+          "path": "correction.cable.termination",
+          "kind": "choice",
+          "label": {
+            "en": "Far end of a .s1p",
+            "it": "Capo lontano di un .s1p",
+            "fr": "Extrémité lointaine d'un .s1p",
+            "es": "Extremo lejano de un .s1p",
+            "de": "Fernes Ende einer .s1p"
+          },
+          "choices": [
+            {
+              "value": "open",
+              "label": {
+                "en": "Open",
+                "it": "Aperto",
+                "fr": "Ouvert",
+                "es": "Abierto",
+                "de": "Offen"
+              }
+            },
+            {
+              "value": "short",
+              "label": {
+                "en": "Short",
+                "it": "Cortocircuito",
+                "fr": "Court-circuit",
+                "es": "Cortocircuito",
+                "de": "Kurzschluss"
+              }
+            }
+          ]
+        },
+        {
+          "path": "correction.cable.mode",
+          "kind": "choice",
+          "label": {
+            "en": "Correction",
+            "it": "Correzione",
+            "fr": "Correction",
+            "es": "Corrección",
+            "de": "Korrektur"
+          },
+          "help": {
+            "en": "Complete (with the phase of the cable) also corrects the impedance; magnitude corrects only the VSWR and the return loss and is enough when only the loss of the cable is known. Empty: complete if the cable has a phase.",
+            "it": "Completa (con la fase del cavo) corregge anche l'impedenza; solo modulo corregge il VSWR e il return loss ed è sufficiente se del cavo si conosce solo la perdita. Vuoto: completa se il cavo ha la fase.",
+            "fr": "Complète (avec la phase du câble) corrige aussi l'impédance ; module seul corrige le VSWR et l'affaiblissement de retour et suffit si seule la perte du câble est connue. Vide : complète si le câble a une phase.",
+            "es": "Completa (con la fase del cable) corrige también la impedancia; solo módulo corrige el VSWR y la pérdida de retorno y basta si solo se conoce la pérdida del cable. Vacío: completa si el cable tiene fase.",
+            "de": "Vollständig (mit der Phase des Kabels) korrigiert auch die Impedanz; nur Betrag korrigiert VSWR und Rückflussdämpfung und genügt, wenn nur der Verlust des Kabels bekannt ist. Leer: vollständig, wenn das Kabel eine Phase hat."
+          },
+          "choices": [
+            {
+              "value": "complex",
+              "label": {
+                "en": "Complete (with phase)",
+                "it": "Completa (con fase)",
+                "fr": "Complète (avec phase)",
+                "es": "Completa (con fase)",
+                "de": "Vollständig (mit Phase)"
+              }
+            },
+            {
+              "value": "magnitude",
+              "label": {
+                "en": "Magnitude only",
+                "it": "Solo modulo",
+                "fr": "Module seul",
+                "es": "Solo módulo",
+                "de": "Nur Betrag"
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

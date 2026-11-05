@@ -12,7 +12,9 @@ plus a term proportional to the frequency (dielectric loss)::
 ``termination`` says what is on the far end of the cable for S11: ``"thru"`` (connected to the
 other port: only a small mismatch is seen), ``"open"`` or ``"short"`` (the signal goes to the end
 and back), or ``"antenna"``: a resonant device (``antenna_f0_hz``, ``antenna_r_ohm``,
-``antenna_q``) directly on port 1, as after a calibration at the port. ``filter_type`` puts a
+``antenna_q``) directly on port 1, as after a calibration at the port, or ``"antenna_via_cable"``:
+the same antenna at the far end of the cable (its reflection is weakened and delayed by the
+cable's round trip, as in a real measurement through a cable). ``filter_type`` puts a
 Butterworth filter between the ports (S21 is its response); ``attenuator_db`` (and a
 ``attenuator_slope_db_per_ghz``) an attenuator instead of the cable. ``noise_db`` adds a little
 random error to every point; ``calls`` records what was asked.
@@ -118,6 +120,8 @@ class SimVna:
             return -t * t
         if self.termination == "antenna":  # a resonant device on port 1 (after calibration)
             return self.antenna_gamma(f)
+        if self.termination == "antenna_via_cable":  # the antenna at the far end of the cable
+            return self.antenna_gamma(f) * t * t
         # connected through: only a small mismatch at the connectors, with a ripple
         return self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())
 

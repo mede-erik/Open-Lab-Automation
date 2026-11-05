@@ -23,6 +23,8 @@
                                 "description": "return loss and VSWR are reported at these frequencies"},
     "limits": {"type": "object", "required": false,
                "description": "pass / fail limit on the return loss in dB, normally a minimum: {\"min\": 10}"},
+    "correction": {"type": "object", "required": false,
+                   "description": "take a cable that was measured out of the result: cable = {asset_id (its code in the registry: the newest finished cable measurement of the project is used) | run (a run file of the cable measurement) | touchstone (.s1p or .s2p)}, termination (open|short, for a .s1p), mode (complex|magnitude)"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
     "confirm_setup": {"type": "boolean", "required": false,

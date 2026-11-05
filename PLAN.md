@@ -835,6 +835,18 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   `range` e `resolution` (e il 34401A numeri, non `AUTO`/`DEF`; l'HP 3478A non ha la chiamata): documentato nel form e
   nella guida. `ola/sim_bench.py` (banco simulato). Guida: `docs/regulation.md`. Non provato su hardware. Da fare:
   regolazione incrociata (più uscite), in temperatura, transitorio di carico (misura a parte).
+  **VSWR corretto per la perdita del cavo** (2026-11-05, scelta dell'utente tra le varianti del VSWR: "VSWR corretto per la
+  perdita del cavo"; è il primo passo del de-embedding discusso): `ola/deembed.py` (senza Qt). Un'antenna misurata in
+  fondo a un cavo sembra meglio adattata di quanto sia (il cavo attenua due volte la riflessione); con il cavo già
+  misurato si toglie: `Γ = S11 misurato / T²`. Il cavo si indica con il **codice del registro** (il progetto prende l'ultima
+  misura finita di quel cavo e salva nell'intestazione quale file ha usato; se non c'è, la misura non parte), con un file di
+  misura del cavo o con un file Touchstone (.s2p in trasmissione, .s1p con aperto/corto). Due modi: **complesso** (con la
+  fase: corregge anche impedenza e Smith) e **solo modulo** (solo la perdita: basta per VSWR e return loss; l'antenna lo
+  rifiuta perché l'impedenza vuole la fase). Usato da `return_loss` e `antenna` con `correction`; le curve grezze restano
+  accanto a quelle corrette. Ipotesi dichiarata: cavo ben adattato (le sue riflessioni non entrano). Se la riflessione
+  corretta supera 1 viene limitata e segnalata. `SimVna(termination="antenna_via_cable")`. Schema di collegamento e
+  immagini 14-15. Resta da fare lo stesso per i parametri S21 (filtro, attenuatore) e la versione con matrici di
+  trasferimento (cavo non ben adattato).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

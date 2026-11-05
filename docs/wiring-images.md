@@ -1,6 +1,6 @@
 # Immagini degli schemi di collegamento: cosa disegnare
 
-Elenco delle immagini che i moduli cercano. Sono **13**. Ogni immagine è facoltativa: finché manca, la finestra dei
+Elenco delle immagini che i moduli cercano. Sono **15**. Ogni immagine è facoltativa: finché manca, la finestra dei
 collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
 Puoi farle una alla volta, in qualsiasi ordine.
 
@@ -51,7 +51,7 @@ dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amp
 
 ---
 
-# Le 13 immagini
+# Le 15 immagini
 
 Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
 esserci**.
@@ -206,6 +206,28 @@ esserci**.
   carico (la caduta nei cavi non è regolazione); se vuoi, un **secondo filo sottile** dal voltmetro ai **morsetti
   d'ingresso** (tratteggiato: serve solo se si legge anche l'ingresso). Etichette corte: **VIN**, **VOUT**, **GND**.
 
+## 14. Return loss, dispositivo dietro un cavo misurato
+
+* **File**: `return_loss_with_cable`
+* **Cartella**: `ola/modules/return_loss/`
+* **Quando si vede**: quando il file di misura ha la correzione per un cavo (`correction`): il dispositivo non è sul
+  VNA ma in fondo a un cavo di cui hai già le misure.
+* **Cosa disegnare**: come l'immagine 4, ma tra il **cavetto di test** e il dispositivo c'è il **cavo misurato**,
+  disegnato **lungo e ondulato** per distinguerlo dai cavetti di test. **P1** va al cavetto di test, il cavetto al
+  **capo A** del cavo, il **capo B** al dispositivo.
+* **Dettagli**: il **piano di calibrazione** disegnato alla **fine del cavetto di test, PRIMA del cavo** (un tratto
+  verticale tratteggiato con la scritta CAL): è il punto che cambia rispetto all'immagine 4. Il cavo **non** è nella
+  calibrazione.
+
+## 15. Antenna dietro un cavo misurato
+
+* **File**: `antenna_with_cable`
+* **Cartella**: `ola/modules/antenna/`
+* **Quando si vede**: come la 14, ma per la misura dell'antenna.
+* **Cosa disegnare**: come l'immagine 5 (antenna riconoscibile, lontana da metalli e persone), con in mezzo il **cavo
+  misurato** (lungo e ondulato) e il **piano di calibrazione prima del cavo**, come nella 14.
+* **Dettagli**: stessa impostazione della 14, così si vede che cambia solo il dispositivo.
+
 ---
 
 # Foglio di controllo
@@ -225,6 +247,8 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 11. `ripple_with_load` — `ola/modules/ripple/`
 - [ ] 12. `efficiency` — `ola/modules/efficiency/`
 - [ ] 13. `regulation` — `ola/modules/regulation/`
+- [ ] 14. `return_loss_with_cable` — `ola/modules/return_loss/`
+- [ ] 15. `antenna_with_cable` — `ola/modules/antenna/`
 
 ## Un'idea per fare meno lavoro
 

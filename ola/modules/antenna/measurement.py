@@ -7,6 +7,7 @@ Parameters (``.ant`` file)::
      "z0": 50, "vswr_max": 2.0,                                # both optional
      "frequencies_of_interest": [868e6],                       # optional
      "limits": {"min": 10},                  # optional: the return loss must be at least 10 dB
+     "correction": {"cable": {"asset_id": "CBL-0042"}},   # optional: the antenna is behind a cable
      "averages": 1, "confirm_setup": true}
 
 The VNA is calibrated by the user at the port the antenna connects to (open / short / load) and the
@@ -19,18 +20,28 @@ a crossing the other way is an anti-resonance, high resistance); the best match;
 VSWR stays at or under ``vswr_max``; and, at each frequency of interest, the impedance and the
 **series component that would cancel the reactance** there (a capacitor if X is positive, an
 inductor if it is negative). The Smith chart is the view the window opens with.
+
+**Through a cable.** An antenna measured at the end of a cable looks better matched than it is.
+``correction.cable`` takes the cable that was measured out (by its code in the registry, a run file
+of the cable measurement or a Touchstone file; see ``ola.deembed`` and ``docs/return-loss.md``) and
+everything above is of the antenna alone, the impedance and the Smith chart included. For that the
+cable must be known with its **phase** (measured in transmission, or in reflection with an open or a
+short): a cable known only by its loss is refused here (the return loss measurement does correct the
+VSWR with the loss alone). The measurement as it came is kept as ``S11_raw`` and ``vswr_raw``.
 """
 
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ola import rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
+from ola.deembed import check_correction
 from ola.vna_common import (
     acquire,
+    apply_correction,
     ask_setup,
     check_asset,
     check_common,
@@ -69,6 +80,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if "vswr_max" in params and (not is_number(params["vswr_max"]) or params["vswr_max"] <= 1):
         out.append(Problem("vswr_max", "the VSWR limit must be a number above 1 (2 is common)"))
     check_asset(params, "device", out)
+    check_correction(params, out, Problem)
     check_common(params, out, start, stop)
     return out
 
@@ -163,17 +175,41 @@ class AntennaImpedance(Measurement):
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):
             connect = "Connect the antenna to port 1 of the VNA."
+            if (p.get("correction") or {}).get("cable"):
+                connect = (
+                    "The antenna is behind the cable that was measured: connect that cable to "
+                    "port 1 of the VNA (calibrated at the end of the test lead, WITHOUT the "
+                    "cable) and the antenna to its other end."
+                )
             ask_setup(ctx, connect, p["sweep"], mode="reflection")
         freq, traces = acquire(ctx, handle, p["sweep"], ["S11"], int(p.get("averages", 1)))
-        self._report(ctx, freq, traces["S11"])
+        s11, info = apply_correction(ctx, p, freq, traces["S11"], needs_phase=True)
+        self._report(ctx, freq, s11, traces["S11"], info)
 
-    def _report(self, ctx: MeasurementContext, freq: List[float], s11: List[complex]) -> None:
+    def _report(
+        self,
+        ctx: MeasurementContext,
+        freq: List[float],
+        s11: List[complex],
+        raw: Optional[List[complex]] = None,
+        info: Optional[Dict[str, Any]] = None,
+    ) -> None:
         p = self.params
         label = (p.get("device") or {}).get("label", "")
         base = {"xlabel": "Frequency", "x_unit": "Hz", "log_x": p["sweep"].get("scale") == "log"}
         result = compute_impedance(freq, s11, p)
         limits = parse_limits(p.get("limits"))
         ctx.emit_trace("S11", freq, s11, kind="complex", default_view="smith", **base)
+        raw_vswr = rf.vswr(raw) if info else None
+        if info:  # the measurement as it came, for the comparison
+            ctx.emit_trace("S11_raw", freq, raw, kind="complex", hidden=True, **base)
+            ctx.emit_trace(
+                "vswr_raw",
+                freq,
+                [min(v, VSWR_CAP) for v in raw_vswr],
+                hidden=True,
+                **dict(base, ylabel="VSWR (as measured)"),
+            )
         ctx.emit_trace(
             "resistance_ohm",
             freq,
@@ -199,6 +235,15 @@ class AntennaImpedance(Measurement):
             }
             ctx.emit_point(row, table="sweep")
         summary = {"device": label, **result["summary"]}
+        if info:
+            summary.update(
+                corrected=True,
+                correction_source=info["code"] or info["source"],
+                correction_mode=info["mode"],
+                cable_loss_one_way_db=info["mean_one_way_loss_db"],
+                raw_min_vswr=min(min(v, VSWR_CAP) for v in raw_vswr),
+                raw_max_vswr=min(max(raw_vswr), VSWR_CAP),
+            )
         if not limits.empty:
             verdict = limits.check(freq, result["return_loss_db"])
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"

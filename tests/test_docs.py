@@ -552,3 +552,36 @@ def test_regulation_example_in_the_docs_is_valid_and_runs():
         "datalogger",
     ):
         assert name in text
+
+
+def test_cable_correction_in_the_docs_is_real(tmp_path):
+    """docs/return-loss.md and docs/antenna.md describe the correction: the names exist, and the
+    example parameter is valid."""
+    import json as _json
+
+    from ola import deembed
+    from ola.registry import default_registry
+
+    registry = default_registry(user_dir="/nonexistent")
+    for name in ("return-loss", "antenna"):
+        text = read(ROOT / "docs" / f"{name}.md")
+        assert "## Through a cable" in text, name
+        for word in ("asset_id", "touchstone", "return_loss_raw_db", "vswr_raw", "raw_min_vswr"):
+            assert word in text, (name, word)
+    block = re.search(
+        r'```json\n"correction": (\{.*?\})\n```', read(ROOT / "docs" / "return-loss.md"), re.S
+    )
+    assert block, "the correction example is missing"
+    correction = _json.loads(block.group(1))
+    out = []
+    deembed.check_correction({"correction": correction}, out, lambda path, msg: (path, msg))
+    assert out == []
+    params = {
+        "sweep": {"start_hz": 8e8, "stop_hz": 9.5e8, "points": 31},
+        "correction": correction,
+        "confirm_setup": False,
+    }
+    for module in ("return_loss", "antenna"):
+        assert registry.create(module, params).check() == []
+    assert "ola/deembed.py" in read(ROOT / "README.md")
+    assert "return_loss_with_cable" in read(ROOT / "docs" / "wiring-images.md")

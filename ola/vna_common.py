@@ -85,6 +85,50 @@ def check_asset(params: Mapping[str, Any], group: str, out: List[Problem]) -> No
             out.append(Problem(f"{group}.asset_id", "not a code (it looks like CBL-0042)"))
 
 
+def apply_correction(
+    ctx: MeasurementContext,
+    params: Mapping[str, Any],
+    freq: Sequence[float],
+    s11: Sequence[complex],
+    needs_phase: bool = False,
+) -> Tuple[List[complex], Optional[Dict[str, Any]]]:
+    """Take the cable named by ``params["correction"]`` out of a measured reflection (see
+    ``ola.deembed``): ``(s11, None)`` untouched if there is no correction, else ``(corrected,
+    info)`` and a line in the log, with a warning for each doubt. ``needs_phase``: the measurement
+    uses the phase (an impedance), so a cable known only by its loss is an error."""
+    from .deembed import DeembedError, corrected_reflection_for
+
+    spec = (params.get("correction") or {}).get("cable")
+    if not spec:
+        return list(s11), None
+    try:
+        corrected, info = corrected_reflection_for(params, freq, s11)
+    except DeembedError as exc:
+        raise MeasurementError(f"cable correction: {exc}") from exc
+    if needs_phase and info["mode"] != "complex":
+        raise MeasurementError(
+            "cable correction: the impedance needs the phase of the cable, which this cable "
+            f"({info['source']}) does not have: measure it in transmission or use the "
+            "return loss measurement, which corrects the VSWR with the loss alone"
+        )
+    name = info["code"] or info["source"]
+    ctx.log(
+        f"corrected for the cable {name} ({info['mode']}, {info['mean_one_way_loss_db']:.3g} dB "
+        "one way on average)"
+    )
+    if info["over_unity_points"]:
+        ctx.log(
+            f"the correction makes the reflection exceed 1 at "
+            f"{info['over_unity_points']} point(s): "
+            "the cable data does not fit this measurement (another cable, or a calibration "
+            "that is not at the same place); those points are limited just under 1",
+            "warning",
+        )
+    for warning in info["warnings"]:
+        ctx.log(f"cable {info['source']}: {warning}", "warning")
+    return corrected, info
+
+
 def check_common(
     params: Mapping[str, Any],
     out: List[Problem],
