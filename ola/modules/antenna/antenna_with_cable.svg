@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" font-family="Helvetica, Arial, sans-serif">
+<!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
+<rect width="1600" height="800" fill="#f1f1f1"/>
+<rect x="20" y="20" width="1560" height="760" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="190" font-size="64" font-weight="bold">antenna_with_cable</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/antenna/ - Antenna dietro un cavo misurato</text>
+<text x="80" y="330" font-size="30">Quando si vede: come la 14, ma per la misura dell'antenna.</text>
+<text x="80" y="397" font-size="30">Da disegnare: come l'immagine 5 (antenna riconoscibile, lontana da metalli e persone), con in</text>
+<text x="80" y="439" font-size="30">mezzo il cavo misurato (lungo e ondulato) e il piano di calibrazione prima del cavo, come nella</text>
+<text x="80" y="481" font-size="30">14.</text>
+<text x="80" y="548" font-size="30">Dettagli: stessa impostazione della 14, così si vede che cambia solo il dispositivo.</text>
+<text x="80" y="740" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+</svg>

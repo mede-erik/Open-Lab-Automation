@@ -1,0 +1,628 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Filter and instrument",
+        "it": "Filtro e strumento",
+        "fr": "Filtre et instrument",
+        "es": "Filtro e instrumento",
+        "de": "Filter und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "filter.asset_id",
+          "kind": "asset",
+          "label_path": "filter.label",
+          "label": {
+            "en": "Filter from the registry",
+            "it": "Filtro dal registro",
+            "fr": "Filtre du registre",
+            "es": "Filtro del registro",
+            "de": "Filter aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "filter"
+        },
+        {
+          "path": "filter.label",
+          "kind": "text",
+          "label": {
+            "en": "Filter name",
+            "it": "Nome del filtro",
+            "fr": "Nom du filtre",
+            "es": "Nombre del filtro",
+            "de": "Filtername"
+          },
+          "help": {
+            "en": "Identifies the filter: it is saved with every run.",
+            "it": "Identifica il filtro: viene salvato con ogni esecuzione.",
+            "fr": "Identifie le filtre : il est enregistré avec chaque exécution.",
+            "es": "Identifica el filtro: se guarda con cada ejecución.",
+            "de": "Kennzeichnet den Filter: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. 868 MHz SAW #4",
+            "it": "es. SAW 868 MHz n.4",
+            "fr": "p. ex. SAW 868 MHz n°4",
+            "es": "p. ej. SAW 868 MHz n.º 4",
+            "de": "z. B. SAW 868 MHz Nr. 4"
+          }
+        },
+        {
+          "path": "filter.type",
+          "kind": "choice",
+          "label": {
+            "en": "Type",
+            "it": "Tipo",
+            "fr": "Type",
+            "es": "Tipo",
+            "de": "Typ"
+          },
+          "choices": [
+            {
+              "value": "lowpass",
+              "label": {
+                "en": "Low-pass",
+                "it": "Passa-basso",
+                "fr": "Passe-bas",
+                "es": "Paso bajo",
+                "de": "Tiefpass"
+              }
+            },
+            {
+              "value": "highpass",
+              "label": {
+                "en": "High-pass",
+                "it": "Passa-alto",
+                "fr": "Passe-haut",
+                "es": "Paso alto",
+                "de": "Hochpass"
+              }
+            },
+            {
+              "value": "bandpass",
+              "label": {
+                "en": "Band-pass",
+                "it": "Passa-banda",
+                "fr": "Passe-bande",
+                "es": "Paso banda",
+                "de": "Bandpass"
+              }
+            },
+            {
+              "value": "bandstop",
+              "label": {
+                "en": "Band-stop (notch)",
+                "it": "Elimina-banda (notch)",
+                "fr": "Coupe-bande (notch)",
+                "es": "Banda eliminada (notch)",
+                "de": "Bandsperre (Notch)"
+              }
+            }
+          ]
+        },
+        {
+          "path": "edge_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Edges at",
+            "it": "Bordi a",
+            "fr": "Bords à",
+            "es": "Bordes a",
+            "de": "Kanten bei"
+          },
+          "help": {
+            "en": "The cut-off and band edges are where the gain is this far below the peak (3 dB is usual).",
+            "it": "La frequenza di taglio e i bordi di banda sono dove il guadagno è così sotto il picco (3 dB è comune).",
+            "fr": "La fréquence de coupure et les bords de bande sont là où le gain est à cette distance sous le pic (3 dB est courant).",
+            "es": "La frecuencia de corte y los bordes de banda están donde la ganancia está así por debajo del pico (3 dB es habitual).",
+            "de": "Grenzfrequenz und Bandkanten liegen dort, wo die Verstärkung so weit unter dem Maximum liegt (3 dB ist üblich)."
+          }
+        },
+        {
+          "path": "passband.from_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Passband from",
+            "it": "Banda passante da",
+            "fr": "Bande passante de",
+            "es": "Banda de paso desde",
+            "de": "Durchlassbereich von"
+          },
+          "help": {
+            "en": "Optional: where the ripple is measured and the reference level is taken.",
+            "it": "Facoltativa: dove si misura il ripple e si prende il livello di riferimento.",
+            "fr": "Facultatif : où l'ondulation est mesurée et le niveau de référence pris.",
+            "es": "Opcional: dónde se mide el rizado y se toma el nivel de referencia.",
+            "de": "Optional: wo die Welligkeit gemessen und der Bezugspegel genommen wird."
+          }
+        },
+        {
+          "path": "passband.to_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Passband to",
+            "it": "Banda passante a",
+            "fr": "Bande passante à",
+            "es": "Banda de paso hasta",
+            "de": "Durchlassbereich bis"
+          }
+        },
+        {
+          "path": "also_s11",
+          "kind": "bool",
+          "label": {
+            "en": "Also measure the return loss of the filter (S11)",
+            "it": "Misura anche il return loss del filtro (S11)",
+            "fr": "Mesurer aussi l'affaiblissement de retour du filtre (S11)",
+            "es": "Medir también la pérdida de retorno del filtro (S11)",
+            "de": "Auch die Rückflussdämpfung des Filters messen (S11)"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "More points for a longer cable: the phase must not turn by more than half a turn between two points.",
+            "it": "Più punti per un cavo più lungo: la fase non deve girare più di mezzo giro tra due punti.",
+            "fr": "Plus de points pour un câble plus long : la phase ne doit pas tourner de plus d'un demi-tour entre deux points.",
+            "es": "Más puntos para un cable más largo: la fase no debe girar más de media vuelta entre dos puntos.",
+            "de": "Mehr Punkte für ein längeres Kabel: die Phase darf zwischen zwei Punkten nicht mehr als eine halbe Drehung machen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Results and checks",
+        "it": "Risultati e controlli",
+        "fr": "Résultats et contrôles",
+        "es": "Resultados y controles",
+        "de": "Ergebnisse und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the gain at",
+            "it": "Riporta il guadagno a",
+            "fr": "Indiquer le gain à",
+            "es": "Informar la ganancia en",
+            "de": "Verstärkung angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 433M, 868M, 2.4G",
+            "it": "es. 433M, 868M, 2.4G",
+            "fr": "p. ex. 433M, 868M, 2.4G",
+            "es": "p. ej. 433M, 868M, 2.4G",
+            "de": "z. B. 433M, 868M, 2.4G"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Mask on the gain (dB)",
+            "it": "Maschera sul guadagno (dB)",
+            "fr": "Gabarit sur le gain (dB)",
+            "es": "Máscara de la ganancia (dB)",
+            "de": "Maske für die Verstärkung (dB)"
+          },
+          "help": {
+            "en": "Optional pass / fail check. The gain is negative in dB: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = at least -4 dB in the passband, at most -40 dB far away.",
+            "it": "Controllo promosso / non promosso facoltativo. Il guadagno in dB è negativo: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = almeno -4 dB in banda, al massimo -40 dB lontano.",
+            "fr": "Contrôle réussi / échoué facultatif. Le gain en dB est négatif : {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = au moins -4 dB dans la bande, au plus -40 dB loin.",
+            "es": "Comprobación aprobado / suspendido opcional. La ganancia en dB es negativa: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = al menos -4 dB en la banda, como máximo -40 dB lejos.",
+            "de": "Optionale Bestanden / Nicht-bestanden-Prüfung. Die Verstärkung in dB ist negativ: {\"bands\": [{\"from\": 863e6, \"to\": 870e6, \"min\": -4}, {\"from\": 1e9, \"to\": 2e9, \"max\": -40}]} = mindestens -4 dB im Band, höchstens -40 dB weit weg."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Take a cable or a pad out",
+        "it": "Togliere un cavo o un attenuatore",
+        "fr": "Retirer un câble ou un atténuateur",
+        "es": "Quitar un cable o un atenuador",
+        "de": "Kabel oder Dämpfungsglied herausrechnen"
+      },
+      "fields": [
+        {
+          "path": "correction.port1.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Fixture on port 1 from the registry",
+            "it": "Cavo / attenuatore su porta 1 dal registro",
+            "fr": "Accessoire sur le port 1 du registre",
+            "es": "Accesorio en el puerto 1 del registro",
+            "de": "Zubehör an Tor 1 aus dem Register"
+          },
+          "help": {
+            "en": "A cable, adapter or attenuator between the calibration plane and the device that was measured before: its loss is taken out (the newest finished measurement in the project is used). Leave empty for none.",
+            "it": "Un cavo, adattatore o attenuatore tra il piano di calibrazione e il dispositivo che è stato misurato prima: la sua perdita viene tolta (si usa l'ultima misura finita nel progetto). Lascia vuoto per nessuno.",
+            "fr": "Un câble, adaptateur ou atténuateur entre le plan d'étalonnage et le dispositif qui a été mesuré avant : sa perte est retirée (la dernière mesure terminée du projet est utilisée). Laissez vide pour aucun.",
+            "es": "Un cable, adaptador o atenuador entre el plano de calibración y el dispositivo que se midió antes: se quita su pérdida (se usa la última medición terminada del proyecto). Déjelo vacío para ninguno.",
+            "de": "Ein Kabel, Adapter oder Dämpfungsglied zwischen Kalibrierebene und Gerät, das vorher gemessen wurde: sein Verlust wird herausgerechnet (die neueste abgeschlossene Messung im Projekt wird verwendet). Leer lassen für keines."
+          }
+        },
+        {
+          "path": "correction.port1.run",
+          "kind": "text",
+          "label": {
+            "en": "or a run file, port 1",
+            "it": "oppure un file di misura, porta 1",
+            "fr": "ou un fichier de mesure, port 1",
+            "es": "o un archivo de medición, puerto 1",
+            "de": "oder eine Messdatei, Tor 1"
+          },
+          "help": {
+            "en": "Optional: the path of a run file (.jsonl) of a cable or attenuator measurement.",
+            "it": "Facoltativo: il percorso di un file di misura (.jsonl) di un cavo o di un attenuatore.",
+            "fr": "Facultatif : le chemin d'un fichier de mesure (.jsonl) d'un câble ou d'un atténuateur.",
+            "es": "Opcional: la ruta de un archivo de medición (.jsonl) de un cable o de un atenuador.",
+            "de": "Optional: der Pfad einer Messdatei (.jsonl) einer Kabel- oder Dämpfungsgliedmessung."
+          }
+        },
+        {
+          "path": "correction.port1.touchstone",
+          "kind": "text",
+          "label": {
+            "en": "or a Touchstone file, port 1",
+            "it": "oppure un file Touchstone, porta 1",
+            "fr": "ou un fichier Touchstone, port 1",
+            "es": "o un archivo Touchstone, puerto 1",
+            "de": "oder eine Touchstone-Datei, Tor 1"
+          },
+          "help": {
+            "en": "Optional: a .s2p file written as seen from the VNA (port 1 at the VNA, port 2 at the device).",
+            "it": "Facoltativo: un file .s2p scritto come visto dal VNA (porta 1 al VNA, porta 2 al dispositivo).",
+            "fr": "Facultatif : un fichier .s2p écrit vu depuis le VNA (port 1 au VNA, port 2 au dispositif).",
+            "es": "Opcional: un archivo .s2p escrito visto desde el VNA (puerto 1 en el VNA, puerto 2 en el dispositivo).",
+            "de": "Optional: eine .s2p-Datei, aus Sicht des VNA geschrieben (Tor 1 am VNA, Tor 2 am Gerät)."
+          }
+        },
+        {
+          "path": "correction.port1.reversed",
+          "kind": "bool",
+          "label": {
+            "en": "The file of port 1 is written the other way round",
+            "it": "Il file della porta 1 è scritto al contrario",
+            "fr": "Le fichier du port 1 est écrit dans l'autre sens",
+            "es": "El archivo del puerto 1 está escrito al revés",
+            "de": "Die Datei von Tor 1 ist andersherum geschrieben"
+          }
+        },
+        {
+          "path": "correction.port2.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Fixture on port 2 from the registry",
+            "it": "Cavo / attenuatore su porta 2 dal registro",
+            "fr": "Accessoire sur le port 2 du registre",
+            "es": "Accesorio en el puerto 2 del registro",
+            "de": "Zubehör an Tor 2 aus dem Register"
+          },
+          "help": {
+            "en": "A cable, adapter or attenuator between the calibration plane and the device that was measured before: its loss is taken out (the newest finished measurement in the project is used). Leave empty for none.",
+            "it": "Un cavo, adattatore o attenuatore tra il piano di calibrazione e il dispositivo che è stato misurato prima: la sua perdita viene tolta (si usa l'ultima misura finita nel progetto). Lascia vuoto per nessuno.",
+            "fr": "Un câble, adaptateur ou atténuateur entre le plan d'étalonnage et le dispositif qui a été mesuré avant : sa perte est retirée (la dernière mesure terminée du projet est utilisée). Laissez vide pour aucun.",
+            "es": "Un cable, adaptador o atenuador entre el plano de calibración y el dispositivo que se midió antes: se quita su pérdida (se usa la última medición terminada del proyecto). Déjelo vacío para ninguno.",
+            "de": "Ein Kabel, Adapter oder Dämpfungsglied zwischen Kalibrierebene und Gerät, das vorher gemessen wurde: sein Verlust wird herausgerechnet (die neueste abgeschlossene Messung im Projekt wird verwendet). Leer lassen für keines."
+          }
+        },
+        {
+          "path": "correction.port2.run",
+          "kind": "text",
+          "label": {
+            "en": "or a run file, port 2",
+            "it": "oppure un file di misura, porta 2",
+            "fr": "ou un fichier de mesure, port 2",
+            "es": "o un archivo de medición, puerto 2",
+            "de": "oder eine Messdatei, Tor 2"
+          },
+          "help": {
+            "en": "Optional: the path of a run file (.jsonl) of a cable or attenuator measurement.",
+            "it": "Facoltativo: il percorso di un file di misura (.jsonl) di un cavo o di un attenuatore.",
+            "fr": "Facultatif : le chemin d'un fichier de mesure (.jsonl) d'un câble ou d'un atténuateur.",
+            "es": "Opcional: la ruta de un archivo de medición (.jsonl) de un cable o de un atenuador.",
+            "de": "Optional: der Pfad einer Messdatei (.jsonl) einer Kabel- oder Dämpfungsgliedmessung."
+          }
+        },
+        {
+          "path": "correction.port2.touchstone",
+          "kind": "text",
+          "label": {
+            "en": "or a Touchstone file, port 2",
+            "it": "oppure un file Touchstone, porta 2",
+            "fr": "ou un fichier Touchstone, port 2",
+            "es": "o un archivo Touchstone, puerto 2",
+            "de": "oder eine Touchstone-Datei, Tor 2"
+          },
+          "help": {
+            "en": "Optional: a .s2p file written as seen from the VNA (port 1 at the VNA, port 2 at the device).",
+            "it": "Facoltativo: un file .s2p scritto come visto dal VNA (porta 1 al VNA, porta 2 al dispositivo).",
+            "fr": "Facultatif : un fichier .s2p écrit vu depuis le VNA (port 1 au VNA, port 2 au dispositif).",
+            "es": "Opcional: un archivo .s2p escrito visto desde el VNA (puerto 1 en el VNA, puerto 2 en el dispositivo).",
+            "de": "Optional: eine .s2p-Datei, aus Sicht des VNA geschrieben (Tor 1 am VNA, Tor 2 am Gerät)."
+          }
+        },
+        {
+          "path": "correction.port2.reversed",
+          "kind": "bool",
+          "label": {
+            "en": "The file of port 2 is written the other way round",
+            "it": "Il file della porta 2 è scritto al contrario",
+            "fr": "Le fichier du port 2 est écrit dans l'autre sens",
+            "es": "El archivo del puerto 2 está escrito al revés",
+            "de": "Die Datei von Tor 2 ist andersherum geschrieben"
+          }
+        },
+        {
+          "path": "correction.mode",
+          "kind": "choice",
+          "label": {
+            "en": "Correction",
+            "it": "Correzione",
+            "fr": "Correction",
+            "es": "Corrección",
+            "de": "Korrektur"
+          },
+          "help": {
+            "en": "Complete (with the phase) or magnitude only (when only the loss of the fixture is known). Empty: complete if the fixtures have a phase.",
+            "it": "Completa (con la fase) o solo modulo (quando di ciò che si toglie si conosce solo la perdita). Vuoto: completa se hanno la fase.",
+            "fr": "Complète (avec la phase) ou module seul (quand seule la perte est connue). Vide : complète si elles ont une phase.",
+            "es": "Completa (con la fase) o solo módulo (cuando solo se conoce la pérdida). Vacío: completa si tienen fase.",
+            "de": "Vollständig (mit Phase) oder nur Betrag (wenn nur der Verlust bekannt ist). Leer: vollständig, wenn sie eine Phase haben."
+          },
+          "choices": [
+            {
+              "value": "complex",
+              "label": {
+                "en": "Complete (with phase)",
+                "it": "Completa (con fase)",
+                "fr": "Complète (avec phase)",
+                "es": "Completa (con fase)",
+                "de": "Vollständig (mit Phase)"
+              }
+            },
+            {
+              "value": "magnitude",
+              "label": {
+                "en": "Magnitude only",
+                "it": "Solo modulo",
+                "fr": "Module seul",
+                "es": "Solo módulo",
+                "de": "Nur Betrag"
+              }
+            }
+          ]
+        },
+        {
+          "path": "correction.model",
+          "kind": "choice",
+          "label": {
+            "en": "Model",
+            "it": "Modello",
+            "fr": "Modèle",
+            "es": "Modelo",
+            "de": "Modell"
+          },
+          "help": {
+            "en": "Matched: what is taken out only attenuates and delays (right for a cable). Full: it has its own reflections too (a pad, an adapter): all four S-parameters are read and the transfer matrices are used; needs a .s2p file or an attenuator measurement.",
+            "it": "Adattato: ciò che si toglie attenua e ritarda soltanto (vale per un cavo). Completo: ha anche le sue riflessioni (un attenuatore, un adattatore): si leggono tutti e quattro i parametri S e si usano le matrici di trasferimento; richiede un file .s2p o una misura di attenuatore.",
+            "fr": "Adapté : ce qui est retiré atténue et retarde seulement (valable pour un câble). Complet : il a aussi ses réflexions (un atténuateur, un adaptateur) : les quatre paramètres S sont lus et les matrices de transfert utilisées ; nécessite un fichier .s2p ou une mesure d'atténuateur.",
+            "es": "Adaptado: lo que se quita solo atenúa y retrasa (vale para un cable). Completo: tiene también sus reflexiones (un atenuador, un adaptador): se leen los cuatro parámetros S y se usan las matrices de transferencia; requiere un archivo .s2p o una medición de atenuador.",
+            "de": "Angepasst: was herausgerechnet wird, dämpft und verzögert nur (richtig für ein Kabel). Vollständig: es hat auch eigene Reflexionen (Dämpfungsglied, Adapter): alle vier S-Parameter werden gelesen und die Transfermatrizen verwendet; braucht eine .s2p-Datei oder eine Dämpfungsgliedmessung."
+          },
+          "choices": [
+            {
+              "value": "matched",
+              "label": {
+                "en": "Matched (cable)",
+                "it": "Adattato (cavo)",
+                "fr": "Adapté (câble)",
+                "es": "Adaptado (cable)",
+                "de": "Angepasst (Kabel)"
+              }
+            },
+            {
+              "value": "full",
+              "label": {
+                "en": "Full (with reflections)",
+                "it": "Completo (con riflessioni)",
+                "fr": "Complet (avec réflexions)",
+                "es": "Completo (con reflexiones)",
+                "de": "Vollständig (mit Reflexionen)"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "form_field": "Field",
+  "form_problem": "Problem",
+  "form_problems": "Problems: {errors} error(s), {warnings} warning(s) - double-click to go to the field",
+  "form_summary_ok": "Ready to measure",
+  "form_summary_errors": "Cannot start yet: {errors} error(s) to fix",
+  "form_choose_instrument": "Choose the instrument for '{role}'",
+  "form_asset_placeholder": "code or scan, e.g. CBL-0001",
+  "form_asset_invalid": "Not a code (it looks like CBL-0001)",
+  "form_save": "Save",
+  "form_close": "Close",
+  "form_saved": "Saved",
+  "form_save_failed": "Could not save: {error}",
+  "form_save_with_errors": "There are {errors} error(s): the measurement cannot start until they are fixed. Save anyway?",
+  "form_unsaved_changes": "Save the changes?",
+  "form_not_a_number": "Not a valid number (you can write 433M, 2.4G...)",
+  "form_not_an_integer": "Must be a whole number",
+  "form_json_invalid": "Not valid JSON: {error}",
+  "form_no_form": "The module '{module}' has no form to edit it with."
+}

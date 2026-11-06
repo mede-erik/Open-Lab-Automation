@@ -1,0 +1,20 @@
+{
+  "form_field": "Campo",
+  "form_problem": "Problema",
+  "form_problems": "Problemas: {errors} error(es), {warnings} aviso(s) - doble clic para ir al campo",
+  "form_summary_ok": "Lista para medir",
+  "form_summary_errors": "Aún no se puede iniciar: {errors} error(es) por corregir",
+  "form_choose_instrument": "Elija el instrumento para '{role}'",
+  "form_asset_placeholder": "código o escaneo, p. ej. CBL-0001",
+  "form_asset_invalid": "No es un código (es como CBL-0001)",
+  "form_save": "Guardar",
+  "form_close": "Cerrar",
+  "form_saved": "Guardado",
+  "form_save_failed": "No se pudo guardar: {error}",
+  "form_save_with_errors": "Hay {errors} error(es): la medición no puede iniciar hasta corregirlos. ¿Guardar de todos modos?",
+  "form_unsaved_changes": "¿Guardar los cambios?",
+  "form_not_a_number": "Número no válido (puede escribir 433M, 2.4G...)",
+  "form_not_an_integer": "Debe ser un número entero",
+  "form_json_invalid": "JSON no válido: {error}",
+  "form_no_form": "El módulo '{module}' no tiene formulario de edición."
+}

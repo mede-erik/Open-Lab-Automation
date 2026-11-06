@@ -1,0 +1,255 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "{device.label|Antenna}",
+        "it": "{device.label|Antenna}",
+        "fr": "{device.label|Antenne}",
+        "es": "{device.label|Antena}",
+        "de": "{device.label|Antenne}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Connector",
+            "it": "Connettore",
+            "fr": "Connecteur",
+            "es": "Conector",
+            "de": "Anschluss"
+          }
+        }
+      ],
+      "when": "!correction.cable"
+    },
+    {
+      "id": "cable",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "when": "correction.cable",
+      "title": {
+        "en": "{correction.cable.asset_id|Cable (measured)}",
+        "it": "{correction.cable.asset_id|Cavo (misurato)}",
+        "fr": "{correction.cable.asset_id|Câble (mesuré)}",
+        "es": "{correction.cable.asset_id|Cable (medido)}",
+        "de": "{correction.cable.asset_id|Kabel (gemessen)}"
+      },
+      "ports": [
+        {
+          "id": "a",
+          "side": "left",
+          "label": {
+            "en": "End A",
+            "it": "Capo A",
+            "fr": "Extrémité A",
+            "es": "Extremo A",
+            "de": "Ende A"
+          }
+        },
+        {
+          "id": "b",
+          "side": "right",
+          "label": {
+            "en": "End B",
+            "it": "Capo B",
+            "fr": "Extrémité B",
+            "es": "Extremo B",
+            "de": "Ende B"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dutc",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "{device.label|Antenna}",
+        "it": "{device.label|Antenna}",
+        "fr": "{device.label|Antenne}",
+        "es": "{device.label|Antena}",
+        "de": "{device.label|Antenne}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Connector",
+            "it": "Connettore",
+            "fr": "Connecteur",
+            "es": "Conector",
+            "de": "Anschluss"
+          }
+        }
+      ],
+      "when": "correction.cable"
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "dut.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "!correction.cable"
+    },
+    {
+      "from": "vna.p1",
+      "to": "cable.a",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "correction.cable"
+    },
+    {
+      "from": "cable.b",
+      "to": "dutc.in",
+      "label": {
+        "en": "coax",
+        "it": "coassiale",
+        "fr": "coaxial",
+        "es": "coaxial",
+        "de": "Koax"
+      },
+      "when": "correction.cable"
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA beforehand (open / short / load or thru) at the ends of the test leads, over the sweep you will use.",
+      "it": "Calibra il VNA prima (open / short / load oppure thru) alle estremità dei cavi di test, sull'intervallo dello sweep che userai.",
+      "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
+      "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
+      "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    },
+    {
+      "en": "Keep the antenna away from metal and from people while it is measured, at the height and place where it will be used.",
+      "it": "Tieni l'antenna lontana da metalli e persone durante la misura, all'altezza e nel punto in cui sarà usata.",
+      "fr": "Gardez l'antenne éloignée des métaux et des personnes pendant la mesure, à la hauteur et à l'endroit où elle sera utilisée.",
+      "es": "Mantenga la antena lejos de metales y personas durante la medición, a la altura y en el lugar donde se usará.",
+      "de": "Die Antenne bei der Messung von Metall und Personen fernhalten, in der Höhe und am Ort, wo sie verwendet wird."
+    },
+    {
+      "when": "correction.cable",
+      "text": {
+        "en": "Calibrate the VNA at the end of the test lead, WITHOUT the cable: the cable is not part of the calibration, its loss is taken out by the correction. Use the same cable that was measured, in the same position (do not bend it differently).",
+        "it": "Calibra il VNA all'estremità del cavetto di test, SENZA il cavo: il cavo non fa parte della calibrazione, la sua perdita viene tolta dalla correzione. Usa lo stesso cavo che è stato misurato, nella stessa posizione (non piegarlo in modo diverso).",
+        "fr": "Étalonnez le VNA à l'extrémité du câble de test, SANS le câble : le câble ne fait pas partie de l'étalonnage, sa perte est retirée par la correction. Utilisez le même câble que celui mesuré, dans la même position (ne le pliez pas autrement).",
+        "es": "Calibre el VNA en el extremo del cable de prueba, SIN el cable: el cable no forma parte de la calibración, su pérdida se quita con la corrección. Use el mismo cable que se midió, en la misma posición (no lo doble de otra forma).",
+        "de": "Den VNA am Ende des Messkabels OHNE das Kabel kalibrieren: das Kabel gehört nicht zur Kalibrierung, sein Verlust wird durch die Korrektur herausgerechnet. Dasselbe Kabel wie bei der Messung verwenden, in derselben Lage (nicht anders biegen)."
+      }
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA, with the test lead, to one end of the cable ({correction.cable.asset_id|the cable that was measured}).",
+        "it": "Collega la porta 1 del VNA, con il cavetto di test, a un capo del cavo ({correction.cable.asset_id|il cavo che è stato misurato}).",
+        "fr": "Connectez le port 1 du VNA, avec le câble de test, à une extrémité du câble ({correction.cable.asset_id|le câble qui a été mesuré}).",
+        "es": "Conecte el puerto 1 del VNA, con el cable de prueba, a un extremo del cable ({correction.cable.asset_id|el cable que se midió}).",
+        "de": "Tor 1 des VNA mit dem Messkabel an ein Ende des Kabels ({correction.cable.asset_id|das gemessene Kabel}) anschließen."
+      },
+      "when": "correction.cable"
+    },
+    {
+      "text": {
+        "en": "Connect the other end of the cable to the antenna ({device.label|antenna}).",
+        "it": "Collega l'altro capo del cavo al antenna ({device.label|antenna}).",
+        "fr": "Connectez l'autre extrémité du câble au antenne ({device.label|antenne}).",
+        "es": "Conecte el otro extremo del cable al antena ({device.label|antena}).",
+        "de": "Das andere Ende des Kabels mit dem Antenne ({device.label|Antenne}) verbinden."
+      },
+      "when": "correction.cable"
+    },
+    {
+      "text": {
+        "en": "Connect the connector of the antenna ({device.label|antenna}) to port 1 of the VNA.",
+        "it": "Collega il connettore del antenna ({device.label|antenna}) alla porta 1 del VNA.",
+        "fr": "Connectez le connecteur du antenne ({device.label|antenne}) au port 1 du VNA.",
+        "es": "Conecte el conector del antena ({device.label|antena}) al puerto 1 del VNA.",
+        "de": "Den Anschluss des Antenne ({device.label|Antenne}) mit Tor 1 des VNA verbinden."
+      },
+      "when": "!correction.cable"
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    },
+    {
+      "text": {
+        "en": "Put the antenna where it will be used, away from metal objects and from people.",
+        "it": "Metti l'antenna dove sarà usata, lontano da oggetti metallici e da persone.",
+        "fr": "Placez l'antenne là où elle sera utilisée, loin des objets métalliques et des personnes.",
+        "es": "Ponga la antena donde se usará, lejos de objetos metálicos y de personas.",
+        "de": "Die Antenne dort aufstellen, wo sie verwendet wird, weit weg von Metallteilen und Personen."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "antenna_with_cable",
+      "optional": true,
+      "when": "correction.cable"
+    },
+    {
+      "file": "antenna",
+      "optional": true
+    }
+  ]
+}

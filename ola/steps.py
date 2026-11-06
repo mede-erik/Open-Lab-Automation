@@ -23,6 +23,8 @@ _FIELDS = {"op", "text", "ms", "timeout_ms", "returns"}
 
 @dataclass(frozen=True)
 class Step:
+    """One unit of work of a call; immutable and validated when created."""
+
     op: str
     text: Optional[str] = None
     ms: Optional[float] = None
@@ -54,6 +56,7 @@ class Step:
 
     @staticmethod
     def from_dict(d: Mapping[str, Any]) -> "Step":
+        """Build a step from a dict; unknown fields are rejected."""
         unknown = set(d) - _FIELDS
         if unknown:
             raise ValueError(f"unknown step field(s): {sorted(unknown)}")
@@ -63,4 +66,5 @@ class Step:
 
     @staticmethod
     def coerce(step) -> "Step":
+        """Return ``step`` as a ``Step`` (accepts a ``Step`` or a dict)."""
         return step if isinstance(step, Step) else Step.from_dict(step)

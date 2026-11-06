@@ -20,7 +20,10 @@ from ola.measurement import Measurement, MeasurementContext, MeasurementError
 
 
 class TimeLog(Measurement):
+    """Time log measurement; the parameters are described in the module docstring."""
+
     def validate(self):
+        """Check the parameters; return the list of problems (empty if OK)."""
         p, problems = self.params, []
         interval = p.get("interval_s")
         if not isinstance(interval, (int, float)) or isinstance(interval, bool) or interval < 0.001:
@@ -53,6 +56,7 @@ class TimeLog(Measurement):
         return problems
 
     def setup(self, ctx: MeasurementContext) -> None:
+        """Find each channel's instrument handle (fails before any read if one is unbound)."""
         by_name = {h.name: h for h in ctx.instruments("instruments")}
         self._readers = []
         for ch in self.params["channels"]:
@@ -66,6 +70,7 @@ class TimeLog(Measurement):
             )
 
     def run(self, ctx: MeasurementContext) -> None:
+        """Sample every ``interval_s`` until ``samples`` or ``duration_s`` is reached."""
         interval = float(self.params["interval_s"])
         duration = self.params.get("duration_s")
         samples = self.params.get("samples")

@@ -111,3 +111,18 @@ def test_header_uses_module_info_and_binding_names(tmp_path):
     header = RunWriter.header_for(runner)
     assert header["measurement"] == "time_log" and header["module_version"] == "1.0.0"
     assert header["bindings"] == {"instruments": ["dmm1"]}
+
+
+def test_other_tables_are_stored_and_exported(tmp_path):
+    def run(ctx):
+        ctx.emit_point({"mean": 5.0})
+        ctx.emit_point({"mean": 4.0, "k": 0}, table="samples")
+        ctx.emit_point({"mean": 6.0, "k": 1}, table="samples")
+
+    runner, writer = make_run(tmp_path, run)
+    run_to_end(runner)
+    data = read_run(writer.path)
+    assert [p["values"] for p in data["points"]] == [{"mean": 5.0}]
+    assert [p["values"]["k"] for p in data["tables"]["samples"]] == [0, 1]
+    assert export_points_csv(writer.path, tmp_path / "samples.csv", table="samples") == 2
+    assert export_points_csv(writer.path, tmp_path / "none.csv", table="missing") == 0
