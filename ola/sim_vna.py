@@ -24,11 +24,11 @@ adds a little random error to every point; ``calls`` records what was asked.
 Two ways to be asked: the **simple calls** ``set_sweep`` and ``read_sparameter`` (the default) or,
 with ``library_calls=True``, the calls of the instrument library's network analyzer category:
 ``set_frequency_sweep`` (linear), ``run_sweep`` and ``read_sparameters(sparameters=[...])``, and the
-optional ``set_source_power`` and ``set_if_bandwidth`` (``library_extras=False`` leaves them out, as
-the LiteVNA does) and ``set_sweep_type`` (``library_sweep_type=True``: it must come **after** ``set_frequency_sweep``,
-which always sets a linear sweep; ``library_linear_only=True`` makes it refuse ``LOG``, as the
-LiteVNA does). ``calibrated`` is what
-``read_sparameters`` says about the calibration.
+optional ``set_source_power`` and ``set_if_bandwidth`` (``library_extras=False`` leaves them out,
+as the LiteVNA does) and ``set_sweep_type`` (``library_sweep_type=True``: it must come **after**
+``set_frequency_sweep``, which always sets a linear sweep; ``library_linear_only=True`` makes it
+refuse ``LOG``, as the LiteVNA does). ``calibrated`` is what ``read_sparameters`` says about the
+calibration.
 """
 
 from __future__ import annotations
