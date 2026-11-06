@@ -159,3 +159,26 @@ def test_older_rohde_schwarz_analyzers_differ_in_two_commands(library, model):
     assert commands(library, RS, "set_source_power", {"value": -10}) == [
         "SOURce1:POWer1:LEVel:IMMediate:AMPLitude -10"
     ]
+
+
+needs_sweep_type = pytest.mark.skipif(
+    LIB is None or "set_sweep_type" not in open(LIB).read(),
+    reason="library with set_sweep_type not available",
+)
+
+
+@needs_sweep_type
+@pytest.mark.parametrize(
+    "model,linear,log",
+    [
+        (SIGLENT, ":SENSe1:SWEep:TYPE LINear", ":SENSe1:SWEep:TYPE LOGarithmic"),
+        (RS, "SENSe1:SWEep:TYPE LINear", "SENSe1:SWEep:TYPE LOGarithmic"),
+        (ZVA, "SENSe1:SWEep:TYPE LINear", "SENSe1:SWEep:TYPE LOGarithmic"),
+        (ZVL, "SENSe1:SWEep:TYPE LINear", "SENSe1:SWEep:TYPE LOGarithmic"),
+    ],
+)
+def test_sweep_type_of_the_scpi_analyzers(library, model, linear, log):
+    assert commands(library, model, "set_sweep_type", {"sweep_type": "linear"}) == [linear]
+    assert commands(library, model, "set_sweep_type", {"sweep_type": "LOG"}) == [log]
+    with pytest.raises(InvalidArgumentError):
+        plan_call(library, model, "set_sweep_type", {"sweep_type": "SEGMENT"})

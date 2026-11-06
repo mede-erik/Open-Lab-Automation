@@ -123,6 +123,14 @@ class LiteVnaDriver:
         self._sweep = (start, step, points)
         self._swept = False
 
+    def fn_set_sweep_type(self, sweep_type) -> None:
+        """The LiteVNA sweeps linearly (start, step, points): a logarithmic sweep is not handled."""
+        if sweep_type != "LINEAR":
+            raise ValueNotHandledError(
+                f"sweep type {sweep_type} is not handled by the LiteVNA (linear sweep only)",
+                call="set_sweep_type",
+            )
+
     def _select_channels(self, sparameters) -> None:
         """S11, S21 or both; the LiteVNA has one source port, so S12 and S22 do not exist."""
         wanted = tuple(p for p in ("S11", "S21") if p in sparameters)
