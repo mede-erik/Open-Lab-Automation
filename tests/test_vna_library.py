@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(
     LIB is None or "Siglent_SNA_Series" not in (open(LIB).read() if LIB else ""),
     reason="library with the SCPI network analyzers not available",
 )
-SIGLENT, RS = "VNA_Siglent_SNA5002A", "VNA_RS_ZNB8"
+SIGLENT, RS, ZVA, ZVL = "VNA_Siglent_SNA5002A", "VNA_RS_ZNB8", "VNA_RS_ZVA8", "VNA_RS_ZVL6"
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +34,7 @@ def commands(library, model, call, args):
 
 def test_all_models_are_experimental(library):
     ids = [m["id"] for s in library.categories["network_analyzers_series"] for m in s["models"]]
-    assert len(ids) == 3 + 19 + 16
+    assert len(ids) == 3 + 19 + 16 + 14
     for model_id in ids:
         assert library.find_model(model_id).model["experimental"] is True
 
@@ -136,3 +136,26 @@ def test_the_scpi_models_have_no_driver_and_the_instrument_decides_unsupported_c
         plan_call(library, SIGLENT, "select_sparameters", {})
     with pytest.raises(InvalidArgumentError):
         plan_call(library, SIGLENT, "calibration_begin", {"kind": "THREE", "port": 1})
+
+
+@pytest.mark.parametrize("model", [ZVA, ZVL])
+def test_older_rohde_schwarz_analyzers_differ_in_two_commands(library, model):
+    # same flow as the ZNB ...
+    assert commands(library, model, "read_sparameters", {"sparameters": ["S11"]})[1] == (
+        "CALCulate1:PARameter:SDEFine 'OLA1','S11'"
+    )
+    one = {"kind": "ONE_PORT", "port": 1}
+    assert commands(library, model, "calibration_begin", one) == [
+        "SENSe1:CORRection:COLLect:METHod:DEFine 'OLA', FOPort, 1"
+    ]
+    # ... except the transmission calibration type and the power command (no port suffix)
+    trans = {"kind": "TRANSMISSION_RESPONSE", "port": 1, "port2": 2}
+    assert commands(library, model, "calibration_begin", trans) == [
+        "SENSe1:CORRection:COLLect:METHod:DEFine 'OLA', FRTRans, 1,2"
+    ]
+    assert commands(library, model, "set_source_power", {"value": -10}) == [
+        "SOURce1:POWer:LEVel:IMMediate:AMPLitude -10"
+    ]
+    assert commands(library, RS, "set_source_power", {"value": -10}) == [
+        "SOURce1:POWer1:LEVel:IMMediate:AMPLitude -10"
+    ]
