@@ -32,8 +32,9 @@ updated with the module)::
   hand. The first whose condition holds and whose file exists (next to ``wiring.json``) is shown
   instead of the drawn diagram. A name without an extension is looked for as ``.svg``, ``.png``,
   ``.jpg``, ``.jpeg`` and ``.webp``; ``{lang}`` in it is the language (the English file is the
-  fallback). A file that is not there is reported, unless the entry is ``optional``: a module can
-  list the pictures it would like and the user drops them in.
+  fallback). A placeholder (see ``is_placeholder``) counts as not there. A file that is not there
+  is reported, unless the entry is ``optional``: a module can list the pictures it would like and
+  the user drops them in.
 
 A file needs ``nodes``, ``steps`` or ``images`` (at least one). ``diagram_for`` builds the diagram
 for a measurement, ``layout`` draws it as a ``ola.labels.Drawing`` (millimetres, so it can be
@@ -53,6 +54,7 @@ from .labels import Box, Drawing, Line, Text, text_width
 FALLBACK_LANG = "en"
 IMAGE_EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
 FILE_NAME = "wiring.json"
+PLACEHOLDER_MARK = "OLA-PLACEHOLDER"  # a picture that carries this is a stand-in, not a drawing
 TITLE_MM = 3.4
 PORT_MM = 2.7
 LINK_MM = 2.4
@@ -281,6 +283,17 @@ def steps_for(raw_steps: Sequence[Any], params: Mapping[str, Any], lang: str) ->
     return out
 
 
+def is_placeholder(path: Any) -> bool:
+    """True if the file is a placeholder (an SVG with the mark ``OLA-PLACEHOLDER`` in its first
+    lines: ``scripts/make_picture_placeholders.py`` writes them). The program ignores a placeholder
+    until the user replaces it with a real drawing."""
+    try:
+        with open(path, "rb") as handle:
+            return PLACEHOLDER_MARK.encode() in handle.read(4096)
+    except OSError:
+        return False
+
+
 def pick_image(
     images: Sequence[Mapping[str, Any]],
     params: Mapping[str, Any],
@@ -304,7 +317,12 @@ def pick_image(
                 base + ext for ext in IMAGE_EXTENSIONS
             ]  # fmt: skip
             found = next(
-                (Path(directory) / n for n in names if (Path(directory) / n).is_file()), None
+                (
+                    Path(directory) / n
+                    for n in names
+                    if (Path(directory) / n).is_file() and not is_placeholder(Path(directory) / n)
+                ),
+                None,
             )
             if found is not None:
                 return found
@@ -312,18 +330,6 @@ def pick_image(
                 break
         if not raw.get("optional"):
             warnings.append(f"picture not found: {name.replace('{lang}', lang)}")
-    return None
-    for raw in images:
-        if not is_on(raw.get("when"), params):
-            continue
-        name = str(raw.get("file", ""))
-        for language in dict.fromkeys((lang, FALLBACK_LANG)):
-            candidate = Path(directory) / name.replace("{lang}", language)
-            if candidate.is_file():
-                return candidate
-            if "{lang}" not in name:
-                break
-        warnings.append(f"picture not found: {name.replace('{lang}', lang)}")
     return None
 
 
@@ -426,5 +432,5 @@ def _route(drawing: Drawing, a: Tuple[float, float, str], b: Tuple[float, float,
 
 __all__ = [
     "Diagram", "Link", "Node", "Port", "WiringError", "connection_lines", "diagram_for",
-    "is_on", "layout", "load_wiring", "lookup", "text_of",
+    "is_on", "is_placeholder", "layout", "load_wiring", "lookup", "text_of",
 ]  # fmt: skip

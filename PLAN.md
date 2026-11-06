@@ -859,6 +859,11 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   entrambi i modelli con reti sintetiche esatte (il completo ritrova il dispositivo a 1e-6 con accessori disallineati su
   entrambe le porte). `SimVna(fixture1_m, fixture2_m)`. Guida unica `docs/deembedding.md` (anche per il caso a una porta).
   Immagini 16-17. Da fare: amplificatore e cavo con accessori; catene di adattatori misurate a pezzi.
+  **Segnaposto per le immagini dei collegamenti** (2026-11-06): `docs/wiring-images.md` aggiornato (17 immagini, sezione
+  sui segnaposto) e un file `.svg` segnaposto per ognuna nella cartella del modulo, scritto da
+  `scripts/make_picture_placeholders.py` a partire dall'elenco (non sovrascrive mai un disegno vero; `--check` dice a che
+  punto si è). Il programma **ignora** un segnaposto (contiene `OLA-PLACEHOLDER`) e mostra il proprio schema finché
+  l'utente non lo sostituisce con il suo disegno (stesso nome, o un `.png` accanto).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

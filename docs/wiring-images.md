@@ -6,6 +6,25 @@ Puoi farle una alla volta, in qualsiasi ordine.
 
 Come funziona è spiegato in [`wiring.md`](wiring.md). Qui c'è solo la lista di lavoro.
 
+## I segnaposto
+
+In ogni cartella di modulo c'è **già un file segnaposto** per ogni immagine (17 file `.svg` grigi, a tratteggio, con
+scritto il nome, quando si vede e cosa disegnare). Servono a sapere **quale file sostituire** e dove stanno.
+
+* Il programma **ignora i segnaposto**: finché non li sostituisci, la finestra dei collegamenti continua a mostrare lo
+  schema disegnato dal programma. Un segnaposto si riconosce perché contiene la sigla `OLA-PLACEHOLDER`.
+* **Per sostituirne uno**: salva il tuo disegno **con lo stesso nome** sopra il file (`filter.svg`), oppure mettilo accanto
+  con un'altra estensione (`filter.png`: il segnaposto `.svg` viene saltato).
+* Per rifare i segnaposto mancanti (per esempio dopo aver aggiunto un'immagine a questa lista) e vedere a che punto sei:
+
+```bash
+python scripts/make_picture_placeholders.py --check
+python scripts/make_picture_placeholders.py
+```
+
+Il primo dice, per ognuna delle immagini, se è un disegno tuo (`drawn`), un segnaposto (`placeholder`) o se manca; il
+secondo scrive i segnaposto che mancano e **non sovrascrive mai un disegno vero**. L'elenco viene letto da questo file.
+
 ## Dove mettere i file e come si chiamano
 
 * **Cartella**: quella del modulo, accanto a `wiring.json` (`ola/modules/<modulo>/`). Ogni immagine qui sotto dice la

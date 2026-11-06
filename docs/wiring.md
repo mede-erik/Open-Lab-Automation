@@ -19,7 +19,7 @@ together with the module. A module without the file simply has no diagram.
 
 ## Your own pictures
 
-The list of the pictures to draw, with what each must show, is in [`wiring-images.md`](wiring-images.md) (in Italian).
+The list of the pictures to draw, with what each must show, is in [`wiring-images.md`](wiring-images.md) (in Italian). Every picture already has a **placeholder** file (an SVG marked `OLA-PLACEHOLDER`) in its module folder: the program ignores it and shows its own diagram until the file is replaced by a real drawing; `python scripts/make_picture_placeholders.py` writes the missing ones.
 
 Draw the pictures you like and drop them **next to the module's `wiring.json`** (`ola/modules/<id>/`): when a picture
 with the right name is there it is shown instead of the program's diagram; without it the program's diagram is shown, so
