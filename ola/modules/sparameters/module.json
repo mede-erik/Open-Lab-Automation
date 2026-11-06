@@ -1,0 +1,27 @@
+{
+  "id": "sparameters",
+  "name": "S-parameters (VNA)",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".spm",
+  "entry": "measurement.py:SParameters",
+  "description": "Sweeps a vector network analyzer and records the S-parameters (complex traces over frequency), once or repeatedly.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer",
+     "description": "The network analyzer (calibrate it first for the sweep you use)"}
+  ],
+  "params_schema": {
+    "start_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
+    "stop_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
+    "points": {"type": "integer", "min": 2, "required": true},
+    "sparameters": {"type": "list", "required": false, "item": "S11 | S21 | S12 | S22",
+                    "description": "default [\"S11\"]"},
+    "sweeps": {"type": "integer", "min": 1, "required": false, "description": "default 1"},
+    "interval_s": {"type": "number", "min": 0, "unit": "s", "required": false,
+                   "description": "time between the starts of two sweeps (default 0)"},
+    "if_bandwidth_hz": {"type": "number", "min": 0, "unit": "Hz", "required": false},
+    "power_dbm": {"type": "number", "unit": "dBm", "required": false},
+    "require_calibration": {"type": "boolean", "required": false,
+                            "description": "stop if the data are not calibrated (default: warn)"}
+  }
+}
