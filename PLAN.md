@@ -847,6 +847,18 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   corretta supera 1 viene limitata e segnalata. `SimVna(termination="antenna_via_cable")`. Schema di collegamento e
   immagini 14-15. Resta da fare lo stesso per i parametri S21 (filtro, attenuatore) e la versione con matrici di
   trasferimento (cavo non ben adattato).
+  **De-embedding a due porte** (2026-11-06, "procedi con idee deembedding"): `ola/fixtures.py`. Un dispositivo misurato
+  attraverso cavi, adattatori o attenuatori su porta 1, porta 2 o entrambe; l'accessorio già misurato si toglie (per
+  **codice del registro**: cavo o attenuatore, l'ultima misura finita del progetto, salvata nell'intestazione; oppure un
+  file di misura o un `.s2p` scritto "visto dal VNA", la porta 2 viene girata dal programma). Due modelli:
+  **adattato** (`S21/(T1·T2)`, riflessioni divise per il giro di andata e ritorno: giusto per un cavo) e **completo**
+  (matrici di trasferimento `T = T1·Tdut·T2`: esatto per qualunque accessorio, anche non adattato; legge tutti e quattro i
+  parametri S e vuole accessori con riflessioni: .s2p o misura di attenuatore); due modi: **complesso** e **solo modulo**
+  (se si conosce solo la perdita). Usato da `filter` e `attenuator` con `correction`; curve grezze accanto alle corrette
+  (`S21_raw`, `attenuation_raw_db`); avvisi se la riflessione corretta supera 1 o l'S21 supera 0 dB. I test confrontano
+  entrambi i modelli con reti sintetiche esatte (il completo ritrova il dispositivo a 1e-6 con accessori disallineati su
+  entrambe le porte). `SimVna(fixture1_m, fixture2_m)`. Guida unica `docs/deembedding.md` (anche per il caso a una porta).
+  Immagini 16-17. Da fare: amplificatore e cavo con accessori; catene di adattatori misurate a pezzi.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

@@ -76,6 +76,127 @@
             "de": "Ausgang"
           }
         }
+      ],
+      "when": "!correction"
+    },
+    {
+      "id": "dutf",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "{attenuator.label|Attenuator}",
+        "it": "{attenuator.label|Attenuatore}",
+        "fr": "{attenuator.label|Atténuateur}",
+        "es": "{attenuator.label|Atenuador}",
+        "de": "{attenuator.label|Dämpfungsglied}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "left",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ],
+      "when": "correction"
+    },
+    {
+      "id": "fix1",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "when": "correction.port1",
+      "title": {
+        "en": "{correction.port1.asset_id|Fixture 1}",
+        "it": "{correction.port1.asset_id|Accessorio 1}",
+        "fr": "{correction.port1.asset_id|Accessoire 1}",
+        "es": "{correction.port1.asset_id|Accesorio 1}",
+        "de": "{correction.port1.asset_id|Zubehör 1}"
+      },
+      "ports": [
+        {
+          "id": "a",
+          "side": "left",
+          "label": {
+            "en": "VNA side",
+            "it": "Lato VNA",
+            "fr": "Côté VNA",
+            "es": "Lado VNA",
+            "de": "VNA-Seite"
+          }
+        },
+        {
+          "id": "b",
+          "side": "right",
+          "label": {
+            "en": "Device side",
+            "it": "Lato dispositivo",
+            "fr": "Côté dispositif",
+            "es": "Lado dispositivo",
+            "de": "Geräteseite"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fix2",
+      "kind": "device",
+      "at": [
+        1,
+        1
+      ],
+      "when": "correction.port2",
+      "title": {
+        "en": "{correction.port2.asset_id|Fixture 2}",
+        "it": "{correction.port2.asset_id|Accessorio 2}",
+        "fr": "{correction.port2.asset_id|Accessoire 2}",
+        "es": "{correction.port2.asset_id|Accesorio 2}",
+        "de": "{correction.port2.asset_id|Zubehör 2}"
+      },
+      "ports": [
+        {
+          "id": "a",
+          "side": "left",
+          "label": {
+            "en": "VNA side",
+            "it": "Lato VNA",
+            "fr": "Côté VNA",
+            "es": "Lado VNA",
+            "de": "VNA-Seite"
+          }
+        },
+        {
+          "id": "b",
+          "side": "right",
+          "label": {
+            "en": "Device side",
+            "it": "Lato dispositivo",
+            "fr": "Côté dispositif",
+            "es": "Lado dispositivo",
+            "de": "Geräteseite"
+          }
+        }
       ]
     }
   ],
@@ -89,7 +210,8 @@
         "fr": "câble de test",
         "es": "cable de prueba",
         "de": "Messkabel"
-      }
+      },
+      "when": "!correction"
     },
     {
       "from": "vna.p2",
@@ -100,7 +222,86 @@
         "fr": "câble de test",
         "es": "cable de prueba",
         "de": "Messkabel"
-      }
+      },
+      "when": "!correction"
+    },
+    {
+      "from": "vna.p1",
+      "to": "dutf.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": [
+        "correction",
+        "!correction.port1"
+      ]
+    },
+    {
+      "from": "vna.p1",
+      "to": "fix1.a",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "correction.port1"
+    },
+    {
+      "from": "fix1.b",
+      "to": "dutf.in",
+      "label": {
+        "en": "coax",
+        "it": "coassiale",
+        "fr": "coaxial",
+        "es": "coaxial",
+        "de": "Koax"
+      },
+      "when": "correction.port1"
+    },
+    {
+      "from": "vna.p2",
+      "to": "dutf.out",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": [
+        "correction",
+        "!correction.port2"
+      ]
+    },
+    {
+      "from": "vna.p2",
+      "to": "fix2.a",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "correction.port2"
+    },
+    {
+      "from": "fix2.b",
+      "to": "dutf.out",
+      "label": {
+        "en": "coax",
+        "it": "coassiale",
+        "fr": "coaxial",
+        "es": "coaxial",
+        "de": "Koax"
+      },
+      "when": "correction.port2"
     }
   ],
   "notes": [
@@ -110,9 +311,39 @@
       "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
       "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
       "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    },
+    {
+      "when": "correction",
+      "text": {
+        "en": "Calibrate the VNA at the end of the test leads, WITHOUT the fixtures: they are not part of the calibration, their loss is taken out by the correction. Use the same cables / pads that were measured, in the same position.",
+        "it": "Calibra il VNA all'estremità dei cavetti di test, SENZA gli accessori: non fanno parte della calibrazione, la loro perdita viene tolta dalla correzione. Usa gli stessi cavi / attenuatori che sono stati misurati, nella stessa posizione.",
+        "fr": "Étalonnez le VNA à l'extrémité des câbles de test, SANS les accessoires : ils ne font pas partie de l'étalonnage, leur perte est retirée par la correction. Utilisez les mêmes câbles / atténuateurs que ceux mesurés, dans la même position.",
+        "es": "Calibre el VNA en el extremo de los cables de prueba, SIN los accesorios: no forman parte de la calibración, su pérdida se quita con la corrección. Use los mismos cables / atenuadores que se midieron, en la misma posición.",
+        "de": "Den VNA am Ende der Messkabel OHNE das Zubehör kalibrieren: es gehört nicht zur Kalibrierung, sein Verlust wird durch die Korrektur herausgerechnet. Dieselben Kabel / Dämpfungsglieder wie bei der Messung verwenden, in derselben Lage."
+      }
     }
   ],
   "steps": [
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA, with the test lead, to the fixture on port 1 ({correction.port1.asset_id|the cable or pad that was measured}), and its other end to the input of the attenuator.",
+        "it": "Collega la porta 1 del VNA, con il cavetto di test, all'accessorio sulla porta 1 ({correction.port1.asset_id|il cavo o attenuatore che è stato misurato}) e il suo altro capo all'ingresso del attenuatore.",
+        "fr": "Connectez le port 1 du VNA, avec le câble de test, à l'accessoire du port 1 ({correction.port1.asset_id|le câble ou l'atténuateur qui a été mesuré}) et son autre extrémité à l'entrée du atténuateur.",
+        "es": "Conecte el puerto 1 del VNA, con el cable de prueba, al accesorio del puerto 1 ({correction.port1.asset_id|el cable o atenuador que se midió}) y su otro extremo a la entrada del atenuador.",
+        "de": "Tor 1 des VNA mit dem Messkabel an das Zubehör an Tor 1 ({correction.port1.asset_id|das gemessene Kabel oder Dämpfungsglied}) anschließen und sein anderes Ende an den Eingang des Dämpfungsglieds."
+      },
+      "when": "correction.port1"
+    },
+    {
+      "text": {
+        "en": "Connect port 2 of the VNA, with the test lead, to the fixture on port 2 ({correction.port2.asset_id|the cable or pad that was measured}), and its other end to the output of the attenuator.",
+        "it": "Collega la porta 2 del VNA, con il cavetto di test, all'accessorio sulla porta 2 ({correction.port2.asset_id|il cavo o attenuatore che è stato misurato}) e il suo altro capo all'uscita del attenuatore.",
+        "fr": "Connectez le port 2 du VNA, avec le câble de test, à l'accessoire du port 2 ({correction.port2.asset_id|le câble ou l'atténuateur qui a été mesuré}) et son autre extrémité à la sortie du atténuateur.",
+        "es": "Conecte el puerto 2 del VNA, con el cable de prueba, al accesorio del puerto 2 ({correction.port2.asset_id|el cable o atenuador que se midió}) y su otro extremo a la salida del atenuador.",
+        "de": "Tor 2 des VNA mit dem Messkabel an das Zubehör an Tor 2 ({correction.port2.asset_id|das gemessene Kabel oder Dämpfungsglied}) anschließen und sein anderes Ende an den Ausgang des Dämpfungsglieds."
+      },
+      "when": "correction.port2"
+    },
     {
       "text": {
         "en": "Connect the input of the attenuator ({attenuator.label|attenuator}) to port 1 of the VNA.",
@@ -120,7 +351,8 @@
         "fr": "Connectez l'entrée du atténuateur ({attenuator.label|atténuateur}) au port 1 du VNA.",
         "es": "Conecte la entrada del atenuador ({attenuator.label|atenuador}) al puerto 1 del VNA.",
         "de": "Den Eingang des Dämpfungsglieds ({attenuator.label|Dämpfungsglieds}) mit Tor 1 des VNA verbinden."
-      }
+      },
+      "when": "!correction.port1"
     },
     {
       "text": {
@@ -129,7 +361,8 @@
         "fr": "Connectez la sortie du atténuateur au port 2 du VNA.",
         "es": "Conecte la salida del atenuador al puerto 2 del VNA.",
         "de": "Den Ausgang des Dämpfungsglieds mit Tor 2 des VNA verbinden."
-      }
+      },
+      "when": "!correction.port2"
     },
     {
       "text": {
@@ -142,6 +375,11 @@
     }
   ],
   "images": [
+    {
+      "file": "attenuator_with_fixtures",
+      "optional": true,
+      "when": "correction"
+    },
     {
       "file": "attenuator",
       "optional": true

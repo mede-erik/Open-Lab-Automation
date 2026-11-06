@@ -129,6 +129,48 @@ def apply_correction(
     return corrected, info
 
 
+def apply_fixtures(
+    ctx: MeasurementContext,
+    params: Mapping[str, Any],
+    freq: Sequence[float],
+    traces: Mapping[str, Sequence[complex]],
+) -> Tuple[Dict[str, List[complex]], Optional[Dict[str, Any]]]:
+    """Take the fixtures named by ``params["correction"]`` out of the S-parameters of a transmission
+    measurement (see ``ola.fixtures``): ``(traces, None)`` untouched if there is no correction,
+    else ``(corrected, info)`` and a line in the log, with a warning for each doubt."""
+    from .deembed import DeembedError
+    from .fixtures import correct_traces
+
+    if not params.get("correction"):
+        return {k: list(v) for k, v in traces.items()}, None
+    try:
+        corrected, info = correct_traces(params, freq, traces)
+    except DeembedError as exc:
+        raise MeasurementError(f"fixture correction: {exc}") from exc
+    parts = []
+    for side, label in (("left", "port 1"), ("right", "port 2")):
+        if side in info.get("sources", {}):
+            name = info["codes"].get(side) or info["sources"][side]
+            parts.append(f"{label}: {name} ({info[side + '_loss_db']:.3g} dB)")
+    ctx.log(f"corrected for the fixtures, {'; '.join(parts)} ({info['model']}, {info['mode']})")
+    if info["over_unity_points"]:
+        ctx.log(
+            f"the correction makes a reflection exceed 1 at {info['over_unity_points']} point(s): "
+            "the fixture data does not fit this measurement (another cable, or a calibration "
+            "that is not at the same place); those points are limited just under 1",
+            "warning",
+        )
+    if info["gain_points"]:
+        ctx.log(
+            f"the device shows more than 0 dB of gain at {info['gain_points']} point(s) after the "
+            "correction: right for an amplifier, otherwise the fixture data does not fit",
+            "warning",
+        )
+    for warning in info["warnings"]:
+        ctx.log(f"fixture: {warning}", "warning")
+    return corrected, info
+
+
 def check_common(
     params: Mapping[str, Any],
     out: List[Problem],

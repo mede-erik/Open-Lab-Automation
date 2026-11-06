@@ -38,6 +38,7 @@ from .wiring import Diagram, diagram_for, load_wiring
 
 Connect = Callable[[str, Optional[threading.Event]], Any]  # (name, run's stop event) -> handle
 RUNS_FOLDER = "runs"
+FIXTURE_KINDS = ("cable", "attenuator")  # measurements that can be taken out as a fixture
 
 
 @dataclass
@@ -252,29 +253,40 @@ class ProjectSession:
         return runner, path
 
     def resolve_correction(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """The parameters with the cable of a ``correction`` found: a cable named by its registry
-        code (``correction.cable.asset_id``) becomes the newest finished cable measurement of that
-        code in the runs folder (``correction.cable.run``), which is then saved in the header of the
-        run, so it is known later which measurement of the cable was used. ``MeasurementError`` if
-        there is none. Parameters without a correction, or with a file already named, are returned
-        unchanged."""
+        """The parameters with the cables of a ``correction`` found: a cable (``correction.cable``
+        of a reflection measurement) or a fixture (``correction.port1`` / ``port2`` of a
+        transmission one) named by its registry code (``asset_id``) becomes the newest finished
+        measurement of that code in the runs folder (``run``), which is then saved in the header of
+        the run, so it is known later which measurement was used. A fixture may be a cable or an
+        attenuator. ``MeasurementError`` if there is none. Parameters without a correction, or
+        with the file already named, are returned unchanged."""
         correction = params.get("correction")
-        spec = correction.get("cable") if isinstance(correction, dict) else None
-        if not isinstance(spec, dict) or spec.get("run") or spec.get("touchstone"):
+        if not isinstance(correction, dict):
             return params
-        code = normalize_code(str(spec.get("asset_id", "")))
-        if not code:
-            return params
-        folders = [self.run_dir, *self.extra_run_dirs]
-        found = latest_cable_run(code, folders)
-        if found is None:
-            raise MeasurementError(
-                f"no finished cable measurement of {code} in {', '.join(str(f) for f in folders)}: "
-                "measure the cable first (a cable measurement with this code in its card), or name "
-                "a run file or a Touchstone file in the correction"
-            )
-        resolved = json.loads(json.dumps(params))
-        resolved["correction"]["cable"]["run"] = str(found)
+        resolved = params
+        for key, kinds in (
+            ("cable", ("cable",)),
+            ("port1", FIXTURE_KINDS),
+            ("port2", FIXTURE_KINDS),
+        ):
+            spec = correction.get(key)
+            if not isinstance(spec, dict) or spec.get("run") or spec.get("touchstone"):
+                continue
+            code = normalize_code(str(spec.get("asset_id", "")))
+            if not code:
+                continue
+            folders = [self.run_dir, *self.extra_run_dirs]
+            found = latest_cable_run(code, folders, kinds)
+            if found is None:
+                what = " or ".join(kinds)
+                raise MeasurementError(
+                    f"no finished {what} measurement of {code} in "
+                    f"{', '.join(str(f) for f in folders)}: measure it first (with this code in "
+                    "its card), or name a run file or a Touchstone file in the correction"
+                )
+            if resolved is params:
+                resolved = json.loads(json.dumps(params))
+            resolved["correction"][key]["run"] = str(found)
         return resolved
 
     def wiring(self, ref: MeasurementRef, lang: str = "en") -> Optional[Diagram]:

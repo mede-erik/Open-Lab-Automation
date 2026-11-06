@@ -21,6 +21,8 @@
                "description": "pass / fail mask on the attenuation in dB (positive numbers); replaces the check on nominal_db and tolerance_db: {\"bands\": [{\"from\": 0, \"to\": 6e9, \"min\": 9, \"max\": 11}]}"},
     "also_return_loss": {"type": "boolean", "required": false,
                          "description": "also read S11 and S22 to report the return loss of both ports (true by default)"},
+    "correction": {"type": "object", "required": false,
+                   "description": "take cables, adapters or pads that were measured out of the result: port1 and / or port2 = {asset_id (its code in the registry: the newest finished cable or attenuator measurement of the project is used) | run (a run file) | touchstone (.s2p written as seen from the VNA), reversed}, mode (complex|magnitude), model (matched|full: full also uses the reflections of the fixtures and reads all four S-parameters)"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
     "confirm_setup": {"type": "boolean", "required": false,

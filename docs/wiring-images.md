@@ -1,6 +1,6 @@
 # Immagini degli schemi di collegamento: cosa disegnare
 
-Elenco delle immagini che i moduli cercano. Sono **15**. Ogni immagine è facoltativa: finché manca, la finestra dei
+Elenco delle immagini che i moduli cercano. Sono **17**. Ogni immagine è facoltativa: finché manca, la finestra dei
 collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
 Puoi farle una alla volta, in qualsiasi ordine.
 
@@ -51,7 +51,7 @@ dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amp
 
 ---
 
-# Le 15 immagini
+# Le 17 immagini
 
 Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
 esserci**.
@@ -228,6 +228,27 @@ esserci**.
   misurato** (lungo e ondulato) e il **piano di calibrazione prima del cavo**, come nella 14.
 * **Dettagli**: stessa impostazione della 14, così si vede che cambia solo il dispositivo.
 
+## 16. Filtro con accessori (cavi o attenuatori) su una o due porte
+
+* **File**: `filter_with_fixtures`
+* **Cartella**: `ola/modules/filter/`
+* **Quando si vede**: quando il file di misura ha la correzione (`correction`): il filtro non è collegato direttamente al
+  VNA ma attraverso cavi, adattatori o attenuatori già misurati, su una porta o su entrambe.
+* **Cosa disegnare**: come l'immagine 6, ma tra ogni porta del VNA e il filtro c'è un **accessorio** (un tratto di cavo
+  **ondulato** o il simbolo di un attenuatore), su **P1**, su **P2** o su entrambe: disegna entrambe, con la **P2 in
+  tratteggio** per dire che non c'è sempre.
+* **Dettagli**: il **piano di calibrazione** alla **fine dei cavetti di test, PRIMA degli accessori** (tratto verticale
+  tratteggiato con la scritta CAL); gli accessori sono **fuori** dalla calibrazione. IN e OUT del filtro ben visibili.
+
+## 17. Attenuatore con accessori su una o due porte
+
+* **File**: `attenuator_with_fixtures`
+* **Cartella**: `ola/modules/attenuator/`
+* **Quando si vede**: come la 16, per la misura dell'attenuatore.
+* **Cosa disegnare**: come l'immagine 7 (VNA, attenuatore al centro) con gli **accessori** su P1 e su P2 (P2 tratteggiato)
+  e il piano di calibrazione prima degli accessori, come nella 16.
+* **Dettagli**: stessa impostazione della 16, così si vede che cambia solo il dispositivo.
+
 ---
 
 # Foglio di controllo
@@ -249,6 +270,8 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 13. `regulation` — `ola/modules/regulation/`
 - [ ] 14. `return_loss_with_cable` — `ola/modules/return_loss/`
 - [ ] 15. `antenna_with_cable` — `ola/modules/antenna/`
+- [ ] 16. `filter_with_fixtures` — `ola/modules/filter/`
+- [ ] 17. `attenuator_with_fixtures` — `ola/modules/attenuator/`
 
 ## Un'idea per fare meno lavoro
 

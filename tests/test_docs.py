@@ -585,3 +585,34 @@ def test_cable_correction_in_the_docs_is_real(tmp_path):
         assert registry.create(module, params).check() == []
     assert "ola/deembed.py" in read(ROOT / "README.md")
     assert "return_loss_with_cable" in read(ROOT / "docs" / "wiring-images.md")
+
+
+def test_deembedding_doc_matches_the_code():
+    """docs/deembedding.md names fields, models and files: they must exist in the code."""
+    from ola import fixtures
+    from ola.deembed import MODES, TERMINATIONS
+    from ola.registry import default_registry
+
+    text = read(ROOT / "docs" / "deembedding.md")
+    words = (
+        "correction.cable", "correction.port1", "correction.port2", "asset_id", "touchstone",
+        "reversed", "ola/deembed.py", "ola/fixtures.py", "S21_raw", "attenuation_raw_db",
+        "fixture_loss_port1_db", "raw_insertion_loss_db", "raw_mean_attenuation_db",
+    )  # fmt: skip
+    for word in words:
+        assert word in text, word
+    for model in fixtures.MODELS:
+        assert f"`model: {model}`" in text, model
+    for mode in MODES:
+        assert f"`mode: {mode}`" in text, mode
+    assert set(TERMINATIONS) == {"open", "short"} and "termination" in text
+    registry = default_registry(user_dir="/nonexistent")
+    for name in ("filter", "attenuator"):
+        guide = read(ROOT / "docs" / f"{name}.md")
+        assert "deembedding.md" in guide and "correction" in guide, name
+        schema = registry.get(name).params_schema
+        assert "correction" in schema and "model" in schema["correction"]["description"]
+    assert "deembedding.md" in read(ROOT / "docs" / "return-loss.md")
+    assert "ola/fixtures.py" in read(ROOT / "README.md")
+    for image in ("filter_with_fixtures", "attenuator_with_fixtures"):
+        assert image in read(ROOT / "docs" / "wiring-images.md")

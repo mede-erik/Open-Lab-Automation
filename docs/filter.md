@@ -66,6 +66,13 @@ enough points (a step much smaller than the bandwidth). The editor (*Edit* in th
 
 A filter that fails its mask is a **result**: the run still ends as *finished*, with `FAIL` and a warning in the log.
 
+## Through a cable, an adapter or a pad
+
+What is between the plane of the calibration and the filter is in the result: a cable adds its loss to the insertion loss. With
+`correction` the fixtures that were measured are taken out (`port1`, `port2`, each a registry code `asset_id`, a `run` file
+or a `touchstone` file; `mode` `complex` or `magnitude`; `model` `matched` or `full`), so the result is of the filter alone and
+the raw measurement stays as `S21_raw`. How, and the two models, in [`deembedding.md`](deembedding.md).
+
 ## What the VNA must provide
 
 The two logical calls `set_sweep` and `read_sparameter` ([`vna-calls.md`](vna-calls.md)). `ola/sim_vna.py`

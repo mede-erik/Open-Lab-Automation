@@ -355,6 +355,227 @@
           }
         }
       ]
+    },
+    {
+      "title": {
+        "en": "Take a cable or a pad out",
+        "it": "Togliere un cavo o un attenuatore",
+        "fr": "Retirer un câble ou un atténuateur",
+        "es": "Quitar un cable o un atenuador",
+        "de": "Kabel oder Dämpfungsglied herausrechnen"
+      },
+      "fields": [
+        {
+          "path": "correction.port1.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Fixture on port 1 from the registry",
+            "it": "Cavo / attenuatore su porta 1 dal registro",
+            "fr": "Accessoire sur le port 1 du registre",
+            "es": "Accesorio en el puerto 1 del registro",
+            "de": "Zubehör an Tor 1 aus dem Register"
+          },
+          "help": {
+            "en": "A cable, adapter or attenuator between the calibration plane and the device that was measured before: its loss is taken out (the newest finished measurement in the project is used). Leave empty for none.",
+            "it": "Un cavo, adattatore o attenuatore tra il piano di calibrazione e il dispositivo che è stato misurato prima: la sua perdita viene tolta (si usa l'ultima misura finita nel progetto). Lascia vuoto per nessuno.",
+            "fr": "Un câble, adaptateur ou atténuateur entre le plan d'étalonnage et le dispositif qui a été mesuré avant : sa perte est retirée (la dernière mesure terminée du projet est utilisée). Laissez vide pour aucun.",
+            "es": "Un cable, adaptador o atenuador entre el plano de calibración y el dispositivo que se midió antes: se quita su pérdida (se usa la última medición terminada del proyecto). Déjelo vacío para ninguno.",
+            "de": "Ein Kabel, Adapter oder Dämpfungsglied zwischen Kalibrierebene und Gerät, das vorher gemessen wurde: sein Verlust wird herausgerechnet (die neueste abgeschlossene Messung im Projekt wird verwendet). Leer lassen für keines."
+          }
+        },
+        {
+          "path": "correction.port1.run",
+          "kind": "text",
+          "label": {
+            "en": "or a run file, port 1",
+            "it": "oppure un file di misura, porta 1",
+            "fr": "ou un fichier de mesure, port 1",
+            "es": "o un archivo de medición, puerto 1",
+            "de": "oder eine Messdatei, Tor 1"
+          },
+          "help": {
+            "en": "Optional: the path of a run file (.jsonl) of a cable or attenuator measurement.",
+            "it": "Facoltativo: il percorso di un file di misura (.jsonl) di un cavo o di un attenuatore.",
+            "fr": "Facultatif : le chemin d'un fichier de mesure (.jsonl) d'un câble ou d'un atténuateur.",
+            "es": "Opcional: la ruta de un archivo de medición (.jsonl) de un cable o de un atenuador.",
+            "de": "Optional: der Pfad einer Messdatei (.jsonl) einer Kabel- oder Dämpfungsgliedmessung."
+          }
+        },
+        {
+          "path": "correction.port1.touchstone",
+          "kind": "text",
+          "label": {
+            "en": "or a Touchstone file, port 1",
+            "it": "oppure un file Touchstone, porta 1",
+            "fr": "ou un fichier Touchstone, port 1",
+            "es": "o un archivo Touchstone, puerto 1",
+            "de": "oder eine Touchstone-Datei, Tor 1"
+          },
+          "help": {
+            "en": "Optional: a .s2p file written as seen from the VNA (port 1 at the VNA, port 2 at the device).",
+            "it": "Facoltativo: un file .s2p scritto come visto dal VNA (porta 1 al VNA, porta 2 al dispositivo).",
+            "fr": "Facultatif : un fichier .s2p écrit vu depuis le VNA (port 1 au VNA, port 2 au dispositif).",
+            "es": "Opcional: un archivo .s2p escrito visto desde el VNA (puerto 1 en el VNA, puerto 2 en el dispositivo).",
+            "de": "Optional: eine .s2p-Datei, aus Sicht des VNA geschrieben (Tor 1 am VNA, Tor 2 am Gerät)."
+          }
+        },
+        {
+          "path": "correction.port1.reversed",
+          "kind": "bool",
+          "label": {
+            "en": "The file of port 1 is written the other way round",
+            "it": "Il file della porta 1 è scritto al contrario",
+            "fr": "Le fichier du port 1 est écrit dans l'autre sens",
+            "es": "El archivo del puerto 1 está escrito al revés",
+            "de": "Die Datei von Tor 1 ist andersherum geschrieben"
+          }
+        },
+        {
+          "path": "correction.port2.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Fixture on port 2 from the registry",
+            "it": "Cavo / attenuatore su porta 2 dal registro",
+            "fr": "Accessoire sur le port 2 du registre",
+            "es": "Accesorio en el puerto 2 del registro",
+            "de": "Zubehör an Tor 2 aus dem Register"
+          },
+          "help": {
+            "en": "A cable, adapter or attenuator between the calibration plane and the device that was measured before: its loss is taken out (the newest finished measurement in the project is used). Leave empty for none.",
+            "it": "Un cavo, adattatore o attenuatore tra il piano di calibrazione e il dispositivo che è stato misurato prima: la sua perdita viene tolta (si usa l'ultima misura finita nel progetto). Lascia vuoto per nessuno.",
+            "fr": "Un câble, adaptateur ou atténuateur entre le plan d'étalonnage et le dispositif qui a été mesuré avant : sa perte est retirée (la dernière mesure terminée du projet est utilisée). Laissez vide pour aucun.",
+            "es": "Un cable, adaptador o atenuador entre el plano de calibración y el dispositivo que se midió antes: se quita su pérdida (se usa la última medición terminada del proyecto). Déjelo vacío para ninguno.",
+            "de": "Ein Kabel, Adapter oder Dämpfungsglied zwischen Kalibrierebene und Gerät, das vorher gemessen wurde: sein Verlust wird herausgerechnet (die neueste abgeschlossene Messung im Projekt wird verwendet). Leer lassen für keines."
+          }
+        },
+        {
+          "path": "correction.port2.run",
+          "kind": "text",
+          "label": {
+            "en": "or a run file, port 2",
+            "it": "oppure un file di misura, porta 2",
+            "fr": "ou un fichier de mesure, port 2",
+            "es": "o un archivo de medición, puerto 2",
+            "de": "oder eine Messdatei, Tor 2"
+          },
+          "help": {
+            "en": "Optional: the path of a run file (.jsonl) of a cable or attenuator measurement.",
+            "it": "Facoltativo: il percorso di un file di misura (.jsonl) di un cavo o di un attenuatore.",
+            "fr": "Facultatif : le chemin d'un fichier de mesure (.jsonl) d'un câble ou d'un atténuateur.",
+            "es": "Opcional: la ruta de un archivo de medición (.jsonl) de un cable o de un atenuador.",
+            "de": "Optional: der Pfad einer Messdatei (.jsonl) einer Kabel- oder Dämpfungsgliedmessung."
+          }
+        },
+        {
+          "path": "correction.port2.touchstone",
+          "kind": "text",
+          "label": {
+            "en": "or a Touchstone file, port 2",
+            "it": "oppure un file Touchstone, porta 2",
+            "fr": "ou un fichier Touchstone, port 2",
+            "es": "o un archivo Touchstone, puerto 2",
+            "de": "oder eine Touchstone-Datei, Tor 2"
+          },
+          "help": {
+            "en": "Optional: a .s2p file written as seen from the VNA (port 1 at the VNA, port 2 at the device).",
+            "it": "Facoltativo: un file .s2p scritto come visto dal VNA (porta 1 al VNA, porta 2 al dispositivo).",
+            "fr": "Facultatif : un fichier .s2p écrit vu depuis le VNA (port 1 au VNA, port 2 au dispositif).",
+            "es": "Opcional: un archivo .s2p escrito visto desde el VNA (puerto 1 en el VNA, puerto 2 en el dispositivo).",
+            "de": "Optional: eine .s2p-Datei, aus Sicht des VNA geschrieben (Tor 1 am VNA, Tor 2 am Gerät)."
+          }
+        },
+        {
+          "path": "correction.port2.reversed",
+          "kind": "bool",
+          "label": {
+            "en": "The file of port 2 is written the other way round",
+            "it": "Il file della porta 2 è scritto al contrario",
+            "fr": "Le fichier du port 2 est écrit dans l'autre sens",
+            "es": "El archivo del puerto 2 está escrito al revés",
+            "de": "Die Datei von Tor 2 ist andersherum geschrieben"
+          }
+        },
+        {
+          "path": "correction.mode",
+          "kind": "choice",
+          "label": {
+            "en": "Correction",
+            "it": "Correzione",
+            "fr": "Correction",
+            "es": "Corrección",
+            "de": "Korrektur"
+          },
+          "help": {
+            "en": "Complete (with the phase) or magnitude only (when only the loss of the fixture is known). Empty: complete if the fixtures have a phase.",
+            "it": "Completa (con la fase) o solo modulo (quando di ciò che si toglie si conosce solo la perdita). Vuoto: completa se hanno la fase.",
+            "fr": "Complète (avec la phase) ou module seul (quand seule la perte est connue). Vide : complète si elles ont une phase.",
+            "es": "Completa (con la fase) o solo módulo (cuando solo se conoce la pérdida). Vacío: completa si tienen fase.",
+            "de": "Vollständig (mit Phase) oder nur Betrag (wenn nur der Verlust bekannt ist). Leer: vollständig, wenn sie eine Phase haben."
+          },
+          "choices": [
+            {
+              "value": "complex",
+              "label": {
+                "en": "Complete (with phase)",
+                "it": "Completa (con fase)",
+                "fr": "Complète (avec phase)",
+                "es": "Completa (con fase)",
+                "de": "Vollständig (mit Phase)"
+              }
+            },
+            {
+              "value": "magnitude",
+              "label": {
+                "en": "Magnitude only",
+                "it": "Solo modulo",
+                "fr": "Module seul",
+                "es": "Solo módulo",
+                "de": "Nur Betrag"
+              }
+            }
+          ]
+        },
+        {
+          "path": "correction.model",
+          "kind": "choice",
+          "label": {
+            "en": "Model",
+            "it": "Modello",
+            "fr": "Modèle",
+            "es": "Modelo",
+            "de": "Modell"
+          },
+          "help": {
+            "en": "Matched: what is taken out only attenuates and delays (right for a cable). Full: it has its own reflections too (a pad, an adapter): all four S-parameters are read and the transfer matrices are used; needs a .s2p file or an attenuator measurement.",
+            "it": "Adattato: ciò che si toglie attenua e ritarda soltanto (vale per un cavo). Completo: ha anche le sue riflessioni (un attenuatore, un adattatore): si leggono tutti e quattro i parametri S e si usano le matrici di trasferimento; richiede un file .s2p o una misura di attenuatore.",
+            "fr": "Adapté : ce qui est retiré atténue et retarde seulement (valable pour un câble). Complet : il a aussi ses réflexions (un atténuateur, un adaptateur) : les quatre paramètres S sont lus et les matrices de transfert utilisées ; nécessite un fichier .s2p ou une mesure d'atténuateur.",
+            "es": "Adaptado: lo que se quita solo atenúa y retrasa (vale para un cable). Completo: tiene también sus reflexiones (un atenuador, un adaptador): se leen los cuatro parámetros S y se usan las matrices de transferencia; requiere un archivo .s2p o una medición de atenuador.",
+            "de": "Angepasst: was herausgerechnet wird, dämpft und verzögert nur (richtig für ein Kabel). Vollständig: es hat auch eigene Reflexionen (Dämpfungsglied, Adapter): alle vier S-Parameter werden gelesen und die Transfermatrizen verwendet; braucht eine .s2p-Datei oder eine Dämpfungsgliedmessung."
+          },
+          "choices": [
+            {
+              "value": "matched",
+              "label": {
+                "en": "Matched (cable)",
+                "it": "Adattato (cavo)",
+                "fr": "Adapté (câble)",
+                "es": "Adaptado (cable)",
+                "de": "Angepasst (Kabel)"
+              }
+            },
+            {
+              "value": "full",
+              "label": {
+                "en": "Full (with reflections)",
+                "it": "Completo (con riflessioni)",
+                "fr": "Complet (avec réflexions)",
+                "es": "Completo (con reflexiones)",
+                "de": "Vollständig (mit Reflexionen)"
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

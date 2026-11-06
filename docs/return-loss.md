@@ -94,6 +94,8 @@ has a phase. The maths is in [`ola/deembed.py`](../ola/deembed.py): the reflecti
 * **When it does not fit**: where the corrected reflection would exceed 1 (more than a device can reflect: another cable, a
   calibration at a different place) it is limited just under 1 and the log says how many points, as a warning.
 
+The same idea for a device between **two** ports, with a fixture on port 1, port 2 or both (filter, attenuator), is in [`deembedding.md`](deembedding.md), with the full model for fixtures that are not matched.
+
 ## What the VNA must provide
 
 The two logical calls `set_sweep` and `read_sparameter` (S11 here), described in [`vna-calls.md`](vna-calls.md).

@@ -16,8 +16,10 @@ and back), or ``"antenna"``: a resonant device (``antenna_f0_hz``, ``antenna_r_o
 the same antenna at the far end of the cable (its reflection is weakened and delayed by the
 cable's round trip, as in a real measurement through a cable). ``filter_type`` puts a
 Butterworth filter between the ports (S21 is its response); ``attenuator_db`` (and a
-``attenuator_slope_db_per_ghz``) an attenuator instead of the cable. ``noise_db`` adds a little
-random error to every point; ``calls`` records what was asked.
+``attenuator_slope_db_per_ghz``) an attenuator instead of the cable. ``fixture1_m`` and
+``fixture2_m`` put a length of the same cable on port 1 and on port 2, between the calibration
+plane and the filter or the attenuator (the device is then measured through them). ``noise_db``
+adds a little random error to every point; ``calls`` records what was asked.
 """
 
 from __future__ import annotations
@@ -54,6 +56,8 @@ class SimVna:
         filter_loss_db: float = 0.5,
         attenuator_db: float = 0.0,
         attenuator_slope_db_per_ghz: float = 0.0,
+        fixture1_m: float = 0.0,
+        fixture2_m: float = 0.0,
     ):
         self.name = name
         self.length_m = length_m
@@ -63,6 +67,7 @@ class SimVna:
         self.antenna = (antenna_f0_hz, antenna_r_ohm, antenna_q)
         self.filter = (filter_type, filter_f0_hz, filter_bw_hz, filter_order, filter_loss_db)
         self.attenuator_db, self.attenuator_slope = attenuator_db, attenuator_slope_db_per_ghz
+        self.fixture1_m, self.fixture2_m = fixture1_m, fixture2_m
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -95,13 +100,22 @@ class SimVna:
             h *= -pole / (s - pole) if s != complex(math.inf) else 0
         return h * 10 ** (-loss_db / 20)
 
+    def fixture(self, f: float, length_m: float) -> complex:
+        """What a length of the same cable does to a signal going through it once."""
+        loss = length_m * (self.skin * math.sqrt(f / 1e9) + self.dielectric * f / 1e9)
+        delay = length_m / (self.velocity_factor * SPEED_OF_LIGHT)
+        return cmath.rect(10 ** (-loss / 20), -2 * math.pi * f * delay)
+
     def transmission(self, f: float) -> complex:
-        """What a cable (or the filter, if there is one) does to a signal going through (S21)."""
-        if self.filter[0]:
-            return self.filter_response(f)
-        if self.attenuator_db:  # a fixed attenuator: flat, with a slope, a very short delay
+        """What a cable (or the filter or the attenuator, if there is one) does to a signal going
+        through (S21), with the cable of ``fixture1_m`` on port 1 and ``fixture2_m`` on port 2."""
+        if self.filter[0] or self.attenuator_db:
+            fixtures = self.fixture(f, self.fixture1_m) * self.fixture(f, self.fixture2_m)
+            if self.filter[0]:
+                return self.filter_response(f) * fixtures
+            # a fixed attenuator: flat, with a slope, a very short delay
             loss = self.attenuator_db + self.attenuator_slope * f / 1e9
-            return cmath.rect(10 ** (-loss / 20), -2 * math.pi * f * 0.1e-9)
+            return cmath.rect(10 ** (-loss / 20), -2 * math.pi * f * 0.1e-9) * fixtures
         return cmath.rect(10 ** (-self.one_way_loss_db(f) / 20), -2 * math.pi * f * self.delay_s())
 
     def antenna_gamma(self, f: float) -> complex:
@@ -174,8 +188,14 @@ class SimVna:
         if parameter in ("S21", "S12"):
             return self.transmission(f)
         if parameter == "S11":
-            return self.reflection(f)
-        return self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())  # S22
+            value = self.reflection(f)
+            if self.fixture1_m and (self.filter[0] or self.attenuator_db):
+                value *= self.fixture(f, self.fixture1_m) ** 2  # through the cable on port 1
+            return value
+        value = self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())  # S22
+        if self.fixture2_m and (self.filter[0] or self.attenuator_db):
+            value *= self.fixture(f, self.fixture2_m) ** 2
+        return value
 
     def _read(self, parameter: str) -> Dict[str, Any]:
         if parameter not in ("S11", "S21", "S12", "S22"):

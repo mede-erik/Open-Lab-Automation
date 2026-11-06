@@ -8,7 +8,8 @@ Parameters (``.flt`` file)::
      "passband": {"from_hz": 863e6, "to_hz": 870e6},   # optional: ripple, reference level
      "frequencies_of_interest": [433e6, 868e6, 915e6], # optional
      "limits": {"bands": [{"from": 863e6, "to": 870e6, "min": -4}]},   # optional mask, in dB
-     "also_s11": true, "averages": 1, "confirm_setup": true}
+     "also_s11": true, "averages": 1, "confirm_setup": true,
+     "correction": {"port1": {"asset_id": "CBL-0042"}}}     # optional: see below
 
 The filter goes between port 1 and port 2 of the VNA, calibrated beforehand by the user. The
 measurement reads S21 (and S11 with ``also_s11``), see ``docs/vna-calls.md``.
@@ -26,6 +27,16 @@ Also the insertion loss at the peak, the ripple in the ``passband``, the gain at
 interest, the group delay, and a verdict against ``limits`` (a mask on the gain in dB, which is
 negative: ``min`` -1 means the filter must pass at least -1 dB). When an edge cannot be found in
 the sweep (the response never falls that far) the log says so and that figure is left out.
+
+**Through a cable, an adapter or a pad.** What is between the plane of the calibration and the
+filter is in the result. With ``correction`` the fixtures that were measured are taken out:
+``port1`` and / or ``port2`` name one each (``asset_id``: its code in the registry, the newest
+finished measurement of a cable or an attenuator is used; or ``run``, a run file; or ``touchstone``,
+a ``.s2p`` file written as seen from the VNA), ``mode`` is ``complex`` or ``magnitude`` and
+``model`` ``matched`` (the fixtures only attenuate: needs ``S21`` of each) or ``full`` (the fixtures
+have reflections too: all four S-parameters are read and the transfer matrices are used). See
+``ola.fixtures``. The curves are then of the filter alone and the measurement as it came stays as
+``S21_raw``.
 """
 
 from typing import Any, Dict, List, Optional
@@ -35,8 +46,10 @@ from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
+from ola.fixtures import check_fixtures, wanted_parameters
 from ola.vna_common import (
     acquire,
+    apply_fixtures,
     ask_setup,
     check_asset,
     check_common,
@@ -47,6 +60,11 @@ from ola.vna_common import (
 
 TYPES = ("lowpass", "highpass", "bandpass", "bandstop")
 DEFAULT_EDGE_DB = 3.0
+
+
+def result_has_s11(params: Dict[str, Any]) -> bool:
+    """True if the filter was asked for its return loss (``S11`` is then a result)."""
+    return bool(params.get("also_s11"))
 
 
 def default_params() -> Dict[str, Any]:
@@ -85,6 +103,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         elif start is not None and stop is not None and (low < start or high > stop):
             out.append(Problem("passband", "must be inside the sweep"))
     check_asset(params, "filter", out)
+    check_fixtures(params, out, Problem)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     return out
 
@@ -193,22 +212,33 @@ class FilterResponse(Measurement):
                 p["sweep"],
                 mode="transmission",
             )
-        wanted = ["S21"] + (["S11"] if p.get("also_s11") else [])
-        freq, traces = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
-        self._report(ctx, freq, traces)
+        wanted = wanted_parameters(p, ["S21"] + (["S11"] if p.get("also_s11") else []))
+        freq, raw = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
+        traces, info = apply_fixtures(ctx, p, freq, raw)
+        self._report(ctx, freq, traces, raw, info)
 
-    def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
+    def _report(
+        self,
+        ctx: MeasurementContext,
+        freq: List[float],
+        traces: Dict[str, List[complex]],
+        raw: Optional[Dict[str, List[complex]]] = None,
+        info: Optional[Dict[str, Any]] = None,
+    ):
         p = self.params
         spec = p["filter"]
         label = spec.get("label", "")
         base = {"xlabel": "Frequency", "x_unit": "Hz", "log_x": p["sweep"].get("scale") == "log"}
-        result = compute_response(freq, traces["S21"], p, traces.get("S11"))
+        s11 = traces.get("S11") if p.get("also_s11") else None
+        result = compute_response(freq, traces["S21"], p, s11)
         limits = parse_limits(p.get("limits"))
         meta = dict(base)
         if not limits.empty:  # the mask is drawn on the magnitude view of S21
             meta["limits"] = {"view": "magnitude_db", **limits.lines(freq)}
         ctx.emit_trace("S21", freq, traces["S21"], kind="complex", **meta)
-        if "S11" in traces:
+        if info:  # the measurement as it came, to compare with the filter alone
+            ctx.emit_trace("S21_raw", freq, raw["S21"], kind="complex", **base)
+        if "S11" in traces and result_has_s11(p):
             ctx.emit_trace("S11", freq, traces["S11"], kind="complex", hidden=True, **base)
         if result["delay_s"]:
             delay_meta = dict(base, ylabel="Group delay (ns)")
@@ -224,6 +254,16 @@ class FilterResponse(Measurement):
             row = {"frequency_hz": f, "gain_db": result["gain_db"][i], "phase_deg": phase[i]}
             ctx.emit_point(row, table="sweep")
         summary = {"filter": label, "type": spec["type"], **result["summary"]}
+        if info:
+            raw_gain = rf.magnitude_db(raw["S21"])
+            summary.update(
+                corrected=True,
+                correction_model=info["model"],
+                correction_mode=info["mode"],
+                raw_insertion_loss_db=-max(raw_gain),
+                fixture_loss_port1_db=info.get("left_loss_db", 0.0),
+                fixture_loss_port2_db=info.get("right_loss_db", 0.0),
+            )
         if not limits.empty:
             verdict = limits.check(freq, result["gain_db"])
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"

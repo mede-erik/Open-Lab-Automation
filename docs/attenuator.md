@@ -62,6 +62,13 @@ power of an amplifier: the maximum power of the attenuator is on its card (`ATT`
   port, the setting, and the verdict `PASS` / `FAIL` with its margin in dB.
 * **Table `sweep`**: a row per frequency with the attenuation, the phase and the two return losses, for the CSV export.
 
+## Through a cable, an adapter or a pad
+
+What is between the plane of the calibration and the attenuator is in the result: a cable adds its loss to the attenuation. With
+`correction` the fixtures that were measured are taken out (`port1`, `port2`, each a registry code `asset_id`, a `run` file
+or a `touchstone` file; `mode` `complex` or `magnitude`; `model` `matched` or `full`), so the result is of the attenuator alone and
+the raw measurement stays as `attenuation_raw_db` and `S21_raw`. How, and the two models, in [`deembedding.md`](deembedding.md).
+
 ## What the VNA must provide
 
 The logical calls `set_sweep` and `read_sparameter` ([`vna-calls.md`](vna-calls.md)). `ola/sim_vna.py`

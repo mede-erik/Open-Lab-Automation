@@ -159,12 +159,16 @@ def load_cable(spec: Mapping[str, Any]) -> CableData:
     raise DeembedError("the cable has no 'run', 'touchstone' or registry code to read it from")
 
 
-def latest_cable_run(code: str, run_dirs: Iterable[Union[str, Path]]) -> Optional[Path]:
-    """The newest **finished** cable measurement of the registry code ``code`` (a path), or None."""
+def latest_cable_run(
+    code: str, run_dirs: Iterable[Union[str, Path]], kinds: Sequence[str] = ("cable",)
+) -> Optional[Path]:
+    """The newest **finished** measurement of the registry code ``code`` (a path), or None. By
+    default only cable measurements; ``kinds`` can add others (``"attenuator"``: a pad used as a
+    fixture)."""
     from .assets import history
 
     finished = [
-        r for r in history(code, run_dirs) if r.measurement == "cable" and r.state == "finished"
+        r for r in history(code, run_dirs) if r.measurement in kinds and r.state == "finished"
     ]
     return finished[-1].path if finished else None
 
@@ -239,26 +243,23 @@ def correct_reflection(
 
 
 # ----- the parameters -------------------------------------------------------------------------
-def check_correction(params: Mapping[str, Any], out: List[Any], problem: Any) -> None:
-    """Check ``params["correction"]`` (optional), appending ``problem(path, message)`` for every
-    wrong thing. The cable is named by ``asset_id`` (a registry code), ``run`` or ``touchstone``
-    (``asset_id`` may accompany ``run``: it is the code the run was found by)."""
+def check_spec(spec: Any, path: str, out: List[Any], problem: Any) -> None:
+    """Check one description of a cable / fixture (``asset_id``, ``run``, ``touchstone``,
+    ``termination``, ``mode``, ``reversed``), appending ``problem(path, message)`` for every wrong
+    thing. It is named by ``asset_id`` (a registry code), ``run`` or ``touchstone`` (``asset_id``
+    may accompany ``run``: it is the code the run was found by)."""
     from .assets import normalize_code
 
-    correction = params.get("correction")
-    if correction is None:
-        return
-    spec = correction.get("cable") if isinstance(correction, dict) else None
     if not isinstance(spec, dict):
-        out.append(problem("correction", "must be an object with a 'cable'"))
+        out.append(problem(path, "must be an object that names the cable"))
         return
-    for key in set(spec) - {"asset_id", "run", "touchstone", "termination", "mode"}:
-        out.append(problem(f"correction.cable.{key}", "unknown field"))
+    for key in set(spec) - {"asset_id", "run", "touchstone", "termination", "mode", "reversed"}:
+        out.append(problem(f"{path}.{key}", "unknown field"))
     files = [k for k in ("run", "touchstone") if spec.get(k)]
     if len(files) > 1 or not (files or spec.get("asset_id")):
         out.append(
             problem(
-                "correction.cable",
+                path,
                 "name the cable with one of asset_id (its code in the registry), run (a run "
                 "file of the cable measurement) or touchstone (a .s1p / .s2p file)",
             )
@@ -266,18 +267,31 @@ def check_correction(params: Mapping[str, Any], out: List[Any], problem: Any) ->
     if spec.get("asset_id") and not (
         isinstance(spec["asset_id"], str) and normalize_code(spec["asset_id"])
     ):
-        out.append(problem("correction.cable.asset_id", "not a code (it looks like CBL-0042)"))
+        out.append(problem(f"{path}.asset_id", "not a code (it looks like CBL-0042)"))
     for key in ("run", "touchstone"):
         if key in spec and not isinstance(spec[key], str):
-            out.append(problem(f"correction.cable.{key}", "must be the path of a file"))
+            out.append(problem(f"{path}.{key}", "must be the path of a file"))
     if spec.get("touchstone") and not str(spec["touchstone"]).lower().endswith((".s1p", ".s2p")):
-        out.append(problem("correction.cable.touchstone", "must be a .s1p or .s2p file"))
+        out.append(problem(f"{path}.touchstone", "must be a .s1p or .s2p file"))
     if "termination" in spec and spec["termination"] not in TERMINATIONS:
-        out.append(
-            problem("correction.cable.termination", f"must be one of {', '.join(TERMINATIONS)}")
-        )
+        out.append(problem(f"{path}.termination", f"must be one of {', '.join(TERMINATIONS)}"))
     if "mode" in spec and spec["mode"] not in MODES:
-        out.append(problem("correction.cable.mode", f"must be one of {', '.join(MODES)}"))
+        out.append(problem(f"{path}.mode", f"must be one of {', '.join(MODES)}"))
+    if "reversed" in spec and not isinstance(spec["reversed"], bool):
+        out.append(problem(f"{path}.reversed", "must be true or false"))
+
+
+def check_correction(params: Mapping[str, Any], out: List[Any], problem: Any) -> None:
+    """Check ``params["correction"]`` of a reflection measurement (optional): an object with a
+    ``cable``, appending ``problem(path, message)`` for every wrong thing."""
+    correction = params.get("correction")
+    if correction is None:
+        return
+    spec = correction.get("cable") if isinstance(correction, dict) else None
+    if not isinstance(spec, dict):
+        out.append(problem("correction", "must be an object with a 'cable'"))
+        return
+    check_spec(spec, "correction.cable", out, problem)
 
 
 def corrected_reflection_for(

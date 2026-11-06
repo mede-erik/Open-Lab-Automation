@@ -7,7 +7,8 @@ Parameters (``.att`` file)::
      "sweep": {"start_hz": 1e6, "stop_hz": 6e9, "points": 401, "scale": "linear"},
      "frequencies_of_interest": [433e6, 2.4e9],      # optional
      "limits": {"bands": [{"from": 0, "to": 6e9, "min": 9, "max": 11}]},   # optional, in dB
-     "also_return_loss": true, "averages": 1, "confirm_setup": true}
+     "also_return_loss": true, "averages": 1, "confirm_setup": true,
+     "correction": {"port1": {"asset_id": "CBL-0042"}}}     # optional: see below
 
 The attenuator goes between port 1 and port 2 of the VNA, calibrated beforehand by the user (with
 the test leads, thru). The measurement reads S21 and, unless ``also_return_loss`` is false, S11 and
@@ -23,6 +24,13 @@ the worst return loss of each port, and the verdict. The verdict is against ``li
 else against ``nominal_db`` with ``tolerance_db`` (the whole sweep must be inside). A value
 outside is a *result*, not an error. A step attenuator has one setting per measurement:
 ``setting`` is only written in the result.
+
+**Through a cable, an adapter or a pad.** What is between the plane of the calibration and the
+attenuator is in the result: a longer cable adds its loss to the attenuation. With ``correction``
+the fixtures that were measured are taken out (``port1`` and / or ``port2``, each a registry code
+``asset_id``, a ``run`` file or a ``touchstone`` file; ``mode`` ``complex`` or ``magnitude``;
+``model`` ``matched`` or ``full``; see ``ola.fixtures``): the attenuation is of the attenuator
+alone. The measurement as it came stays as ``attenuation_raw_db`` and ``S21_raw``.
 """
 
 from typing import Any, Dict, List, Optional
@@ -32,8 +40,10 @@ from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
+from ola.fixtures import check_fixtures, wanted_parameters
 from ola.vna_common import (
     acquire,
+    apply_fixtures,
     ask_setup,
     check_asset,
     check_common,
@@ -75,6 +85,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         if "tolerance_db" in spec and "nominal_db" not in spec and not params.get("limits"):
             out.append(Problem("attenuator.nominal_db", "the tolerance needs the nominal value"))
     check_asset(params, "attenuator", out)
+    check_fixtures(params, out, Problem)
     check_common(params, out, start, stop, booleans=("also_return_loss", "confirm_setup"))
     return out
 
@@ -156,10 +167,19 @@ class AttenuatorSweep(Measurement):
                 mode="transmission",
             )
         wanted = ["S21"] + (["S11", "S22"] if p.get("also_return_loss", True) else [])
-        freq, traces = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
-        self._report(ctx, freq, traces)
+        wanted = wanted_parameters(p, wanted)
+        freq, raw = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
+        traces, info = apply_fixtures(ctx, p, freq, raw)
+        self._report(ctx, freq, traces, raw, info)
 
-    def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
+    def _report(
+        self,
+        ctx: MeasurementContext,
+        freq: List[float],
+        traces: Dict[str, List[complex]],
+        raw: Optional[Dict[str, List[complex]]] = None,
+        info: Optional[Dict[str, Any]] = None,
+    ):
         p = self.params
         spec = p["attenuator"]
         label = spec.get("label", "")
@@ -172,6 +192,15 @@ class AttenuatorSweep(Measurement):
         if not limits.empty:
             meta["limits"] = {"view": "value", **limits.lines(freq)}
         ctx.emit_trace("attenuation_db", freq, result["attenuation_db"], **meta)
+        if info:  # the measurement as it came, to compare with the attenuator alone
+            raw_att = rf.insertion_loss_db(raw["S21"])
+            ctx.emit_trace(
+                "attenuation_raw_db",
+                freq,
+                raw_att,
+                **dict(base, ylabel="Attenuation, as measured (dB)"),
+            )
+            ctx.emit_trace("S21_raw", freq, raw["S21"], kind="complex", hidden=True, **base)
         ctx.emit_trace("S21", freq, traces["S21"], kind="complex", hidden=True, **base)
         for name in ("S11", "S22"):
             if name in traces:
@@ -191,6 +220,15 @@ class AttenuatorSweep(Measurement):
         summary: Dict[str, Any] = {"attenuator": label, **result["summary"]}
         if spec.get("setting"):
             summary["setting"] = spec["setting"]
+        if info:
+            summary.update(
+                corrected=True,
+                correction_model=info["model"],
+                correction_mode=info["mode"],
+                raw_mean_attenuation_db=sum(raw_att) / len(raw_att),
+                fixture_loss_port1_db=info.get("left_loss_db", 0.0),
+                fixture_loss_port2_db=info.get("right_loss_db", 0.0),
+            )
         if not limits.empty:
             verdict = limits.check(freq, result["attenuation_db"])
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"
