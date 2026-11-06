@@ -540,7 +540,13 @@ class ProjectWindow(QMainWindow):
         from frontend.ui.CalibrationDialog import CalibrationDialog
 
         CalibrationDialog(
-            analyzers, library, self.connector, project.path, self.translator, parent=self
+            analyzers,
+            library,
+            self.connector,
+            project.path,
+            self.translator,
+            parent=self,
+            entries=entries,
         ).exec()
 
     def _confirm_wiring(self, ref: MeasurementRef) -> bool:

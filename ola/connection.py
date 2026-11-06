@@ -53,10 +53,14 @@ def read_inst_entries(path: Optional[Path]) -> Dict[str, Dict[str, Any]]:
     return {i["instance_name"]: i for i in items if isinstance(i, dict) and i.get("instance_name")}
 
 
-def _default_opener(address: str, library: Any, model_id: str, timeout_ms: int) -> Any:
+def _default_opener(
+    address: str, library: Any, model_id: str, timeout_ms: int, serial_override: Any = None
+) -> Any:
     from .tester import open_visa
 
-    return open_visa(address, library, model_id, timeout_ms=timeout_ms)
+    return open_visa(
+        address, library, model_id, timeout_ms=timeout_ms, serial_override=serial_override
+    )
 
 
 class ProjectConnector:
@@ -77,7 +81,7 @@ class ProjectConnector:
         self.library, self._inst_path, self.prompt = library, inst_path, prompt
         self._opener = opener or _default_opener
         self.timeout_ms = timeout_ms
-        self._open: Dict[str, Tuple[Tuple[str, str], Any, Any]] = (
+        self._open: Dict[str, Tuple[tuple, Any, Any]] = (
             {}
         )  # name -> (key, instrument, link)
         self._lock = threading.Lock()
@@ -130,7 +134,9 @@ class ProjectConnector:
             raise ConnectionProblem(
                 f"'{name}' has no address (visa_address) in the instrument file"
             )
-        key = (model_id, address)
+        serial = dict(entry.get("serial") or {})  # RS-232 settings that differ from the library
+        timeout_ms = int(entry.get("timeout_ms") or self.timeout_ms)
+        key = (model_id, address, json.dumps(serial, sort_keys=True), timeout_ms)
         with self._lock:
             known = self._open.get(name)
             if known is not None and known[0] == key:
@@ -138,7 +144,7 @@ class ProjectConnector:
             else:
                 if known is not None:
                     self._close_link(known[2])
-                link = self._open_link(name, address, model_id)
+                link = self._open_link(name, address, model_id, timeout_ms, serial)
                 instrument = Instrument(name, link, driver_for(self.library, model_id, link))
                 self._open[name] = (key, instrument, link)
                 fresh = True
@@ -150,9 +156,15 @@ class ProjectConnector:
                 log.warning("set_remote not accepted by %s: %s", name, exc)
         return handle
 
-    def _open_link(self, name: str, address: str, model_id: str) -> Any:
+    def _open_link(
+        self, name: str, address: str, model_id: str, timeout_ms: int, serial: Dict[str, Any]
+    ) -> Any:
         try:
-            return self._opener(address, self.library, model_id, self.timeout_ms)
+            if serial:  # an opener that does not know serial settings is only called without them
+                return self._opener(
+                    address, self.library, model_id, timeout_ms, serial_override=serial
+                )
+            return self._opener(address, self.library, model_id, timeout_ms)
         except Exception as exc:
             raise ConnectionProblem(
                 f"cannot open '{name}' at {address}: {type(exc).__name__}: {exc}. Check that it is "
