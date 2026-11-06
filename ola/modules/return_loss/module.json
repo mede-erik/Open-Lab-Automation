@@ -7,7 +7,7 @@
   "entry": "measurement.py:ReturnLoss",
   "description": "How well a device is matched to the line, with a vector network analyzer (VNA): return loss (S11) and VSWR against frequency, the best and worst match, the bands where the VSWR stays under a limit, the impedance at the best match, and a pass / fail check. For an antenna, an adapter, an attenuator, an amplifier input... The VNA is calibrated at the port beforehand by the user.",
   "roles": [
-    {"name": "vna", "category": "vna", "required": true,
+    {"name": "vna", "category": "network_analyzer", "required": true,
      "description": "The network analyzer, calibrated at the port the device connects to"}
   ],
   "params_schema": {

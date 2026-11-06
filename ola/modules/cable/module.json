@@ -7,7 +7,7 @@
   "entry": "measurement.py:CableCharacterization",
   "description": "Loss of an RF cable against frequency with a vector network analyzer (VNA): insertion loss in dB (and per metre), loss at chosen frequencies, group delay and velocity factor, return loss, and a pass / fail check against a limit. The VNA is calibrated beforehand by the user.",
   "roles": [
-    {"name": "vna", "category": "vna", "required": true,
+    {"name": "vna", "category": "network_analyzer", "required": true,
      "description": "The network analyzer, calibrated at the ends of the test leads"}
   ],
   "params_schema": {

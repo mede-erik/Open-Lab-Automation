@@ -59,7 +59,7 @@ A cable that fails its limit is a **result**: the run still ends as *finished*, 
 ## What the VNA must provide
 
 The measurement asks for two *logical calls*, the same for every VNA; the instrument library translates them for
-the model (this is the contract of the `vna` category, written in full in [`vna-calls.md`](vna-calls.md)):
+the model (this is the contract of the network analyzer category (`network_analyzers_series`), written in full in [`vna-calls.md`](vna-calls.md)):
 
 | Call | Arguments | Gives |
 |---|---|---|
@@ -81,5 +81,6 @@ showing a wrong number.
 
 ## Not done yet
 
-Tried only with the simulated VNA: the `vna` category of the instrument library and the LiteVNA67 are still to be
-written, so no real instrument has been used.
+Tried only with the simulated VNA: no real instrument has been used yet. The library now has the network analyzer
+category and the LiteVNA, and the measurement speaks its calls ([`vna-calls.md`](vna-calls.md)), but it has not been
+tried on one.

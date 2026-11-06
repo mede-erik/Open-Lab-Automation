@@ -7,7 +7,7 @@
   "entry": "measurement.py:AntennaImpedance",
   "description": "Impedance of an antenna (or any one-port) with a vector network analyzer (VNA): resistance and reactance against frequency, the Smith chart, the resonances (where the reactance is zero), the best match and the band where the VSWR stays under a limit, the impedance at chosen frequencies and the series component that would cancel its reactance. The VNA is calibrated at the port beforehand by the user.",
   "roles": [
-    {"name": "vna", "category": "vna", "required": true,
+    {"name": "vna", "category": "network_analyzer", "required": true,
      "description": "The network analyzer, calibrated at the port the antenna connects to"}
   ],
   "params_schema": {

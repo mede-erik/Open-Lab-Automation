@@ -7,7 +7,7 @@
   "entry": "measurement.py:AmplifierResponse",
   "description": "An RF amplifier with a vector network analyzer (VNA): gain against frequency, gain flatness and 3 dB bandwidth, input and output return loss, reverse isolation, the stability factors K and mu (can it oscillate?), and optionally the 1 dB compression point from a power sweep. Includes checks to keep the amplifier and the VNA from being overdriven. The VNA is calibrated beforehand by the user.",
   "roles": [
-    {"name": "vna", "category": "vna", "required": true,
+    {"name": "vna", "category": "network_analyzer", "required": true,
      "description": "The network analyzer (two ports), calibrated with the attenuators that will be in the test"}
   ],
   "params_schema": {

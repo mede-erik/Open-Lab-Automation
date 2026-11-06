@@ -7,7 +7,7 @@
   "entry": "measurement.py:AttenuatorSweep",
   "description": "How much an attenuator attenuates as a function of frequency, with a vector network analyzer (VNA): the attenuation (S21) over the sweep, its mean, spread and slope, the deviation from the nominal value, the match at both ports, the attenuation at chosen frequencies, and a pass / fail check against the nominal value with a tolerance or against a mask. For fixed and step attenuators (one setting per measurement). The VNA is calibrated beforehand by the user.",
   "roles": [
-    {"name": "vna", "category": "vna", "required": true,
+    {"name": "vna", "category": "network_analyzer", "required": true,
      "description": "The network analyzer, calibrated for the connection of the attenuator between port 1 and port 2"}
   ],
   "params_schema": {

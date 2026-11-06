@@ -105,6 +105,6 @@ recovers the VSWR of the antenna alone).
 
 ## Not done yet
 
-Tried only with the simulated VNA; no real instrument has been used (the `vna` category of the library is still to be
-written). The **impedance of an antenna** as a measurement of its own, with the Smith chart front and centre, is the
-next module.
+Tried only with the simulated VNA; no real instrument has been used yet (the measurement speaks the calls of the library's
+network analyzer category, [`vna-calls.md`](vna-calls.md), but has not been tried on a LiteVNA). The impedance and the Smith
+chart are in the [antenna](antenna.md) measurement.
