@@ -15,6 +15,9 @@ pyserial>=3.5
 # Command history and Tab completion in scripts/instrument_shell.py on Windows
 pyreadline3>=3.4; sys_platform == "win32"
 
+# QR codes on the labels of cables and devices (pure Python, no other dependency)
+segno>=1.6
+
 # Scientific computing and data processing
 numpy>=2.5.1
 

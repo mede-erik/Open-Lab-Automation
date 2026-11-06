@@ -1,0 +1,45 @@
+{
+  "steps": [
+    {
+      "text": {
+        "en": "Connect «{c.name}» to {c.instrument}, channel {c.args.channels}.",
+        "it": "Collega «{c.name}» a {c.instrument}, canale {c.args.channels}.",
+        "fr": "Connectez «{c.name}» à {c.instrument}, voie {c.args.channels}.",
+        "es": "Conecte «{c.name}» a {c.instrument}, canal {c.args.channels}.",
+        "de": "«{c.name}» mit {c.instrument}, Kanal {c.args.channels}, verbinden."
+      },
+      "when": "c.args.channels",
+      "foreach": [
+        [
+          "channels",
+          "c"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect «{c.name}» to {c.instrument}.",
+        "it": "Collega «{c.name}» a {c.instrument}.",
+        "fr": "Connectez «{c.name}» à {c.instrument}.",
+        "es": "Conecte «{c.name}» a {c.instrument}.",
+        "de": "«{c.name}» mit {c.instrument} verbinden."
+      },
+      "when": "!c.args.channels",
+      "foreach": [
+        [
+          "channels",
+          "c"
+        ]
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "en": "The names between « » are the quantities of the file.",
+      "it": "I nomi tra « » sono le grandezze del file.",
+      "fr": "Les noms entre « » sont les grandeurs du fichier.",
+      "es": "Los nombres entre « » son las magnitudes del archivo.",
+      "de": "Die Namen in « » sind die Größen der Datei."
+    }
+  ]
+}

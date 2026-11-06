@@ -70,6 +70,8 @@ class ModuleLoadError(MeasurementError):
 
 @dataclass(frozen=True)
 class ModuleInfo:
+    """What a module's manifest says (read without running any module code)."""
+
     id: str
     name: str
     version: str
@@ -149,6 +151,8 @@ def _parse_manifest(path: Path, builtin: bool) -> ModuleInfo:
 
 
 class ModuleRegistry:
+    """Finds measurement modules in a list of folders and loads them on request."""
+
     def __init__(self, search_dirs: Optional[Sequence[Tuple[Path, bool]]] = None):
         """``search_dirs``: (folder, is_builtin) pairs, in priority order (first wins)."""
         self.search_dirs = [(Path(p), b) for p, b in (search_dirs or [(BUILTIN_DIR, True)])]
@@ -183,15 +187,18 @@ class ModuleRegistry:
         return self.list()
 
     def list(self) -> List[ModuleInfo]:
+        """All valid modules found, in search order."""
         return list(self._modules.values())
 
     def get(self, module_id: str) -> ModuleInfo:
+        """Module with this id (``MeasurementError`` if unknown)."""
         try:
             return self._modules[module_id]
         except KeyError:
             raise MeasurementError(f"unknown measurement type {module_id!r}") from None
 
     def by_extension(self, extension: str) -> Optional[ModuleInfo]:
+        """Module that owns this file extension, or ``None``."""
         return next((m for m in self._modules.values() if m.extension == extension.lower()), None)
 
     def load_class(self, module_id: str, allow_user_code: bool = False) -> type:

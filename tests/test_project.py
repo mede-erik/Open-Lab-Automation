@@ -96,7 +96,7 @@ def test_validate_reports_problems(tmp_path, registry):
     p.add_measurement("time_log", "ok", registry)
     p.measurements += [
         MeasurementRef("m1", "time_log", "dup id", "other.tlg"),  # duplicate id, file missing
-        MeasurementRef("m5", "efficiency", "no module", "e.eff"),  # unknown type
+        MeasurementRef("m5", "bode", "no module", "e.bod"),  # unknown type
         MeasurementRef("m6", "time_log", "wrong ext", "x.json"),  # wrong extension
         MeasurementRef("m7", "time_log", "evil", "../outside.tlg"),  # path traversal
         MeasurementRef("m8", "time_log", "same file", "OK.tlg"),  # same file as the first
@@ -104,7 +104,7 @@ def test_validate_reports_problems(tmp_path, registry):
     text = "\n".join(p.validate(registry))
     for expected in (
         "duplicate measurement id 'm1'",
-        "unknown measurement type 'efficiency'",
+        "unknown measurement type 'bode'",
         "should end with .tlg",
         "invalid file name '../outside.tlg'",
         "also used by m1",

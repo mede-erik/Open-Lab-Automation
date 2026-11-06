@@ -47,18 +47,27 @@ impl Link {
     }
 }
 
+/// Serial parity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Parity {
+    /// No parity bit.
     None,
+    /// Even parity.
     Even,
+    /// Odd parity.
     Odd,
 }
 
+/// Serial line settings. The default is 115200 baud, 8 data bits, no parity, 1 stop bit.
 #[derive(Debug, Clone)]
 pub struct SerialSettings {
+    /// Baud rate.
     pub baud: u32,
+    /// Data bits, 5 to 8.
     pub data_bits: u8,
+    /// Parity.
     pub parity: Parity,
+    /// Stop bits, 1 or 2.
     pub stop_bits: u8,
 }
 
@@ -68,6 +77,10 @@ impl Default for SerialSettings {
     }
 }
 
+/// A byte-stream connection to one instrument (TCP socket or serial port).
+///
+/// Commands go out in a single write; answers are read through an internal buffer, each read
+/// bounded by a deadline. The Python contract of the same operations is `ola.transport.Transport`.
 pub struct Connection {
     link: Option<Link>,
     rbuf: Vec<u8>,
@@ -83,6 +96,8 @@ pub struct Connection {
 impl Connection {
     // ----- construction -------------------------------------------------------------
 
+    /// Open a TCP connection (`TCP_NODELAY` on). `connect_timeout` bounds the connection attempt,
+    /// `io_timeout` is the default timeout of every read and write.
     pub fn open_tcp(host: &str, port: u16, connect_timeout: Duration, io_timeout: Duration) -> Result<Self> {
         let addrs = (host, port)
             .to_socket_addrs()
@@ -104,6 +119,7 @@ impl Connection {
         }))
     }
 
+    /// Open a serial port with the given line settings; `io_timeout` is the default read timeout.
     pub fn open_serial(path: &str, settings: &SerialSettings, io_timeout: Duration) -> Result<Self> {
         use serialport::{DataBits, Parity as P, StopBits};
         let data_bits = match settings.data_bits {
@@ -147,22 +163,28 @@ impl Connection {
 
     // ----- settings -----------------------------------------------------------------
 
+    /// Address as text, e.g. `tcp://192.168.1.50:5025` or `serial:///dev/ttyUSB0`.
     pub fn peer(&self) -> &str {
         &self.peer
     }
 
+    /// True until [`Connection::close`] is called or the peer closes the connection.
     pub fn is_open(&self) -> bool {
         self.link.is_some()
     }
 
+    /// Default timeout of every read.
     pub fn timeout(&self) -> Duration {
         self.timeout
     }
 
+    /// Change the default timeout of every read.
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
     }
 
+    /// Set the terminator appended by [`Connection::send`] and the one [`Connection::read_line`]
+    /// waits for. The read terminator must not be empty.
     pub fn set_terminators(&mut self, write_term: &[u8], read_term: &[u8]) -> Result<()> {
         if read_term.is_empty() {
             return Err(Error::InvalidArgument("read terminator must not be empty".into()));
@@ -172,6 +194,7 @@ impl Connection {
         Ok(())
     }
 
+    /// Close the connection and drop buffered input. Later operations fail with `Error::Closed`.
     pub fn close(&mut self) {
         self.link = None;
         self.rbuf.clear();

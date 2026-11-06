@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        },
+        {
+          "id": "p2",
+          "side": "right",
+          "label": {
+            "en": "Port 2",
+            "it": "Porta 2",
+            "fr": "Port 2",
+            "es": "Puerto 2",
+            "de": "Tor 2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "att",
+      "kind": "device",
+      "at": [
+        1,
+        -1
+      ],
+      "when": "input_attenuation_db",
+      "title": {
+        "en": "{input_attenuation_db|0} dB attenuator",
+        "it": "Attenuatore {input_attenuation_db|0} dB",
+        "fr": "Atténuateur {input_attenuation_db|0} dB",
+        "es": "Atenuador {input_attenuation_db|0} dB",
+        "de": "{input_attenuation_db|0}-dB-Dämpfungsglied"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "{device.label|Amplifier}",
+        "it": "{device.label|Amplificatore}",
+        "fr": "{device.label|Amplificateur}",
+        "es": "{device.label|Amplificador}",
+        "de": "{device.label|Verstärker}"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "left",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "att.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "from": "att.out",
+      "to": "dut.in",
+      "label": {
+        "en": "coax",
+        "it": "coassiale",
+        "fr": "coaxial",
+        "es": "coaxial",
+        "de": "Koax"
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "from": "vna.p1",
+      "to": "dut.in",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      },
+      "when": "!input_attenuation_db"
+    },
+    {
+      "from": "vna.p2",
+      "to": "dut.out",
+      "label": {
+        "en": "test lead",
+        "it": "cavo di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA beforehand (open / short / load or thru) at the ends of the test leads, over the sweep you will use.",
+      "it": "Calibra il VNA prima (open / short / load oppure thru) alle estremità dei cavi di test, sull'intervallo dello sweep che userai.",
+      "fr": "Calibrez le VNA avant (open / short / load ou thru) aux extrémités des câbles de test, sur la plage du balayage utilisé.",
+      "es": "Calibre el VNA antes (open / short / load o thru) en los extremos de los cables de prueba, en el rango del barrido que usará.",
+      "de": "Den VNA vorher kalibrieren (Open / Short / Load oder Thru) an den Enden der Messkabel, über den verwendeten Sweep-Bereich."
+    },
+    {
+      "en": "The amplifier needs its own supply: connect and switch it on according to its data sheet. Check that its output cannot exceed the maximum input power of port 2 (add an attenuator if it can).",
+      "it": "L'amplificatore ha bisogno della sua alimentazione: collegala e accendila secondo il datasheet. Controlla che l'uscita non possa superare la potenza massima d'ingresso della porta 2 (aggiungi un attenuatore se può).",
+      "fr": "L'amplificateur a besoin de sa propre alimentation : branchez-la et allumez-la selon la fiche technique. Vérifiez que sa sortie ne peut pas dépasser la puissance d'entrée maximale du port 2 (ajoutez un atténuateur si c'est possible).",
+      "es": "El amplificador necesita su propia alimentación: conéctela y enciéndala según la hoja de datos. Compruebe que su salida no puede superar la potencia máxima de entrada del puerto 2 (añada un atenuador si puede).",
+      "de": "Der Verstärker braucht seine eigene Versorgung: nach Datenblatt anschließen und einschalten. Prüfen, dass sein Ausgang die maximale Eingangsleistung von Tor 2 nicht überschreiten kann (sonst ein Dämpfungsglied einfügen)."
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA to the input of the {input_attenuation_db} dB attenuator.",
+        "it": "Collega la porta 1 del VNA all'ingresso dell'attenuatore da {input_attenuation_db} dB.",
+        "fr": "Connectez le port 1 du VNA à l'entrée de l'atténuateur de {input_attenuation_db} dB.",
+        "es": "Conecte el puerto 1 del VNA a la entrada del atenuador de {input_attenuation_db} dB.",
+        "de": "Tor 1 des VNA mit dem Eingang des {input_attenuation_db}-dB-Dämpfungsglieds verbinden."
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect the output of the attenuator to the input of the amplifier ({device.label|amplifier}).",
+        "it": "Collega l'uscita dell'attenuatore all'ingresso dell'amplificatore ({device.label|amplificatore}).",
+        "fr": "Connectez la sortie de l'atténuateur à l'entrée de l'amplificateur ({device.label|amplificateur}).",
+        "es": "Conecte la salida del atenuador a la entrada del amplificador ({device.label|amplificador}).",
+        "de": "Den Ausgang des Dämpfungsglieds mit dem Eingang des Verstärkers ({device.label|Verstärker}) verbinden."
+      },
+      "when": "input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect port 1 of the VNA to the input of the amplifier ({device.label|amplifier}).",
+        "it": "Collega la porta 1 del VNA all'ingresso dell'amplificatore ({device.label|amplificatore}).",
+        "fr": "Connectez le port 1 du VNA à l'entrée de l'amplificateur ({device.label|amplificateur}).",
+        "es": "Conecte el puerto 1 del VNA a la entrada del amplificador ({device.label|amplificador}).",
+        "de": "Tor 1 des VNA mit dem Eingang des Verstärkers ({device.label|Verstärker}) verbinden."
+      },
+      "when": "!input_attenuation_db"
+    },
+    {
+      "text": {
+        "en": "Connect the output of the amplifier to port 2 of the VNA. If it can exceed the maximum input power of the VNA, put an attenuator in between (and in the calibration).",
+        "it": "Collega l'uscita dell'amplificatore alla porta 2 del VNA. Se può superare la potenza massima d'ingresso del VNA, metti in mezzo un attenuatore (anche nella calibrazione).",
+        "fr": "Connectez la sortie de l'amplificateur au port 2 du VNA. Si elle peut dépasser la puissance d'entrée maximale du VNA, mettez un atténuateur entre les deux (et dans l'étalonnage).",
+        "es": "Conecte la salida del amplificador al puerto 2 del VNA. Si puede superar la potencia máxima de entrada del VNA, ponga un atenuador en medio (y en la calibración).",
+        "de": "Den Ausgang des Verstärkers mit Tor 2 des VNA verbinden. Kann er die maximale Eingangsleistung des VNA überschreiten, ein Dämpfungsglied dazwischensetzen (auch in der Kalibrierung)."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the supply of the amplifier as its data sheet says, and switch it on.",
+        "it": "Collega l'alimentazione dell'amplificatore come dice il datasheet e accendila.",
+        "fr": "Branchez l'alimentation de l'amplificateur comme l'indique la fiche technique, et allumez-la.",
+        "es": "Conecte la alimentación del amplificador como indica la hoja de datos y enciéndala.",
+        "de": "Die Versorgung des Verstärkers nach Datenblatt anschließen und einschalten."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same test leads and adapters that were used for the calibration.",
+        "it": "Usa gli stessi cavi di test e adattatori usati per la calibrazione.",
+        "fr": "Utilisez les mêmes câbles de test et adaptateurs que pour l'étalonnage.",
+        "es": "Use los mismos cables de prueba y adaptadores que en la calibración.",
+        "de": "Dieselben Messkabel und Adapter wie bei der Kalibrierung verwenden."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "amplifier_with_attenuator",
+      "optional": true,
+      "when": "input_attenuation_db"
+    },
+    {
+      "file": "amplifier",
+      "optional": true
+    }
+  ]
+}

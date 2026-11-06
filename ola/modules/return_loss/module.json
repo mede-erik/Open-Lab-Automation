@@ -1,0 +1,33 @@
+{
+  "id": "return_loss",
+  "name": "Return loss / VSWR",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".rtl",
+  "entry": "measurement.py:ReturnLoss",
+  "description": "How well a device is matched to the line, with a vector network analyzer (VNA): return loss (S11) and VSWR against frequency, the best and worst match, the bands where the VSWR stays under a limit, the impedance at the best match, and a pass / fail check. For an antenna, an adapter, an attenuator, an amplifier input... The VNA is calibrated at the port beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer, calibrated at the port the device connects to"}
+  ],
+  "params_schema": {
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "device": {"type": "object", "required": false,
+               "description": "label identifies the device under test; asset_id is its code in the registry of cables and devices"},
+    "z0": {"type": "number", "min": 0, "unit": "ohm", "required": false,
+           "description": "reference impedance of the VNA (50 by default)"},
+    "vswr_max": {"type": "number", "required": false,
+                 "description": "the bands where the VSWR is at most this are reported (2 by default)"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "return loss and VSWR are reported at these frequencies"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail limit on the return loss in dB, normally a minimum: {\"min\": 10}"},
+    "correction": {"type": "object", "required": false,
+                   "description": "take a cable that was measured out of the result: cable = {asset_id (its code in the registry: the newest finished cable measurement of the project is used) | run (a run file of the cable measurement) | touchstone (.s1p or .s2p)}, termination (open|short, for a .s1p), mode (complex|magnitude)"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the device"}
+  }
+}

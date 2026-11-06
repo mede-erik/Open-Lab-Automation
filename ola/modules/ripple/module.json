@@ -1,0 +1,37 @@
+{
+  "id": "ripple",
+  "name": "Ripple and noise",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".rpl",
+  "entry": "measurement.py:RippleNoise",
+  "description": "Ripple and noise on the output of a supply with an oscilloscope: peak-to-peak and rms of the AC part (AC coupling, 20 MHz limit by default), the peaks, the frequency of the ripple and its harmonics from the spectrum, the noise left once the ripple is taken away, the worst of several captures, and a pass / fail check against limits. Optionally repeated for a list of load currents with an electronic load (ripple against load). Warns when the signal clips the screen, when the converter resolution limits the result, or when the record is too short.",
+  "roles": [
+    {"name": "oscilloscope", "category": "oscilloscope", "required": true,
+     "description": "The oscilloscope, with a probe across the supply output (short ground spring)"},
+    {"name": "load", "category": "electronic_load", "required": false,
+     "description": "An electronic load, only for 'conditions' (ripple against load current); it is switched off at the end"}
+  ],
+  "params_schema": {
+    "device": {"type": "object", "required": false,
+               "description": "label (identifies the supply or rail), asset_id (its code in the registry) and nominal_v (its output voltage, to give the ripple as a percentage)"},
+    "scope": {"type": "object", "required": true,
+              "description": "channel, probe_attenuation (10 = 10:1), coupling (AC|DC), bandwidth_limit_hz (0 = full), volts_per_div, offset_v, time_per_div, memory_depth, acquisition (NORMAL|AVERAGE|HIRES), bits (8..16)"},
+    "trigger": {"type": "object", "required": false,
+                "description": "level_v, slope (RISE|FALL|EITHER), mode (AUTO|NORMAL); the channel is the one measured"},
+    "captures": {"type": "integer", "min": 1, "max": 100, "required": false,
+                 "description": "number of captures; the worst peak-to-peak is also reported"},
+    "capture_wait_s": {"type": "number", "unit": "s", "required": false,
+                       "description": "time to wait after starting an acquisition before reading it (0.5 s by default)"},
+    "conditions": {"type": "object", "required": false,
+                   "description": "currents_a (list of load currents in A) and settle_s: one row per current; needs the 'load' role"},
+    "spectrum": {"type": "boolean", "required": false,
+                 "description": "compute the spectrum, the ripple frequency and the noise (true by default)"},
+    "peaks": {"type": "integer", "min": 1, "max": 20, "required": false,
+              "description": "how many spectrum peaks to report (5 by default)"},
+    "limits": {"type": "object", "required": false,
+               "description": "max_pp_v and max_rms_v, in volts: {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01}"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to connect the probe correctly"}
+  }
+}

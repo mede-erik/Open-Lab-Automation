@@ -1,0 +1,33 @@
+{
+  "id": "cable",
+  "name": "Cable characterization",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".cbl",
+  "entry": "measurement.py:CableCharacterization",
+  "description": "Loss of an RF cable against frequency with a vector network analyzer (VNA): insertion loss in dB (and per metre), loss at chosen frequencies, group delay and velocity factor, return loss, and a pass / fail check against a limit. The VNA is calibrated beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer, calibrated at the ends of the test leads"}
+  ],
+  "params_schema": {
+    "mode": {"type": "string", "choices": ["transmission", "reflection"], "required": false,
+             "description": "transmission: cable between port 1 and port 2 (S21); reflection: one end on port 1 and an open or short on the other (S11)"},
+    "termination": {"type": "string", "choices": ["open", "short"], "required": false,
+                    "description": "reflection only: what is on the far end of the cable"},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "cable": {"type": "object", "required": false,
+              "description": "label (identifies the cable), asset_id (its code in the registry) and length_m (gives dB/m and the velocity factor)"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the loss is reported at these frequencies"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail limit on the loss in dB: {\"max\": 1.5} or a line or bands (see ola/limits.py)"},
+    "also_s11": {"type": "boolean", "required": false,
+                 "description": "transmission only: also read S11 to report the return loss of the cable"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the cable"}
+  }
+}

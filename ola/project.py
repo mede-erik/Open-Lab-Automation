@@ -50,6 +50,8 @@ def _slug(text: str) -> str:
 
 @dataclass
 class MeasurementRef:
+    """Entry of the project's ``measurements`` list."""
+
     id: str
     type: str
     name: str
@@ -67,6 +69,7 @@ class MeasurementFile:
     params: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        """Content as a dict, ready to be written as JSON."""
         return {
             "type": self.type,
             "module_version": self.module_version,
@@ -76,12 +79,14 @@ class MeasurementFile:
         }
 
     def save(self, path: Union[str, Path]) -> None:
+        """Write the measurement file as JSON."""
         Path(path).write_text(
             json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
     @staticmethod
     def load(path: Union[str, Path]) -> "MeasurementFile":
+        """Read a measurement file; ``MeasurementError`` if it is missing or invalid."""
         try:
             raw = json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -99,6 +104,8 @@ class MeasurementFile:
 
 @dataclass
 class Project:
+    """A project: name, folder, instrument file and its measurements."""
+
     name: str
     directory: Path
     path: Path
@@ -109,6 +116,7 @@ class Project:
     # ----- creation / persistence ---------------------------------------------------------
     @staticmethod
     def new(name: str, directory: Union[str, Path], inst_file: Optional[str] = None) -> "Project":
+        """Create an empty project (not saved yet)."""
         directory = Path(directory)
         return Project(
             name=name,
@@ -119,6 +127,8 @@ class Project:
 
     @staticmethod
     def load(path: Union[str, Path]) -> "Project":
+        """Read ``<project>.json``; ``MeasurementError`` if unreadable or in the old unsupported
+        format."""
         path = Path(path)
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
@@ -148,6 +158,7 @@ class Project:
         )
 
     def save(self) -> None:
+        """Write the project file, keeping the keys this program does not know."""
         data: Dict[str, Any] = {
             **self.extra,
             "format_version": FORMAT_VERSION,
@@ -162,12 +173,14 @@ class Project:
 
     # ----- measurements ---------------------------------------------------------------------
     def get(self, measurement_id: str) -> MeasurementRef:
+        """Measurement with this id (``MeasurementError`` if there is none)."""
         for m in self.measurements:
             if m.id == measurement_id:
                 return m
         raise MeasurementError(f"no measurement with id {measurement_id!r}")
 
     def file_path(self, ref: MeasurementRef) -> Path:
+        """Path of the measurement's file, checked to stay inside the project folder."""
         return self.directory / check_plain_filename(ref.file)
 
     def add_measurement(
@@ -202,6 +215,8 @@ class Project:
         return ref
 
     def remove_measurement(self, measurement_id: str, delete_file: bool = False) -> None:
+        """Remove a measurement from the project; its file is deleted only with
+        ``delete_file=True``."""
         ref = self.get(measurement_id)
         self.measurements.remove(ref)
         if delete_file:

@@ -1,0 +1,186 @@
+{
+  "nodes": [
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "{device.label|Supply under test}",
+        "it": "{device.label|Alimentatore in prova}",
+        "fr": "{device.label|Alimentation testée}",
+        "es": "{device.label|Fuente en prueba}",
+        "de": "{device.label|Netzteil im Test}"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output (+ and -)",
+            "it": "Uscita (+ e -)",
+            "fr": "Sortie (+ et -)",
+            "es": "Salida (+ y -)",
+            "de": "Ausgang (+ und -)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "role": "oscilloscope",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "Oscilloscope",
+        "it": "Oscilloscopio",
+        "fr": "Oscilloscope",
+        "es": "Osciloscopio",
+        "de": "Oszilloskop"
+      },
+      "ports": [
+        {
+          "id": "ch",
+          "side": "left",
+          "label": "CH{scope.channel|1}"
+        }
+      ]
+    },
+    {
+      "id": "load",
+      "role": "load",
+      "at": [
+        1,
+        1
+      ],
+      "when": "conditions",
+      "title": {
+        "en": "Electronic load",
+        "it": "Carico elettronico",
+        "fr": "Charge électronique",
+        "es": "Carga electrónica",
+        "de": "Elektronische Last"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input (+ and -)",
+            "it": "Ingresso (+ e -)",
+            "fr": "Entrée (+ et -)",
+            "es": "Entrada (+ y -)",
+            "de": "Eingang (+ und -)"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "dut.out",
+      "to": "scope.ch",
+      "label": {
+        "en": "probe {scope.probe_attenuation|1}:1",
+        "it": "sonda {scope.probe_attenuation|1}:1",
+        "fr": "sonde {scope.probe_attenuation|1}:1",
+        "es": "sonda {scope.probe_attenuation|1}:1",
+        "de": "Tastkopf {scope.probe_attenuation|1}:1"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "load.in",
+      "label": {
+        "en": "load cables",
+        "it": "cavi del carico",
+        "fr": "câbles de charge",
+        "es": "cables de carga",
+        "de": "Lastkabel"
+      },
+      "when": "conditions"
+    }
+  ],
+  "notes": [
+    {
+      "en": "Put the probe across the output capacitor, as close to it as possible, with the ground spring (not a long ground lead: it picks up the switching spikes and shows them as ripple). Switch the 20 MHz limit on.",
+      "it": "Metti la sonda ai capi del condensatore di uscita, il più vicino possibile, con la molla di massa (non un puntale di massa lungo: raccoglie i picchi di commutazione e li mostra come ripple). Attiva il limite a 20 MHz.",
+      "fr": "Placez la sonde aux bornes du condensateur de sortie, au plus près, avec le ressort de masse (pas de fil de masse long : il capte les pics de commutation et les montre comme de l'ondulation). Activez la limite 20 MHz.",
+      "es": "Ponga la sonda en los terminales del condensador de salida, lo más cerca posible, con el muelle de masa (no un cable de masa largo: capta los picos de conmutación y los muestra como rizado). Active el límite de 20 MHz.",
+      "de": "Den Tastkopf direkt am Ausgangskondensator anlegen, mit der Massefeder (kein langes Massekabel: es fängt die Schaltspitzen auf und zeigt sie als Welligkeit). Die 20-MHz-Begrenzung einschalten."
+    },
+    {
+      "when": "conditions",
+      "text": {
+        "en": "The electronic load is switched on by the measurement and off at the end.",
+        "it": "Il carico elettronico viene acceso dalla misura e spento alla fine.",
+        "fr": "La charge électronique est allumée par la mesure et éteinte à la fin.",
+        "es": "La carga electrónica la enciende la medición y la apaga al final.",
+        "de": "Die elektronische Last wird von der Messung ein- und am Ende ausgeschaltet."
+      }
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the tip of the probe to the positive terminal of the output of {device.label|the supply under test}, as close as possible to the output capacitor.",
+        "it": "Collega la punta della sonda al positivo dell'uscita di {device.label|alimentatore in prova}, il più vicino possibile al condensatore di uscita.",
+        "fr": "Connectez la pointe de la sonde à la borne positive de la sortie de {device.label|l'alimentation testée}, au plus près du condensateur de sortie.",
+        "es": "Conecte la punta de la sonda al positivo de la salida de {device.label|la fuente en prueba}, lo más cerca posible del condensador de salida.",
+        "de": "Die Spitze des Tastkopfs mit dem Pluspol des Ausgangs von {device.label|Netzteil im Test} verbinden, möglichst nahe am Ausgangskondensator."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the ground spring of the probe to the negative terminal (ground) of the output, right next to the tip. No long ground lead.",
+        "it": "Collega la molla di massa della sonda al negativo (massa) dell'uscita, subito accanto alla punta. Niente puntale di massa lungo.",
+        "fr": "Connectez le ressort de masse de la sonde à la borne négative (masse) de la sortie, juste à côté de la pointe. Pas de long fil de masse.",
+        "es": "Conecte el muelle de masa de la sonda al negativo (masa) de la salida, justo al lado de la punta. Sin cable de masa largo.",
+        "de": "Die Massefeder des Tastkopfs mit dem Minuspol (Masse) des Ausgangs verbinden, direkt neben der Spitze. Kein langes Massekabel."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the probe to channel {scope.channel|1} of the oscilloscope, and set the same ratio on the probe: {scope.probe_attenuation|1}:1.",
+        "it": "Collega la sonda al canale {scope.channel|1} dell'oscilloscopio e imposta lo stesso rapporto sulla sonda: {scope.probe_attenuation|1}:1.",
+        "fr": "Connectez la sonde à la voie {scope.channel|1} de l'oscilloscope et réglez le même rapport sur la sonde : {scope.probe_attenuation|1}:1.",
+        "es": "Conecte la sonda al canal {scope.channel|1} del osciloscopio y ponga la misma relación en la sonda: {scope.probe_attenuation|1}:1.",
+        "de": "Den Tastkopf mit Kanal {scope.channel|1} des Oszilloskops verbinden und dasselbe Verhältnis am Tastkopf einstellen: {scope.probe_attenuation|1}:1."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the electronic load to the output of the supply: plus to plus, minus to minus, with short thick cables.",
+        "it": "Collega il carico elettronico all'uscita dell'alimentatore: più con più, meno con meno, con cavi corti e spessi.",
+        "fr": "Connectez la charge électronique à la sortie de l'alimentation : plus sur plus, moins sur moins, avec des câbles courts et épais.",
+        "es": "Conecte la carga electrónica a la salida de la fuente: más con más, menos con menos, con cables cortos y gruesos.",
+        "de": "Die elektronische Last an den Ausgang des Netzteils anschließen: Plus an Plus, Minus an Minus, mit kurzen dicken Kabeln."
+      },
+      "when": "conditions"
+    },
+    {
+      "text": {
+        "en": "Switch the supply on and check that its output is stable before starting.",
+        "it": "Accendi l'alimentatore e controlla che l'uscita sia stabile prima di avviare.",
+        "fr": "Allumez l'alimentation et vérifiez que sa sortie est stable avant de démarrer.",
+        "es": "Encienda la fuente y compruebe que su salida es estable antes de iniciar.",
+        "de": "Das Netzteil einschalten und prüfen, dass der Ausgang stabil ist, bevor die Messung startet."
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "ripple_with_load",
+      "optional": true,
+      "when": "conditions"
+    },
+    {
+      "file": "ripple",
+      "optional": true
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "regulation",
+  "name": "Line and load regulation",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".reg",
+  "entry": "measurement.py:Regulation",
+  "description": "Line and load regulation of a converter or regulator: how much the output voltage changes when the input voltage changes (line regulation, in % and mV/V) and when the load current changes (load regulation, in % and the output resistance in milliohms). A supply feeds the input, an electronic load draws the current and the output voltage is read by a multimeter or a datalogger channel; the real input at the converter can be read too. Optional limits give a pass / fail verdict. The supply and the load are switched off at the end, also after an error or a stop.",
+  "roles": [
+    {"name": "supply", "category": "power_supply", "required": true,
+     "description": "The supply that feeds the input of the converter"},
+    {"name": "load", "category": "electronic_load", "required": false,
+     "description": "The electronic load on the output (needed for the load test, and for the line test if it has a load current)"},
+    {"name": "meter", "category": "multimeter", "required": true,
+     "description": "A multimeter or a datalogger channel that reads the output voltage (and the input voltage at the converter, if asked)"}
+  ],
+  "params_schema": {
+    "device": {"type": "object", "required": false,
+               "description": "label (identifies the converter), asset_id (its code in the registry) and nominal_v (its output voltage: the regulation in % refers to it; without it, to the output at full load)"},
+    "supply_channel": {"type": "integer", "min": 1, "required": false,
+                       "description": "output channel of the supply (for a multi-output supply)"},
+    "output_reading": {"type": "object", "required": true,
+                       "description": "how the output voltage is read: call (measure_dc_voltage by default), args (for a datalogger {\"channels\": \"103\"}), scale and offset (reading * scale + offset: a divider or probe ratio)"},
+    "input_reading": {"type": "object", "required": false,
+                      "description": "how the input voltage AT THE CONVERTER is read, as output_reading, with role (meter or supply). Without it the supply setpoint is used as the input voltage"},
+    "line_test": {"type": "object", "required": false,
+                  "description": "vin_v (the sweep of the input voltage: {\"values\": [...]} or {\"start\", \"stop\", \"points\"}) and load_a (the fixed load current, 0 by default)"},
+    "load_test": {"type": "object", "required": false,
+                  "description": "i_a (the sweep of the load current) and vin_v (the fixed input voltage)"},
+    "timing": {"type": "object", "required": false,
+               "description": "settle_s (wait after a change, 1 s by default), samples (readings averaged, 3) and interval_s (between them, 0.1 s)"},
+    "safety": {"type": "object", "required": false,
+               "description": "max_vin_v and max_load_a: a point above them is an error and nothing is switched on"},
+    "limits": {"type": "object", "required": false,
+               "description": "max_line_pct, max_load_pct, vout_min_v, vout_max_v: pass / fail"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to connect the instruments"}
+  }
+}
