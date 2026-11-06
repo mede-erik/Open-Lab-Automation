@@ -25,7 +25,9 @@ Two ways to be asked: the **simple calls** ``set_sweep`` and ``read_sparameter``
 with ``library_calls=True``, the calls of the instrument library's network analyzer category:
 ``set_frequency_sweep`` (linear), ``run_sweep`` and ``read_sparameters(sparameters=[...])``, and the
 optional ``set_source_power`` and ``set_if_bandwidth`` (``library_extras=False`` leaves them out, as
-the LiteVNA does) and ``set_sweep_type`` (``library_sweep_type=True``). ``calibrated`` is what
+the LiteVNA does) and ``set_sweep_type`` (``library_sweep_type=True``: it must come **after** ``set_frequency_sweep``,
+which always sets a linear sweep; ``library_linear_only=True`` makes it refuse ``LOG``, as the
+LiteVNA does). ``calibrated`` is what
 ``read_sparameters`` says about the calibration.
 """
 
@@ -75,6 +77,7 @@ class SimVna:
         calibrated: bool = True,
         library_extras: bool = True,
         library_sweep_type: bool = False,
+        library_linear_only: bool = False,
     ):
         self.name = name
         self.length_m = length_m
@@ -87,8 +90,9 @@ class SimVna:
         self.fixture1_m, self.fixture2_m = fixture1_m, fixture2_m
         self.library_calls, self.calibrated = library_calls, calibrated
         self.library_extras, self.library_sweep_type = library_extras, library_sweep_type
+        self.library_linear_only = library_linear_only
         self._swept = False
-        self._lib_power, self._lib_ifbw, self._lib_type = -10.0, 1000.0, "linear"
+        self._lib_power, self._lib_ifbw = -10.0, 1000.0
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -187,9 +191,9 @@ class SimVna:
         """The calls of the library's category: a sweep, one sweep run, and the S-parameters that
         are asked read back (``read_sparameters`` is given the list of them, as in the library)."""
         if name == "set_frequency_sweep":
-            self._set_sweep(
+            self._set_sweep(  # always linear: set_sweep_type comes after
                 args["start_frequency"], args["stop_frequency"], args["points"],
-                self._lib_type, self._lib_ifbw, self._lib_power,
+                "linear", self._lib_ifbw, self._lib_power,
             )  # fmt: skip
             self._swept = False
         elif name == "set_source_power":
@@ -201,7 +205,16 @@ class SimVna:
             if self.sweep:
                 self.sweep["if_bandwidth"] = self._lib_ifbw
         elif name == "set_sweep_type":
-            self._lib_type = str(args["sweep_type"]).lower()
+            kind = str(args["sweep_type"]).lower()
+            if kind == "log" and self.library_linear_only:  # a LiteVNA: only a linear sweep
+                from .call_errors import ValueNotHandledError
+
+                raise ValueNotHandledError(
+                    f"value 'LOG' of argument 'sweep_type' is not handled by {self.name}",
+                    call=name,
+                )
+            if self.sweep:
+                self.sweep["type"] = kind
         elif name == "run_sweep":
             if not self.sweep:
                 raise ValueError("no sweep has been set")

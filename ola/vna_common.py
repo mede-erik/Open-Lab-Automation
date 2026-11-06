@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from .call_errors import CallError
 from .efficiency_spec import Problem
 from .limits import LimitError, parse_limits
 from .measurement import MeasurementContext, MeasurementError, Stopped
@@ -282,15 +283,16 @@ def sweep_notes(handle: Any, sweep: Mapping[str, Any]) -> List[str]:
     return notes
 
 
-def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
-    """Send the sweep to the VNA. With the library's calls: ``set_sweep_type`` (if the instrument
-    has it), ``set_if_bandwidth`` and ``set_source_power`` (the optional fields, if given and the
-    instrument has them) and ``set_frequency_sweep``. Else ``set_sweep`` with the optional
-    fields only if given."""
+def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> List[str]:
+    """Send the sweep to the VNA and return what the instrument could not do (readable notes).
+    With the library's calls: ``set_if_bandwidth`` and ``set_source_power`` (if the file gives them
+    and the instrument has them), ``set_frequency_sweep`` (always a **linear** sweep) and **then**
+    ``set_sweep_type`` (if the instrument has it: a logarithmic sweep set before would be made
+    linear again). An instrument that has the call but cannot do a logarithmic sweep (the LiteVNA
+    answers that the value is not handled) gives a note and stays linear. Else ``set_sweep`` with
+    the optional fields only if given."""
+    notes: List[str] = []
     if uses_library_calls(handle):
-        if _has(handle, "set_sweep_type"):
-            kind = "LOG" if sweep.get("scale", "linear") == "log" else "LINEAR"
-            handle.call("set_sweep_type", sweep_type=kind)
         for key, call in (
             ("if_bandwidth_hz", "set_if_bandwidth"),
             ("power_dbm", "set_source_power"),
@@ -303,7 +305,15 @@ def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
             stop_frequency=sweep["stop_hz"],
             points=sweep["points"],
         )
-        return
+        if _has(handle, "set_sweep_type"):
+            log = sweep.get("scale", "linear") == "log"
+            try:
+                handle.call("set_sweep_type", sweep_type="LOG" if log else "LINEAR")
+            except CallError:
+                if not log:
+                    raise
+                notes.append("this VNA cannot sweep logarithmically: the sweep is linear")
+        return notes
     extra = {
         name: sweep[key]
         for name, key in (("if_bandwidth", "if_bandwidth_hz"), ("power", "power_dbm"))
@@ -317,6 +327,7 @@ def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
         sweep_type=sweep.get("scale", "linear"),
         **extra,
     )
+    return notes
 
 
 def _library_sweep(
@@ -368,7 +379,9 @@ def acquire(
     if notes:
         for note in sweep_notes(handle, sweep):
             ctx.log(note, "warning")
-    set_sweep(handle, sweep)
+    for note in set_sweep(handle, sweep):
+        if notes:
+            ctx.log(note, "warning")
     nominal = sweep_frequencies(sweep)
     totals: Dict[str, List[complex]] = {}
     freq: List[float] = []

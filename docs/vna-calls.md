@@ -34,7 +34,7 @@ Which one is used does not change what a measurement gives: the same measurement
 | `read_sparameters` | `sparameters`: the list of what is needed, such as `["S11", "S21"]` (the amplifier asks for all four) | gives the frequencies and those S-parameters of that sweep |
 | `set_if_bandwidth` (optional) | `value` (Hz) | sent when the file gives `if_bandwidth_hz` |
 | `set_source_power` (optional) | `value` (dBm) | sent when the file gives `power_dbm`; the **compression test** of the amplifier steps it |
-| `set_sweep_type` (optional) | `sweep_type`: `LINEAR` or `LOG` | sent with every sweep when the instrument has it |
+| `set_sweep_type` (optional) | `sweep_type`: `LINEAR` or `LOG` | sent **after** `set_frequency_sweep` (which always sets a linear sweep) when the instrument has it |
 
 All the parameters come from **one** sweep (faster than one sweep for each). The answer of `read_sparameters`:
 
@@ -55,7 +55,7 @@ The three optional calls are not on every instrument (the Siglent SNA / SHN and 
 LiteVNA has none of them and sweeps linearly). When a measurement file asks for something the instrument cannot do, the
 measurement **warns in the log and goes on**, nothing is sent for it:
 
-* `scale: log` without `set_sweep_type`: the sweep is linear (the frequencies of the answer are the ones used);
+* `scale: log` without `set_sweep_type`, or with an instrument that has the call but answers that `LOG` is not handled (the LiteVNA): the sweep is linear (the frequencies of the answer are the ones used);
 * `if_bandwidth_hz` without `set_if_bandwidth`, `power_dbm` without `set_source_power`: the instrument keeps its own setting.
 
 The one measurement that depends on it is the **compression test of the amplifier**, which steps the source power: with an
@@ -86,4 +86,4 @@ tests use it: **a measurement that works on `SimVna` must work the same on a rea
 
 Measurements with a real VNA have not been made yet: all the RF measurements were tried on the simulation, and the calls they
 send were planned for the LiteVNA62, 64 and 67 of the library (a test does it with the library's real schema). `set_sweep_type`
-is a proposal of the library session and not in the schema yet: the measurement uses it as soon as an instrument has it.
+is in the library's PR Instruments_LIB#5 and not in `main` yet: the measurement already uses it, after `set_frequency_sweep`.

@@ -153,14 +153,16 @@ def test_the_optional_calls_are_used_when_the_instrument_has_them(registry):
     assert len(warned) == 1 and "sweeps linearly" in warned[0]  # only the log sweep is missing
 
 
-def test_a_logarithmic_sweep_is_sent_when_the_instrument_can_do_it(registry):
+def test_a_logarithmic_sweep_is_sent_after_the_sweep_when_the_instrument_can_do_it(registry):
+    """set_frequency_sweep always sets a linear sweep: set_sweep_type must come after it."""
     params, sim = CASES["return_loss"]
     p = {**params, "sweep": {**SWEEP, "scale": "log"}}
     runner, vna, _, logs, traces = run(
         registry, "return_loss", p, library_calls=True, library_sweep_type=True, **sim
     )
     assert runner.state is RunState.FINISHED, runner.error
-    assert vna.calls[0] == ("set_sweep_type", {"sweep_type": "LOG"})
+    assert [n for n, _ in vna.calls[:2]] == ["set_frequency_sweep", "set_sweep_type"]
+    assert vna.calls[1][1] == {"sweep_type": "LOG"}
     assert not any(lv == "warning" for lv, _ in logs)
     x = traces["return_loss_db"]["x"]
     assert x[1] / x[0] == pytest.approx(x[-1] / x[-2])  # spaced by a ratio: really logarithmic
@@ -168,7 +170,25 @@ def test_a_logarithmic_sweep_is_sent_when_the_instrument_can_do_it(registry):
     _, vna, _, _, _ = run(
         registry, "return_loss", params, library_calls=True, library_sweep_type=True, **sim
     )
-    assert vna.calls[0] == ("set_sweep_type", {"sweep_type": "LINEAR"})
+    assert vna.calls[1] == ("set_sweep_type", {"sweep_type": "LINEAR"})
+
+
+def test_an_instrument_that_has_the_call_but_only_a_linear_sweep_is_warned_about(registry):
+    """The LiteVNA: set_sweep_type is there, LOG is not handled (CALL-002)."""
+    params, sim = CASES["return_loss"]
+    kw = dict(library_calls=True, library_sweep_type=True, library_linear_only=True, **sim)
+    p = {**params, "sweep": {**SWEEP, "scale": "log"}}
+    runner, vna, row, logs, traces = run(registry, "return_loss", p, **kw)
+    assert runner.state is RunState.FINISHED, runner.error
+    warned = [m for lv, m in logs if lv == "warning"]
+    assert warned == ["this VNA cannot sweep logarithmically: the sweep is linear"]
+    x = traces["return_loss_db"]["x"]
+    assert x[1] - x[0] == pytest.approx(x[-1] - x[-2])  # linear
+    assert row["best_return_loss_db"] > 0
+    runner, vna, _, logs, _ = run(
+        registry, "return_loss", params, **kw
+    )  # a linear file: no problem
+    assert runner.state is RunState.FINISHED and not any(lv == "warning" for lv, _ in logs)
 
 
 def test_the_notes_say_what_is_left_out():
