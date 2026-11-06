@@ -49,6 +49,7 @@ from ola.vna_common import (
     ask_setup,
     check_asset,
     check_common,
+    can_set_power,
     check_sweep,
     frequency_label,
     is_number,
@@ -294,6 +295,11 @@ class AmplifierResponse(Measurement):
         """Ask for the set-up, read the four S-parameters, optionally the compression, report."""
         p = self.params
         handle = ctx.instrument("vna")
+        if p.get("compression") and not can_set_power(handle):
+            raise MeasurementError(
+                "the compression test steps the source power of the VNA, and this VNA has no call "
+                "to set it: leave the compression out, or use a VNA that can set its power"
+            )
         if p.get("confirm_setup", True):
             ask_setup(ctx, self._connect_text(), p["sweep"], mode="transmission")
         freq, traces = acquire(

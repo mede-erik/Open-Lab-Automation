@@ -20,6 +20,12 @@ Butterworth filter between the ports (S21 is its response); ``attenuator_db`` (a
 ``fixture2_m`` put a length of the same cable on port 1 and on port 2, between the calibration
 plane and the filter or the attenuator (the device is then measured through them). ``noise_db``
 adds a little random error to every point; ``calls`` records what was asked.
+
+Two ways to be asked: the **simple calls** ``set_sweep`` and ``read_sparameter`` (the default) or,
+with ``library_calls=True``, the four calls of the instrument library's network analyzer category
+(``set_frequency_sweep``, ``select_sparameters``, ``run_sweep``, ``read_sparameters``), which have
+only a linear sweep and no IF bandwidth or power. ``calibrated`` is what ``read_sparameters`` says
+about the calibration.
 """
 
 from __future__ import annotations
@@ -30,6 +36,11 @@ import random
 from typing import Any, Dict, List
 
 SPEED_OF_LIGHT = 299_792_458.0
+SIMPLE_CALLS = ("set_sweep", "read_sparameter")
+LIBRARY_CALLS = (
+    "identification_query", "set_frequency_sweep", "select_sparameters", "run_sweep",
+    "read_sparameters",
+)  # fmt: skip
 
 
 class SimVna:
@@ -58,6 +69,8 @@ class SimVna:
         attenuator_slope_db_per_ghz: float = 0.0,
         fixture1_m: float = 0.0,
         fixture2_m: float = 0.0,
+        library_calls: bool = False,
+        calibrated: bool = True,
     ):
         self.name = name
         self.length_m = length_m
@@ -68,6 +81,9 @@ class SimVna:
         self.filter = (filter_type, filter_f0_hz, filter_bw_hz, filter_order, filter_loss_db)
         self.attenuator_db, self.attenuator_slope = attenuator_db, attenuator_slope_db_per_ghz
         self.fixture1_m, self.fixture2_m = fixture1_m, fixture2_m
+        self.library_calls, self.calibrated = library_calls, calibrated
+        self.selected: List[str] = []
+        self._swept = False
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -140,14 +156,50 @@ class SimVna:
         return self.mismatch * cmath.exp(-1j * 4 * math.pi * f * self.delay_s())
 
     # ----- the logical calls -----------------------------------------------------------------
+    def supports(self, name: str) -> bool:
+        """True for the calls this simulated VNA knows: the two simple ones, or with
+        ``library_calls`` the four of the library's network analyzer category."""
+        known = LIBRARY_CALLS if self.library_calls else SIMPLE_CALLS
+        return name in known
+
     def call(self, name: str, **args: Any) -> Any:
         """Run a logical call (the same interface as an ``InstrumentHandle``)."""
         self.calls.append((name, dict(args)))
+        if not self.supports(name):
+            raise ValueError(f"{self.name}: unknown call {name!r}")
+        if self.library_calls:
+            return self._library_call(name, args)
         if name == "set_sweep":
             return self._set_sweep(**args)
         if name == "read_sparameter":
             return self._read(args.get("parameter", "S21"))
         raise ValueError(f"{self.name}: unknown call {name!r}")
+
+    def _library_call(self, name: str, args: Dict[str, Any]) -> Any:
+        """The calls of the library's category: a linear sweep, a list of S-parameters, one
+        sweep, and everything read back at once."""
+        if name == "set_frequency_sweep":
+            self._set_sweep(args["start_frequency"], args["stop_frequency"], args["points"])
+            self._swept = False
+        elif name == "select_sparameters":
+            self.selected = [str(x) for x in args["sparameters"]]
+        elif name == "run_sweep":
+            if not self.sweep:
+                raise ValueError("no sweep has been set")
+            self._swept = True
+        elif name == "read_sparameters":
+            if not self._swept:
+                raise ValueError("no sweep has been run")
+            freq = self._frequencies()
+            parameters = {}
+            for parameter in self.selected:
+                values = [v for v in self._read(parameter)["values"]]
+                parameters[parameter] = {
+                    "real": [v[0] for v in values],
+                    "imaginary": [v[1] for v in values],
+                }
+            return {"frequency": freq, "parameters": parameters, "calibrated": self.calibrated}
+        return None
 
     def _set_sweep(
         self,

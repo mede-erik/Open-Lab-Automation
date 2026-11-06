@@ -248,24 +248,41 @@ def test_return_loss_example_in_the_docs_is_valid_and_runs():
     assert rows[0]["verdict"] == "PASS" and rows[0]["usable_band_count"] == 1
 
 
-def test_the_vna_contract_in_the_docs_matches_the_simulated_vna():
-    """docs/vna-calls.md names the calls and arguments that SimVna implements."""
+def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna():
+    """docs/vna-calls.md names the calls of the library's category and of the simple contract:
+    the library defines the first, SimVna answers both."""
     import json as _json
 
     from ola.sim_vna import SimVna
+    from ola.vna_common import uses_library_calls
 
     text = read(ROOT / "docs" / "vna-calls.md")
-    block = re.search(r"```json\n(\{\n  \"schema_version\".*?)```", text, re.S)
-    assert block, "schema draft not found in docs/vna-calls.md"
-    draft = _json.loads(block.group(1))
-    assert draft["category"] == "vnas_series"
-    vna = SimVna()
-    args = {k: 1.0 for k in draft["calls"]["set_sweep"]["args"]}
-    args.update(points=5, sweep_type="linear", start_frequency=1e6, stop_frequency=2e6)
-    assert vna.call("set_sweep", **args) is None  # every argument of the draft is accepted
-    answer = vna.call("read_sparameter", parameter="S21")
+    names = (
+        "set_frequency_sweep", "select_sparameters", "run_sweep", "read_sparameters",
+        "set_sweep", "read_sparameter", "network_analyzers_series", "calibrated",
+    )  # fmt: skip
+    for name in names:
+        assert name in text, name
+    assert "vnas_series" not in text
+    schema = ROOT / "Instruments_LIB" / "schema" / "vna.json"
+    if schema.is_file():
+        library = _json.loads(schema.read_text(encoding="utf-8"))
+        assert library["category"] == "network_analyzers_series"
+        for call in ("set_frequency_sweep", "select_sparameters", "run_sweep", "read_sparameters"):
+            assert call in library["calls"], call
+    simple = SimVna()
+    assert not uses_library_calls(simple)
+    simple.call("set_sweep", start_frequency=1e6, stop_frequency=2e6, points=5, sweep_type="linear")
+    answer = simple.call("read_sparameter", parameter="S21")
     assert set(answer) == {"frequency", "values"} and len(answer["frequency"]) == 5
-    assert all(len(v) == 2 for v in answer["values"])  # [real, imaginary] pairs
+    lib = SimVna(library_calls=True)
+    assert uses_library_calls(lib)
+    lib.call("set_frequency_sweep", start_frequency=1e6, stop_frequency=2e6, points=5)
+    lib.call("select_sparameters", sparameters=["S21"])
+    lib.call("run_sweep")
+    got = lib.call("read_sparameters")
+    assert set(got) == {"frequency", "parameters", "calibrated"} and len(got["frequency"]) == 5
+    assert set(got["parameters"]["S21"]) == {"real", "imaginary"}
 
 
 def test_filter_example_in_the_docs_is_valid_and_runs():

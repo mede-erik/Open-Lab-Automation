@@ -243,8 +243,49 @@ def as_trace(
     return [float(f) for f in freq], complex_values
 
 
+LIBRARY_SWEEP = "set_frequency_sweep"  # a handle that has it speaks the library's VNA category
+
+
+def uses_library_calls(handle: Any) -> bool:
+    """True if the instrument has the calls of the instrument library's network analyzer category
+    (``set_frequency_sweep``, ``select_sparameters``, ``run_sweep``, ``read_sparameters``); else
+    the two simple calls (``set_sweep`` and ``read_sparameter``, see ``docs/vna-calls.md``)."""
+    supports = getattr(handle, "supports", None)
+    return bool(callable(supports) and supports(LIBRARY_SWEEP))
+
+
+def can_set_power(handle: Any) -> bool:
+    """True if the source power of the VNA can be set: the simple calls do it with the sweep, the
+    library's category has no such call (yet)."""
+    return not uses_library_calls(handle)
+
+
+def sweep_notes(handle: Any, sweep: Mapping[str, Any]) -> List[str]:
+    """What of the sweep the instrument cannot do and will be left out (the library's category has
+    a linear sweep only: no logarithmic spacing, no IF bandwidth, no source power)."""
+    if not uses_library_calls(handle):
+        return []
+    notes = []
+    if sweep.get("scale", "linear") == "log":
+        notes.append("this VNA sweeps linearly: the logarithmic spacing is not used")
+    if "if_bandwidth_hz" in sweep:
+        notes.append("this VNA has no IF bandwidth setting: it stays as it is on the instrument")
+    if "power_dbm" in sweep:
+        notes.append("this VNA has no source power setting: it stays as it is on the instrument")
+    return notes
+
+
 def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
-    """Send the sweep to the VNA (``set_sweep``; the optional fields only if given)."""
+    """Send the sweep to the VNA: ``set_frequency_sweep`` (start, stop, points) if it has the
+    library's calls, else ``set_sweep`` (with the optional fields only if given)."""
+    if uses_library_calls(handle):
+        handle.call(
+            LIBRARY_SWEEP,
+            start_frequency=sweep["start_hz"],
+            stop_frequency=sweep["stop_hz"],
+            points=sweep["points"],
+        )
+        return
     extra = {
         name: sweep[key]
         for name, key in (("if_bandwidth", "if_bandwidth_hz"), ("power", "power_dbm"))
@@ -260,6 +301,35 @@ def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
     )
 
 
+def _library_sweep(
+    handle: Any, parameters: Sequence[str], nominal: Sequence[float]
+) -> Tuple[List[float], Dict[str, List[complex]], bool]:
+    """Run one sweep with the library's calls and take the asked S-parameters out of the answer:
+    ``(frequencies, {parameter: values}, calibrated)``."""
+    handle.call("run_sweep")
+    result = handle.call("read_sparameters")
+    if not isinstance(result, Mapping) or not isinstance(result.get("parameters"), Mapping):
+        raise MeasurementError(
+            f"the VNA gave no S-parameters (got {type(result).__name__}: expected frequency, "
+            "parameters and calibrated)"
+        )
+    freq = [float(f) for f in result.get("frequency", nominal)]
+    values: Dict[str, List[complex]] = {}
+    for name in parameters:
+        data = result["parameters"].get(name)
+        if not isinstance(data, Mapping) or "real" not in data or "imaginary" not in data:
+            have = ", ".join(sorted(result["parameters"])) or "none"
+            raise MeasurementError(f"the VNA did not give {name} (it gave: {have})")
+        real, imag = list(data["real"]), list(data["imaginary"])
+        if not len(real) == len(imag) == len(freq):
+            raise MeasurementError(
+                f"the VNA gave {len(real)} + {len(imag)} values for {name} "
+                f"at {len(freq)} frequencies"
+            )
+        values[name] = [complex(a, b) for a, b in zip(real, imag)]
+    return freq, values, bool(result.get("calibrated", True))
+
+
 def acquire(
     ctx: MeasurementContext,
     handle: Any,
@@ -268,15 +338,41 @@ def acquire(
     averages: int = 1,
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
-    ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop."""
+    ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
+
+    An instrument with the library's calls reads all the parameters of one sweep together
+    (``select_sparameters``, ``run_sweep``, ``read_sparameters``); one with the simple calls reads
+    them one by one (``read_sparameter``). What the instrument cannot do (see ``sweep_notes``) is
+    reported in the log, and so is a result that the instrument says is not calibrated."""
+    library = uses_library_calls(handle)
+    for note in sweep_notes(handle, sweep):
+        ctx.log(note, "warning")
     set_sweep(handle, sweep)
+    if library:
+        handle.call("select_sparameters", sparameters=list(parameters))
     nominal = sweep_frequencies(sweep)
     totals: Dict[str, List[complex]] = {}
     freq: List[float] = []
     for sweep_no in range(1, averages + 1):
-        for name in parameters:
-            ctx.checkpoint()
-            freq, values = as_trace(handle.call("read_sparameter", parameter=name), nominal, name)
+        ctx.checkpoint()
+        if library:
+            freq, got, calibrated = _library_sweep(handle, parameters, nominal)
+            if not calibrated and sweep_no == 1:
+                ctx.log(
+                    "the VNA says its data are not calibrated: calibrate it (or apply its "
+                    "calibration) before this measurement",
+                    "warning",
+                )
+            reads = list(got.items())
+        else:
+            reads = []
+            for name in parameters:
+                ctx.checkpoint()
+                freq, values = as_trace(
+                    handle.call("read_sparameter", parameter=name), nominal, name
+                )
+                reads.append((name, values))
+        for name, values in reads:
             if name in totals and len(totals[name]) != len(values):
                 raise MeasurementError(f"the number of points of {name} changed between sweeps")
             totals[name] = (
