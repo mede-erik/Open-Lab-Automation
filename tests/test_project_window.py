@@ -277,3 +277,13 @@ def test_the_window_closes_the_connector_of_the_previous_project(app, tmp_path):
         w._timer.stop()
         w.close()
     assert closed == [True, True]
+
+
+def test_the_calibration_button_says_why_it_cannot_open(window, monkeypatch):
+    """The demo project has no instrument library behind its connector, so there is nothing to
+    calibrate: the user is told, no window opens."""
+    seen = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: seen.append(a[2])))
+    assert window.buttons["cal_button"].isEnabled()
+    window.buttons["cal_button"].click()
+    assert len(seen) == 1 and "library" in seen[0]

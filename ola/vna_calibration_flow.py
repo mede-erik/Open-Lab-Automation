@@ -77,6 +77,30 @@ def supported_kinds(library, model_id: str) -> List[str]:
     return [k for k in KINDS if k in (kinds or KINDS)]
 
 
+def parse_sweep(start: str, stop: str, points: Any) -> Dict[str, float]:
+    """The sweep of a calibration from what the user typed ('1M', '2.4G', ...).
+
+    Raises ``InvalidArgumentError`` (CALL-003) with a message for the user if a value is wrong."""
+    try:
+        first, last = parse_frequency(start), parse_frequency(stop)
+    except ValueError as exc:
+        raise InvalidArgumentError(f"{exc} (examples: 1M, 100k, 2.4G)") from exc
+    if first <= 0 or last <= first:
+        raise InvalidArgumentError("the stop frequency must be higher than the start frequency")
+    try:
+        count = int(points)
+    except (TypeError, ValueError) as exc:
+        raise InvalidArgumentError(f"not a number of points: {points!r}") from exc
+    if count < 2:
+        raise InvalidArgumentError("a sweep needs at least 2 points")
+    return {"start": first, "stop": last, "points": count}
+
+
+def supports_kit(library, model_id: str) -> bool:
+    """True if the model accepts the values of a calibration kit (``set_calibration_kit``)."""
+    return "set_calibration_kit" in (library.commands(model_id) or {})
+
+
 @dataclass(frozen=True)
 class CalibrationStep:
     """One standard to connect and measure."""
@@ -297,3 +321,28 @@ def restore(handle, record: CalibrationRecord) -> None:
             points=int(record.sweep["points"]),
         )
     handle.call("calibration_import", data=record.data)
+
+
+def network_analyzers(library, entries: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
+    """The VNAs among the instruments of an ``.inst`` file: ``{instance_name: model_id}``.
+
+    ``entries`` is what ``ola.connection.read_inst_entries`` returns. Manual instruments and
+    models that are not network analyzers are left out."""
+    found = {}
+    for name, entry in entries.items():
+        if entry.get("is_manual"):
+            continue
+        model_id = library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        ref = library.find_model(model_id) if model_id else None
+        if ref is not None and ref.category == "network_analyzers_series":
+            found[name] = model_id
+    return found
+
+
+def save_and_attach(record: CalibrationRecord, project_path) -> Path:
+    """Save the record in the ``calibrations`` folder next to the project file and list it in
+    the project. Returns the path of the record."""
+    project_path = Path(project_path)
+    path = save_record(record, project_path.parent / "calibrations")
+    attach_to_project(project_path, path, record)
+    return path

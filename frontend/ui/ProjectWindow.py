@@ -196,6 +196,7 @@ class ProjectWindow(QMainWindow):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
         self.wir_ = CatalogTranslator("wiring", translator)
+        self.cal_ = CatalogTranslator("calibration", translator)
         # show the connection diagram of a measurement before it starts (a tick in that window
         # turns it off; ``on_wiring_preference`` is told so that it can be remembered)
         self.wiring_before_run = wiring_before_run
@@ -260,12 +261,12 @@ class ProjectWindow(QMainWindow):
             ("prj_edit", self.edit_measurement),
             ("prj_run", self.run_measurement),
             ("wir_button", self.show_connections),
+            ("cal_button", self.calibrate_analyzer),
             ("prj_rename", self.rename_measurement),
             ("prj_remove", self.remove_measurement),
         ):
-            button = QPushButton(
-                self.wir_.t(key) if key.startswith("wir_") else self._t(key)
-            )
+            catalog = {"wir_": self.wir_, "cal_": self.cal_}.get(key[:4])
+            button = QPushButton(catalog.t(key) if catalog else self._t(key))
             button.clicked.connect(lambda _c=False, h=handler: h())
             self.buttons[key] = button
             row.addWidget(button)
@@ -424,6 +425,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_edit"].setEnabled(usable)
         self.buttons["prj_run"].setEnabled(usable)
         self.buttons["wir_button"].setEnabled(usable)
+        self.buttons["cal_button"].setEnabled(self.session is not None)
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
@@ -512,6 +514,34 @@ class ProjectWindow(QMainWindow):
             QMessageBox.information(self, self._t("prj_title"), self.wir_.t("wir_none"))
             return
         dialog.exec()
+
+    def calibrate_analyzer(self) -> None:
+        """Open the calibration window for the network analyzers of the project."""
+        from ola import vna_calibration_flow as flow
+        from ola.connection import ConnectionProblem, read_inst_entries
+
+        library = getattr(self.connector, "library", None)
+        project = self.session.project
+        try:
+            if library is None:
+                raise ConnectionProblem("the instrument library is not available")
+            if not project.inst_file:
+                raise ConnectionProblem("the project has no instrument file (.inst)")
+            entries = read_inst_entries(project.directory / project.inst_file)
+        except ConnectionProblem as exc:
+            QMessageBox.warning(
+                self, self.cal_.t("cal_title"), self.cal_.t("cal_no_connection", error=exc)
+            )
+            return
+        analyzers = flow.network_analyzers(library, entries)
+        if not analyzers:
+            QMessageBox.information(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"))
+            return
+        from frontend.ui.CalibrationDialog import CalibrationDialog
+
+        CalibrationDialog(
+            analyzers, library, self.connector, project.path, self.translator, parent=self
+        ).exec()
 
     def _confirm_wiring(self, ref: MeasurementRef) -> bool:
         """Before a run: show the diagram and ask to start. False if the user cancels."""
