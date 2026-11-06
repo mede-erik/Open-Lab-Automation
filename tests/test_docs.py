@@ -258,8 +258,9 @@ def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna(
 
     text = read(ROOT / "docs" / "vna-calls.md")
     names = (
-        "set_frequency_sweep", "select_sparameters", "run_sweep", "read_sparameters",
-        "set_sweep", "read_sparameter", "network_analyzers_series", "calibrated",
+        "set_frequency_sweep", "run_sweep", "read_sparameters", "set_if_bandwidth",
+        "set_source_power", "set_sweep", "read_sparameter", "network_analyzers_series",
+        "calibrated",
     )  # fmt: skip
     for name in names:
         assert name in text, name
@@ -268,8 +269,11 @@ def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna(
     if schema.is_file():
         library = _json.loads(schema.read_text(encoding="utf-8"))
         assert library["category"] == "network_analyzers_series"
-        for call in ("set_frequency_sweep", "select_sparameters", "run_sweep", "read_sparameters"):
+        for call in ("set_frequency_sweep", "run_sweep", "read_sparameters"):
             assert call in library["calls"], call
+        if "set_source_power" in library["calls"]:  # the newer version of the category
+            assert "select_sparameters" not in library["calls"]
+            assert "args" in library["calls"]["read_sparameters"]
     simple = SimVna()
     assert not uses_library_calls(simple)
     simple.call("set_sweep", start_frequency=1e6, stop_frequency=2e6, points=5, sweep_type="linear")
@@ -278,9 +282,8 @@ def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna(
     lib = SimVna(library_calls=True)
     assert uses_library_calls(lib)
     lib.call("set_frequency_sweep", start_frequency=1e6, stop_frequency=2e6, points=5)
-    lib.call("select_sparameters", sparameters=["S21"])
     lib.call("run_sweep")
-    got = lib.call("read_sparameters")
+    got = lib.call("read_sparameters", sparameters=["S21"])
     assert set(got) == {"frequency", "parameters", "calibrated"} and len(got["frequency"]) == 5
     assert set(got["parameters"]["S21"]) == {"real", "imaginary"}
 

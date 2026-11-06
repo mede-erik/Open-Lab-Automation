@@ -44,7 +44,6 @@ from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 from ola.run_view import format_si
 from ola.vna_common import (
-    as_trace,
     acquire,
     ask_setup,
     check_asset,
@@ -410,8 +409,8 @@ class AmplifierResponse(Measurement):
             }  # fmt: skip
             if "if_bandwidth_hz" in p["sweep"]:
                 narrow["if_bandwidth_hz"] = p["sweep"]["if_bandwidth_hz"]
-            set_sweep(handle, narrow)
-            _, values = as_trace(handle.call("read_sparameter", parameter="S21"), nominal, "S21")
+            _, got = acquire(ctx, handle, narrow, ["S21"], notes=n == 1)
+            values = got["S21"]
             if len(values) != 3:
                 raise MeasurementError("the compression test needs the 3 points it asked for")
             pin.append(power - attenuation)

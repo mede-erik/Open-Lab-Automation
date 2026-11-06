@@ -865,15 +865,17 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   punto si è). Il programma **ignora** un segnaposto (contiene `OLA-PLACEHOLDER`) e mostra il proprio schema finché
   l'utente non lo sostituisce con il suo disegno (stesso nome, o un `.png` accanto).
   **Misure RF e libreria VNA reale** (2026-11-06): la categoria della libreria in `main` è `network_analyzers_series` con
-  `set_frequency_sweep`, `select_sparameters`, `run_sweep`, `read_sparameters` (sweep **lineare** e nient'altro), mentre le
+  `set_frequency_sweep`, `run_sweep`, `read_sparameters(sparameters=[...])` (e opzionali `set_if_bandwidth`, `set_source_power`; sweep lineare), mentre le
   mie sei misure parlavano `set_sweep`/`read_sparameter` (scala, banda IF, potenza): con un LiteVNA vero sarebbero fallite.
-  Adattatore in `ola/vna_common.py` (`uses_library_calls`): se lo strumento ha le chiamate della libreria si usano quelle
-  (un solo sweep per tutti i parametri, `calibrated: false` avvisa), altrimenti le semplici (simulazione). Ciò che la
-  libreria non sa fare (scala log, banda IF, potenza) viene segnalato nel log e lasciato com'è; la **prova di compressione**
-  dell'amplificatore, che varia la potenza, è rifiutata prima di accendere qualcosa. `SimVna(library_calls=True)`; un test
+  Adattatore in `ola/vna_common.py` (`uses_library_calls`: guarda `set_frequency_sweep` e `read_sparameters`): se lo strumento
+  ha le chiamate della libreria si usano quelle (un solo sweep per tutti i parametri, la lista va con la lettura,
+  `calibrated: false` avvisa; `set_if_bandwidth`, `set_source_power` e `set_sweep_type` se lo strumento li ha), altrimenti le
+  semplici (simulazione). Ciò che lo strumento non sa fare (il LiteVNA non ha le tre opzionali) viene segnalato nel log e
+  lasciato com'è; la **prova di compressione** dell'amplificatore, che varia la potenza, funziona con `set_source_power` ed è
+  altrimenti rifiutata prima di accendere qualcosa. Corretto dopo la verifica sullo schema reale in `main` della libreria
+  (la bozza aveva `select_sparameters`, tolta). `SimVna(library_calls=True)`; un test
   controlla che le sei misure diano gli stessi numeri con i due contratti e che le chiamate esistano per i LiteVNA 62/64/67.
-  `docs/vna-calls.md` riscritto (categoria corretta). Da chiedere alla sessione della libreria: chiamate per banda IF e
-  potenza della sorgente (e sweep logaritmico) nella categoria.
+  `docs/vna-calls.md` riscritto (categoria corretta). Lo sweep logaritmico (`set_sweep_type`) lo aggiunge la sessione della libreria.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

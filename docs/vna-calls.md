@@ -11,7 +11,7 @@ The measurements speak **two sets of calls**, and use the first one whenever the
 
 | | Calls | Used for |
 |---|---|---|
-| **The library's category** | `set_frequency_sweep`, `select_sparameters`, `run_sweep`, `read_sparameters` | every real instrument of the library |
+| **The library's category** | `set_frequency_sweep`, `run_sweep`, `read_sparameters`, and the optional `set_if_bandwidth`, `set_source_power`, `set_sweep_type` | every real instrument of the library |
 | **The simple calls** | `set_sweep`, `read_sparameter` | the simulated VNA (the default of `SimVna`) and any instrument that has them |
 
 Which one is used does not change what a measurement gives: the same measurement on `SimVna()` and on
@@ -29,10 +29,12 @@ Which one is used does not change what a measurement gives: the same measurement
 
 | Call | Arguments | What the measurement does |
 |---|---|---|
-| `set_frequency_sweep` | `start_frequency` (Hz), `stop_frequency` (Hz), `points` | sets a **linear** sweep |
-| `select_sparameters` | `sparameters`: a list such as `["S11", "S21"]` | once, with the parameters the measurement needs (the amplifier asks for all four) |
+| `set_frequency_sweep` | `start_frequency` (Hz), `stop_frequency` (Hz), `points` | sets the sweep (linear unless `set_sweep_type` says otherwise) |
 | `run_sweep` | | starts a sweep, once for every sweep averaged |
-| `read_sparameters` | | gives the frequencies and the selected S-parameters of that sweep |
+| `read_sparameters` | `sparameters`: the list of what is needed, such as `["S11", "S21"]` (the amplifier asks for all four) | gives the frequencies and those S-parameters of that sweep |
+| `set_if_bandwidth` (optional) | `value` (Hz) | sent when the file gives `if_bandwidth_hz` |
+| `set_source_power` (optional) | `value` (dBm) | sent when the file gives `power_dbm`; the **compression test** of the amplifier steps it |
+| `set_sweep_type` (optional) | `sweep_type`: `LINEAR` or `LOG` | sent with every sweep when the instrument has it |
 
 All the parameters come from **one** sweep (faster than one sweep for each). The answer of `read_sparameters`:
 
@@ -43,21 +45,23 @@ All the parameters come from **one** sweep (faster than one sweep for each). The
 ```
 
 The measurements work on what comes back: the frequencies actually used are the ones that are plotted, and a parameter that
-was asked and is missing from the answer is an error that names what the instrument gave.
+was asked and is missing from the answer is an error that names what the instrument gave. The first draft of the category had a
+`select_sparameters` call: it **no longer exists**, the list goes with `read_sparameters`, and an instrument that has only the
+draft calls is not recognised as speaking the library's category.
 
-### What this category cannot do yet, and what the measurements do about it
+### What an instrument may not have, and what the measurements do about it
 
-The library's category has a **linear sweep only**, and no IF bandwidth or source power. When a measurement file asks for them
-the measurement **warns in the log and goes on** (nothing is sent for them):
+The three optional calls are not on every instrument (the Siglent SNA / SHN and the R&S ZNx / ZVx have the first two; the
+LiteVNA has none of them and sweeps linearly). When a measurement file asks for something the instrument cannot do, the
+measurement **warns in the log and goes on**, nothing is sent for it:
 
-* `scale: log`: the sweep is linear (the frequencies of the answer are the ones used);
-* `if_bandwidth_hz`, `power_dbm`: the instrument keeps its own setting.
+* `scale: log` without `set_sweep_type`: the sweep is linear (the frequencies of the answer are the ones used);
+* `if_bandwidth_hz` without `set_if_bandwidth`, `power_dbm` without `set_source_power`: the instrument keeps its own setting.
 
 The one measurement that depends on it is the **compression test of the amplifier**, which steps the source power: with an
-instrument that cannot set it, the run is refused **before** the question and before anything is sent ("the compression test
-steps the source power of the VNA, and this VNA has no call to set it"). The rest of the amplifier measurement works. To
-control the bandwidth and the power the library needs two more calls (`set_if_bandwidth`, `set_source_power` or similar) in
-the category; then `vna_common` can send them.
+instrument that has no `set_source_power` the run is refused **before** the question and before anything is sent ("the compression
+test steps the source power of the VNA, and this VNA has no call to set it"). The rest of the amplifier measurement works. At the
+end of the test the power is put back to the one of the sweep.
 
 ## The simple calls
 
@@ -69,7 +73,7 @@ the category; then `vna_common` can send them.
 `read_sparameter` returns only when the sweep has finished. The optional arguments of `set_sweep` are only sent when the user
 gave them. `ola/sim_vna.py` (`SimVna`) implements these on a simulated cable, filter, attenuator, antenna or amplifier, and the
 tests use it: **a measurement that works on `SimVna` must work the same on a real instrument**, whichever calls it has.
-`SimVna(library_calls=True)` answers the library's calls instead (and refuses the simple ones, as a real instrument would).
+`SimVna(library_calls=True)` answers the library's calls instead (and refuses the simple ones, as a real instrument would); `library_extras=False` leaves out the two optional ones, as the LiteVNA does.
 
 ## What a library entry for a VNA needs
 
@@ -80,5 +84,6 @@ tests use it: **a measurement that works on `SimVna` must work the same on a rea
 
 ## Not done yet
 
-The calls for **IF bandwidth and source power**, and a **logarithmic sweep**, are not in the category: see above. Measurements
-with a real VNA have not been made yet: all the RF measurements were tried on the simulation.
+Measurements with a real VNA have not been made yet: all the RF measurements were tried on the simulation, and the calls they
+send were planned for the LiteVNA62, 64 and 67 of the library (a test does it with the library's real schema). `set_sweep_type`
+is a proposal of the library session and not in the schema yet: the measurement uses it as soon as an instrument has it.

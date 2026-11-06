@@ -56,7 +56,9 @@ def traces(evs):
 def test_the_module_is_found_with_its_extension_and_role(registry):
     info = registry.get("cable")
     assert info.extension == ".cbl" and info.name == "Cable characterization"
-    assert [(r.name, r.category, r.required) for r in info.roles] == [("vna", "network_analyzer", True)]
+    assert [(r.name, r.category, r.required) for r in info.roles] == [
+        ("vna", "network_analyzer", True)
+    ]
     assert registry.by_extension(".cbl").id == "cable"
 
 

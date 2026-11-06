@@ -65,7 +65,9 @@ def problems(registry, p):
 def test_the_module_is_found(registry):
     info = registry.get("return_loss")
     assert info.extension == ".rtl" and info.name == "Return loss / VSWR"
-    assert [(r.name, r.category, r.required) for r in info.roles] == [("vna", "network_analyzer", True)]
+    assert [(r.name, r.category, r.required) for r in info.roles] == [
+        ("vna", "network_analyzer", True)
+    ]
     assert registry.by_extension(".rtl").id == "return_loss"
     assert load_form_spec(info) is not None  # it has an editor
 

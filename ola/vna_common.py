@@ -243,42 +243,60 @@ def as_trace(
     return [float(f) for f in freq], complex_values
 
 
-LIBRARY_SWEEP = "set_frequency_sweep"  # a handle that has it speaks the library's VNA category
+LIBRARY_SWEEP = "set_frequency_sweep"
+LIBRARY_READ = "read_sparameters"
 
 
 def uses_library_calls(handle: Any) -> bool:
     """True if the instrument has the calls of the instrument library's network analyzer category
-    (``set_frequency_sweep``, ``select_sparameters``, ``run_sweep``, ``read_sparameters``); else
-    the two simple calls (``set_sweep`` and ``read_sparameter``, see ``docs/vna-calls.md``)."""
+    (``set_frequency_sweep``, ``run_sweep``, ``read_sparameters``); else the two simple calls
+    (``set_sweep`` and ``read_sparameter``, see ``docs/vna-calls.md``)."""
     supports = getattr(handle, "supports", None)
-    return bool(callable(supports) and supports(LIBRARY_SWEEP))
+    return bool(callable(supports) and supports(LIBRARY_SWEEP) and supports(LIBRARY_READ))
+
+
+def _has(handle: Any, call: str) -> bool:
+    supports = getattr(handle, "supports", None)
+    return bool(callable(supports) and supports(call))
 
 
 def can_set_power(handle: Any) -> bool:
     """True if the source power of the VNA can be set: the simple calls do it with the sweep, the
-    library's category has no such call (yet)."""
-    return not uses_library_calls(handle)
+    library's category has the optional ``set_source_power`` (not every instrument has it)."""
+    return not uses_library_calls(handle) or _has(handle, "set_source_power")
 
 
 def sweep_notes(handle: Any, sweep: Mapping[str, Any]) -> List[str]:
-    """What of the sweep the instrument cannot do and will be left out (the library's category has
-    a linear sweep only: no logarithmic spacing, no IF bandwidth, no source power)."""
+    """What of the sweep the instrument cannot do and will be left out: the library's category has
+    a linear sweep only unless the instrument has ``set_sweep_type``, and the IF bandwidth and the
+    source power are optional calls."""
     if not uses_library_calls(handle):
         return []
     notes = []
-    if sweep.get("scale", "linear") == "log":
+    if sweep.get("scale", "linear") == "log" and not _has(handle, "set_sweep_type"):
         notes.append("this VNA sweeps linearly: the logarithmic spacing is not used")
-    if "if_bandwidth_hz" in sweep:
+    if "if_bandwidth_hz" in sweep and not _has(handle, "set_if_bandwidth"):
         notes.append("this VNA has no IF bandwidth setting: it stays as it is on the instrument")
-    if "power_dbm" in sweep:
+    if "power_dbm" in sweep and not _has(handle, "set_source_power"):
         notes.append("this VNA has no source power setting: it stays as it is on the instrument")
     return notes
 
 
 def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
-    """Send the sweep to the VNA: ``set_frequency_sweep`` (start, stop, points) if it has the
-    library's calls, else ``set_sweep`` (with the optional fields only if given)."""
+    """Send the sweep to the VNA. With the library's calls: ``set_sweep_type`` (if the instrument
+    has it), ``set_if_bandwidth`` and ``set_source_power`` (the optional fields, if given and the
+    instrument has them) and ``set_frequency_sweep``. Else ``set_sweep`` with the optional
+    fields only if given."""
     if uses_library_calls(handle):
+        if _has(handle, "set_sweep_type"):
+            kind = "LOG" if sweep.get("scale", "linear") == "log" else "LINEAR"
+            handle.call("set_sweep_type", sweep_type=kind)
+        for key, call in (
+            ("if_bandwidth_hz", "set_if_bandwidth"),
+            ("power_dbm", "set_source_power"),
+        ):
+            if key in sweep and _has(handle, call):
+                handle.call(call, value=float(sweep[key]))
         handle.call(
             LIBRARY_SWEEP,
             start_frequency=sweep["start_hz"],
@@ -304,10 +322,10 @@ def set_sweep(handle: Any, sweep: Mapping[str, Any]) -> None:
 def _library_sweep(
     handle: Any, parameters: Sequence[str], nominal: Sequence[float]
 ) -> Tuple[List[float], Dict[str, List[complex]], bool]:
-    """Run one sweep with the library's calls and take the asked S-parameters out of the answer:
+    """Run one sweep with the library's calls and read the asked S-parameters:
     ``(frequencies, {parameter: values}, calibrated)``."""
     handle.call("run_sweep")
-    result = handle.call("read_sparameters")
+    result = handle.call(LIBRARY_READ, sparameters=list(parameters))
     if not isinstance(result, Mapping) or not isinstance(result.get("parameters"), Mapping):
         raise MeasurementError(
             f"the VNA gave no S-parameters (got {type(result).__name__}: expected frequency, "
@@ -336,20 +354,21 @@ def acquire(
     sweep: Mapping[str, Any],
     parameters: Sequence[str],
     averages: int = 1,
+    notes: bool = True,
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
     ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
 
     An instrument with the library's calls reads all the parameters of one sweep together
-    (``select_sparameters``, ``run_sweep``, ``read_sparameters``); one with the simple calls reads
+    (``run_sweep``, then ``read_sparameters(sparameters=[...])``); one with the simple calls reads
     them one by one (``read_sparameter``). What the instrument cannot do (see ``sweep_notes``) is
-    reported in the log, and so is a result that the instrument says is not calibrated."""
+    reported in the log (``notes=False`` for a sweep that is repeated many times), and so is a
+    result that the instrument says is not calibrated."""
     library = uses_library_calls(handle)
-    for note in sweep_notes(handle, sweep):
-        ctx.log(note, "warning")
+    if notes:
+        for note in sweep_notes(handle, sweep):
+            ctx.log(note, "warning")
     set_sweep(handle, sweep)
-    if library:
-        handle.call("select_sparameters", sparameters=list(parameters))
     nominal = sweep_frequencies(sweep)
     totals: Dict[str, List[complex]] = {}
     freq: List[float] = []
@@ -357,7 +376,7 @@ def acquire(
         ctx.checkpoint()
         if library:
             freq, got, calibrated = _library_sweep(handle, parameters, nominal)
-            if not calibrated and sweep_no == 1:
+            if not calibrated and sweep_no == 1 and notes:
                 ctx.log(
                     "the VNA says its data are not calibrated: calibrate it (or apply its "
                     "calibration) before this measurement",

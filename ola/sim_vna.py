@@ -22,10 +22,11 @@ plane and the filter or the attenuator (the device is then measured through them
 adds a little random error to every point; ``calls`` records what was asked.
 
 Two ways to be asked: the **simple calls** ``set_sweep`` and ``read_sparameter`` (the default) or,
-with ``library_calls=True``, the four calls of the instrument library's network analyzer category
-(``set_frequency_sweep``, ``select_sparameters``, ``run_sweep``, ``read_sparameters``), which have
-only a linear sweep and no IF bandwidth or power. ``calibrated`` is what ``read_sparameters`` says
-about the calibration.
+with ``library_calls=True``, the calls of the instrument library's network analyzer category:
+``set_frequency_sweep`` (linear), ``run_sweep`` and ``read_sparameters(sparameters=[...])``, and the
+optional ``set_source_power`` and ``set_if_bandwidth`` (``library_extras=False`` leaves them out, as
+the LiteVNA does) and ``set_sweep_type`` (``library_sweep_type=True``). ``calibrated`` is what
+``read_sparameters`` says about the calibration.
 """
 
 from __future__ import annotations
@@ -37,10 +38,11 @@ from typing import Any, Dict, List
 
 SPEED_OF_LIGHT = 299_792_458.0
 SIMPLE_CALLS = ("set_sweep", "read_sparameter")
-LIBRARY_CALLS = (
-    "identification_query", "set_frequency_sweep", "select_sparameters", "run_sweep",
-    "read_sparameters",
-)  # fmt: skip
+LIBRARY_CALLS = ("identification_query", "set_frequency_sweep", "run_sweep", "read_sparameters")
+LIBRARY_EXTRAS = (
+    "set_source_power",
+    "set_if_bandwidth",
+)  # optional in the library: not the LiteVNA's
 
 
 class SimVna:
@@ -71,6 +73,8 @@ class SimVna:
         fixture2_m: float = 0.0,
         library_calls: bool = False,
         calibrated: bool = True,
+        library_extras: bool = True,
+        library_sweep_type: bool = False,
     ):
         self.name = name
         self.length_m = length_m
@@ -82,8 +86,9 @@ class SimVna:
         self.attenuator_db, self.attenuator_slope = attenuator_db, attenuator_slope_db_per_ghz
         self.fixture1_m, self.fixture2_m = fixture1_m, fixture2_m
         self.library_calls, self.calibrated = library_calls, calibrated
-        self.selected: List[str] = []
+        self.library_extras, self.library_sweep_type = library_extras, library_sweep_type
         self._swept = False
+        self._lib_power, self._lib_ifbw, self._lib_type = -10.0, 1000.0, "linear"
         self.sweep: Dict[str, Any] = {}
         self.calls: List[tuple] = []
         self._random = random.Random(seed)
@@ -159,8 +164,11 @@ class SimVna:
     def supports(self, name: str) -> bool:
         """True for the calls this simulated VNA knows: the two simple ones, or with
         ``library_calls`` the four of the library's network analyzer category."""
-        known = LIBRARY_CALLS if self.library_calls else SIMPLE_CALLS
-        return name in known
+        if not self.library_calls:
+            return name in SIMPLE_CALLS
+        extras = LIBRARY_EXTRAS if self.library_extras else ()
+        optional = ("set_sweep_type",) if self.library_sweep_type else ()
+        return name in LIBRARY_CALLS + extras + optional
 
     def call(self, name: str, **args: Any) -> Any:
         """Run a logical call (the same interface as an ``InstrumentHandle``)."""
@@ -176,13 +184,24 @@ class SimVna:
         raise ValueError(f"{self.name}: unknown call {name!r}")
 
     def _library_call(self, name: str, args: Dict[str, Any]) -> Any:
-        """The calls of the library's category: a linear sweep, a list of S-parameters, one
-        sweep, and everything read back at once."""
+        """The calls of the library's category: a sweep, one sweep run, and the S-parameters that
+        are asked read back (``read_sparameters`` is given the list of them, as in the library)."""
         if name == "set_frequency_sweep":
-            self._set_sweep(args["start_frequency"], args["stop_frequency"], args["points"])
+            self._set_sweep(
+                args["start_frequency"], args["stop_frequency"], args["points"],
+                self._lib_type, self._lib_ifbw, self._lib_power,
+            )  # fmt: skip
             self._swept = False
-        elif name == "select_sparameters":
-            self.selected = [str(x) for x in args["sparameters"]]
+        elif name == "set_source_power":
+            self._lib_power = float(args["value"])
+            if self.sweep:
+                self.sweep["power"] = self._lib_power
+        elif name == "set_if_bandwidth":
+            self._lib_ifbw = float(args["value"])
+            if self.sweep:
+                self.sweep["if_bandwidth"] = self._lib_ifbw
+        elif name == "set_sweep_type":
+            self._lib_type = str(args["sweep_type"]).lower()
         elif name == "run_sweep":
             if not self.sweep:
                 raise ValueError("no sweep has been set")
@@ -192,9 +211,9 @@ class SimVna:
                 raise ValueError("no sweep has been run")
             freq = self._frequencies()
             parameters = {}
-            for parameter in self.selected:
-                values = [v for v in self._read(parameter)["values"]]
-                parameters[parameter] = {
+            for parameter in args["sparameters"]:
+                values = self._read(str(parameter))["values"]
+                parameters[str(parameter)] = {
                     "real": [v[0] for v in values],
                     "imaginary": [v[1] for v in values],
                 }
