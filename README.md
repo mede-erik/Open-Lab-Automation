@@ -194,6 +194,7 @@ The library currently describes:
 | Dataloggers | Agilent 34970A, Keysight 34972A, Keysight DAQ970A/DAQ973A |
 | Switch units | Agilent 3499A |
 | Multimeters | HP 3478A, Agilent 34401A (no call schema yet, never tried) |
+| Network analyzers | Zenko LiteVNA (driver-based, experimental, never tried on a real instrument) |
 
 Tried on a real instrument so far: **Agilent 34970A** over RS-232 and **Siglent SDS824X HD** over LAN (readings, settings, 8/16-bit waveforms and whole-memory transfers, `.was` files). All the other models are written from the manuals; many are marked experimental in the library. Reports of tests on other instruments are welcome: `Instruments_LIB/TESTING.md` explains how to test and what to report.
 
