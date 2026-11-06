@@ -21,6 +21,8 @@ Commands once connected (type 'help'):
     probe [all]           RS-232: find the baud rate / flow control the instrument answers to
                           ('all' also tries parity even / odd)
     loopback              adapter test: join pins 2 and 3 of the adapter, 'hello' must come back
+    was FILE.was [plan]   apply the settings of an oscilloscope .was file (asks before sending;
+                          'plan' only shows the commands); then check them with 'readback'
     fullwave CH [bits=16] read the whole memory of channel CH (stops the acquisition, blocks joined)
     save FILE.csv [N]     save the last waveform to CSV, keeping 1 point in N (default 1)
     stats                 min, max, peak-to-peak, mean and RMS of the last waveform
@@ -53,7 +55,7 @@ def default_library():
 
 
 COMMANDS = (
-    "help calls missing call plan readback test serial raw probe loopback save stats fullwave "
+    "help calls missing call plan readback test serial raw probe loopback save stats fullwave was "
     "reconnect quit"
 ).split()
 HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".ola_instrument_shell_history")
@@ -351,6 +353,8 @@ class Shell:
                 self.reconnect()
             elif cmd == "reconnect" and self.address:
                 self.reconnect()
+            elif cmd == "was" and rest:
+                self.apply_was(rest[0], dry="plan" in rest[1:])
             elif cmd == "raw" and rest:
                 self.raw(" ".join(rest))
             elif cmd == "probe" and self.address:
@@ -403,6 +407,43 @@ class Shell:
             writer.writerow(["time_s", "voltage_V"])
             writer.writerows(zip(wave["time"][::step], wave["voltage"][::step]))
         self.say(f"  saved {len(wave['time'][::step])} points to {path}")
+
+    def apply_was(self, path, dry=False):
+        """Apply the settings of an oscilloscope .was file call by call, as the application does."""
+        import json
+
+        from ola.was_calls import oscilloscope_calls_from_was
+
+        try:
+            with open(path, encoding="utf-8") as f:
+                calls = oscilloscope_calls_from_was(json.load(f))
+        except (OSError, ValueError) as exc:
+            self.say(f"  cannot read {path}: {exc}")
+            return
+        self.say(f"  {len(calls)} calls from {path}")
+        for name, args in calls:
+            try:
+                steps = tester.describe_plan(self.library, self.model_id, name, args, False)
+            except CallError as exc:
+                self.say(f"  {name:24} {exc}")
+                continue
+            self.say(f"  {name:24} {args}  ->  " + "  ;  ".join(steps))
+        if dry:
+            return
+        if (
+            self.ask("  send all of them (the first call is a reset)? [y/N] ").strip().lower()
+            != "y"
+        ):
+            self.say("  not sent")
+            return
+        for name, args in calls:
+            try:
+                self.handle.call(name, **args)
+                self.say(f"  ok    {name}")
+            except CallError as exc:
+                self.say(f"  FAIL  {name}: {exc}")
+            except Exception as exc:
+                self.say(f"  FAIL  {name}: {type(exc).__name__}: {exc}")
 
     def fullwave(self, words):
         """Read the whole acquisition memory of a channel (blocks joined, acquisition stopped)."""

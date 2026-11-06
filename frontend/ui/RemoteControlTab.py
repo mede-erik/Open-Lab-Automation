@@ -321,9 +321,11 @@ class RemoteControlTab(QWidget):
             if self.logger:
                 self.logger.error(f"Serial settings for {visa_addr} not applied: {exc}")
 
-    def _get_instrument_executor(self, visa_addr, instr, name):
-        """Executor (ola.instrument.Instrument) of one instrument, one per VISA resource."""
+    def _get_instrument_executor(self, visa_addr, instr, name, library=None, model_id=None):
+        """Executor (ola.instrument.Instrument) of one instrument, one per VISA resource.
+        A model that is controlled by a driver (access "driver") gets its driver."""
         from ola._visa import VisaConnection
+        from ola.drivers import driver_for
         from ola.instrument import Instrument
         executors = self.__dict__.setdefault('_executors', {})
         entry = executors.get(visa_addr)
@@ -334,7 +336,8 @@ class RemoteControlTab(QWidget):
             if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
                 connection.set_terminators(
                     cfg.get('write_termination', '\n'), cfg.get('read_termination', '\n'))
-            entry = (instr, Instrument(name, connection))
+            driver = driver_for(library, model_id, connection) if library and model_id else None
+            entry = (instr, Instrument(name, connection, driver))
             executors[visa_addr] = entry
         return entry[1]
 
@@ -1494,7 +1497,8 @@ class RemoteControlTab(QWidget):
             raise CallNotSupportedError(
                 f"instrument {inst.get('instance_name', '?')!r} is not connected", call=call)
         visa_addr = inst.get('visa_address', '')
-        executor = self._get_instrument_executor(visa_addr, instr, inst.get('instance_name', visa_addr))
+        executor = self._get_instrument_executor(
+            visa_addr, instr, inst.get('instance_name', visa_addr), library, model_id)
         if ch is not None and 'channel_number' not in args:
             number = self._extract_channel_number(ch.get('channel_id'))
             if number is not None:
