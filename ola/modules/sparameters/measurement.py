@@ -37,7 +37,10 @@ def magnitude_db(value: complex) -> float:
 
 
 class SParameters(Measurement):
+    """Sweep a vector network analyzer and record its S-parameters (see the module docstring)."""
+
     def validate(self):
+        """Parameter problems as strings (empty list: the parameters are valid)."""
         p, problems = self.params, []
         for key in ("start_hz", "stop_hz"):
             if not _number(p.get(key)) or p[key] < 0:
@@ -76,6 +79,7 @@ class SParameters(Measurement):
         return problems
 
     def setup(self, ctx: MeasurementContext) -> None:
+        """Set the sweep (and, when asked, the IF bandwidth and the power) on the analyzer."""
         self._vna = ctx.instrument("vna")
         p = self.params
         self._vna.call(
@@ -91,6 +95,7 @@ class SParameters(Measurement):
         self._warned = False
 
     def run(self, ctx: MeasurementContext) -> None:
+        """Run the sweeps: one complex trace per S-parameter and one summary point per sweep."""
         names = list(self.params.get("sparameters", ["S11"]))
         sweeps = int(self.params.get("sweeps", 1))
         interval = float(self.params.get("interval_s", 0))
