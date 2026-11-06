@@ -385,19 +385,23 @@ class PulseGeneratorDialog(QDialog):
             self.current_limits = self.load_instruments.get_channel_limits(
                 type_name, series_id, model_id
             )
-            max_current = self.current_limits.get('max_current') or 100.0
-            max_voltage = self.current_limits.get('max_voltage') or 80.0
+            max_current = self.current_limits.get('max_current')
+            max_voltage = self.current_limits.get('max_voltage')
             max_power = self.current_limits.get('max_power')  # None: the library has no limit
 
-            # Update spinbox limits
-            self.amplitude_spin.setMaximum(max_current)
-            self.base_level_spin.setMaximum(max_current)
+            # Update spinbox limits (100 A is only the range of the spin box when the library
+            # gives no current limit: it is not shown as a limit of the instrument)
+            self.amplitude_spin.setMaximum(max_current or 100.0)
+            self.base_level_spin.setMaximum(max_current or 100.0)
 
-            # Update info label
+            # Update info label: only the limits the library gives
+            def shown(value, unit):
+                return f"{value}{unit}" if value else "n/a"
+
             info_text = (
                 f"✓ {self.translator.t('pulse_supported')}\n"
-                f"Max: {max_current}A, {max_voltage}V, "
-                f"{str(max_power) + 'W' if max_power else 'power: n/a'}"
+                f"Max: {shown(max_current, 'A')}, {shown(max_voltage, 'V')}, "
+                f"{shown(max_power, 'W')}"
             )
             self.instrument_info_label.setText(info_text)
             self.instrument_info_label.setStyleSheet("color: #0a0; font-weight: bold;")
