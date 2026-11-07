@@ -299,7 +299,7 @@ def test_the_user_decides_when_an_instrument_has_less_than_before(window, monkey
     found = [Finding("dmm", "NEW", "max_voltage", 100.0, 200.0, "OLD", 39.6)]
     ref = window.session.project.measurements[0]
     window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
-    monkeypatch.setattr(window.session, "compatibility", lambda r, f: found)
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: found)
     answers = []
 
     def fake_exec(self):
@@ -311,7 +311,7 @@ def test_the_user_decides_when_an_instrument_has_less_than_before(window, monkey
     assert answers == ["100 V"]
     monkeypatch.setattr(CompatibilityDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
     assert window._check_compatibility(ref) == (True, found)
-    monkeypatch.setattr(window.session, "compatibility", lambda r, f: [])
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: [])
     assert window._check_compatibility(ref) == (True, None)  # nothing to say: no pop-up
 
 
@@ -319,8 +319,29 @@ def test_a_failing_comparison_never_stops_a_run(window, monkeypatch):
     ref = window.session.project.measurements[0]
     window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
 
-    def boom(r, f):
+    def boom(r, f, a=None):
         raise RuntimeError("cannot compare")
 
     monkeypatch.setattr(window.session, "compatibility", boom)
     assert window._check_compatibility(ref) == (True, None)
+
+
+def test_a_sweep_the_vna_cannot_do_stops_the_run_and_nothing_can_be_accepted(window, monkeypatch):
+    from PyQt6.QtWidgets import QDialog
+
+    from frontend.ui.CompatibilityDialog import CompatibilityDialog
+    from ola.compat import Finding
+
+    found = [Finding("vna", "LITE", "frequency_max_hz", 6.3e9, 4.5e9, "OLD", 8e9, True)]
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: found)
+    seen = []
+
+    def fake_exec(self):
+        seen.append((self.blocking, hasattr(self, "continue_button")))
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(CompatibilityDialog, "exec", fake_exec)
+    assert window._check_compatibility(ref) == (False, None)
+    assert seen == [(True, False)]  # only Close: there is no button that goes on

@@ -261,3 +261,116 @@ def test_a_difference_is_kept_in_plain_values_for_the_run_header():
         "blocking": False,
     }
     json.dumps(f.to_dict())
+
+
+# ---- network analyzers ---------------------------------------------------------------------------
+def vna(name, **kw):
+    have = {k: v for k, v in kw.items() if k.startswith(("frequency", "max_"))}
+    return [
+        {
+            "name": name,
+            "characteristics": have,
+            "abilities": kw.get("abilities", {}),
+        }
+    ]
+
+
+SWEEP = {"sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 401}}
+
+
+def test_where_the_sweep_is():
+    assert compat.sweep_of(SWEEP) == {"start_hz": 1e6, "stop_hz": 3e9, "points": 401.0}
+    top = {"start_hz": 1e6, "stop_hz": 1e9, "points": 201, "sparameters": ["S11"]}
+    assert compat.sweep_of(top)["stop_hz"] == 1e9
+    assert compat.sweep_of({"sweep": {"start_hz": "x"}}) is None
+    assert compat.sweep_of({}) is None
+
+
+def test_a_sweep_outside_the_range_of_the_vna_blocks_and_shows_both_ranges():
+    runs = [previous_run("OLD", {"frequency_min_hz": 9e3, "frequency_max_hz": 4.5e9})]
+    runs[0]["header"]["instruments"] = {
+        "vna": runs[0]["header"]["instruments"]["dmm"]
+    }  # the role of this test is "vna"
+    new_vna = vna("LITE", frequency_min_hz=5e4, frequency_max_hz=2e9)
+    found = compat.check_network_analyzer("vna", new_vna, SWEEP, runs)
+    assert [(f.characteristic, f.blocking) for f in found] == [("frequency_max_hz", True)]
+    f = found[0]
+    assert (f.value, f.previous, f.previous_name, f.need) == (2e9, 4.5e9, "OLD", 3e9)
+    low = compat.check_network_analyzer(
+        "vna", vna("LITE", frequency_min_hz=5e6, frequency_max_hz=6e9), SWEEP, runs
+    )
+    assert [(f.characteristic, f.need) for f in low] == [("frequency_min_hz", 1e6)]
+
+
+def test_the_range_blocks_also_when_the_measurement_was_never_run():
+    found = compat.check_network_analyzer(
+        "vna", vna("LITE", frequency_min_hz=5e4, frequency_max_hz=2e9), SWEEP, []
+    )
+    assert len(found) == 1 and found[0].blocking and found[0].previous is None
+
+
+def test_a_sweep_inside_the_range_and_a_vna_without_numbers_are_fine():
+    assert (
+        compat.check_network_analyzer(
+            "vna",
+            vna("A", frequency_min_hz=9e3, frequency_max_hz=4.5e9),
+            {"sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 11}},
+            [],
+        )
+        == []
+    )
+    assert (
+        compat.check_network_analyzer("vna", vna("B"), SWEEP, []) == []
+    )  # the library says nothing
+    assert compat.check_network_analyzer("vna", vna("C", frequency_max_hz=1e9), {}, []) == []
+
+
+def test_too_many_points_block():
+    found = compat.check_network_analyzer(
+        "vna", vna("A", max_sweep_points=201), {"sweep": {**SWEEP["sweep"], "points": 401}}, []
+    )
+    assert [(f.characteristic, f.need, f.value) for f in found] == [("max_sweep_points", 401, 201)]
+
+
+def used_run(used):
+    return {
+        "header": {"instruments": {"vna": [{"name": "OLD"}]}},
+        "end": {"observed": {"vna": [{"name": "OLD", "observed": {}, "used": used}]}},
+    }
+
+
+def test_sparameters_and_source_power_used_before_are_warnings_not_blocks():
+    runs = [used_run({"sparameters": ["S11", "S12", "S21", "S22"], "source_power": True})]
+    lite = vna("LITE")
+    lite[0]["abilities"] = {"sparameters": ["S11", "S21"], "source_power": False}
+    found = compat.check_network_analyzer("vna", lite, {}, runs)
+    by_key = {f.characteristic: f for f in found}
+    assert set(by_key) == {"sparameters", "source_power"}
+    assert not by_key["sparameters"].blocking and not by_key["source_power"].blocking
+    assert by_key["sparameters"].value_text == "S11, S21"
+    assert by_key["sparameters"].need_text == "S11, S12, S21, S22"
+    # a VNA that does everything, or one the library says nothing about, is not reported
+    full = vna("FULL")
+    full[0]["abilities"] = {"sparameters": ["S11", "S12", "S21", "S22"], "source_power": True}
+    assert compat.check_network_analyzer("vna", full, {}, runs) == []
+    unknown = vna("X")
+    unknown[0]["abilities"] = {"sparameters": None, "source_power": True}
+    assert compat.check_network_analyzer("vna", unknown, {}, runs) == []
+
+
+def test_what_a_vna_was_asked_is_remembered_and_goes_into_the_end_record():
+    store = {}
+    compat.note_use(store, "read_sparameters", {"sparameters": ["S21", "S11"]})
+    compat.note_use(store, "read_sparameters", {"sparameters": ["S11"]})
+    compat.note_use(store, "set_source_power", {"value": -10})
+    compat.note_use(store, "set_if_bandwidth", {"value": 1000})
+    assert store == {"sparameters": ["S11", "S21"], "source_power": True}
+
+    class H:
+        name, observed, used = "VNA", {}, store
+
+    class R:
+        bindings = {"vna": [H()]}
+
+    assert compat.observed_of(R())["vna"][0]["used"] == store
+    assert compat.role_use([{"end": {"observed": compat.observed_of(R())}}], "vna") == store

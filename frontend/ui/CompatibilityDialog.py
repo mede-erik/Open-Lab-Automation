@@ -89,9 +89,9 @@ class CompatibilityDialog(QDialog):
                 f.role,
                 f.instrument,
                 self.t("compat_char_" + f.characteristic),
-                format_value(f.characteristic, f.value),
+                f.value_text or format_value(f.characteristic, f.value),
                 previous,
-                format_value(f.characteristic, f.need),
+                f.need_text or format_value(f.characteristic, f.need),
             )
             for column, text in enumerate(cells):
                 item = QTableWidgetItem(text)

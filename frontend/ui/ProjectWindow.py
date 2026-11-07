@@ -561,7 +561,9 @@ class ProjectWindow(QMainWindow):
         if characteristics_of is None:
             return True, None
         try:
-            findings = self.session.compatibility(ref, characteristics_of)
+            findings = self.session.compatibility(
+                ref, characteristics_of, getattr(self.connector, "abilities", None)
+            )
         except Exception as exc:  # the check is a help: it must not prevent the run
             logger.warning("the instruments could not be compared: %s", exc)
             return True, None

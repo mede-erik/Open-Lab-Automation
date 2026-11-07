@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .assets import normalize_code, snapshots_for
-from .compat import Finding, check_role, observed_of
+from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
@@ -213,12 +213,18 @@ class ProjectSession:
         return handles
 
     def compatibility(
-        self, ref: MeasurementRef, characteristics_of: Callable[[str], Dict[str, float]]
+        self,
+        ref: MeasurementRef,
+        characteristics_of: Callable[[str], Dict[str, float]],
+        abilities_of: Optional[Callable[[str], Dict[str, Any]]] = None,
     ) -> List[Finding]:
         """What the instruments now bound to the roles of a measurement have less of than the ones
         of its previous runs (see ``ola.compat.check_role``). ``characteristics_of(name)`` gives
         what an instrument of the project can do (``ProjectConnector.characteristics``). Nothing
-        is connected. Empty if there are no previous runs."""
+        is connected. ``abilities_of(name)``: what a network analyzer can measure (see
+        ``ProjectConnector.abilities``). For the previous instrument of a role there have to be
+        previous runs, except for a VNA, whose sweep is checked against the parameters of the
+        measurement whether or not it was run before."""
         row = next((r for r in self.rows() if r.ref.id == ref.id), None)
         if row is None or row.info is None:
             return []
@@ -235,7 +241,12 @@ class ProjectSession:
             if isinstance(wanted, str):
                 wanted = [wanted]
             bound = [{"name": n, "characteristics": characteristics_of(n)} for n in wanted]
-            findings += check_role(role.name, bound, runs)
+            if role.category == "network_analyzer":
+                for item in bound:
+                    item["abilities"] = abilities_of(item["name"]) if abilities_of else {}
+                findings += check_network_analyzer(role.name, bound, measurement_file.params, runs)
+            else:
+                findings += check_role(role.name, bound, runs)
         return findings
 
     def build_runner(

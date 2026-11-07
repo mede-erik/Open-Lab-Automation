@@ -451,7 +451,7 @@
   "multimeter": "Multimètre",
   "compat_title": "Différences entre instruments",
   "compat_intro_warn": "Ces instruments ont des performances inférieures à celles des instruments utilisés lors des mesures précédentes. Continuez seulement si la mesure n'a pas besoin de ce qui manque ; les différences seront écrites dans l'enregistrement.",
-  "compat_intro_block": "Cette mesure ne peut pas être faite avec ces instruments. Modifiez la mesure (par exemple le balayage) ou les instruments.",
+  "compat_intro_block": "Cette mesure ne peut pas être faite avec ces instruments. Ajustez le balayage (ou les paramètres) pour rester dans ce que l'instrument peut faire, indiqué ci-dessous à côté de l'instrument précédent, ou choisissez un autre instrument.",
   "compat_col_role": "Rôle",
   "compat_col_instrument": "Instrument",
   "compat_col_characteristic": "Caractéristique",
@@ -472,5 +472,7 @@
   "compat_char_number_of_ports": "Nombre de ports",
   "compat_char_max_sweep_points": "Points maximaux du balayage",
   "compat_char_frequency_min_hz": "Fréquence minimale",
-  "compat_char_frequency_max_hz": "Fréquence maximale"
+  "compat_char_frequency_max_hz": "Fréquence maximale",
+  "compat_char_sparameters": "Paramètres S",
+  "compat_char_source_power": "Réglage de la puissance de la source"
 }

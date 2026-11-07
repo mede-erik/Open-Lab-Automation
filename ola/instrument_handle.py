@@ -14,7 +14,7 @@ import threading
 from typing import Any, Dict, Optional
 
 from .call_planner import plan_call
-from .compat import observe
+from .compat import note_use, observe
 from .instrument import Instrument
 from .library import Library
 
@@ -37,6 +37,8 @@ class InstrumentHandle:
         self._cancel = cancel
         # the largest value of each quantity set or read through this handle (one run)
         self.observed: Dict[str, float] = {}
+        # what a VNA was asked that not every VNA can do (S-parameters read, source power set)
+        self.used: Dict[str, Any] = {}
 
     @property
     def library(self) -> Library:
@@ -64,6 +66,7 @@ class InstrumentHandle:
         result = plan.interpret(self._instrument.run(plan, cancel=self._cancel))
         try:
             observe(self.observed, name, args, result)
+            note_use(self.used, name, args)
         except Exception:  # remembering what was asked must never break a measurement
             pass
         if name in ("calibration_begin", "calibration_clear"):
