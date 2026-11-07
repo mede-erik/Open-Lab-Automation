@@ -148,3 +148,41 @@ def test_choosing_the_instrument_file(tmp_path):
         session.set_instrument_file("../evil.inst")
     with pytest.raises(MeasurementError):
         session.set_instrument_file("nothere.inst")
+
+
+class ObservingHandle(DemoHandle):
+    """A demo handle that remembers what it was asked and gave, like a real handle does."""
+
+    def __init__(self, name, lab):
+        super().__init__(name, lab)
+        self.observed = {}
+
+    def call(self, name, **args):
+        result = super().call(name, **args)
+        from ola.compat import observe
+
+        observe(self.observed, name, args, result)
+        return result
+
+
+def test_the_end_of_a_run_file_keeps_what_the_instruments_were_asked_and_gave(tmp_path):
+    registry = default_registry(user_dir="/nonexistent")
+    lab = DemoLab()
+    session = ProjectSession(
+        Project.new("Demo", tmp_path),
+        registry,
+        connect=lambda name, cancel=None: ObservingHandle(name, lab),
+        instruments=INSTRUMENTS,
+    )
+    ref = add_efficiency(session)
+    runner, path = session.build_runner(ref)
+    runner.start()
+    runner.join(30)
+    run = read_run(path)
+    assert run["end"]["state"] == "finished"
+    seen = run["end"].get("observed")
+    assert seen, "the demo lab sets and reads voltages: something must have been observed"
+    for rows in seen.values():
+        for row in rows:
+            assert all(v >= 0 for v in row["observed"].values())
+    assert set(run["header"]["instruments"]) == set(run["header"]["bindings"])

@@ -92,6 +92,11 @@ def snapshot(handle: Any) -> Dict[str, Any]:
     if getattr(handle, "is_manual", False):
         data["manual"] = True
         data["type"] = getattr(handle, "instrument_type", None)
+        from .compat import handle_characteristics
+
+        numbers = handle_characteristics(handle)
+        if numbers:
+            data["characteristics"] = numbers  # its limits, as they were that day
         return data
     model_id = getattr(handle, "model_id", None)
     if model_id:
@@ -104,6 +109,14 @@ def snapshot(handle: Any) -> Dict[str, Any]:
             serial_number=identity.serial_number,
             firmware=identity.firmware,
         )
+    from .compat import handle_characteristics
+
+    try:
+        numbers = handle_characteristics(handle)
+    except Exception:  # a handle that cannot say what it can do
+        numbers = {}
+    if numbers:
+        data["characteristics"] = numbers
     calibration = getattr(handle, "calibration", None)
     if calibration:
         data["calibration"] = dict(calibration)
