@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The window that lets you use a project received from someone else with your own instruments.
 
 The measurements of the project name the instruments of the sender; this window lists the names that

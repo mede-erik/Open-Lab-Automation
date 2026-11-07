@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Using a project that names instruments you do not have. No Qt.
 
 A project can be sent to another person. Its measurements name the instruments of the sender
