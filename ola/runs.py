@@ -22,6 +22,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
+from .identity import snapshot
 from .measurement import Event
 from .runner import FINAL_STATES, Runner
 
@@ -47,6 +48,8 @@ class RunWriter:
             "module_version": getattr(info, "version", None),
             "params": runner.measurement.params,
             "bindings": {r: [h.name for h in hs] for r, hs in runner.bindings.items()},
+            # who made the measurement: kept as it was that day (see ola.identity)
+            "instruments": {r: [snapshot(h) for h in hs] for r, hs in runner.bindings.items()},
             **extra,
         }
 

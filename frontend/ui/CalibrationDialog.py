@@ -444,6 +444,8 @@ class CalibrationDialog(QDialog):
             session.finish()
             record = session.record(name, model_id)
             path = flow.save_and_attach(record, project) if project else None
+            if path is not None and hasattr(session.handle, "set_calibration"):
+                session.handle.set_calibration(flow.calibration_info(record, path, project))
             return record, path
 
         self.measure_button.setEnabled(False)

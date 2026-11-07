@@ -104,7 +104,8 @@ class LiteVnaDriver:
         hardware = self._read_register(HARDWARE_REVISION)[0]
         major = self._read_register(FIRMWARE_MAJOR)[0]
         minor = self._read_register(FIRMWARE_MINOR)[0]
-        return f"Zenko,LiteVNA,hardware {hardware},firmware {major}.{minor}"
+        # the usual four fields; the device has no serial number register (0 = none)
+        return f"Zenko,LiteVNA,0,hardware {hardware} firmware {major}.{minor}"
 
     def fn_set_frequency_sweep(self, start_frequency, stop_frequency, points) -> None:
         """Linear sweep: the device takes start, step and number of points."""
