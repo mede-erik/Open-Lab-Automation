@@ -20,7 +20,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 from .identity import snapshot
 from .measurement import Event
@@ -30,7 +30,15 @@ from .runner import FINAL_STATES, Runner
 class RunWriter:
     """Listener for ``Runner`` that appends events to a run file."""
 
-    def __init__(self, path: Union[str, Path], header: Mapping[str, Any]):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        header: Mapping[str, Any],
+        observed: Optional[Callable[[], Mapping[str, Any]]] = None,
+    ):
+        """``observed()``: called when the run ends, gives what the instruments were asked and gave
+        (see ``ola.compat.observed_of``), which goes into the ``end`` record."""
+        self._observed = observed
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._f = open(self.path, "w", encoding="utf-8", newline="\n")
@@ -59,7 +67,11 @@ class RunWriter:
         if event.kind == "state":
             state = event.data["state"]
             if state in {s.value for s in FINAL_STATES}:
-                self._write({"kind": "end", "state": state, "error": self.error, "t": event.t})
+                end = {"kind": "end", "state": state, "error": self.error, "t": event.t}
+                seen = self._observed() if self._observed else None
+                if seen:
+                    end["observed"] = seen
+                self._write(end)
                 self.close()
             return
         if event.kind == "error":

@@ -11,9 +11,10 @@ Errors are the CALL-xxx exceptions of ``ola.call_errors``.
 from __future__ import annotations
 
 import threading
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from .call_planner import plan_call
+from .compat import observe
 from .instrument import Instrument
 from .library import Library
 
@@ -34,6 +35,13 @@ class InstrumentHandle:
         self._library = library
         self._instrument = instrument
         self._cancel = cancel
+        # the largest value of each quantity set or read through this handle (one run)
+        self.observed: Dict[str, float] = {}
+
+    @property
+    def library(self) -> Library:
+        """The instrument library the calls are planned with."""
+        return self._library
 
     @property
     def identity(self) -> Any:
@@ -54,6 +62,10 @@ class InstrumentHandle:
         """Run a logical call and return its logical result (None for calls without result)."""
         plan = plan_call(self._library, self.model_id, name, args)
         result = plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        try:
+            observe(self.observed, name, args, result)
+        except Exception:  # remembering what was asked must never break a measurement
+            pass
         if name in ("calibration_begin", "calibration_clear"):
             self._instrument.calibration = None  # a new or removed calibration: the old one is gone
         return result

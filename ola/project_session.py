@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .assets import normalize_code, snapshots_for
+from .compat import observed_of
 from .deembed import latest_cable_run
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
@@ -249,7 +250,7 @@ class ProjectSession:
             project=self.project.name,
             **extra,
         )
-        runner.add_listener(RunWriter(path, header))
+        runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
 
     def resolve_correction(self, params: Dict[str, Any]) -> Dict[str, Any]:
