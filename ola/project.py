@@ -102,6 +102,11 @@ class MeasurementFile:
         )
 
 
+# keys of the project file that are written directly, not through ``Project``: on a save the file
+# on disk is the newest
+DISK_KEYS = ("calibrations",)
+
+
 @dataclass
 class Project:
     """A project: name, folder, instrument file and its measurements."""
@@ -160,6 +165,7 @@ class Project:
     def save(self) -> None:
         """Write the project file, keeping the keys this program does not know."""
         data: Dict[str, Any] = {
+            **self._written_elsewhere(),
             **self.extra,
             "format_version": FORMAT_VERSION,
             "project_name": self.name,
@@ -170,6 +176,24 @@ class Project:
         self.path.write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
+
+    def _written_elsewhere(self) -> Dict[str, Any]:
+        """The keys of the file on disk that other parts of the program write directly (the list
+        of the calibrations, saved by the calibration window while this object was already
+        loaded): they must not be lost when the project is saved. Keys this object knows win,
+        except the ones in ``DISK_KEYS``, where the file is the newest."""
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(raw, dict):
+            return {}
+        known = {"format_version", "project_name", "inst_file", "measurements"}
+        on_disk = {k: v for k, v in raw.items() if k not in known}
+        keep = {k: v for k, v in on_disk.items() if k not in self.extra or k in DISK_KEYS}
+        for key in DISK_KEYS:
+            self.extra.pop(key, None)  # the file is the newest: ``keep`` has it
+        return keep
 
     # ----- measurements ---------------------------------------------------------------------
     def get(self, measurement_id: str) -> MeasurementRef:

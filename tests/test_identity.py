@@ -212,3 +212,110 @@ def test_the_header_of_a_run_keeps_the_apparatus(tmp_path):
         "type": "power_supply",
     }
     json.dumps(header)  # it goes into the run file
+
+
+# ---- a calibration belongs to one apparatus ----------------------------------------------------
+SWEEP = {"start": 1e6, "stop": 2e6, "points": 21}
+
+
+def calibrated(tmp_path, serial):
+    """A LiteVNA simulation calibrated (ideal standards) and saved in a project, as made for
+    ``serial``. Returns (library, sim, project path)."""
+    library = Library.load(LIB)
+    sim = SimLiteVna()
+    handle = make_handle(library, "VNA_Zenko_LiteVNA62", sim, "VNA")
+    handle._instrument.identity = ident.parse_idn(f"Zenko,LiteVNA,{serial},1.0")
+    session = flow.CalibrationSession(handle, "ONE_PORT", 1, None, SWEEP)
+    session.start()
+    for step, gamma in zip(session.steps, (1, -1, 0)):
+        sim.connect(gamma)
+        session.measure(step)
+    session.finish()
+    project = tmp_path / "p.json"
+    if not project.exists():  # a second apparatus calibrated for the same project
+        project.write_text(json.dumps({"project_name": "p"}), encoding="utf-8")
+    flow.save_and_attach(session.record("VNA", "VNA_Zenko_LiteVNA62"), project)
+    return library, sim, project
+
+
+def fresh_handle(library, sim, serial):
+    handle = make_handle(library, "VNA_Zenko_LiteVNA62", sim, "VNA")
+    if serial is not None:
+        handle._instrument.identity = ident.parse_idn(f"Zenko,LiteVNA,{serial},1.0")
+    return handle
+
+
+ASKED = {"start_hz": 1e6, "stop_hz": 2e6, "points": 21}
+
+
+@needs_library
+def test_the_calibration_of_this_apparatus_is_restored_for_the_same_sweep(tmp_path):
+    library, sim, project = calibrated(tmp_path, "SN42")
+    handle = fresh_handle(library, sim, "SN42")
+    info = flow.auto_restore(handle, project, ASKED)
+    assert info["restored"] and info["serial_number"] == "SN42"
+    assert handle.calibration == info  # the snapshot of the run will say so
+    sim.connect(lambda f: 0.3)
+    assert handle.call("read_sparameters", sparameters=["S11"])["calibrated"] is True
+
+
+@needs_library
+def test_a_calibration_is_never_used_with_another_apparatus(tmp_path):
+    library, sim, project = calibrated(tmp_path, "SN42")
+    for serial in ("SN99", None):  # another serial, or one that gives none
+        handle = fresh_handle(library, sim, serial)
+        assert flow.auto_restore(handle, project, ASKED) is None
+        assert handle.calibration is None
+    assert flow.find_record(project, "SN99") is None and flow.find_record(project, None) is None
+    assert flow.find_record(project, "SN42") is not None
+
+
+@needs_library
+def test_another_sweep_or_an_already_calibrated_instrument_is_left_alone(tmp_path):
+    library, sim, project = calibrated(tmp_path, "SN42")
+    handle = fresh_handle(library, sim, "SN42")
+    assert flow.auto_restore(handle, project, {**ASKED, "points": 101}) is None
+    assert flow.auto_restore(handle, project, None) is None
+    handle.set_calibration({"file": "x"})
+    assert flow.auto_restore(handle, project, ASKED) is None  # one is applied already
+
+
+@needs_library
+def test_calibrations_of_two_apparatus_with_the_same_name_are_kept_apart(tmp_path):
+    library, sim, project = calibrated(tmp_path, "SN42")
+    calibrated(tmp_path, "SN43")
+    entries = json.loads(project.read_text(encoding="utf-8"))["calibrations"]
+    assert sorted(e["serial_number"] for e in entries) == ["SN42", "SN43"]
+    assert flow.find_record(project, "SN43")[0].serial_number == "SN43"
+    assert flow.find_record(project, "SN42")[0].serial_number == "SN42"
+
+
+@needs_library
+def test_a_run_restores_the_calibration_of_its_vna_and_the_header_says_so(tmp_path):
+    from ola.project import Project
+    from ola.project_session import ProjectSession
+    from ola.registry import default_registry
+    from ola.runs import read_run
+
+    library, sim, project_path = calibrated(tmp_path, "SN42")
+    project = Project.new("p", tmp_path)
+    project.path = project_path  # the project file the calibration was listed in
+    session = ProjectSession(
+        project,
+        default_registry(user_dir="/nonexistent"),
+        connect=lambda name, cancel=None: fresh_handle(library, sim, "SN42"),
+        instruments=["VNA"],
+    )
+    ref = session.create("sparameters", "S")
+    raw = json.loads(session.path(ref).read_text(encoding="utf-8"))
+    raw["params"] = {"start_hz": 1e6, "stop_hz": 2e6, "points": 21, "sparameters": ["S11"]}
+    raw["role_bindings"] = {"vna": ["VNA"]}
+    session.path(ref).write_text(json.dumps(raw), encoding="utf-8")
+    sim.connect(lambda f: 0.3)
+    runner, path = session.build_runner(ref)
+    runner.start()
+    runner.join(30)
+    header = read_run(path)["header"]
+    calibration = header["instruments"]["vna"][0]["calibration"]
+    assert calibration["restored"] is True and calibration["serial_number"] == "SN42"
+    assert calibration["file"].startswith("calibrations/VNA_SN42_")
