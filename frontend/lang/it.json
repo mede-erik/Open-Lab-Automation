@@ -452,7 +452,7 @@
   "multimeter": "Multimetro",
   "compat_title": "Differenze tra strumenti",
   "compat_intro_warn": "Questi strumenti hanno prestazioni inferiori a quelli usati nelle misure precedenti. Continua solo se la misura non richiede ciò che manca; le differenze verranno scritte nel run.",
-  "compat_intro_block": "Questa misura non può essere eseguita con questi strumenti. Cambia la misura (ad esempio lo sweep) o gli strumenti.",
+  "compat_intro_block": "Questa misura non può essere eseguita con questi strumenti. Correggi lo sweep (o i parametri) per restare dentro ciò che lo strumento può fare, mostrato qui sotto accanto allo strumento precedente, oppure scegli un altro strumento.",
   "compat_col_role": "Ruolo",
   "compat_col_instrument": "Strumento",
   "compat_col_characteristic": "Caratteristica",
@@ -473,5 +473,7 @@
   "compat_char_number_of_ports": "Numero di porte",
   "compat_char_max_sweep_points": "Punti massimi dello sweep",
   "compat_char_frequency_min_hz": "Frequenza minima",
-  "compat_char_frequency_max_hz": "Frequenza massima"
+  "compat_char_frequency_max_hz": "Frequenza massima",
+  "compat_char_sparameters": "Parametri S",
+  "compat_char_source_power": "Controllo della potenza sorgente"
 }

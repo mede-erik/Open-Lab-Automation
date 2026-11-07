@@ -452,7 +452,7 @@
   "multimeter": "Multímetro",
   "compat_title": "Diferencias entre instrumentos",
   "compat_intro_warn": "Estos instrumentos rinden menos que los usados en las medidas anteriores. Continúe solo si la medida no necesita lo que falta; las diferencias se anotarán en el registro.",
-  "compat_intro_block": "Esta medida no se puede hacer con estos instrumentos. Cambie la medida (por ejemplo el barrido) o los instrumentos.",
+  "compat_intro_block": "Esta medida no se puede hacer con estos instrumentos. Ajuste el barrido (o los parámetros) para quedar dentro de lo que el instrumento puede hacer, mostrado abajo junto al instrumento anterior, o elija otro instrumento.",
   "compat_col_role": "Función",
   "compat_col_instrument": "Instrumento",
   "compat_col_characteristic": "Característica",
@@ -473,5 +473,7 @@
   "compat_char_number_of_ports": "Número de puertos",
   "compat_char_max_sweep_points": "Puntos máximos del barrido",
   "compat_char_frequency_min_hz": "Frecuencia mínima",
-  "compat_char_frequency_max_hz": "Frecuencia máxima"
+  "compat_char_frequency_max_hz": "Frecuencia máxima",
+  "compat_char_sparameters": "Parámetros S",
+  "compat_char_source_power": "Control de la potencia de la fuente"
 }

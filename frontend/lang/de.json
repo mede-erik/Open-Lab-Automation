@@ -451,7 +451,7 @@
   "multimeter": "Multimeter",
   "compat_title": "Unterschiede zwischen Geräten",
   "compat_intro_warn": "Diese Geräte können weniger als die in den früheren Läufen dieser Messung verwendeten. Nur fortfahren, wenn die Messung das Fehlende nicht braucht; die Unterschiede werden im Lauf vermerkt.",
-  "compat_intro_block": "Diese Messung kann mit diesen Geräten nicht durchgeführt werden. Die Messung (z. B. den Sweep) oder die Geräte ändern.",
+  "compat_intro_block": "Diese Messung kann mit diesen Geräten nicht durchgeführt werden. Den Sweep (oder die Parameter) so anpassen, dass er innerhalb dessen bleibt, was das Gerät kann (unten neben dem vorherigen Gerät angezeigt), oder ein anderes Gerät wählen.",
   "compat_col_role": "Rolle",
   "compat_col_instrument": "Gerät",
   "compat_col_characteristic": "Eigenschaft",
@@ -472,5 +472,7 @@
   "compat_char_number_of_ports": "Anzahl der Tore",
   "compat_char_max_sweep_points": "Maximale Sweep-Punkte",
   "compat_char_frequency_min_hz": "Niedrigste Frequenz",
-  "compat_char_frequency_max_hz": "Höchste Frequenz"
+  "compat_char_frequency_max_hz": "Höchste Frequenz",
+  "compat_char_sparameters": "S-Parameter",
+  "compat_char_source_power": "Einstellung der Quellleistung"
 }

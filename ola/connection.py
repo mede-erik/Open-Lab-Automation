@@ -124,6 +124,24 @@ class ProjectConnector:
         model_id = self.library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
         return characteristics(self.library, model_id) if model_id else {}
 
+    def abilities(self, name: str) -> Dict[str, Any]:
+        """What a network analyzer of the project can measure, without connecting to it:
+        ``sparameters`` (the list the library gives for the model, None if it gives none) and
+        ``source_power`` (whether the model has the call). Empty for any other instrument."""
+        entry = read_inst_entries(self._inst_path()).get(name)
+        if entry is None or entry.get("is_manual"):
+            return {}
+        model_id = self.library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        ref = self.library.find_model(model_id) if model_id else None
+        if ref is None or ref.category != "network_analyzers_series":
+            return {}
+        measurable = (ref.model.get("capabilities") or {}).get("measurable_sparameters")
+        commands = self.library.commands(model_id) or {}
+        return {
+            "sparameters": list(measurable) if isinstance(measurable, list) else None,
+            "source_power": "set_source_power" in commands,
+        }
+
     def _manual(self, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
         from .manual_instrument import manual_handle_from_inst
 

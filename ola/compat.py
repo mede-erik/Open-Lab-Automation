@@ -66,6 +66,19 @@ def observe(store: Dict[str, float], call: str, args: Dict[str, Any], result: An
     store[quantity] = max(store.get(quantity, 0.0), abs(value))
 
 
+def note_use(store: Dict[str, Any], call: str, args: Dict[str, Any]) -> None:
+    """Remember in ``store`` what a VNA was asked to do that not every VNA can: which
+    S-parameters it was asked for and whether the source power was set."""
+    if call == "read_sparameters":
+        names = args.get("sparameters")
+        if isinstance(names, (list, tuple)):
+            store["sparameters"] = sorted(
+                set(store.get("sparameters", [])) | {str(n) for n in names}
+            )
+    elif call == "set_source_power":
+        store["source_power"] = True
+
+
 def observed_of(runner: Any) -> Dict[str, List[Dict[str, Any]]]:
     """What the instruments of a runner gave and were asked, per role, for the end of a run file:
     ``{role: [{"name": ..., "observed": {"max_voltage": 12.0}}]}`` (instruments with nothing
@@ -75,8 +88,12 @@ def observed_of(runner: Any) -> Dict[str, List[Dict[str, Any]]]:
         rows = []
         for handle in handles:
             seen = dict(getattr(handle, "observed", None) or {})
-            if seen:
-                rows.append({"name": getattr(handle, "name", "?"), "observed": seen})
+            used = {k: v for k, v in (getattr(handle, "used", None) or {}).items() if v}
+            if seen or used:
+                row: Dict[str, Any] = {"name": getattr(handle, "name", "?"), "observed": seen}
+                if used:
+                    row["used"] = used
+                rows.append(row)
         if rows:
             out[role] = rows
     return out
@@ -194,6 +211,8 @@ UNITS = {
     "max_sweep_points": "",
     "frequency_min_hz": "Hz",
     "frequency_max_hz": "Hz",
+    "sparameters": "",
+    "source_power": "",
 }
 
 
@@ -227,6 +246,9 @@ class Finding:
     previous_name: str = ""
     need: Optional[float] = None
     blocking: bool = False
+    # for what is not one number (a list of S-parameters): the text shown instead of the numbers
+    value_text: str = ""
+    need_text: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         """What is kept in the run header when the user goes on (``accepted_differences``)."""
@@ -275,6 +297,122 @@ def check_role(
                     have,
                     str((old or {}).get("name", "")),
                     need.get(key),
+                )
+            )
+    return findings
+
+
+# ====================================================================== network analyzers
+def sweep_of(params: Dict[str, Any]) -> Optional[Dict[str, float]]:
+    """The sweep a measurement asks of a VNA, from its parameters: ``params["sweep"]`` (cable,
+    return loss, filter, antenna, attenuator, amplifier...) or ``start_hz`` / ``stop_hz`` /
+    ``points`` at the top (S-parameters). None if there is none that can be read."""
+    sweep = params.get("sweep") if isinstance(params.get("sweep"), dict) else params
+    start, stop = _number(sweep.get("start_hz")), _number(sweep.get("stop_hz"))
+    if start is None or stop is None:
+        return None
+    out = {"start_hz": start, "stop_hz": stop}
+    points = _number(sweep.get("points"))
+    if points is not None:
+        out["points"] = points
+    return out
+
+
+def role_use(runs: Iterable[Dict[str, Any]], role: str) -> Dict[str, Any]:
+    """What the instruments of ``role`` were asked in the previous runs that not every VNA can do:
+    the S-parameters read (all of them) and whether the source power was set."""
+    names: set = set()
+    power = False
+    for run in runs:
+        for row in ((run.get("end") or {}).get("observed") or {}).get(role, []):
+            used = row.get("used") or {}
+            names |= set(used.get("sparameters") or [])
+            power = power or bool(used.get("source_power"))
+    use: Dict[str, Any] = {}
+    if names:
+        use["sparameters"] = sorted(names)
+    if power:
+        use["source_power"] = True
+    return use
+
+
+def check_network_analyzer(
+    role: str,
+    instruments: List[Dict[str, Any]],
+    params: Dict[str, Any],
+    runs: List[Dict[str, Any]],
+) -> List[Finding]:
+    """What a measurement made with a VNA asks that the VNA now bound to ``role`` cannot do.
+
+    **Blocking** (what the parameters of the measurement ask now, so the sweep has to change): a
+    sweep that starts below the lowest frequency of the model, ends above its highest, or has more
+    points than it allows. The finding shows the limit of this instrument, the one of the previous
+    instrument and the frequency the sweep asks for.
+
+    **Warning** (what the previous runs did, which the new parameters may not need): S-parameters
+    that the model cannot measure, and the source power if the model cannot set it.
+
+    ``instruments``: ``[{"name", "characteristics", "abilities"}]``; ``abilities`` has
+    ``sparameters`` (the list the model measures, None if the library does not say) and
+    ``source_power`` (True / False)."""
+    findings: List[Finding] = []
+    previous = previous_instruments(runs, role)
+    sweep = sweep_of(params)
+    use = role_use(runs, role)
+    for index, new in enumerate(instruments):
+        name = str(new.get("name", "?"))
+        old = next((p for p in previous if p.get("name") == name), None)
+        if old is None and index < len(previous):
+            old = previous[index]
+        before = (old or {}).get("characteristics") or {}
+        old_name = str((old or {}).get("name", ""))
+        have = new.get("characteristics") or {}
+        if sweep:
+            checks = (
+                ("frequency_min_hz", sweep["start_hz"], lambda limit, asked: asked < limit),
+                ("frequency_max_hz", sweep["stop_hz"], lambda limit, asked: asked > limit),
+                ("max_sweep_points", sweep.get("points"), lambda limit, asked: asked > limit),
+            )
+            for key, asked, outside in checks:
+                limit = have.get(key)
+                if limit is None or asked is None or not outside(limit, asked):
+                    continue
+                findings.append(
+                    Finding(role, name, key, limit, before.get(key), old_name, asked, True)
+                )
+        abilities = new.get("abilities") or {}
+        measurable = abilities.get("sparameters")
+        wanted = use.get("sparameters")
+        if measurable is not None and wanted:
+            missing = [n for n in wanted if n not in measurable]
+            if missing:
+                findings.append(
+                    Finding(
+                        role,
+                        name,
+                        "sparameters",
+                        float(len(measurable)),
+                        None,
+                        old_name,
+                        float(len(wanted)),
+                        False,
+                        ", ".join(measurable),
+                        ", ".join(wanted),
+                    )
+                )
+        if use.get("source_power") and abilities.get("source_power") is False:
+            findings.append(
+                Finding(
+                    role,
+                    name,
+                    "source_power",
+                    0.0,
+                    None,
+                    old_name,
+                    1.0,
+                    False,
+                    "-",
+                    "set_source_power",
                 )
             )
     return findings

@@ -451,7 +451,7 @@
   "multimeter": "Multimeter",
   "compat_title": "Instrument differences",
   "compat_intro_warn": "These instruments can do less than the ones used in the previous runs of this measurement. Continue only if the measurement does not need what they lack; the differences will be written in the run.",
-  "compat_intro_block": "This measurement cannot be made with these instruments. Change the measurement (for example the sweep) or the instruments.",
+  "compat_intro_block": "This measurement cannot be made with these instruments. Adjust the sweep (or the parameters) so that it stays inside what the instrument can do, shown below next to the previous instrument, or choose another instrument.",
   "compat_col_role": "Role",
   "compat_col_instrument": "Instrument",
   "compat_col_characteristic": "Characteristic",
@@ -472,5 +472,7 @@
   "compat_char_number_of_ports": "Number of ports",
   "compat_char_max_sweep_points": "Maximum sweep points",
   "compat_char_frequency_min_hz": "Lowest frequency",
-  "compat_char_frequency_max_hz": "Highest frequency"
+  "compat_char_frequency_max_hz": "Highest frequency",
+  "compat_char_sparameters": "S-parameters",
+  "compat_char_source_power": "Source power control"
 }
