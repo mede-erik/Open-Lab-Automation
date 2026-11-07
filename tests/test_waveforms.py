@@ -30,6 +30,15 @@ needs_model = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def fast_polls(monkeypatch):
+    """No waiting between status reads, and no device left open by another test."""
+    monkeypatch.setattr(waveforms, "POLL_S", 0)
+    waveforms._OPEN.clear()
+    yield
+    waveforms._OPEN.clear()
+
+
 def put(ref, value):
     """Set the value a C function returns through a pointer (``ctypes.byref``)."""
     ref._obj.value = value
@@ -113,6 +122,144 @@ class FakeDll:
         put(low, self.offset[0])
         put(high, self.offset[1])
         return 1
+
+    # ---- AnalogIn (oscilloscope)
+    in_channels = 2
+    polls_until_done = 0  # how many status reads before the acquisition is done
+    never_done = False
+    ain_range = (0.2, 50.0)
+    ain_offset = (-25.0, 25.0)
+    ain_buffer = (16, 8192)
+    ain_frequency = (1.0, 100e6)
+
+    def _init_in(self):
+        if not hasattr(self, "_in"):
+            self._in = {
+                "polls": 0,
+                "running": False,
+                "frequency": 100e6,
+                "buffer": 8192,
+                "range": {0: 5.0, 1: 5.0},
+                "offset": {0: 0.0, 1: 0.0},
+                "auto": False,
+            }
+        return self._in
+
+    def FDwfAnalogInChannelCount(self, handle, count):
+        put(count, self.in_channels)
+        return 1
+
+    def FDwfAnalogInReset(self, handle):
+        return self._ok("in_reset")
+
+    def FDwfAnalogInConfigure(self, handle, reconfigure, start):
+        st = self._init_in()
+        st["running"], st["polls"] = bool(start.value), 0
+        return self._ok("in_configure", reconfigure, start)
+
+    def FDwfAnalogInStatus(self, handle, read_data, state):
+        st = self._init_in()
+        self.calls.append(("in_status", read_data.value))
+        if not st["running"]:
+            put(state, 0)  # ready
+        elif self.never_done or st["polls"] < self.polls_until_done:
+            st["polls"] += 1
+            put(state, 3)  # triggered / running
+        else:
+            put(state, 2)  # done
+        return 1
+
+    def FDwfAnalogInStatusAutoTriggered(self, handle, flag):
+        put(flag, 1 if self._init_in()["auto"] else 0)
+        return 1
+
+    def FDwfAnalogInStatusData(self, handle, channel, buffer, count):
+        self.calls.append(("in_data", channel.value, count.value))
+        for i in range(count.value):
+            buffer[i] = channel.value * 100.0 + i  # channel 0: 0, 1, 2...  channel 1: 100, 101...
+        return 1
+
+    def FDwfAnalogInFrequencyInfo(self, handle, low, high):
+        put(low, self.ain_frequency[0])
+        put(high, self.ain_frequency[1])
+        return 1
+
+    def FDwfAnalogInFrequencySet(self, handle, hz):
+        self._init_in()["frequency"] = hz.value
+        return self._ok("in_frequency", hz)
+
+    def FDwfAnalogInFrequencyGet(self, handle, hz):
+        put(hz, self._init_in()["frequency"])
+        return 1
+
+    def FDwfAnalogInBitsInfo(self, handle, bits):
+        put(bits, 14)
+        return 1
+
+    def FDwfAnalogInBufferSizeInfo(self, handle, low, high):
+        put(low, self.ain_buffer[0])
+        put(high, self.ain_buffer[1])
+        return 1
+
+    def FDwfAnalogInBufferSizeSet(self, handle, size):
+        self._init_in()["buffer"] = size.value
+        return self._ok("in_buffer", size)
+
+    def FDwfAnalogInBufferSizeGet(self, handle, size):
+        put(size, self._init_in()["buffer"])
+        return 1
+
+    def FDwfAnalogInChannelEnableSet(self, handle, channel, enable):
+        return self._ok("in_enable", channel, enable)
+
+    def FDwfAnalogInChannelRangeInfo(self, handle, low, high, steps):
+        put(low, self.ain_range[0])
+        put(high, self.ain_range[1])
+        put(steps, 100)
+        return 1
+
+    def FDwfAnalogInChannelRangeSet(self, handle, channel, volts):
+        self._init_in()["range"][channel.value] = volts.value
+        return self._ok("in_range", channel, volts)
+
+    def FDwfAnalogInChannelRangeGet(self, handle, channel, volts):
+        put(volts, self._init_in()["range"][channel.value])
+        return 1
+
+    def FDwfAnalogInChannelOffsetInfo(self, handle, low, high, steps):
+        put(low, self.ain_offset[0])
+        put(high, self.ain_offset[1])
+        put(steps, 100)
+        return 1
+
+    def FDwfAnalogInChannelOffsetSet(self, handle, channel, volts):
+        self._init_in()["offset"][channel.value] = volts.value
+        return self._ok("in_offset", channel, volts)
+
+    def FDwfAnalogInChannelOffsetGet(self, handle, channel, volts):
+        put(volts, self._init_in()["offset"][channel.value])
+        return 1
+
+    def FDwfAnalogInChannelAttenuationSet(self, handle, channel, factor):
+        return self._ok("in_attenuation", channel, factor)
+
+    def FDwfAnalogInTriggerSourceSet(self, handle, source):
+        return self._ok("in_trigger_source", source)
+
+    def FDwfAnalogInTriggerChannelSet(self, handle, channel):
+        return self._ok("in_trigger_channel", channel)
+
+    def FDwfAnalogInTriggerLevelSet(self, handle, volts):
+        return self._ok("in_trigger_level", volts)
+
+    def FDwfAnalogInTriggerConditionSet(self, handle, condition):
+        return self._ok("in_trigger_condition", condition)
+
+    def FDwfAnalogInTriggerAutoTimeoutSet(self, handle, seconds):
+        return self._ok("in_trigger_timeout", seconds)
+
+    def FDwfAnalogInTriggerHoldOffSet(self, handle, seconds):
+        return self._ok("in_trigger_holdoff", seconds)
 
     def sent(self, name):
         return [c[1:] for c in self.calls if c[0] == name]
@@ -338,3 +485,281 @@ def test_a_project_opens_the_device_by_its_dwf_address(tmp_path, monkeypatch):
     assert dll.opened == [0]
     connector.close()
     assert dll.sent("close") == [(77,)]
+
+
+# ====================================================================== oscilloscope
+def scope(dll=None):
+    dll = dll or FakeDll()
+    return WaveformsDriver(open_dwf("DWF", loader=lambda: dll)), dll
+
+
+def test_channels_are_enabled_and_the_scale_is_a_range_of_ten_divisions():
+    drv, dll = scope()
+    drv.call("set_channel_state", {"channel_number": 2, "state": True})
+    drv.call("set_channel_scale", {"channel_number": 2, "value": 0.5})
+    drv.call("set_channel_offset", {"channel_number": 1, "value": -1.0})
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 10.0})
+    assert dll.sent("in_enable") == [(1, 1)]
+    assert dll.sent("in_range") == [(1, 5.0)]  # 0.5 V/div x 10 divisions
+    assert dll.sent("in_offset") == [(0, -1.0)] and dll.sent("in_attenuation") == [(0, 10.0)]
+    assert drv.call("query_channel_scale", {"channel_number": 2}) == 0.5
+    assert drv.call("query_channel_offset", {"channel_number": 1}) == -1.0
+
+
+def test_a_range_offset_or_depth_the_device_cannot_give_is_not_handled():
+    drv, dll = scope()
+    with pytest.raises(ValueNotHandledError, match="V/div is outside"):
+        drv.call("set_channel_scale", {"channel_number": 1, "value": 10.0})
+    with pytest.raises(ValueNotHandledError, match="offset of 30 V"):
+        drv.call("set_channel_offset", {"channel_number": 1, "value": 30.0})
+    with pytest.raises(ValueNotHandledError, match="16 to 8192 points"):
+        drv.call("set_acquisition_depth", {"depth": 100000})
+    assert dll.sent("in_range") == [] and dll.sent("in_buffer") == []
+    drv.call("set_acquisition_depth", {"depth": 4096})
+    assert dll.sent("in_buffer") == [(4096,)]
+    with pytest.raises(InvalidArgumentError, match="2 oscilloscope channel"):
+        drv.call("set_channel_state", {"channel_number": 3, "state": True})
+
+
+def test_only_dc_coupling_exists():
+    drv, _ = scope()
+    drv.call("set_channel_coupling", {"channel_number": 1, "coupling_type": "DC"})
+    for coupling in ("AC", "GND"):
+        with pytest.raises(ValueNotHandledError, match="inputs are DC coupled"):
+            drv.call("set_channel_coupling", {"channel_number": 1, "coupling_type": coupling})
+
+
+def test_the_sample_frequency_follows_the_timebase_and_the_depth():
+    drv, dll = scope()
+    drv.call("set_acquisition_depth", {"depth": 8000})
+    drv.call("set_timebase_scale", {"value": 1e-3})  # 10 ms record: 800 kSa/s
+    drv.call("run_acquisition", {})
+    assert dll.sent("in_frequency") == [(800000.0,)]
+    assert dll.sent("in_configure") == [(1, 1)]  # reconfigure and start
+    assert drv.call("query_sample_rate", {}) == 800000.0
+    drv.call("set_timebase_scale", {"value": 1e-9})  # more than the ADC does: the maximum
+    drv.call("run_acquisition", {})
+    assert dll.sent("in_frequency")[-1] == (100e6,)
+
+
+def test_a_capture_is_read_for_every_enabled_channel_at_once():
+    """The second channel comes from the same capture, without a new acquisition."""
+    drv, dll = scope()
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    drv.call("set_channel_state", {"channel_number": 2, "state": True})
+    drv.call("set_acquisition_depth", {"depth": 1000})
+    drv.call("set_timebase_scale", {"value": 1e-4})
+    drv.call("run_acquisition", {})
+    drv.call("stop_acquisition", {})
+    first = drv.call("read_waveform", {"channel_number": 1})
+    second = drv.call("read_waveform", {"channel_number": 2})
+    assert dll.sent("in_configure") == [(1, 1)]  # one acquisition only
+    assert [c for c in dll.calls if c[0] == "in_data"] == [
+        ("in_data", 0, 1000),
+        ("in_data", 1, 1000),
+    ]
+    assert first["points"] == 1000 and list(first["voltage"][:3]) == [0.0, 1.0, 2.0]
+    assert list(second["voltage"][:2]) == [100.0, 101.0]
+    assert first["sample_interval"] == pytest.approx(1e-6)  # 1000 points in 10 x 0.1 ms
+    # time is relative to the middle of the buffer (where the trigger is by default)
+    assert first["time"][500] == pytest.approx(0.0) and first["time"][0] == pytest.approx(-5e-4)
+    assert set(first) >= {
+        "time",
+        "voltage",
+        "points",
+        "sample_interval",
+        "vertical_gain",
+        "vertical_offset",
+        "trigger_delay",
+        "timebase",
+    }
+
+
+def test_a_waveform_is_read_in_blocks():
+    drv, _ = scope()
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    drv.call("set_acquisition_depth", {"depth": 1000})
+    block = drv.call("read_waveform", {"channel_number": 1, "start": 990, "points": 100})
+    assert block["points"] == 10 and block["voltage"][0] == 990.0  # up to the end of the memory
+    assert drv.call("read_waveform", {"channel_number": 1, "start": 2000})["points"] == 0
+    assert drv.call("query_waveform_max_points", {}) == 8192
+
+
+def test_reading_without_an_acquisition_makes_one():
+    drv, dll = scope()
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    assert drv.call("read_waveform", {"channel_number": 1})["points"] == 8192
+    assert dll.sent("in_configure") == [(1, 1)]
+
+
+def test_a_channel_that_was_not_enabled_is_not_in_the_capture():
+    drv, _ = scope()
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    drv.call("run_acquisition", {})
+    with pytest.raises(InvalidArgumentError, match="channel 2 was not enabled"):
+        drv.call("read_waveform", {"channel_number": 2})
+
+
+def test_stopping_waits_for_a_running_acquisition_to_be_done():
+    drv, dll = scope()
+    dll.polls_until_done = 5
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    drv.call("run_acquisition", {})
+    drv.call("stop_acquisition", {})
+    assert len([c for c in dll.calls if c[0] == "in_status"]) == 6
+    assert dll.sent("in_data") == [(0, 8192)]
+    drv.call("stop_acquisition", {})  # nothing is running any more: nothing is done
+    assert len(dll.sent("in_data")) == 1
+
+
+def test_an_acquisition_that_never_finishes_is_given_up_with_a_clear_message(monkeypatch):
+    drv, dll = scope()
+    dll.never_done = True
+    monkeypatch.setattr(waveforms, "FINISH_MARGIN_S", -1.0)  # the deadline has already passed
+    drv.call("run_acquisition", {})
+    with pytest.raises(StepFailedError, match="did not finish"):
+        drv.call("stop_acquisition", {})
+    assert dll.sent("in_configure")[-1] == (0, 0)  # and it was stopped
+
+
+def test_the_trigger():
+    drv, dll = scope()
+    drv.call("set_trigger_source", {"channel_number": 2})
+    drv.call("set_trigger_level", {"value": 0.5})
+    drv.call("set_trigger_slope", {"slope": "FALL"})
+    drv.call("set_trigger_holdoff", {"value": 1e-3})
+    drv.call("set_trigger_mode", {"mode": "AUTO"})
+    assert dll.sent("in_trigger_source") == [(2,)] and dll.sent("in_trigger_channel") == [(1,)]
+    assert dll.sent("in_trigger_level") == [(0.5,)] and dll.sent("in_trigger_condition") == [(1,)]
+    assert dll.sent("in_trigger_holdoff") == [(1e-3,)]
+    assert dll.sent("in_trigger_timeout") == [(1.0,)]
+    drv.call("set_trigger_mode", {"mode": "NORMAL"})
+    assert dll.sent("in_trigger_timeout")[-1] == (0.0,)
+    with pytest.raises(ValueNotHandledError, match="slope EITHER"):
+        drv.call("set_trigger_slope", {"slope": "EITHER"})
+
+
+def test_the_trigger_status():
+    drv, dll = scope()
+    assert drv.call("query_trigger_status", {}) == "READY"
+    drv.call("run_acquisition", {})
+    dll.polls_until_done = 1
+    assert drv.call("query_trigger_status", {}) in ("TRIGGERED", "STOPPED")
+    dll.never_done = False
+    dll.polls_until_done = 0
+    assert drv.call("query_trigger_status", {}) == "STOPPED"
+    dll._init_in()["auto"] = True
+    assert drv.call("query_trigger_status", {}) == "AUTO"
+
+
+def test_scope_reset_does_not_touch_the_generator():
+    drv, dll = scope()
+    drv.call("set_channel_state", {"channel_number": 1, "state": True})
+    drv.call("scope_reset", {})
+    assert dll.sent("in_reset") == [()] and dll.sent("reset") == []  # no AnalogOut reset
+    drv.call("run_acquisition", {})
+    assert drv.call("read_waveform", {"channel_number": 1, "points": 4})["points"] == 4
+
+
+def test_a_generator_and_a_scope_of_the_same_device_share_the_open_device():
+    dll = FakeDll()
+    generator = open_dwf("DWF::210321A1B2C3", loader=lambda: dll)
+    oscilloscope = open_dwf("DWF", loader=lambda: dll)  # the first device is the same one
+    assert dll.opened == [0] and generator.handle == oscilloscope.handle
+    generator.close()
+    assert dll.sent("close") == []  # the scope still uses it
+    oscilloscope.close()
+    oscilloscope.close()
+    assert dll.sent("close") == [(77,)]
+    open_dwf("DWF", loader=lambda: dll)  # closed: a new open
+    assert dll.opened == [0, 0]
+
+
+@needs_model
+def test_the_library_scope_model_runs_the_calls_of_the_bode_measurement(tmp_path, monkeypatch):
+    """The calls the Bode measurement sends to its scope, through the library, a project and the
+    whole-memory read; the generator of the same device in the same project."""
+    import json
+
+    from ola.connection import ProjectConnector
+
+    if "OSC_Digilent_AnalogDiscovery2" not in (open(LIB).read() if LIB else ""):
+        pytest.skip("library without the Analog Discovery oscilloscope model")
+    dll = FakeDll()
+    monkeypatch.setattr(waveforms, "load_library", lambda: dll)
+    inst = tmp_path / "lab.inst"
+    inst.write_text(
+        json.dumps(
+            {
+                "instruments": [
+                    {
+                        "instrument_type": "oscilloscope",
+                        "instance_name": "OSC",
+                        "model_id": "OSC_Digilent_AnalogDiscovery2",
+                        "visa_address": "DWF::210321A1B2C3",
+                    },
+                    {
+                        "instrument_type": "function_generator",
+                        "instance_name": "GEN",
+                        "model_id": "FGEN_Digilent_AnalogDiscovery2",
+                        "visa_address": "DWF::210321A1B2C3",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    connector = ProjectConnector(Library.load(LIB), lambda: inst)
+    scope_handle, gen = connector("OSC"), connector("GEN")
+    assert dll.opened == [0]  # one device, two instruments
+    for channel in (1, 2):
+        scope_handle.call("set_channel_state", channel_number=channel, state=True)
+        scope_handle.call("set_probe_attenuation", channel_number=channel, value=1.0)
+        scope_handle.call("set_channel_coupling", channel_number=channel, coupling_type="DC")
+        scope_handle.call("set_channel_scale", channel_number=channel, value=0.1)
+    scope_handle.call("set_timebase_scale", value=1e-3)
+    scope_handle.call("set_acquisition_depth", depth=2000)
+    gen.call("set_frequency", channel_number=1, value=1000.0)
+    gen.call("set_output_state", channel_number=1, state=True)
+    scope_handle.call("run_acquisition")
+    a = scope_handle.read_waveform_full(1, bits=8, stop=True)
+    b = scope_handle.read_waveform_full(2, bits=8, stop=False)  # the same capture
+    assert (
+        a["points"] == b["points"] == 2000 and a["voltage"][1] == 1.0 and b["voltage"][0] == 100.0
+    )
+    assert len(dll.sent("in_configure")) == 1  # one acquisition for both channels
+    # what the AD2 does not have is not supported, not silently ignored
+    with pytest.raises(CallNotSupportedError, match="no equivalent on the Analog Discovery"):
+        scope_handle.call("set_channel_bandwidth_limit", channel_number=1, bandwidth=20e6)
+    with pytest.raises(ValueNotHandledError):
+        scope_handle.call("set_channel_coupling", channel_number=1, coupling_type="AC")
+    assert scope_handle.call("query_trigger_status") in (
+        "STOPPED",
+        "READY",
+        "AUTO",
+        "ARMED",
+        "TRIGGERED",
+    )
+    connector.close()
+    assert dll.sent("close") == [(77,)]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "operation_complete_query",
+        "auto_setup",
+        "force_trigger",
+        "set_timebase_delay",
+        "set_channel_bandwidth_limit",
+        "set_acquisition_type",
+        "set_waveform_source",
+        "set_waveform_format",
+        "query_waveform_preamble",
+        "query_waveform_data",
+    ],
+)
+def test_the_mandatory_calls_the_device_has_no_equivalent_for_say_so(call):
+    drv, _ = scope()
+    with pytest.raises(CallNotSupportedError, match=f"call '{call}' has no equivalent"):
+        drv.call(f"unsupported_{call}", {})
