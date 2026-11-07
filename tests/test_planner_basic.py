@@ -317,6 +317,23 @@ def test_derived_parameters():
     )
     p = plan_call(lib, "M", "set_fmt", {"format_type": "word"})
     assert [s["text"] for s in p.steps] == ["DAT:ENC RIB", "DAT:WID 2"]
+    # without the argument, the error names it, not the derived placeholder
+    with pytest.raises(InvalidArgumentError, match="needs argument 'format_type'"):
+        plan_call(lib, "M", "set_fmt")
+
+
+def test_missing_optional_source_of_a_derived_parameter_is_named():
+    lib = _lib_with(
+        {
+            "set_bw": {
+                "set": {"syntax": "BW {bw_text}"},
+                "parameters": {"bw_text": {"from": "bandwidth", "map": {"0": "FULL"}}},
+            },
+        }
+    )
+    lib.schema("c")["calls"]["set_bw"]["args"]["bandwidth"]["required"] = False
+    with pytest.raises(InvalidArgumentError, match="needs argument 'bandwidth'"):
+        plan_call(lib, "M", "set_bw")
 
 
 def test_expression_parameters_and_defaults():

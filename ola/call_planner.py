@@ -342,12 +342,18 @@ def _lookup(table: Dict[str, Any], value: Any):
     return False, None
 
 
-def _substitute(template: str, texts: Dict[str, str], call: str) -> str:
+def _substitute(
+    template: str, texts: Dict[str, str], call: str, sources: Optional[Dict[str, str]] = None
+) -> str:
+    """Fill the ``{placeholders}`` of ``template``. ``sources`` maps a derived placeholder to
+    the logical argument it comes from, so that a missing one is reported by that name."""
+
     def repl(m):
         """Text of one ``{argument}`` placeholder."""
         name = m.group(1)
         if name not in texts:
-            raise InvalidArgumentError(f"call '{call}' needs argument '{name}'", call=call)
+            missing = (sources or {}).get(name, name)
+            raise InvalidArgumentError(f"call '{call}' needs argument '{missing}'", call=call)
         return texts[name]
 
     return _PLACEHOLDER.sub(repl, template)
@@ -438,8 +444,11 @@ def plan_call(
         else:
             texts[n] = _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call)
     # derived parameters: one logical argument drives several placeholders of the library
+    sources: Dict[str, str] = {}
     for dname, ddef in pdefs.items():
         src = ddef.get("from")
+        if src is not None:
+            sources[dname] = ", ".join(src) if isinstance(src, list) else src
         if "expr" in ddef:
             names = src if isinstance(src, list) else [src]
             if all(n in logical for n in names):
@@ -466,7 +475,7 @@ def plan_call(
             repeat = s.pop("foreach", None)
             if repeat is None:
                 if "text" in s:
-                    s["text"] = _substitute(s["text"], texts, call)
+                    s["text"] = _substitute(s["text"], texts, call, sources)
                 steps.append(_validated(s, call))
                 continue
             # one step (or one group of "steps") per item of a list argument:
@@ -477,10 +486,10 @@ def plan_call(
                 for member in group:
                     each = dict(member)
                     if "text" in each:
-                        each["text"] = _substitute(each["text"], item_texts, call)
+                        each["text"] = _substitute(each["text"], item_texts, call, sources)
                     steps.append(_validated(each, call))
     else:
-        text = _substitute(half["syntax"], texts, call)
+        text = _substitute(half["syntax"], texts, call, sources)
         if half_name == "query":
             rt = half.get("return_type", "string")
             returns = rt if rt in _RETURNS else "string"
@@ -526,10 +535,17 @@ def _uses_arg(definition: Dict[str, Any], name: str, half_name: str) -> bool:
     texts += [m.get("text", "") for s in h.get("steps", []) for m in s.get("steps", [])]
     if any(s.get("foreach") == name for s in h.get("steps", [])):
         return True
-    return any(
-        name in _PLACEHOLDER.findall(t or "") or f"{name}_count" in _PLACEHOLDER.findall(t or "")
-        for t in texts
-    )
+    used = {p for t in texts for p in _PLACEHOLDER.findall(t or "")}
+    if name in used or f"{name}_count" in used:
+        return True
+    # a derived parameter computed from ``name`` (for example an output name mapped from the
+    # channel number): the missing argument is ``name``, not the internal placeholder
+    for dname, ddef in (definition.get("parameters") or {}).items():
+        src = ddef.get("from")
+        sources = src if isinstance(src, list) else [src]
+        if name in sources and dname in used:
+            return True
+    return False
 
 
 def _step_applies(when: Optional[Dict[str, Any]], logical: Dict[str, Any]) -> bool:
