@@ -478,5 +478,20 @@
   "compat_char_source_power": "Controllo della potenza sorgente",
   "inst_rename_title": "Rinomina strumento",
   "inst_rename_question": "{count} misura/e usano \"{old}\" e useranno invece \"{new}\":\n\n{list}\n\nLe misure già eseguite mantengono il vecchio nome nel loro record. Continuare?",
-  "inst_rename_failed": "Lo strumento non è stato rinominato: {error}"
+  "inst_rename_failed": "Lo strumento non è stato rinominato: {error}",
+  "roles_menu": "Usa i miei strumenti...",
+  "roles_title": "Strumenti del progetto",
+  "roles_intro": "Queste misure citano strumenti che non sono nel tuo file strumenti (il progetto può venire da un'altra persona). Scegline uno tuo per ciascuno; le misure già eseguite mantengono gli strumenti con cui sono state fatte.",
+  "roles_col_missing": "Strumento nelle misure",
+  "roles_col_used_by": "Usato da",
+  "roles_col_category": "Tipo",
+  "roles_col_instead": "Usa invece",
+  "roles_leave": "(lascia com'è)",
+  "roles_none": "(non hai strumenti di questo tipo)",
+  "roles_apply": "Applica",
+  "roles_later": "Più tardi",
+  "roles_differences": "{name} - {n} differenza/e da quello usato",
+  "roles_blocked": "{name} - non può fare ciò che chiede la misura",
+  "roles_nothing": "Tutti gli strumenti citati dalle misure sono nel tuo file strumenti.",
+  "roles_failed": "Le misure non sono state aggiornate: {error}"
 }

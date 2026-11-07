@@ -477,5 +477,20 @@
   "compat_char_source_power": "Réglage de la puissance de la source",
   "inst_rename_title": "Renommer l'instrument",
   "inst_rename_question": "{count} mesure(s) utilisent « {old} » et utiliseront « {new} » à la place :\n\n{list}\n\nLes mesures déjà faites gardent l'ancien nom dans leur enregistrement. Continuer ?",
-  "inst_rename_failed": "L'instrument n'a pas été renommé : {error}"
+  "inst_rename_failed": "L'instrument n'a pas été renommé : {error}",
+  "roles_menu": "Utiliser mes instruments...",
+  "roles_title": "Instruments du projet",
+  "roles_intro": "Ces mesures citent des instruments qui ne sont pas dans votre fichier d'instruments (le projet peut venir d'une autre personne). Choisissez-en un des vôtres pour chacun ; les mesures déjà faites gardent les instruments avec lesquels elles ont été faites.",
+  "roles_col_missing": "Instrument dans les mesures",
+  "roles_col_used_by": "Utilisé par",
+  "roles_col_category": "Type",
+  "roles_col_instead": "Utiliser à la place",
+  "roles_leave": "(laisser tel quel)",
+  "roles_none": "(vous n'avez aucun instrument de ce type)",
+  "roles_apply": "Appliquer",
+  "roles_later": "Plus tard",
+  "roles_differences": "{name} - {n} différence(s) avec celui utilisé",
+  "roles_blocked": "{name} - ne peut pas faire ce que demande la mesure",
+  "roles_nothing": "Tous les instruments cités par les mesures sont dans votre fichier d'instruments.",
+  "roles_failed": "Les mesures n'ont pas été mises à jour : {error}"
 }

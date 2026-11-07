@@ -477,5 +477,20 @@
   "compat_char_source_power": "Einstellung der Quellleistung",
   "inst_rename_title": "Gerät umbenennen",
   "inst_rename_question": "{count} Messung(en) verwenden \"{old}\" und verwenden stattdessen \"{new}\":\n\n{list}\n\nBereits durchgeführte Messungen behalten den alten Namen in ihrem Protokoll. Fortfahren?",
-  "inst_rename_failed": "Das Gerät wurde nicht umbenannt: {error}"
+  "inst_rename_failed": "Das Gerät wurde nicht umbenannt: {error}",
+  "roles_menu": "Meine Geräte verwenden...",
+  "roles_title": "Geräte des Projekts",
+  "roles_intro": "Diese Messungen nennen Geräte, die nicht in Ihrer Gerätedatei stehen (das Projekt kann von jemand anderem stammen). Wählen Sie für jedes eines Ihrer Geräte; bereits durchgeführte Messungen behalten die Geräte, mit denen sie gemacht wurden.",
+  "roles_col_missing": "Gerät in den Messungen",
+  "roles_col_used_by": "Verwendet von",
+  "roles_col_category": "Art",
+  "roles_col_instead": "Stattdessen verwenden",
+  "roles_leave": "(unverändert lassen)",
+  "roles_none": "(Sie haben kein Gerät dieser Art)",
+  "roles_apply": "Anwenden",
+  "roles_later": "Später",
+  "roles_differences": "{name} - {n} Unterschied(e) zum verwendeten",
+  "roles_blocked": "{name} - kann nicht, was die Messung verlangt",
+  "roles_nothing": "Alle von den Messungen genannten Geräte stehen in Ihrer Gerätedatei.",
+  "roles_failed": "Die Messungen wurden nicht aktualisiert: {error}"
 }

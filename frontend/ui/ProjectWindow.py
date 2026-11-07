@@ -53,6 +53,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.efficiency_widgets import text_color
+from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
 from ola.form_model import load_form_spec
 from ola.measurement import MeasurementError
@@ -200,6 +201,8 @@ class ProjectWindow(QMainWindow):
         self.tr_ = CatalogTranslator("project", translator)
         self.wir_ = CatalogTranslator("wiring", translator)
         self.cal_ = CatalogTranslator("calibration", translator)
+        # the shared language catalogs (frontend/lang), also when no translator was given
+        self.app_t = (translator or Translator()).t
         # show the connection diagram of a measurement before it starts (a tick in that window
         # turns it off; ``on_wiring_preference`` is told so that it can be remembered)
         self.wiring_before_run = wiring_before_run
@@ -229,8 +232,9 @@ class ProjectWindow(QMainWindow):
             ("prj_new_project", self.new_project),
             ("prj_open_project", self.open_project),
             ("prj_choose_inst", self.choose_instrument_file),
+            ("roles_menu", self.map_instruments),
         ):
-            action = menu.addAction(self._t(key))
+            action = menu.addAction(self.app_t(key) if key.startswith("roles_") else self._t(key))
             action.triggered.connect(lambda _c=False, h=handler: h())
         central = QWidget()
         self.setCentralWidget(central)
@@ -309,6 +313,7 @@ class ProjectWindow(QMainWindow):
             self.session.connect = self.connector
         self.setWindowTitle(f"{self._t('prj_title')} - {project.name}")
         self._refresh()
+        QTimer.singleShot(0, lambda: self.map_instruments(quiet=True))  # a received project
 
     def _close_connector(self) -> None:
         """Close the connections of the previous project (if its connector can close them)."""
@@ -551,6 +556,28 @@ class ProjectWindow(QMainWindow):
             parent=self,
             entries=entries,
         ).exec()
+
+    def map_instruments(self, quiet: bool = False) -> None:
+        """Let the user name their own instruments where the measurements name instruments that
+        are not in the instrument file (a project received from someone else). ``quiet``: say
+        nothing when there is nothing to map (used when a project is opened)."""
+        if self.session is None:
+            return
+        from frontend.ui.RolesDialog import RolesDialog
+
+        dialog = RolesDialog(
+            self.session,
+            getattr(self.connector, "characteristics", None),
+            getattr(self.connector, "abilities", None),
+            self.translator,
+            self,
+        )
+        if not dialog.gaps:
+            if not quiet:
+                QMessageBox.information(self, self._t("prj_title"), self.app_t("roles_nothing"))
+            return
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._refresh()
 
     def _check_compatibility(self, ref: MeasurementRef):
         """Compare the instruments now bound to the measurement with the ones of its previous
