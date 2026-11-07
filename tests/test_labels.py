@@ -83,6 +83,29 @@ def test_the_qr_holds_the_code_as_the_scanner_will_read_it():
 
 
 # ---- fitting text -------------------------------------------------------------------------------
+def test_the_layout_uses_the_measure_it_is_given_instead_of_the_estimate():
+    """A wider real font gives a smaller size or a cut; a narrower one a larger size."""
+
+    def wide(text, size, bold=False):
+        return text_width(text, size, bold) * 2
+
+    def narrow(text, size, bold=False):
+        return text_width(text, size, bold) * 0.5
+
+    plain = fit_text("a rather long name", 30, 3.2)
+    assert fit_text("a rather long name", 30, 3.2, measure=wide)[0] < plain[0]
+    assert fit_text("a rather long name", 30, 3.2, measure=narrow) == (3.2, "a rather long name")
+    size, shown = fit_text("a very very long description", 15, 3.2, measure=wide)
+    assert size == 1.8 and shown.endswith("…") and wide(shown, size) <= 15 + size
+    # all the way down to the drawing: the measure reaches the text of the label
+    asset = Asset("CBL-0042", "cable", "RG316 SMA-SMA", "", {}, created="2026-11-03")
+    estimated = build_drawing(PRESETS["50x25"], asset)
+    measured = build_drawing(PRESETS["50x25"], asset, "", wide)
+    sizes = lambda d: [i.size for i in d.items if hasattr(i, "text")]  # noqa: E731
+    assert max(sizes(measured)) < max(sizes(estimated))
+    assert sizes(build_drawing(PRESETS["50x25"], asset, "", None)) == sizes(estimated)
+
+
 def test_text_fits_by_shrinking_then_by_cutting():
     size, shown = fit_text("RG316", 30, 3.2)
     assert size == 3.2 and shown == "RG316"
