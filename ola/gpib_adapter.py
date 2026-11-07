@@ -314,9 +314,9 @@ MESSAGES: Dict[str, str] = {
     "hint_windows_keysight": "Windows: install the Keysight IO Libraries Suite, plug the adapter "
     "in and check in Keysight Connection Expert which interface it is (GPIB0, GPIB1...). With "
     "NI-VISA installed too, enable 'VISA coexistence' or set the IVI backend.",
-    "hint_linux_keysight": 'Linux: install linux-gpib, set board_type = "agilent_82357a" in '
-    "/etc/gpib.conf, load the firmware (gpib_config / fxload with the linux-gpib firmware "
-    "package), then pip install gpib-ctypes and use the pyvisa-py backend (@py).",
+    "hint_linux_keysight": "Linux: use the 'Linux set-up' tab: it installs linux-gpib (driver "
+    "agilent_82357a), fxload and the firmware, the udev rule, /etc/gpib.conf and the gpib group; "
+    "then pip install gpib-ctypes and use the pyvisa-py library (@py).",
     "hint_windows_ni": "Windows: install NI-VISA and NI-488.2, plug the adapter in and check its "
     "interface number (GPIB0...) in NI MAX.",
     "hint_linux_ni": 'Linux: install linux-gpib, set board_type = "ni_usb_b" in /etc/gpib.conf, '

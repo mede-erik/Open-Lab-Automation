@@ -15,13 +15,19 @@ selected adapter:
   to install on this system;
 * **Bus**: scan the bus and list the instruments that answer, with the address to use in the
   project (*Copy address*); Interface Clear and the REN line;
-* **Console**: send a command typed by the user to an address and read the answer.
+* **Console**: send a command typed by the user to an address and read the answer;
+* **Linux set-up** (on Linux, for adapters driven by linux-gpib such as a new Keysight 82357B):
+  each step (linux-gpib, kernel module, fxload and firmware, udev rule, ``/etc/gpib.conf``, gpib
+  group, Python bindings) checked, and the missing ones done as administrator through ``pkexec``
+  with a script the user can read first (``ola/gpib_linux.py``).
 
 The configuration is saved in the application settings (``frontend/core/gpib_settings.py``); the
 address editor of the instruments uses it. Slow operations (check, scan) run in a thread. Strings:
 ``frontend/lang/modules/gpib/<lang>.json``.
 """
 
+import os
+import sys
 import threading
 from typing import Any, Callable, List, Optional
 
@@ -30,6 +36,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
@@ -37,6 +44,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -53,6 +61,7 @@ from frontend.core import gpib_settings
 from frontend.core.errorhandler import handle_error
 from frontend.ui.module_translator import CatalogTranslator
 from ola import gpib_adapter as ga
+from ola import gpib_linux as gl
 from ola.errors import TransportError
 from ola.gpib_adapter import FAMILY_VISA, GpibAdapterConfig, GpibError
 
@@ -81,6 +90,8 @@ class _Worker(QThread):
 class GpibAdapterDialog(QDialog):
     """The GPIB adapters window (see the module docstring)."""
 
+    linux_line = pyqtSignal(str)  # a line of output of the Linux set-up (from its thread)
+
     def __init__(
         self,
         translator=None,
@@ -88,10 +99,16 @@ class GpibAdapterDialog(QDialog):
         settings=None,
         rm_factory=None,
         asynchronous: bool = True,
+        platform: str = sys.platform,
+        probe=None,
+        runner=None,
+        confirm=None,
     ):
         """``settings``: a ``QSettings`` (default: the application's); ``rm_factory(backend)``
         replaces ``pyvisa.ResourceManager`` and ``asynchronous=False`` runs the slow operations
-        directly (tests)."""
+        directly (tests). Linux set-up: ``platform``, ``probe`` (``ola.gpib_linux.SystemProbe``),
+        ``runner`` (runs a command, see ``ola.gpib_linux.default_runner``) and ``confirm(text)``
+        (asks before changing the system) replace the real ones in the tests."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("gpib", translator)
         self._settings = settings
@@ -105,6 +122,12 @@ class GpibAdapterDialog(QDialog):
         if not self.adapters:
             self.adapters = [GpibAdapterConfig()]
         self.devices: List[ga.BusDevice] = []
+        self.platform = platform
+        self._probe = probe
+        self._runner = runner or gl.default_runner
+        self._confirm = confirm or self._ask_confirmation
+        self._firmware_dir = ""
+        self.linux_report: Optional[gl.LinuxSetupReport] = None
 
         self.setWindowTitle(self._t("gpb_title"))
         self.resize(980, 620)
@@ -146,6 +169,7 @@ class GpibAdapterDialog(QDialog):
         self.tabs.addTab(self._build_check_tab(), self._t("gpb_tab_check"))
         self.tabs.addTab(self._build_bus_tab(), self._t("gpb_tab_bus"))
         self.tabs.addTab(self._build_console_tab(), self._t("gpb_tab_console"))
+        self.linux_tab_index = self.tabs.addTab(self._build_linux_tab(), self._t("gpb_tab_linux"))
         split.addWidget(self.tabs)
         split.setStretchFactor(1, 3)
 
@@ -297,6 +321,55 @@ class GpibAdapterDialog(QDialog):
         v.addWidget(self.console_log)
         return w
 
+    def _build_linux_tab(self) -> QWidget:
+        w = QWidget()
+        v = QVBoxLayout(w)
+        intro = QLabel(self._t("gpb_lx_intro"))
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        self.linux_table = QTableWidget(0, 2)
+        self.linux_table.setHorizontalHeaderLabels(["", self._t("gpb_result")])
+        self.linux_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.linux_table.setWordWrap(True)
+        self.linux_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.linux_table.verticalHeader().setVisible(False)
+        v.addWidget(self.linux_table, 2)
+        fw_row = QHBoxLayout()
+        self.firmware_button = QPushButton(self._t("gpb_lx_firmware"))
+        self.firmware_button.setToolTip(self._t("gpb_lx_firmware_tip"))
+        self.firmware_button.clicked.connect(self.choose_firmware_dir)
+        self.firmware_label = QLabel(self._t("gpb_lx_firmware_none"))
+        self.firmware_label.setWordWrap(True)
+        fw_row.addWidget(self.firmware_button)
+        fw_row.addWidget(self.firmware_label, 1)
+        v.addLayout(fw_row)
+        row = QHBoxLayout()
+        self.linux_check_button = QPushButton(self._t("gpb_lx_check"))
+        self.linux_check_button.clicked.connect(self.linux_check)
+        self.linux_script_button = QPushButton(self._t("gpb_lx_script"))
+        self.linux_script_button.clicked.connect(self.show_linux_script)
+        self.linux_save_button = QPushButton(self._t("gpb_lx_save"))
+        self.linux_save_button.clicked.connect(self.save_linux_script)
+        self.linux_install_button = QPushButton(self._t("gpb_lx_install"))
+        self.linux_install_button.clicked.connect(self.linux_install)
+        self.linux_python_button = QPushButton(self._t("gpb_lx_python"))
+        self.linux_python_button.clicked.connect(self.linux_python)
+        for b in (
+            self.linux_check_button,
+            self.linux_script_button,
+            self.linux_save_button,
+            self.linux_install_button,
+            self.linux_python_button,
+        ):
+            row.addWidget(b)
+        v.addLayout(row)
+        self.linux_log = QPlainTextEdit()
+        self.linux_log.setReadOnly(True)
+        v.addWidget(self.linux_log, 1)
+        self.linux_line.connect(self.linux_log.appendPlainText)
+        self._update_linux_buttons()
+        return w
+
     # ----- adapters list -------------------------------------------------------------------------
     def _fill_list(self):
         self.adapter_list.blockSignals(True)
@@ -354,6 +427,15 @@ class GpibAdapterDialog(QDialog):
         self.notes.setText(
             self._t("gpb_notes", family=self._t(f"gpb_family_{family}"), ids=ids or "-") + linux
         )
+        if hasattr(self, "linux_tab_index"):
+            shown = gl.supports_linux_setup(
+                GpibAdapterConfig(profile=prof.id, port="-"), self.platform
+            )
+            self.tabs.setTabVisible(self.linux_tab_index, shown)
+            if not self._loading:
+                self.linux_report = None
+                self.linux_table.setRowCount(0)
+                self._update_linux_buttons()
 
     def form_config(self) -> GpibAdapterConfig:
         """The configuration as shown in the form (not validated)."""
@@ -602,6 +684,116 @@ class GpibAdapterDialog(QDialog):
 
     def console_read(self):
         self._console_do(_read)
+
+    # ----- Linux set-up -----------------------------------------------------------------------
+    def linux_check(self):
+        """Check every step of the Linux set-up of the selected adapter."""
+        cfg = self._apply_form()
+        if cfg is None:
+            return
+        rm_factory = self._engine_kw.get("rm_factory", ga._resource_manager)
+        self._set_status(self._t("gpb_checking"))
+        self._run(
+            lambda progress: gl.check_linux_setup(cfg, self._probe, rm_factory),
+            self._show_linux,
+            "gpb_check_failed",
+        )
+
+    def _show_linux(self, report: gl.LinuxSetupReport):
+        self.linux_report = report
+        self.linux_table.setRowCount(0)
+        marks = {gl.OK: "✔", gl.MISSING: "✖", gl.WARN: "⚠", gl.INFO: "ℹ"}
+        for step in report.steps:
+            r = self.linux_table.rowCount()
+            self.linux_table.insertRow(r)
+            self.linux_table.setItem(r, 0, QTableWidgetItem(marks.get(step.status, "")))
+            self.linux_table.setItem(r, 1, QTableWidgetItem(self._t(step.key, **step.values)))
+        self.linux_table.resizeRowsToContents()
+        self._update_linux_buttons()
+        todo = report.root_fixes or report.needs_python
+        self._set_status(self._t("gpb_lx_overall_todo" if todo else "gpb_lx_overall_ok"))
+
+    def _update_linux_buttons(self):
+        report = self.linux_report
+        root = bool(report and report.root_fixes)
+        self.linux_install_button.setEnabled(root)
+        self.linux_script_button.setEnabled(root)
+        self.linux_save_button.setEnabled(root)
+        self.linux_python_button.setEnabled(bool(report and report.needs_python))
+
+    def choose_firmware_dir(self):
+        """A folder that already holds the firmware files (when they cannot be downloaded)."""
+        folder = QFileDialog.getExistingDirectory(self, self._t("gpb_lx_firmware"))
+        if folder:
+            self._firmware_dir = folder
+            self.firmware_label.setText(folder)
+
+    def linux_script(self) -> str:
+        """The script of the missing steps ('' if there is nothing to do as administrator)."""
+        if self.linux_report is None:
+            return ""
+        return gl.build_setup_script(self.linux_report, self._firmware_dir)
+
+    def show_linux_script(self):
+        self.linux_log.setPlainText(self.linux_script())
+
+    def save_linux_script(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, self._t("gpb_lx_save"), "ola-gpib-setup.sh", "Shell (*.sh)"
+        )
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(self.linux_script())
+            os.chmod(path, 0o755)
+        except OSError as exc:
+            self._error(exc, "gpb_lx_failed")
+            return
+        self._set_status(self._t("gpb_lx_saved", path=path))
+
+    def _ask_confirmation(self, text: str) -> bool:
+        answer = QMessageBox.question(self, self._t("gpb_lx_install"), text)
+        return answer == QMessageBox.StandardButton.Yes
+
+    def linux_install(self):
+        """Do the missing steps as administrator (pkexec asks for the password)."""
+        report = self.linux_report
+        script = self.linux_script()
+        if report is None or not script:
+            self._set_status(self._t("lx_not_needed"))
+            return
+        steps = "\n".join("• " + self._t(f"gpb_fix_{f}") for f in report.root_fixes)
+        if not self._confirm(self._t("gpb_lx_confirm", steps=steps)):
+            return
+        self.linux_log.clear()
+        self.linux_install_button.setEnabled(False)
+        self._set_status(self._t("gpb_lx_running"))
+
+        def done(code):
+            self._set_status(self._t("gpb_lx_done"))
+            self.linux_check()
+
+        self._run(
+            lambda progress: gl.run_setup(script, self.linux_line.emit, self._runner),
+            done,
+            "gpb_lx_failed",
+            on_finished=self._update_linux_buttons,
+        )
+
+    def linux_python(self):
+        """Install the Python bindings (gpib-ctypes) with pip, as the user."""
+        self.linux_log.clear()
+
+        def done(code):
+            self._set_status(self._t("gpb_lx_python_done"))
+            self.linux_check()
+
+        self._run(
+            lambda progress: gl.install_python_bindings(self.linux_line.emit, self._runner),
+            done,
+            "gpb_lx_failed",
+        )
 
     # ----- helpers -------------------------------------------------------------------------------
     def _run(self, job, on_done, error_key, on_progress=None, on_finished=None):

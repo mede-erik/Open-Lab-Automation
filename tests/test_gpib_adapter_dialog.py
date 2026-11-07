@@ -259,3 +259,93 @@ def test_address_editor_without_configured_adapters(app, tmp_path):
     e.conn_combo.setCurrentText("GPIB")
     e.fields["gpib_addr"].setText("9")
     assert e.get_address() == "GPIB0::9::INSTR"
+
+
+# ----- Linux set-up tab --------------------------------------------------------------------------
+def linux_dialog(app, settings, bus, platform="linux", runner=None, confirm=lambda text: True):
+    from tests.test_gpib_linux import FakeProbe
+
+    d = GpibAdapterDialog(
+        settings=settings,
+        rm_factory=lambda backend="": FakeRM(bus),
+        asynchronous=False,
+        platform=platform,
+        probe=FakeProbe(),
+        runner=runner or (lambda argv, out: 0),
+        confirm=confirm,
+    )
+    return d
+
+
+def test_linux_tab_only_on_linux_for_linux_gpib_adapters(app, settings, bus):
+    d = linux_dialog(app, settings, bus)
+    assert d.tabs.isTabVisible(d.linux_tab_index)
+    d.model_combo.setCurrentIndex(d.model_combo.findData("prologix_usb"))
+    assert not d.tabs.isTabVisible(d.linux_tab_index)
+    w = linux_dialog(app, settings, bus, platform="win32")
+    assert not w.tabs.isTabVisible(w.linux_tab_index)
+
+
+def test_linux_check_and_script(app, settings, bus):
+    d = linux_dialog(app, settings, bus)
+    assert not d.linux_install_button.isEnabled()
+    d.linux_check()
+    rows = [d.linux_table.item(r, 1).text() for r in range(d.linux_table.rowCount())]
+    assert any("measat_releaseX1.8.hex" in t for t in rows)
+    assert d.linux_install_button.isEnabled() and d.linux_python_button.isEnabled()
+    d.show_linux_script()
+    assert "agilent_82357a" in d.linux_log.toPlainText()
+
+
+def test_linux_install_runs_pkexec(app, settings, bus, errors, monkeypatch):
+    from ola import gpib_linux
+
+    monkeypatch.setattr(gpib_linux.shutil, "which", lambda c: "/usr/bin/pkexec")
+    calls, asked = [], []
+
+    def runner(argv, out):
+        calls.append(list(argv))
+        out("==> Packages")
+        return 0
+
+    d = linux_dialog(
+        app, settings, bus, runner=runner, confirm=lambda text: asked.append(text) or True
+    )
+    d.linux_check()
+    d.linux_install()
+    assert calls[0][0] == "/usr/bin/pkexec"
+    assert "/etc/gpib.conf" in asked[0]
+    assert "==> Packages" in d.linux_log.toPlainText()
+    assert errors == []
+
+
+def test_linux_install_cancelled(app, settings, bus):
+    calls = []
+    d = linux_dialog(
+        app,
+        settings,
+        bus,
+        runner=lambda argv, out: calls.append(argv) or 0,
+        confirm=lambda text: False,
+    )
+    d.linux_check()
+    d.linux_install()
+    assert calls == []
+
+
+def test_linux_install_failure(app, settings, bus, errors, monkeypatch):
+    from ola import gpib_linux
+
+    monkeypatch.setattr(gpib_linux.shutil, "which", lambda c: "/usr/bin/pkexec")
+    d = linux_dialog(app, settings, bus, runner=lambda argv, out: 2)
+    d.linux_check()
+    d.linux_install()
+    assert errors and "GPIB-008" in errors[0]
+
+
+def test_linux_python_bindings(app, settings, bus):
+    calls = []
+    d = linux_dialog(app, settings, bus, runner=lambda argv, out: calls.append(argv) or 0)
+    d.linux_check()
+    d.linux_python()
+    assert calls[0][1:] == ["-m", "pip", "install", "gpib-ctypes"]

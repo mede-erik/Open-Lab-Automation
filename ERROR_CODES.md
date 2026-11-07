@@ -2384,6 +2384,19 @@ with the same name, board outside 0-31, scan range outside 0-30, empty port...)
 ### GPIB-007: Operation Not Supported
 **Description**: The adapter cannot do this bus operation (e.g. REN control on a Prologix-compatible adapter)
 
+### GPIB-008: Linux Set-up Failed
+**Description**: The Linux set-up of the adapter (*GPIB adapters > Linux set-up*) could not run or
+stopped: `pkexec` is missing, the password was not given, or a step of the script failed (download,
+build, package)  
+**Solution**: Read the log in the tab; without `pkexec` run the script shown in the message with
+`sudo bash <script>`; *Save script...* gives the same script to run by hand
+
+### GPIB-009: Secure Boot Blocks the Kernel Module
+**Description**: Secure Boot is on, so the linux-gpib kernel module built on this machine is not signed
+and the kernel refuses to load it  
+**Solution**: Sign the module and enroll the key with `mokutil`, or turn Secure Boot off in the firmware
+settings; or use a kernel 6.13+ of a distribution that ships the gpib drivers
+
 ---
 
 ## How to Use This Guide

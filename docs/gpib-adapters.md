@@ -29,6 +29,47 @@ one entry in `PROFILES` of `ola/gpib_adapter.py`.
   package; until then the adapter shows the USB id `0957:0518` instead of `0957:0718`), then
   `pip install gpib-ctypes` and choose the library **pyvisa-py**.
 
+### A new Keysight 82357B on Linux: the *Linux set-up* tab
+
+On Linux the window has a **Linux set-up** tab (for the adapters driven by linux-gpib). *Check the
+steps* shows, one by one, what a new 82357B still needs; *Run set-up (administrator)* does the missing
+ones as root through `pkexec` (the system asks for the password), after showing the list of what will
+be changed. *Show script* / *Save script...* give the same bash script to read first or to run by hand
+with `sudo bash ola-gpib-setup.sh`. The script (`ola/gpib_linux.py`) does only what is missing and can
+be run again:
+
+1. **Packages**: compiler, kernel headers, autotools, bison, flex, curl and **fxload**
+   (apt, dnf, pacman or zypper; other distributions: by hand).
+2. **linux-gpib**: the distribution's `linux-gpib` package if there is one, otherwise the release
+   tarball (linux-gpib 4.3.7 from SourceForge): `linux-gpib-kernel` (`make`, `make install`,
+   `depmod`; only for kernels older than 6.13, newer kernels have the drivers in
+   `drivers/staging/gpib`) and `linux-gpib-user` (`./configure --sysconfdir=/etc`, `make`,
+   `make install`, `ldconfig`). The user part installs the udev rules `98-gpib-generic.rules` and
+   `99-agilent_82357a.rules` and the firmware loader.
+3. **Firmware**: `measat_releaseX1.8.hex` (82357B; 82357A: `82357a_fw.hex`) copied to
+   `/usr/local/share/usb/agilent_82357a` (source build) or `/usr/share/usb/agilent_82357a`. It comes
+   from the linux-gpib firmware archive; if that cannot be downloaded, put the file in a folder and
+   choose it with *Firmware folder...*. At every plug-in udev runs
+   `fxload -t fx2 -I measat_releaseX1.8.hex` and the adapter changes from USB `0957:0518` to
+   `0957:0718`; then `gpib_config` configures the board.
+4. **udev rule**: when linux-gpib's own rules are not there (some packages), the script writes
+   `/etc/udev/rules.d/99-ola-agilent-82357.rules` (fxload on `0518`, `gpib_config --minor N` on
+   `0718`, `/dev/gpib*` to the `gpib` group).
+5. **/etc/gpib.conf**: the `interface` with `minor = <board>` gets `board_type = "agilent_82357a"`;
+   the other interfaces and devices are kept and a backup copy (`gpib.conf.ola-backup-<date>`) is
+   made first.
+6. **Group**: `groupadd -f gpib` and `usermod -aG gpib <you>`.
+7. `udevadm control --reload-rules`, `modprobe agilent_82357a`, `gpib_config --minor N`.
+
+Then: **unplug the adapter and plug it in again**, and **log out and back in** (for the new group).
+*Install Python bindings* runs `pip install gpib-ctypes` as you (no password), so that the pyvisa-py
+library can use the board. The last check, *pyvisa-py sees GPIB0::INTFC*, says that everything works.
+
+Things the script cannot fix, shown as warnings: **Secure Boot** on (`[GPIB-009]`: a module built on the
+machine is not signed; sign it with `mokutil` or turn Secure Boot off) and a kernel 6.13 or newer whose
+distribution does not build the staging gpib drivers (`CONFIG_GPIB`). After a kernel update a module
+built from source must be built again: *Check the steps* shows it and *Run set-up* rebuilds it.
+
 **NI GPIB-USB-HS**: NI-VISA + NI-488.2 on Windows (interface number in NI MAX); on Linux linux-gpib
 with `board_type = "ni_usb_b"`.
 
@@ -67,7 +108,8 @@ terminator, escaped. It waits at most 3 s between two characters of an answer (`
 
 ## Errors
 
-`GPIB-001`...`GPIB-007` (adapter not found, driver missing, firmware not loaded, no instrument answers,
-timeout, invalid configuration, operation not supported): see [`ERROR_CODES.md`](../ERROR_CODES.md).
+`GPIB-001`...`GPIB-009` (adapter not found, driver missing, firmware not loaded, no instrument answers,
+timeout, invalid configuration, operation not supported, Linux set-up failed, Secure Boot): see [`ERROR_CODES.md`](../ERROR_CODES.md).
 
-Not tried yet on real hardware: the tests use a simulated VISA library and a simulated Prologix.
+Not tried yet on real hardware: the tests use a simulated VISA library, a simulated Prologix and a
+simulated Linux system (the generated script is checked with `bash -n`).
