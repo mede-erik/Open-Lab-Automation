@@ -636,3 +636,34 @@ def test_deembedding_doc_matches_the_code():
     assert "ola/fixtures.py" in read(ROOT / "README.md")
     for image in ("filter_with_fixtures", "attenuator_with_fixtures"):
         assert image in read(ROOT / "docs" / "wiring-images.md")
+
+
+def test_bode_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/bode.md is a real file: it validates and runs on the simulated bench."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_bode import SimBodeLab, integrator_with_pole
+
+    text = read(ROOT / "docs" / "bode.md")
+    block = re.search(r"```json bode\.bod\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/bode.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("bode", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    lab = SimBodeLab(plant=integrator_with_pole(2e4, 2e5), noise_v=0.0001)
+    runner = Runner(m, {"generator": [lab.generator], "oscilloscope": [lab.scope]})
+    runner.start()
+    assert runner.join(120) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert abs(row["crossover_hz"] - 2e4) < 1e3 and abs(row["phase_margin_deg"] - 84.3) < 3
+    assert row["verdict"] == "PASS" and not lab.generator_on
+    for name in ("set_output_state", "set_frequency", "set_amplitude", "function_generator",
+                 "read_waveform_full", "phase_margin_deg", "gain_margin_db"):  # fmt: skip
+        assert name in text, name

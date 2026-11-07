@@ -1,6 +1,6 @@
 # Immagini degli schemi di collegamento: cosa disegnare
 
-Elenco delle immagini che i moduli cercano. Sono **17**. Ogni immagine è facoltativa: finché manca, la finestra dei
+Elenco delle immagini che i moduli cercano. Sono **18**. Ogni immagine è facoltativa: finché manca, la finestra dei
 collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
 Puoi farle una alla volta, in qualsiasi ordine.
 
@@ -70,7 +70,7 @@ dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amp
 
 ---
 
-# Le 17 immagini
+# Le 18 immagini
 
 Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
 esserci**.
@@ -268,6 +268,19 @@ esserci**.
   e il piano di calibrazione prima degli accessori, come nella 16.
 * **Dettagli**: stessa impostazione della 16, così si vede che cambia solo il dispositivo.
 
+## 18. Bode plot
+
+* **File**: `bode`
+* **Cartella**: `ola/modules/bode/`
+* **Quando si vede**: misura di un diagramma di Bode (guadagno e fase di un circuito) con generatore di funzioni e oscilloscopio.
+* **Cosa disegnare**: da sinistra a destra: il **generatore di funzioni** (con un'onda sinusoidale sul display), il **circuito in
+  prova** (riquadro con ingresso a sinistra e uscita a destra) e l'**oscilloscopio**. L'uscita del generatore va all'**ingresso del
+  circuito** e, con un filo a parte, al **canale di riferimento** dell'oscilloscopio (**CH1**); l'**uscita del circuito** va al
+  secondo canale (**CH2**).
+* **Dettagli**: le **due sonde uguali**, con la molla di massa corta; il **punto di prelievo dell'ingresso vicino al circuito** (non
+  all'uscita del generatore). Se vuoi, un riquadro più piccolo che mostri il caso del **guadagno d'anello** (generatore in serie con
+  l'anello tramite una resistenza o un trasformatore di iniezione, tratteggiato perché non c'è sempre).
+
 ---
 
 # Foglio di controllo
@@ -291,6 +304,7 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 15. `antenna_with_cable` — `ola/modules/antenna/`
 - [ ] 16. `filter_with_fixtures` — `ola/modules/filter/`
 - [ ] 17. `attenuator_with_fixtures` — `ola/modules/attenuator/`
+- [ ] 18. `bode` — `ola/modules/bode/`
 
 ## Un'idea per fare meno lavoro
 

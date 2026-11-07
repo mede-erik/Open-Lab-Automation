@@ -1,0 +1,599 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Circuit and instruments",
+        "it": "Circuito e strumenti",
+        "fr": "Circuit et instruments",
+        "es": "Circuito e instrumentos",
+        "de": "Schaltung und Geräte"
+      },
+      "fields": [
+        {
+          "path": "generator",
+          "kind": "instrument",
+          "label": {
+            "en": "Function generator",
+            "it": "Generatore di funzioni",
+            "fr": "Générateur de fonctions",
+            "es": "Generador de funciones",
+            "de": "Funktionsgenerator"
+          },
+          "help": {
+            "en": "It feeds the circuit with a sine.",
+            "it": "Alimenta il circuito con una sinusoide.",
+            "fr": "Il alimente le circuit avec une sinusoïde.",
+            "es": "Alimenta el circuito con una sinusoide.",
+            "de": "Er speist die Schaltung mit einem Sinus."
+          }
+        },
+        {
+          "path": "oscilloscope",
+          "kind": "instrument",
+          "label": {
+            "en": "Oscilloscope",
+            "it": "Oscilloscopio",
+            "fr": "Oscilloscope",
+            "es": "Osciloscopio",
+            "de": "Oszilloskop"
+          },
+          "help": {
+            "en": "One channel on the input of the circuit, one on its output.",
+            "it": "Un canale sull'ingresso del circuito, uno sull'uscita.",
+            "fr": "Une voie sur l'entrée du circuit, une sur sa sortie.",
+            "es": "Un canal en la entrada del circuito, uno en su salida.",
+            "de": "Ein Kanal am Eingang der Schaltung, einer am Ausgang."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Circuit from the registry",
+            "it": "Circuito dal registro",
+            "fr": "Circuit du registre",
+            "es": "Circuito del registro",
+            "de": "Schaltung aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "label_path": "device.label"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Circuit name",
+            "it": "Nome del circuito",
+            "fr": "Nom du circuit",
+            "es": "Nombre del circuito",
+            "de": "Name der Schaltung"
+          },
+          "help": {
+            "en": "Identifies what is measured: it is saved with every run.",
+            "it": "Identifica ciò che si misura: viene salvato con ogni esecuzione.",
+            "fr": "Identifie ce qui est mesuré : il est enregistré avec chaque exécution.",
+            "es": "Identifica lo que se mide: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Gemessene: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. buck converter loop",
+            "it": "es. anello del buck",
+            "fr": "p. ex. boucle du buck",
+            "es": "p. ej. lazo del buck",
+            "de": "z. B. Regelkreis des Buck"
+          }
+        },
+        {
+          "path": "loop",
+          "kind": "bool",
+          "label": {
+            "en": "It is a loop gain: find the crossover and the margins",
+            "it": "È un guadagno d'anello: trova l'attraversamento e i margini",
+            "fr": "C'est un gain de boucle : trouver la coupure et les marges",
+            "es": "Es una ganancia de lazo: encontrar el cruce y los márgenes",
+            "de": "Es ist eine Schleifenverstärkung: Durchtritt und Reserven bestimmen"
+          },
+          "help": {
+            "en": "The crossover (where the gain falls through 0 dB), the phase margin and the gain margin are found.",
+            "it": "Si trovano la frequenza di attraversamento (dove il guadagno scende sotto 0 dB), il margine di fase e il margine di guadagno.",
+            "fr": "On trouve la fréquence de coupure (où le gain passe sous 0 dB), la marge de phase et la marge de gain.",
+            "es": "Se encuentran la frecuencia de cruce (donde la ganancia baja de 0 dB), el margen de fase y el margen de ganancia.",
+            "de": "Durchtrittsfrequenz (wo die Verstärkung unter 0 dB fällt), Phasenreserve und Amplitudenreserve werden bestimmt."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep and generator",
+        "it": "Sweep e generatore",
+        "fr": "Balayage et générateur",
+        "es": "Barrido y generador",
+        "de": "Sweep und Generator"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 100",
+            "it": "es. 100",
+            "fr": "p. ex. 100",
+            "es": "p. ej. 100",
+            "de": "z. B. 100"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "A few points per decade are enough for a smooth circuit (10 to 20); more around a resonance.",
+            "it": "Bastano pochi punti per decade per un circuito regolare (10-20); di più vicino a una risonanza.",
+            "fr": "Quelques points par décade suffisent pour un circuit régulier (10 à 20) ; plus près d'une résonance.",
+            "es": "Bastan pocos puntos por década para un circuito regular (10-20); más cerca de una resonancia.",
+            "de": "Wenige Punkte pro Dekade genügen für eine glatte Schaltung (10 bis 20); mehr bei einer Resonanz."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            },
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            }
+          ]
+        },
+        {
+          "path": "source.channel",
+          "kind": "int",
+          "label": {
+            "en": "Generator output",
+            "it": "Uscita del generatore",
+            "fr": "Sortie du générateur",
+            "es": "Salida del generador",
+            "de": "Generatorausgang"
+          }
+        },
+        {
+          "path": "source.amplitude_vpp",
+          "kind": "number",
+          "unit": "Vpp",
+          "label": {
+            "en": "Amplitude",
+            "it": "Ampiezza",
+            "fr": "Amplitude",
+            "es": "Amplitud",
+            "de": "Amplitude"
+          },
+          "help": {
+            "en": "Peak to peak. Small enough not to saturate the circuit, large enough to read: the same at every frequency.",
+            "it": "Picco-picco. Abbastanza piccola da non saturare il circuito, abbastanza grande da leggersi: la stessa a ogni frequenza.",
+            "fr": "Crête à crête. Assez petite pour ne pas saturer le circuit, assez grande pour être lue : la même à chaque fréquence.",
+            "es": "Pico a pico. Lo bastante pequeña para no saturar el circuito, lo bastante grande para leerse: la misma en cada frecuencia.",
+            "de": "Spitze-Spitze. Klein genug, um die Schaltung nicht zu sättigen, groß genug zum Lesen: bei jeder Frequenz gleich."
+          }
+        },
+        {
+          "path": "source.offset_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Offset",
+            "it": "Offset",
+            "fr": "Décalage",
+            "es": "Desplazamiento",
+            "de": "Offset"
+          },
+          "help": {
+            "en": "Optional: the DC level the sine rides on.",
+            "it": "Facoltativo: il livello continuo su cui sta la sinusoide.",
+            "fr": "Facultatif : le niveau continu sur lequel repose la sinusoïde.",
+            "es": "Opcional: el nivel continuo sobre el que va la sinusoide.",
+            "de": "Optional: der Gleichanteil, auf dem der Sinus liegt."
+          }
+        },
+        {
+          "path": "safety.max_amplitude_vpp",
+          "kind": "number",
+          "unit": "Vpp",
+          "label": {
+            "en": "Safety: largest amplitude",
+            "it": "Sicurezza: ampiezza massima",
+            "fr": "Sécurité : amplitude maximale",
+            "es": "Seguridad: amplitud máxima",
+            "de": "Sicherheit: größte Amplitude"
+          },
+          "help": {
+            "en": "Optional. An amplitude above it is refused before anything is switched on.",
+            "it": "Facoltativa. Un'ampiezza superiore viene rifiutata prima di accendere qualunque cosa.",
+            "fr": "Facultative. Une amplitude supérieure est refusée avant d'allumer quoi que ce soit.",
+            "es": "Opcional. Una amplitud mayor se rechaza antes de encender nada.",
+            "de": "Optional. Eine größere Amplitude wird abgelehnt, bevor etwas eingeschaltet wird."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Oscilloscope",
+        "it": "Oscilloscopio",
+        "fr": "Oscilloscope",
+        "es": "Osciloscopio",
+        "de": "Oszilloskop"
+      },
+      "fields": [
+        {
+          "path": "scope.input_channel",
+          "kind": "int",
+          "label": {
+            "en": "Input channel",
+            "it": "Canale d'ingresso",
+            "fr": "Voie d'entrée",
+            "es": "Canal de entrada",
+            "de": "Eingangskanal"
+          },
+          "help": {
+            "en": "The channel on what goes into the circuit.",
+            "it": "Il canale su ciò che entra nel circuito.",
+            "fr": "La voie sur ce qui entre dans le circuit.",
+            "es": "El canal en lo que entra al circuito.",
+            "de": "Der Kanal an dem, was in die Schaltung geht."
+          }
+        },
+        {
+          "path": "scope.output_channel",
+          "kind": "int",
+          "label": {
+            "en": "Output channel",
+            "it": "Canale d'uscita",
+            "fr": "Voie de sortie",
+            "es": "Canal de salida",
+            "de": "Ausgangskanal"
+          },
+          "help": {
+            "en": "The channel on what comes out of the circuit.",
+            "it": "Il canale su ciò che esce dal circuito.",
+            "fr": "La voie sur ce qui sort du circuit.",
+            "es": "El canal en lo que sale del circuito.",
+            "de": "Der Kanal an dem, was aus der Schaltung kommt."
+          }
+        },
+        {
+          "path": "scope.probe_attenuation",
+          "kind": "number",
+          "label": {
+            "en": "Probe attenuation",
+            "it": "Attenuazione della sonda",
+            "fr": "Atténuation de la sonde",
+            "es": "Atenuación de la sonda",
+            "de": "Tastkopfteilung"
+          },
+          "help": {
+            "en": "The same on both channels (10 = 10:1). Set it on the probes too.",
+            "it": "La stessa sui due canali (10 = 10:1). Impostala anche sulle sonde.",
+            "fr": "La même sur les deux voies (10 = 10:1). Réglez-la aussi sur les sondes.",
+            "es": "La misma en los dos canales (10 = 10:1). Póngala también en las sondas.",
+            "de": "Auf beiden Kanälen gleich (10 = 10:1). Auch an den Tastköpfen einstellen."
+          }
+        },
+        {
+          "path": "scope.coupling",
+          "kind": "choice",
+          "label": {
+            "en": "Coupling",
+            "it": "Accoppiamento",
+            "fr": "Couplage",
+            "es": "Acoplamiento",
+            "de": "Kopplung"
+          },
+          "help": {
+            "en": "AC coupling adds phase lead below about 20 Hz: use DC for a sweep that starts lower.",
+            "it": "L'accoppiamento AC aggiunge anticipo di fase sotto circa 20 Hz: usa DC per uno sweep che parte più in basso.",
+            "fr": "Le couplage AC ajoute une avance de phase sous environ 20 Hz : utilisez DC pour un balayage qui part plus bas.",
+            "es": "El acoplamiento AC añade adelanto de fase por debajo de unos 20 Hz: use DC para un barrido que empieza más abajo.",
+            "de": "AC-Kopplung bringt unterhalb von etwa 20 Hz eine Phasenvoreilung: für einen Sweep, der tiefer beginnt, DC verwenden."
+          },
+          "choices": [
+            {
+              "value": "AC",
+              "label": {
+                "en": "AC",
+                "it": "AC",
+                "fr": "AC",
+                "es": "AC",
+                "de": "AC"
+              }
+            },
+            {
+              "value": "DC",
+              "label": {
+                "en": "DC",
+                "it": "DC",
+                "fr": "DC",
+                "es": "DC",
+                "de": "DC"
+              }
+            }
+          ]
+        },
+        {
+          "path": "scope.cycles",
+          "kind": "int",
+          "label": {
+            "en": "Periods shown",
+            "it": "Periodi mostrati",
+            "fr": "Périodes affichées",
+            "es": "Periodos mostrados",
+            "de": "Dargestellte Perioden"
+          },
+          "help": {
+            "en": "The timebase is set at every frequency to show this many periods (5 by default).",
+            "it": "La base dei tempi è impostata a ogni frequenza per mostrare questo numero di periodi (5 di default).",
+            "fr": "La base de temps est réglée à chaque fréquence pour afficher ce nombre de périodes (5 par défaut).",
+            "es": "La base de tiempos se ajusta en cada frecuencia para mostrar este número de periodos (5 por defecto).",
+            "de": "Die Zeitbasis wird bei jeder Frequenz so gesetzt, dass diese Zahl von Perioden sichtbar ist (standardmäßig 5)."
+          }
+        },
+        {
+          "path": "scope.memory_depth",
+          "kind": "int",
+          "label": {
+            "en": "Memory depth",
+            "it": "Profondità di memoria",
+            "fr": "Profondeur mémoire",
+            "es": "Profundidad de memoria",
+            "de": "Speichertiefe"
+          },
+          "help": {
+            "en": "Optional, in points. Most oscilloscopes accept only some values (10000, 100000, 1000000...). At the highest frequencies it must give at least 8 samples a cycle.",
+            "it": "Facoltativa, in punti. La maggior parte degli oscilloscopi accetta solo alcuni valori (10000, 100000, 1000000...). Alle frequenze più alte deve dare almeno 8 campioni per periodo.",
+            "fr": "Facultative, en points. La plupart des oscilloscopes n'acceptent que certaines valeurs (10000, 100000, 1000000...). Aux fréquences les plus hautes, elle doit donner au moins 8 échantillons par période.",
+            "es": "Opcional, en puntos. La mayoría de los osciloscopios solo aceptan algunos valores (10000, 100000, 1000000...). A las frecuencias más altas debe dar al menos 8 muestras por periodo.",
+            "de": "Optional, in Punkten. Die meisten Oszilloskope akzeptieren nur bestimmte Werte (10000, 100000, 1000000...). Bei den höchsten Frequenzen muss sie mindestens 8 Abtastwerte pro Periode liefern."
+          }
+        },
+        {
+          "path": "scope.bandwidth_limit_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Bandwidth limit",
+            "it": "Limite di banda",
+            "fr": "Limite de bande",
+            "es": "Límite de banda",
+            "de": "Bandbreitenbegrenzung"
+          },
+          "help": {
+            "en": "Optional: 0 = full bandwidth. A limit lowers the noise but also changes the phase near it.",
+            "it": "Facoltativo: 0 = banda intera. Un limite riduce il rumore ma cambia anche la fase vicino ad esso.",
+            "fr": "Facultatif : 0 = bande complète. Une limite réduit le bruit mais change aussi la phase près d'elle.",
+            "es": "Opcional: 0 = banda completa. Un límite reduce el ruido pero también cambia la fase cerca de él.",
+            "de": "Optional: 0 = volle Bandbreite. Eine Begrenzung senkt das Rauschen, ändert aber auch die Phase in ihrer Nähe."
+          }
+        },
+        {
+          "path": "scope.input_volts_per_div",
+          "kind": "number",
+          "unit": "V/div",
+          "label": {
+            "en": "Input scale at the start",
+            "it": "Scala d'ingresso all'inizio",
+            "fr": "Échelle d'entrée au départ",
+            "es": "Escala de entrada al inicio",
+            "de": "Eingangsskala am Anfang"
+          },
+          "help": {
+            "en": "Optional: the scales are adjusted by themselves at every frequency; this is only where they start.",
+            "it": "Facoltativa: le scale si regolano da sole a ogni frequenza; questo è solo il punto di partenza.",
+            "fr": "Facultative : les échelles se règlent d'elles-mêmes à chaque fréquence ; ce n'est que le point de départ.",
+            "es": "Opcional: las escalas se ajustan solas en cada frecuencia; esto es solo el punto de partida.",
+            "de": "Optional: die Skalen stellen sich bei jeder Frequenz selbst ein; das ist nur der Startwert."
+          }
+        },
+        {
+          "path": "scope.output_volts_per_div",
+          "kind": "number",
+          "unit": "V/div",
+          "label": {
+            "en": "Output scale at the start",
+            "it": "Scala d'uscita all'inizio",
+            "fr": "Échelle de sortie au départ",
+            "es": "Escala de salida al inicio",
+            "de": "Ausgangsskala am Anfang"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Timing, phase and checks",
+        "it": "Tempi, fase e controlli",
+        "fr": "Temps, phase et contrôles",
+        "es": "Tiempos, fase y controles",
+        "de": "Zeiten, Phase und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "settle_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Wait after a change of frequency",
+            "it": "Attesa dopo un cambio di frequenza",
+            "fr": "Attente après un changement de fréquence",
+            "es": "Espera tras un cambio de frecuencia",
+            "de": "Wartezeit nach einem Frequenzwechsel"
+          },
+          "help": {
+            "en": "Seconds for the circuit to settle (0.5 s by default). A slow loop needs more.",
+            "it": "Secondi perché il circuito si assesti (0,5 s di default). Un anello lento ne richiede di più.",
+            "fr": "Secondes pour que le circuit se stabilise (0,5 s par défaut). Une boucle lente en demande plus.",
+            "es": "Segundos para que el circuito se estabilice (0,5 s por defecto). Un lazo lento necesita más.",
+            "de": "Sekunden, bis sich die Schaltung eingeschwungen hat (standardmäßig 0,5 s). Eine langsame Schleife braucht mehr."
+          }
+        },
+        {
+          "path": "capture_wait_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Wait before reading",
+            "it": "Attesa prima della lettura",
+            "fr": "Attente avant la lecture",
+            "es": "Espera antes de leer",
+            "de": "Wartezeit vor dem Lesen"
+          },
+          "help": {
+            "en": "Time for the oscilloscope to fill its memory after it is started (0.3 s by default).",
+            "it": "Tempo perché l'oscilloscopio riempia la memoria dopo l'avvio (0,3 s di default).",
+            "fr": "Temps pour que l'oscilloscope remplisse sa mémoire après le démarrage (0,3 s par défaut).",
+            "es": "Tiempo para que el osciloscopio llene su memoria tras iniciarse (0,3 s por defecto).",
+            "de": "Zeit, bis das Oszilloskop nach dem Start seinen Speicher füllt (standardmäßig 0,3 s)."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Captures averaged",
+            "it": "Acquisizioni mediate",
+            "fr": "Acquisitions moyennées",
+            "es": "Capturas promediadas",
+            "de": "Gemittelte Aufnahmen"
+          }
+        },
+        {
+          "path": "phase_offset_deg",
+          "kind": "number",
+          "unit": "deg",
+          "label": {
+            "en": "Phase offset",
+            "it": "Offset di fase",
+            "fr": "Décalage de phase",
+            "es": "Desplazamiento de fase",
+            "de": "Phasenoffset"
+          },
+          "help": {
+            "en": "Added to the phase: 180 for a loop measured with an inverting injection.",
+            "it": "Aggiunto alla fase: 180 per un anello misurato con iniezione invertente.",
+            "fr": "Ajouté à la phase : 180 pour une boucle mesurée avec une injection inverseuse.",
+            "es": "Se suma a la fase: 180 para un lazo medido con inyección inversora.",
+            "de": "Wird zur Phase addiert: 180 für eine Schleife mit invertierender Einspeisung."
+          }
+        },
+        {
+          "path": "phase_start_deg",
+          "kind": "number",
+          "unit": "deg",
+          "label": {
+            "en": "Phase of the first point near",
+            "it": "Fase del primo punto vicina a",
+            "fr": "Phase du premier point proche de",
+            "es": "Fase del primer punto cerca de",
+            "de": "Phase des ersten Punkts nahe"
+          },
+          "help": {
+            "en": "Optional: the phase is continuous along the sweep; this says which of the 360-degree equivalents the first point takes (0 by default: -180 to 180).",
+            "it": "Facoltativa: la fase è continua lungo lo sweep; dice quale delle equivalenti a 360 gradi prende il primo punto (0 di default: da -180 a 180).",
+            "fr": "Facultative : la phase est continue le long du balayage ; elle dit laquelle des équivalentes à 360 degrés prend le premier point (0 par défaut : -180 à 180).",
+            "es": "Opcional: la fase es continua a lo largo del barrido; dice cuál de las equivalentes a 360 grados toma el primer punto (0 por defecto: -180 a 180).",
+            "de": "Optional: die Phase ist entlang des Sweeps stetig; sie sagt, welche der um 360 Grad verschobenen Entsprechungen der erste Punkt nimmt (standardmäßig 0: -180 bis 180)."
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limits",
+            "it": "Limiti",
+            "fr": "Limites",
+            "es": "Límites",
+            "de": "Grenzwerte"
+          },
+          "help": {
+            "en": "Optional pass / fail: {\"min_phase_margin_deg\": 45, \"min_gain_margin_db\": 6, \"min_bandwidth_hz\": 1000, \"max_peaking_db\": 3}. The margins need \"A loop gain\".",
+            "it": "Promosso / non promosso facoltativo: {\"min_phase_margin_deg\": 45, \"min_gain_margin_db\": 6, \"min_bandwidth_hz\": 1000, \"max_peaking_db\": 3}. I margini richiedono \"Un guadagno d'anello\".",
+            "fr": "Réussi / échoué facultatif : {\"min_phase_margin_deg\": 45, \"min_gain_margin_db\": 6, \"min_bandwidth_hz\": 1000, \"max_peaking_db\": 3}. Les marges demandent « Un gain de boucle ».",
+            "es": "Aprobado / suspendido opcional: {\"min_phase_margin_deg\": 45, \"min_gain_margin_db\": 6, \"min_bandwidth_hz\": 1000, \"max_peaking_db\": 3}. Los márgenes requieren «Una ganancia de lazo».",
+            "de": "Optional bestanden / nicht bestanden: {\"min_phase_margin_deg\": 45, \"min_gain_margin_db\": 6, \"min_bandwidth_hz\": 1000, \"max_peaking_db\": 3}. Die Reserven brauchen „Eine Schleifenverstärkung\"."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to connect before measuring",
+            "it": "Chiedi di collegare prima di misurare",
+            "fr": "Demander de connecter avant de mesurer",
+            "es": "Pedir conectar antes de medir",
+            "de": "Vor der Messung zum Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

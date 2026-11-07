@@ -94,6 +94,83 @@ def amplitude_spectrum(
     return [k * df for k in range(len(amps))], amps
 
 
+def fit_sine(
+    samples: Sequence[float],
+    sample_interval_s: float,
+    frequency_hz: float,
+    use_numpy: bool = True,
+) -> dict:
+    """Fit ``a cos(wt) + b sin(wt) + c`` to the samples at the **known** frequency (least squares,
+    ``t = k * sample_interval_s``) and give ``amplitude``, ``phase_rad`` (the signal is
+    ``amplitude * cos(wt + phase)``), ``offset`` and ``residual_rms`` (what the sine does not
+    explain: noise and distortion). Two channels sampled together share the time base, so the
+    difference of their phases is the phase between them. ``ValueError`` for fewer than 8 samples
+    or a frequency that is not above 0."""
+    n = len(samples)
+    if n < 8:
+        raise ValueError("a sine fit needs at least 8 samples")
+    if frequency_hz <= 0 or sample_interval_s <= 0:
+        raise ValueError("the frequency and the sample interval must be above 0")
+    w = 2 * math.pi * frequency_hz * sample_interval_s
+    if use_numpy and _np is not None:
+        k = _np.arange(n)
+        c, s_ = _np.cos(w * k), _np.sin(w * k)
+        y = _np.asarray(samples, dtype=float)
+        gram = [
+            [float((c * c).sum()), float((c * s_).sum()), float(c.sum())],
+            [float((c * s_).sum()), float((s_ * s_).sum()), float(s_.sum())],
+            [float(c.sum()), float(s_.sum()), float(n)],
+        ]
+        rhs = [float((y * c).sum()), float((y * s_).sum()), float(y.sum())]
+    else:
+        cs = [math.cos(w * k) for k in range(n)]
+        sn = [math.sin(w * k) for k in range(n)]
+        gram = [
+            [sum(a * a for a in cs), sum(a * b for a, b in zip(cs, sn)), sum(cs)],
+            [sum(a * b for a, b in zip(cs, sn)), sum(b * b for b in sn), sum(sn)],
+            [sum(cs), sum(sn), float(n)],
+        ]
+        rhs = [
+            sum(y * a for y, a in zip(samples, cs)),
+            sum(y * b for y, b in zip(samples, sn)),
+            float(sum(samples)),
+        ]
+    a, b, offset = _solve3(gram, rhs)
+    if use_numpy and _np is not None:
+        fit = a * c + b * s_ + offset
+        residual = float(_np.sqrt(((y - fit) ** 2).mean()))
+    else:
+        residual = math.sqrt(
+            sum((y - (a * cs[k] + b * sn[k] + offset)) ** 2 for k, y in enumerate(samples)) / n
+        )
+    return {
+        "amplitude": math.hypot(a, b),
+        "phase_rad": math.atan2(-b, a),
+        "offset": offset,
+        "residual_rms": residual,
+    }
+
+
+def _solve3(m: Sequence[Sequence[float]], rhs: Sequence[float]) -> Tuple[float, float, float]:
+    """Solve a 3 x 3 linear system (Gaussian elimination with pivoting)."""
+    a = [list(m[i]) + [rhs[i]] for i in range(3)]
+    for col in range(3):
+        pivot = max(range(col, 3), key=lambda r: abs(a[r][col]))
+        if abs(a[pivot][col]) < 1e-12 * max(1.0, abs(a[0][0])):
+            raise ValueError(
+                "the samples do not cover the frequency (less than a few points a cycle)"
+            )
+        a[col], a[pivot] = a[pivot], a[col]
+        for r in range(col + 1, 3):
+            f = a[r][col] / a[col][col]
+            for c2 in range(col, 4):
+                a[r][c2] -= f * a[col][c2]
+    x = [0.0, 0.0, 0.0]
+    for r in (2, 1, 0):
+        x[r] = (a[r][3] - sum(a[r][c2] * x[c2] for c2 in range(r + 1, 3))) / a[r][r]
+    return x[0], x[1], x[2]
+
+
 def to_dbv(amplitude_peak: float, floor: float = 1e-12) -> float:
     """A peak amplitude in volts as dBV rms: ``20 log10 (A / sqrt 2)``; ``floor`` avoids log 0."""
     return 20 * math.log10(max(amplitude_peak, floor) / math.sqrt(2))

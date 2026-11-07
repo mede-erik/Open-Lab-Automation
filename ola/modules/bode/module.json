@@ -1,0 +1,43 @@
+{
+  "id": "bode",
+  "name": "Bode plot",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".bod",
+  "entry": "measurement.py:Bode",
+  "description": "The gain and the phase of a circuit against frequency (a Bode plot) with a function generator and an oscilloscope: at every frequency the generator feeds a sine, the scope reads the input and the output together and a sine is fitted to each, so the gain and the phase come out even with a lot of noise. The vertical scales are adjusted by themselves at every frequency. Gives the -3 dB bandwidth and the peaking and, for a loop gain, the crossover frequency, the phase margin and the gain margin, with a pass / fail check. The generator is switched off at the end, also after an error.",
+  "roles": [
+    {"name": "generator", "category": "function_generator", "required": true,
+     "description": "The function generator that feeds the circuit with a sine"},
+    {"name": "oscilloscope", "category": "oscilloscope", "required": true,
+     "description": "The oscilloscope: one channel on the input of the circuit, one on its output"}
+  ],
+  "params_schema": {
+    "device": {"type": "object", "required": false,
+               "description": "label (identifies the circuit) and asset_id (its code in the registry)"},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log)"},
+    "source": {"type": "object", "required": true,
+               "description": "the generator: channel, amplitude_vpp (peak to peak) and offset_v"},
+    "scope": {"type": "object", "required": true,
+              "description": "input_channel, output_channel, probe_attenuation, coupling (AC|DC), cycles (periods shown, 5 by default), memory_depth, bandwidth_limit_hz, input_volts_per_div and output_volts_per_div (the starting scales, then adjusted)"},
+    "settle_s": {"type": "number", "unit": "s", "required": false,
+                 "description": "wait after every change of frequency (0.5 s by default)"},
+    "capture_wait_s": {"type": "number", "unit": "s", "required": false,
+                       "description": "wait after starting an acquisition before reading it (0.3 s by default)"},
+    "averages": {"type": "integer", "min": 1, "max": 100, "required": false,
+                 "description": "captures averaged at every frequency"},
+    "loop": {"type": "boolean", "required": false,
+             "description": "the circuit is a loop gain: find the crossover, the phase margin and the gain margin"},
+    "phase_offset_deg": {"type": "number", "unit": "deg", "required": false,
+                         "description": "added to the phase (180 for a loop measured with an inverting injection)"},
+    "phase_start_deg": {"type": "number", "unit": "deg", "required": false,
+                        "description": "the phase of the first point is taken within 180 degrees of this"},
+    "limits": {"type": "object", "required": false,
+               "description": "min_phase_margin_deg, min_gain_margin_db, min_bandwidth_hz, max_peaking_db"},
+    "safety": {"type": "object", "required": false,
+               "description": "max_amplitude_vpp: a larger generator amplitude is refused before anything is switched on"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to connect the generator and the scope"}
+  }
+}

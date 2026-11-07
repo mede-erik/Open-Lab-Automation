@@ -33,6 +33,7 @@ you can add them one at a time. The names each module is already looking for are
 | `ripple` | `ripple` (probe on the output), `ripple_with_load` (shown when the file has `conditions`) |
 | `efficiency` | `efficiency` |
 | `regulation` | `regulation` |
+| `bode` | `bode` |
 
 Advice: **SVG** stays sharp at any size (a PNG should be at least 1500 pixels wide); a white or transparent
 background; the picture is shown as wide as the window allows, keeping its proportions. If the drawing has words, make

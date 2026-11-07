@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="972" viewBox="0 0 1600 972" font-family="Helvetica, Arial, sans-serif">
+<!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
+<rect width="1600" height="972" fill="#f1f1f1"/>
+<rect x="20" y="20" width="1560" height="932" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="190" font-size="64" font-weight="bold">bode</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/bode/ - Bode plot</text>
+<text x="80" y="330" font-size="30">Quando si vede: misura di un diagramma di Bode (guadagno e fase di un circuito) con generatore</text>
+<text x="80" y="372" font-size="30">di funzioni e oscilloscopio.</text>
+<text x="80" y="439" font-size="30">Da disegnare: da sinistra a destra: il generatore di funzioni (con un'onda sinusoidale sul</text>
+<text x="80" y="481" font-size="30">display), il circuito in prova (riquadro con ingresso a sinistra e uscita a destra) e</text>
+<text x="80" y="523" font-size="30">l'oscilloscopio. L'uscita del generatore va all'ingresso del circuito e, con un filo a parte,</text>
+<text x="80" y="565" font-size="30">al canale di riferimento dell'oscilloscopio (CH1); l'uscita del circuito va al secondo canale</text>
+<text x="80" y="607" font-size="30">(CH2).</text>
+<text x="80" y="674" font-size="30">Dettagli: le due sonde uguali, con la molla di massa corta; il punto di prelievo dell'ingresso</text>
+<text x="80" y="716" font-size="30">vicino al circuito (non all'uscita del generatore). Se vuoi, un riquadro più piccolo che mostri</text>
+<text x="80" y="758" font-size="30">il caso del guadagno d'anello (generatore in serie con l'anello tramite una resistenza o un</text>
+<text x="80" y="800" font-size="30">trasformatore di iniezione, tratteggiato perché non c'è sempre).</text>
+<text x="80" y="912" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+</svg>
