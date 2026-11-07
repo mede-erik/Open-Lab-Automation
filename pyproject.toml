@@ -48,6 +48,11 @@ extend-ignore = ["E203", "W503"]
 [tool.pytest.ini_options]
 testpaths = ["."]
 python_files = ["test_*.py"]
+# Instruments_LIB has its own tests and CI; native/ and backend/ are tested by their jobs
+norecursedirs = [".git", "Instruments_LIB", "native", "backend", "build", "dist", "*.egg-info", "examples"]
+markers = [
+    "gui: builds Qt widgets (needs PyQt6 and the offscreen platform)",
+]
 
 [tool.isort]
 profile = "black"
