@@ -99,6 +99,13 @@ The generator output is **off** while the circuit is set up (the scope is config
 switched on), is switched on at the first frequency, and is **switched off at the end, also after an error or a stop**.
 `safety.max_amplitude_vpp` refuses a larger amplitude before anything is switched on.
 
+**A generator with no output switch** (some models, such as the Agilent 33120A, have no command to switch the output on and off;
+`set_output_state` is optional in the library) cannot be kept off while the circuit is set up. The measurement then **always asks
+first**, whatever `confirm_setup` says, and the question says that the output is on as soon as the amplitude is set and stays on at
+the end: answer *continue*, or *abort* (nothing has been set yet). The log has a warning at the start and a reminder at the end
+to switch the generator off by hand. A run can be stopped at any time as usual. How such models should be handled is still being
+looked into.
+
 ## What the instruments must provide
 
 **The oscilloscope**: the calls of the oscilloscope category that the [ripple](ripple.md) measurement uses

@@ -327,21 +327,30 @@ class Bode(Measurement):
     def setup(self, ctx: MeasurementContext) -> None:
         """Nothing is switched on before the question."""
         self._on = False
+        self._no_switch = False
 
     # ----- running ------------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the connections, step through the frequencies, report."""
         p = self.params
         gen, scope = ctx.instrument("generator"), ctx.instrument("oscilloscope")
-        if p.get("confirm_setup", True):
-            self._ask_setup(ctx)
+        self._no_switch = not self._has_output_switch(gen)
+        if p.get("confirm_setup", True) or self._no_switch:
+            self._ask_setup(ctx)  # a generator with no output switch is always asked about
+        if self._no_switch:
+            ctx.log(
+                "this generator has no output switch: its output is on from the moment the "
+                "amplitude is set and cannot be switched off by the measurement",
+                "warning",
+            )
         freqs = sweep_frequencies(p["sweep"])
         src, sc = p["source"], p["scope"]
         self._channels = (int(sc.get("input_channel", 1)), int(sc.get("output_channel", 2)))
         self._configure(gen, scope)
         gen.call("set_frequency", channel_number=int(src.get("channel", 1)), value=float(freqs[0]))
-        gen.call("set_output_state", channel_number=int(src.get("channel", 1)), state=True)
-        self._on = True
+        if not self._no_switch:
+            gen.call("set_output_state", channel_number=int(src.get("channel", 1)), state=True)
+            self._on = True
         rows: List[Dict[str, Any]] = []
         wrapped: List[float] = []
         for number, f in enumerate(freqs, 1):
@@ -356,7 +365,9 @@ class Bode(Measurement):
         self._report(ctx, rows, wrapped)
 
     def teardown(self, ctx: MeasurementContext) -> None:
-        """The generator output off, whatever happened."""
+        """The generator output off, whatever happened (or, with no switch, a reminder)."""
+        if getattr(self, "_no_switch", False):
+            ctx.log("the generator output is still on: switch it off by hand", "warning")
         if getattr(self, "_on", False):
             try:
                 ctx.instrument("generator").call(
@@ -368,8 +379,25 @@ class Bode(Measurement):
                 ctx.log(f"could not switch the generator off: {exc}", "error")
 
     # ----- the steps ----------------------------------------------------------------------
+    @staticmethod
+    def _has_output_switch(gen: Any) -> bool:
+        """False for a generator model that has no command to switch its output on and off."""
+        return not hasattr(gen, "supports") or gen.supports("set_output_state")
+
     def _ask_setup(self, ctx: MeasurementContext) -> None:
         p = self.params
+        if self._no_switch:
+            text = (
+                "Connect the generator to the input of the circuit and to the oscilloscope "
+                f"channel {p['scope'].get('input_channel', 1)}, and the output of the circuit to "
+                f"channel {p['scope'].get('output_channel', 2)}. WARNING: this generator has no "
+                "command to switch its output on and off, so it is on as soon as the amplitude "
+                f"is set ({p['source'].get('amplitude_vpp', 0.1):g} Vpp) and stays on at the end: "
+                "switch it off by hand. Continue, or abort (nothing is set)."
+            )
+            if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
+                raise Stopped()
+            return
         text = (
             "Connect the generator to the input of the circuit and to the oscilloscope channel "
             f"{p['scope'].get('input_channel', 1)}, and the output of the circuit to channel "
@@ -389,7 +417,8 @@ class Bode(Measurement):
             if not hasattr(handle, "supports") or handle.supports(name):
                 handle.call(name, **args)
 
-        gen.call("set_output_state", channel_number=ch, state=False)
+        if not self._no_switch:
+            gen.call("set_output_state", channel_number=ch, state=False)
         optional(gen, "set_waveform_shape", channel_number=ch, shape="SINE")
         optional(gen, "set_offset", channel_number=ch, value=float(src.get("offset_v", 0)))
         gen.call("set_amplitude", channel_number=ch, value=float(src.get("amplitude_vpp", 0.1)))

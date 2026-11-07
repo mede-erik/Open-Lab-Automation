@@ -107,6 +107,7 @@ class SimBodeLab:
         max_generator_hz: float = 20e6,
         scope_delay_s: float = 0.0,
         seed: int = 11,
+        output_switch: bool = True,
     ):
         self.plant = plant or second_order()
         self.input_channel, self.output_channel = input_channel, output_channel
@@ -114,14 +115,19 @@ class SimBodeLab:
         self.max_scope_hz, self.max_generator_hz = max_scope_hz, max_generator_hz
         self.scope_delay_s = scope_delay_s  # an extra delay of the output channel (a long probe)
         self.frequency, self.amplitude_vpp, self.offset = 1000.0, 0.1, 0.0
-        self.generator_on = False
+        self.generator_on = not output_switch  # with no switch the output is always on
         self.shape = "SINE"
         self.channels: Dict[int, Dict[str, Any]] = {}
         self.timebase = 1e-3
         self.log: List[Tuple[str, str, Dict[str, Any]]] = []
         self.captures = 0
         self._random = random.Random(seed)
-        self.generator = _Instrument(self, "generator", GENERATOR_CALLS)
+        known = (
+            GENERATOR_CALLS
+            if output_switch
+            else tuple(c for c in GENERATOR_CALLS if c != "set_output_state")
+        )  # a model such as the Agilent 33120A has no output on / off command
+        self.generator = _Instrument(self, "generator", known)
         self.scope = _SimScope(self, "oscilloscope", SCOPE_CALLS)
 
     def channel(self, number: int) -> Dict[str, Any]:
