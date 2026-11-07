@@ -1,6 +1,6 @@
 # Immagini degli schemi di collegamento: cosa disegnare
 
-Elenco delle immagini che i moduli cercano. Sono **18**. Ogni immagine è facoltativa: finché manca, la finestra dei
+Elenco delle immagini che i moduli cercano. Sono **19**. Ogni immagine è facoltativa: finché manca, la finestra dei
 collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
 Puoi farle una alla volta, in qualsiasi ordine.
 
@@ -70,7 +70,7 @@ dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amp
 
 ---
 
-# Le 18 immagini
+# Le 19 immagini
 
 Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
 esserci**.
@@ -281,6 +281,17 @@ esserci**.
   all'uscita del generatore). Se vuoi, un riquadro più piccolo che mostri il caso del **guadagno d'anello** (generatore in serie con
   l'anello tramite una resistenza o un trasformatore di iniezione, tratteggiato perché non c'è sempre).
 
+## 19. Time domain (TDR): dove sta un guasto lungo un cavo
+
+* **File**: `tdr`
+* **Cartella**: `ola/modules/tdr/`
+* **Quando si vede**: misura nel dominio del tempo di una linea (cavo) con il VNA.
+* **Cosa disegnare**: il VNA con **P1** collegata, con un cavetto di test, al **capo vicino** di un **cavo lungo** (disegnalo ondulato o
+  arrotolato, ben diverso dal cavetto di test). All'altro capo tre possibilità, disegnate come **tre uscite alternative** (o un capo con
+  tre simboli affiancati): **aperto** (connettore libero), **corto** (tappo short), **dispositivo** (un riquadro, per esempio un'antenna).
+* **Dettagli**: sul cavo un **punto di guasto** (uno schiacciamento, un connettore) con una freccia e la scritta **d**, e una **quota** che
+  va dal piano di calibrazione (la fine del cavetto di test, tratteggio con CAL) fino a quel punto: la distanza si misura da lì.
+
 ---
 
 # Foglio di controllo
@@ -305,6 +316,7 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 16. `filter_with_fixtures` — `ola/modules/filter/`
 - [ ] 17. `attenuator_with_fixtures` — `ola/modules/attenuator/`
 - [ ] 18. `bode` — `ola/modules/bode/`
+- [ ] 19. `tdr` — `ola/modules/tdr/`
 
 ## Un'idea per fare meno lavoro
 

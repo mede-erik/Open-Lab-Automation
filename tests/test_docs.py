@@ -667,3 +667,36 @@ def test_bode_example_in_the_docs_is_valid_and_runs():
     for name in ("set_output_state", "set_frequency", "set_amplitude", "function_generator",
                  "read_waveform_full", "phase_margin_deg", "gain_margin_db"):  # fmt: skip
         assert name in text, name
+
+
+def test_tdr_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/tdr.md is a real file: it validates and finds the end of the cable."""
+    import json as _json
+
+    from ola import tdr
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "tdr.md")
+    block = re.search(r"```json tdr\.tdr\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/tdr.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("tdr", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    vna = SimVna(length_m=5.0, termination="open", velocity_factor=0.66, fault_at_m=2.0,
+                 fault_gamma=0.3)  # fmt: skip
+    runner = Runner(m, {"vna": [vna]})
+    runner.start()
+    assert runner.join(60) and runner.state.value == "finished", runner.error
+    rows = {}
+    for e in runner.drain():
+        if e.kind == "point":
+            rows.setdefault(e.data["table"], []).append(e.data["values"])
+    point = rows["points"][0]
+    assert abs(point["last_reflection_m"] - 5.0) < 0.05 and abs(point["length_error_m"]) < 0.05
+    assert point["verdict"] == "PASS" and len(rows["faults"]) == 2
+    assert abs(point["resolution_m"] - tdr.resolution_m(1e9, 0.66)) < 0.02
+    names = ("c * vf * t / 2", "higher impedance", "lower impedance", "velocity_factor_estimate")
+    for name in names + ("step_response", "ola/tdr.py", "resolution", "range"):
+        assert name in text, name

@@ -37,8 +37,8 @@ def listed(registry):
 
 def test_the_work_list_is_read_with_all_its_fields(registry):
     entries = script.parse_work_list((ROOT / "docs" / "wiring-images.md").read_text("utf-8"))
-    assert len(entries) == len(listed(registry)) == 18
-    assert [e["number"] for e in entries] == [str(n) for n in range(1, 19)]
+    assert len(entries) == len(listed(registry)) == 19
+    assert [e["number"] for e in entries] == [str(n) for n in range(1, 20)]
     first = entries[0]
     assert first["file"] == "cable_transmission" and first["folder"] == "ola/modules/cable/"
     assert "trasmissione" in first["when"] and "VNA" in first["draw"] and first["details"]
