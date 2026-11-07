@@ -35,7 +35,7 @@ def driver(sim=None):
 
 def test_identification():
     d, _ = driver()
-    assert d.call("identification_query", {}) == "Zenko,LiteVNA,hardware 7,firmware 1.5"
+    assert d.call("identification_query", {}) == "Zenko,LiteVNA,0,hardware 7 firmware 1.5"
     with pytest.raises(Exception):
         LiteVnaDriver(SimLiteVna(variant=0x05)).call("identification_query", {})
 

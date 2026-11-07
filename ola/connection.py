@@ -53,10 +53,14 @@ def read_inst_entries(path: Optional[Path]) -> Dict[str, Dict[str, Any]]:
     return {i["instance_name"]: i for i in items if isinstance(i, dict) and i.get("instance_name")}
 
 
-def _default_opener(address: str, library: Any, model_id: str, timeout_ms: int) -> Any:
+def _default_opener(
+    address: str, library: Any, model_id: str, timeout_ms: int, serial_override: Any = None
+) -> Any:
     from .tester import open_visa
 
-    return open_visa(address, library, model_id, timeout_ms=timeout_ms)
+    return open_visa(
+        address, library, model_id, timeout_ms=timeout_ms, serial_override=serial_override
+    )
 
 
 class ProjectConnector:
@@ -77,9 +81,7 @@ class ProjectConnector:
         self.library, self._inst_path, self.prompt = library, inst_path, prompt
         self._opener = opener or _default_opener
         self.timeout_ms = timeout_ms
-        self._open: Dict[str, Tuple[Tuple[str, str], Any, Any]] = (
-            {}
-        )  # name -> (key, instrument, link)
+        self._open: Dict[str, Tuple[tuple, Any, Any]] = {}  # name -> (key, instrument, link)
         self._lock = threading.Lock()
 
     def __call__(self, name: str, cancel: Optional[threading.Event] = None) -> Any:
@@ -103,6 +105,43 @@ class ProjectConnector:
         return self._remote(name, entry, cancel)
 
     # ----- the two kinds of instrument -------------------------------------------------------
+    def characteristics(self, name: str) -> Dict[str, float]:
+        """What the instrument ``name`` of the instrument file can do, without connecting to it:
+        the limits of a manual instrument, the numbers the library gives for any other. Empty if
+        the instrument or its model is not known."""
+        from .compat import characteristics
+
+        entry = read_inst_entries(self._inst_path()).get(name)
+        if entry is None:
+            return {}
+        if entry.get("is_manual"):
+            channel = (entry.get("channels") or [{}])[0]
+            return {
+                k: float(channel[k])
+                for k in ("max_voltage", "max_current", "max_power")
+                if isinstance(channel.get(k), (int, float)) and channel[k]
+            }
+        model_id = self.library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        return characteristics(self.library, model_id) if model_id else {}
+
+    def abilities(self, name: str) -> Dict[str, Any]:
+        """What a network analyzer of the project can measure, without connecting to it:
+        ``sparameters`` (the list the library gives for the model, None if it gives none) and
+        ``source_power`` (whether the model has the call). Empty for any other instrument."""
+        entry = read_inst_entries(self._inst_path()).get(name)
+        if entry is None or entry.get("is_manual"):
+            return {}
+        model_id = self.library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        ref = self.library.find_model(model_id) if model_id else None
+        if ref is None or ref.category != "network_analyzers_series":
+            return {}
+        measurable = (ref.model.get("capabilities") or {}).get("measurable_sparameters")
+        commands = self.library.commands(model_id) or {}
+        return {
+            "sparameters": list(measurable) if isinstance(measurable, list) else None,
+            "source_power": "set_source_power" in commands,
+        }
+
     def _manual(self, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
         from .manual_instrument import manual_handle_from_inst
 
@@ -115,6 +154,7 @@ class ProjectConnector:
     def _remote(self, name: str, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
         from .drivers import driver_for
         from .instrument import Instrument
+        from .identity import read_identity
         from .instrument_handle import InstrumentHandle
 
         identifier = entry.get("model_id") or entry.get("model")
@@ -130,7 +170,9 @@ class ProjectConnector:
             raise ConnectionProblem(
                 f"'{name}' has no address (visa_address) in the instrument file"
             )
-        key = (model_id, address)
+        serial = dict(entry.get("serial") or {})  # RS-232 settings that differ from the library
+        timeout_ms = int(entry.get("timeout_ms") or self.timeout_ms)
+        key = (model_id, address, json.dumps(serial, sort_keys=True), timeout_ms)
         with self._lock:
             known = self._open.get(name)
             if known is not None and known[0] == key:
@@ -138,7 +180,7 @@ class ProjectConnector:
             else:
                 if known is not None:
                     self._close_link(known[2])
-                link = self._open_link(name, address, model_id)
+                link = self._open_link(name, address, model_id, timeout_ms, serial)
                 instrument = Instrument(name, link, driver_for(self.library, model_id, link))
                 self._open[name] = (key, instrument, link)
                 fresh = True
@@ -148,11 +190,19 @@ class ProjectConnector:
                 handle.call("set_remote")
             except Exception as exc:
                 log.warning("set_remote not accepted by %s: %s", name, exc)
+        if fresh:  # who the apparatus is, read once per connection and kept for the saved runs
+            instrument.identity = read_identity(handle, address)
         return handle
 
-    def _open_link(self, name: str, address: str, model_id: str) -> Any:
+    def _open_link(
+        self, name: str, address: str, model_id: str, timeout_ms: int, serial: Dict[str, Any]
+    ) -> Any:
         try:
-            return self._opener(address, self.library, model_id, self.timeout_ms)
+            if serial:  # an opener that does not know serial settings is only called without them
+                return self._opener(
+                    address, self.library, model_id, timeout_ms, serial_override=serial
+                )
+            return self._opener(address, self.library, model_id, timeout_ms)
         except Exception as exc:
             raise ConnectionProblem(
                 f"cannot open '{name}' at {address}: {type(exc).__name__}: {exc}. Check that it is "
