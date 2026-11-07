@@ -103,6 +103,7 @@ def test_other_keys_of_the_file_survive_an_edit(app, tmp_path):
     dialog, path = make(tmp_path, [PSU, LOAD], extra={"format": 7})
     select(dialog, "PSU")
     dialog.name_edit.setText("SUPPLY")
+    dialog.name_edit.editingFinished.emit()
     assert saved(path)["format"] == 7
     assert saved(path)["instruments"][0]["instance_name"] == "SUPPLY"
 
@@ -134,14 +135,98 @@ def test_the_list_marks_the_entries_with_problems(app, tmp_path):
 def test_names_must_be_unique_and_not_empty(app, tmp_path):
     dialog, path = make(tmp_path, [PSU, LOAD])
     select(dialog, "PSU")
-    dialog.name_edit.setText("LOAD")
+    dialog.name_edit.setText("LOAD")  # typing only shows the problem, nothing is changed yet
     assert not dialog.name_error.isHidden()
+    dialog.name_edit.editingFinished.emit()  # finished: refused, the old name comes back
+    assert dialog.name_edit.text() == "PSU"
     assert saved(path)["instruments"][0]["instance_name"] == "PSU"
     dialog.name_edit.setText("  ")
+    dialog.name_edit.editingFinished.emit()
     assert saved(path)["instruments"][0]["instance_name"] == "PSU"
     dialog.name_edit.setText("PSU2")
     assert dialog.name_error.isHidden()
+    assert saved(path)["instruments"][0]["instance_name"] == "PSU"  # not before it is finished
+    dialog.name_edit.editingFinished.emit()
     assert saved(path)["instruments"][0]["instance_name"] == "PSU2"
+
+
+def project_using(tmp_path, instrument):
+    """A project next to the instrument file with one measurement that names ``instrument``."""
+    from ola.project import MeasurementRef, Project
+
+    project = Project.new("P", tmp_path, inst_file="lab.inst")
+    (tmp_path / "m.meas").write_text(
+        json.dumps({"type": "x", "role_bindings": {"psu": [instrument]}}), encoding="utf-8"
+    )
+    project.measurements.append(MeasurementRef("m1", "x", "my measurement", "m.meas"))
+    project.save()
+
+
+def bound(tmp_path):
+    return json.loads((tmp_path / "m.meas").read_text(encoding="utf-8"))["role_bindings"]["psu"]
+
+
+def test_renaming_updates_the_measurements_after_asking(app, tmp_path, monkeypatch):
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    project_using(tmp_path, "PSU")
+    asked = []
+
+    def yes(parent, title, text, *args):
+        asked.append(text)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(yes))
+    select(dialog, "PSU")
+    dialog.name_edit.setText("SUPPLY")
+    dialog.name_edit.editingFinished.emit()
+    assert len(asked) == 1 and "my measurement" in asked[0] and "PSU" in asked[0]
+    assert bound(tmp_path) == ["SUPPLY"]
+    assert saved(path)["instruments"][0]["instance_name"] == "SUPPLY"
+    assert dialog.list_widget.item(0).text() == "SUPPLY"
+
+
+def test_saying_no_leaves_the_name_and_the_measurements_as_they_were(app, tmp_path, monkeypatch):
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    project_using(tmp_path, "PSU")
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+    )
+    select(dialog, "PSU")
+    dialog.name_edit.setText("SUPPLY")
+    dialog.name_edit.editingFinished.emit()
+    assert dialog.name_edit.text() == "PSU" and bound(tmp_path) == ["PSU"]
+    assert saved(path)["instruments"][0]["instance_name"] == "PSU"
+
+
+def test_an_instrument_no_measurement_names_is_renamed_without_asking(app, tmp_path):
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    project_using(tmp_path, "PSU")
+    select(dialog, "LOAD")
+    dialog.name_edit.setText("DUMMY")
+    dialog.name_edit.editingFinished.emit()  # a question would fail the test (no_real_dialogs)
+    assert saved(path)["instruments"][1]["instance_name"] == "DUMMY"
+    assert bound(tmp_path) == ["PSU"]
+
+
+def test_a_failed_update_does_not_rename(app, tmp_path, monkeypatch):
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    project_using(tmp_path, "PSU")
+    from ola import project_rename
+
+    def boom(*args, **kwargs):
+        raise project_rename.RenameError("disk full")
+
+    warned = []
+    monkeypatch.setattr(project_rename, "rename_references", boom)
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: warned.append(a[2])))
+    select(dialog, "PSU")
+    dialog.name_edit.setText("SUPPLY")
+    dialog.name_edit.editingFinished.emit()
+    assert warned and "disk full" in warned[0]
+    assert saved(path)["instruments"][0]["instance_name"] == "PSU" and bound(tmp_path) == ["PSU"]
 
 
 def test_duplicate_gives_a_unique_instance_name_and_no_stray_key(app, tmp_path):

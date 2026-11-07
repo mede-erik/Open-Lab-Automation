@@ -448,5 +448,8 @@
   "inst_problem_sweep_power": "La puissance de la source doit être un nombre.",
   "manual_field_max_power": "Puissance maximale (W)",
   "network_analyzer": "Analyseur de réseau",
-  "multimeter": "Multimètre"
+  "multimeter": "Multimètre",
+  "inst_rename_title": "Renommer l'instrument",
+  "inst_rename_question": "{count} mesure(s) utilisent « {old} » et utiliseront « {new} » à la place :\n\n{list}\n\nLes mesures déjà faites gardent l'ancien nom dans leur enregistrement. Continuer ?",
+  "inst_rename_failed": "L'instrument n'a pas été renommé : {error}"
 }

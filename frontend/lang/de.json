@@ -448,5 +448,8 @@
   "inst_problem_sweep_power": "Die Quellleistung muss eine Zahl sein.",
   "manual_field_max_power": "Maximale Leistung (W)",
   "network_analyzer": "Netzwerkanalysator",
-  "multimeter": "Multimeter"
+  "multimeter": "Multimeter",
+  "inst_rename_title": "Gerät umbenennen",
+  "inst_rename_question": "{count} Messung(en) verwenden \"{old}\" und verwenden stattdessen \"{new}\":\n\n{list}\n\nBereits durchgeführte Messungen behalten den alten Namen in ihrem Protokoll. Fortfahren?",
+  "inst_rename_failed": "Das Gerät wurde nicht umbenannt: {error}"
 }
