@@ -1,4 +1,8 @@
 @echo off
+REM Copyright (C) 2025-2026 Erik Medeossi
+REM This file is part of Open Lab Automation.
+REM Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 REM Build C backend as shared library (Windows/MinGW)
 REM Requires: MinGW-w64 (gcc) in PATH
 REM

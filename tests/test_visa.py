@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The pyvisa adapter against a fake raw-socket instrument, through the pure-Python
 pyvisa-py backend (no VISA library or hardware needed)."""
 

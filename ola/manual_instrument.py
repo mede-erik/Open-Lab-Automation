@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Manual instruments: instruments without remote control, operated by the person at the bench.
 
 A manual instrument is a **generic** instrument defined in the project (``.inst`` entry with

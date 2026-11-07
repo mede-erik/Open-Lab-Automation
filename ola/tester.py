@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Helpers of the interactive instrument tester (scripts/instrument_shell.py). Qt-free.
 
 Select a category, a model and an interface from the library, connect, run logical calls and

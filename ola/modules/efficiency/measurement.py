@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Efficiency measurement (see ``ola/efficiency_spec.py`` for the parameters, ``docs/efficiency.md``
 for the user guide).
 

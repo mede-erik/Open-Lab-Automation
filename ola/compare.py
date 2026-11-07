@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Comparing saved results (no Qt): the logic behind the *Compare results* tool.
 
 Pick two or more run files (``runs/*.jsonl``, written while a measurement ran) and see them

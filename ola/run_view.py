@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """What a run window shows, without any screen: ``RunModel`` follows the events of a ``Runner``.
 
 The window (``frontend/ui/RunWindow.py``) only draws this model, so everything that decides *what*

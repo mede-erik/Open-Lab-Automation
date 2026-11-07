@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Connection diagram of a measurement: which instrument goes where. No Qt, no I/O but the file.
 
 Every measurement module can ship a ``wiring.json`` next to its ``module.json`` (so the diagram is

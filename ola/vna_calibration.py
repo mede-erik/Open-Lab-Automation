@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Software calibration of a vector network analyzer (reflection and transmission response).
 
 Used by drivers of analyzers that return raw data (the LiteVNA): the raw sweeps of the

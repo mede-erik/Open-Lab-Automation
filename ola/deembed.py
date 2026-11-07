@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Taking a cable out of a measurement: the VSWR of an antenna seen through a cable.
 
 An antenna measured at the end of a cable looks **better matched** than it is: the reflection goes

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Check that every locale file in frontend/lang has the same keys and placeholders.
 
 The reference locale is en.json. For every other locale the script reports:

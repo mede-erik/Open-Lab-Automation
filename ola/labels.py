@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Labels for cables and devices (no Qt): what to print, where, at what size.
 
 A label shows the **code** of an object (``CBL-0042``) big and clear, a **QR code** that holds

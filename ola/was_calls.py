@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Oscilloscope settings of a project ``.was`` file -> logical calls.
 
 The ``.was`` file holds vendor-agnostic settings (time/div, volt/div, offset, coupling, trigger

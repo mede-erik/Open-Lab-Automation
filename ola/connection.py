@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """How a project reaches its instruments: the ``connect`` that the project window needs.
 
 ``ProjectConnector`` reads the project's ``.inst`` file and, for the instrument called ``name``,

@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Driver of the Zenko LiteVNA (62, 64, 67) over its USB virtual serial port.
 
 The LiteVNA speaks a binary register protocol (the SAA2 / NanoVNA-APP protocol), described in

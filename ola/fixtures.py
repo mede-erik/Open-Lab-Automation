@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Taking cables, attenuators and adapters out of a transmission measurement. No Qt.
 
 A device is often measured through something that is not part of it: a longer cable on one port,

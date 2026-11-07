@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Make the labels of cables and devices: choose the format, see them, save a PDF or an image.
 
 A thin layer over ``ola.labels`` (layout, QR code, SVG; tested without a screen) and

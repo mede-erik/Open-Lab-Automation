@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Erik Medeossi
+// This file is part of Open Lab Automation.
+// Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 //! A byte-stream connection to an instrument (TCP/LXI or serial).
 //!
 //! Latency rules enforced here (see PLAN.md §4.1):

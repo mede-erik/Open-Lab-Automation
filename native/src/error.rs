@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Erik Medeossi
+// This file is part of Open Lab Automation.
+// Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 //! Transport errors. Each variant has a stable code (`TRN-xxx`) that follows the
 //! project's `[RESOURCE-XXX]` convention (see ERROR_CODES.md).
 

@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Cables and devices: the registry window (menu *Tools* > *Cables and devices*).
 
 Every physical object that is measured (cable, antenna, filter, amplifier, adapter...) has a code

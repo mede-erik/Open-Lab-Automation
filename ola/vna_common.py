@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """What the measurements made with a VNA have in common (no Qt).
 
 A VNA measurement (cable, return loss, filter, antenna...) checks the same sweep, asks the user

@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Drivers for instruments that are not controlled with text commands.
 
 A library model with ``"access": "driver"`` names its driver with ``"driver_id"``. A driver is

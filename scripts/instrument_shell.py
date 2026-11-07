@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Interactive terminal tester for the instrument library.
 
 Pick a category (datalogger, power supply, ...), a model and an interface, connect, then run

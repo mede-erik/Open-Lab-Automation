@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Every connection class must follow the ``ola.transport.Transport`` contract: same members, same
 parameter names. The Protocol is the documentation; this test keeps the implementations equal to it.
 """
