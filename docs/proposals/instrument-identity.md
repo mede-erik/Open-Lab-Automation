@@ -67,21 +67,43 @@ Separate **what the instrument can do** (characteristics, from the library) from
 measurement needs** (application). A multimeter that reads 100 V at most is fine for a measurement
 of 40 V even if the previous one read 200 V.
 
-Two levels of answer:
+### The need is learned, modules declare nothing
 
-1. **Blocking** (the measurement cannot be made): only where the physics is clear. For a VNA: the
-   sweep outside the frequency range of the model, fewer ports than needed, a required
-   S-parameter that the model cannot measure, more points than it allows. The run does not start.
+**Decided.** A measurement module does not declare requirements (that would add complexity to every
+module). The need of a role is learned from the use:
+
+- **Before the first run** the need is the characteristic of the instrument that was defined for the
+  role: a multimeter of 200 V gives a need of 200 V. Any instrument with less than that is reported
+  as lower than the previous one.
+- **After a run** the need becomes **the largest value read by the instrument during the run, plus
+  20 %** (the margin is one constant, `NEED_MARGIN = 1.2`). The need is the largest over the runs of
+  the measurement, so it never shrinks. The 200 V multimeter that only read 33 V gives a need of
+  39.6 V, and a 100 V multimeter is accepted without a word.
+- A new measurement has no runs, so it starts from the first rule.
+
+What is read is recorded by the instrument handle itself (no help from the modules): for every
+numeric result of a query call it keeps the largest absolute value per logical call
+(`read_voltage`, `read_current`, `read_power`, readings of a datalogger or multimeter, the voltages
+of an oscilloscope waveform...). At the end of the run this goes into the `end` record of the run
+file (`"observed"`), and each logical call is tied to one characteristic (`read_voltage` ->
+maximum voltage, `read_current` -> maximum current, `read_power` -> maximum power...).
+
+### Two levels of answer
+
+1. **Blocking** (the measurement cannot be made): the sweep of a VNA outside the frequency range of
+   the model, fewer ports than needed, an S-parameter the model cannot measure, more points than
+   it allows. The pop-up says *"Adjust the sweep to stay inside the frequency range of the
+   instrument"* and shows both ranges: the previous instrument's and the new one's. The run does
+   not start until the sweep is changed.
 2. **Warning** (a pop-up, the user decides *Continue* / *Cancel*): a characteristic of the new
-   instrument is **lower than that of the previous one** (the one in the last run snapshot of
-   that measurement) and the measurement does not state a need that shows it fits. The pop-up shows
-   both values: *"The maximum voltage the multimeter can read (100 V) is lower than that of the
-   previous instrument (200 V)."* When the measurement states its need and it fits (40 V), nothing is
-   shown. When the measurement states a need that does *not* fit, the pop-up says so and shows
-   need and limit.
+   instrument is lower than the **need** of the role. The pop-up shows the three values: the limit
+   of the new instrument, that of the previous one and the need. *"The maximum voltage the
+   multimeter can read (100 V) is lower than that of the previous instrument (200 V); the
+   measurements made so far needed up to 39.6 V."* When the new instrument is not lower than the
+   need, nothing is shown.
 
 **Decided:** this applies to **all** categories. When the user continues, the accepted differences
-are written in the run header (`"accepted_differences": [...]`), so it stays traceable.
+are written in the run header (`"accepted_differences": [...]`).
 
 ### Characteristics compared, by category (from the library `capabilities`)
 
@@ -98,13 +120,6 @@ are written in the run header (`"accepted_differences": [...]`), so it stays tra
 A manual instrument has its own limits in the `.inst` (`max_voltage`, `max_current`,
 `max_power`), which are compared in the same way.
 
-### What the measurement needs
-
-A measurement module may declare `requirements(params)`: a dict such as `{"voltage_max": 40.0,
-"frequency": [5e4, 1e9], "ports": 2}` computed from its parameters (an efficiency sweep knows its
-largest voltage, an S-parameters measurement its sweep). A module that declares nothing is compared
-with the previous instrument only. `requirements` is optional and does not change existing modules.
-
 ## Renaming an instrument
 
 Renaming updates the measurement files of the project that name it, after a preview ("N
@@ -119,23 +134,19 @@ another apparatus are not applied (see above).
 
 ## Steps (one pull request each)
 
-1. **Identity and snapshot:** read the serial at connection, `handle.identity`, the snapshot in the run
-   header, `serial_number` in the calibration record. No change of behaviour.
+1. **Identity and snapshot:** read the serial at connection, `handle.identity`, the snapshot in the
+   run header, `serial_number` in the calibration record. No change of behaviour.
 2. **Rename with update of the measurements**, with preview.
-3. **Compatibility at start:** characteristics per category, warning pop-up (five languages),
-   blocking for the VNA, `accepted_differences` in the run.
-4. **Calibration per serial:** automatic restore of a software calibration when serial and sweep
+3. **Observed values and need:** the handle records the largest value read per call, the `end` record
+   of the run keeps it, and the need of a role is computed (largest over the runs + 20 %).
+4. **Compatibility at start, power supplies, loads, oscilloscopes, multimeters, dataloggers**
+   (everything the efficiency measurement and the other multi-instrument measurements use):
+   warning pop-up (five languages), `accepted_differences` in the run.
+5. **Compatibility at start, VNA:** blocking on the sweep, with both frequency ranges shown;
+   `sparameters`.
+6. **Calibration per serial:** automatic restore of a software calibration when serial and sweep
    match.
-5. **Roles of a received project:** the choice of the instruments of the user.
+7. **Roles of a received project:** the choice of the instruments of the user.
 
-Points 1 and 3 touch `ola/runs.py`, `ola/project_session.py` and the measurement modules, which are
-shared with the measurement work: they are agreed with it before they are written.
-
-## Open questions
-
-- Where does the "previous instrument" come from when a measurement has never been run: from the
-  last run of the project with the same role, or none (then only the stated needs are checked)?
-- Should a VNA sweep outside the range be blocking also when the user could still want a partial
-  sweep? Proposed: blocking, the user can change the sweep.
-- Which modules declare `requirements` first: `sparameters` (frequency, ports) and the efficiency
-  measurement (voltage, current, power).
+Points 1, 3 and 4 touch `ola/runs.py`, `ola/runner.py`, `ola/instrument_handle.py` and
+`ola/project_session.py`, which are shared with the measurement work.
