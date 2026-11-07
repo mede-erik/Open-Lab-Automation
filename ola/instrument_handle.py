@@ -35,10 +35,28 @@ class InstrumentHandle:
         self._instrument = instrument
         self._cancel = cancel
 
+    @property
+    def identity(self) -> Any:
+        """Who the apparatus is (``ola.identity.Identity``), or None if it was not read."""
+        return getattr(self._instrument, "identity", None)
+
+    @property
+    def calibration(self) -> Optional[dict]:
+        """The calibration the application applied to this connection (file, kind, date, sweep,
+        serial number), or None."""
+        return getattr(self._instrument, "calibration", None)
+
+    def set_calibration(self, info: Optional[dict]) -> None:
+        """Remember which calibration was applied (None: none)."""
+        self._instrument.calibration = dict(info) if info else None
+
     def call(self, name: str, **args: Any) -> Any:
         """Run a logical call and return its logical result (None for calls without result)."""
         plan = plan_call(self._library, self.model_id, name, args)
-        return plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        result = plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        if name in ("calibration_begin", "calibration_clear"):
+            self._instrument.calibration = None  # a new or removed calibration: the old one is gone
+        return result
 
     def readback(self, name: str, **args: Any) -> Any:
         """Read back the value of a ``set`` call (for example the voltage setpoint)."""

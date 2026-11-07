@@ -146,6 +146,7 @@ class CalibrationRecord:
     sweep: Optional[Dict[str, float]]
     standards: List[str]
     kit: Optional[Dict[str, float]] = None  # values of the calibration kit; None: ideal standards
+    serial_number: Optional[str] = None  # the apparatus it was made for (read from the instrument)
     date: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     data: Optional[Dict[str, Any]] = None  # software calibration: restorable
     note: str = (
@@ -222,8 +223,10 @@ class CalibrationSession:
                 data = self.handle.call("calibration_export")
             except CallError:
                 data = None
+        identity = getattr(self.handle, "identity", None)
         return CalibrationRecord(
             instrument=instrument_name,
+            serial_number=getattr(identity, "serial_number", None),
             model_id=model_id,
             kind=self.kind,
             port=self.port,
@@ -346,3 +349,22 @@ def save_and_attach(record: CalibrationRecord, project_path) -> Path:
     path = save_record(record, project_path.parent / "calibrations")
     attach_to_project(project_path, path, record)
     return path
+
+
+def calibration_info(record: CalibrationRecord, path, project_path=None) -> Dict[str, Any]:
+    """What the snapshot of a run keeps about the calibration that was applied: the record file
+    (relative to the project if it is inside it), kind, date, sweep and the serial number it was
+    made for."""
+    file = str(path)
+    if project_path is not None:
+        try:
+            file = str(Path(path).resolve().relative_to(Path(project_path).resolve().parent))
+        except ValueError:
+            pass
+    return {
+        "file": file,
+        "kind": record.kind,
+        "date": record.date,
+        "sweep": record.sweep,
+        "serial_number": record.serial_number,
+    }

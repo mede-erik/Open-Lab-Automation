@@ -81,9 +81,7 @@ class ProjectConnector:
         self.library, self._inst_path, self.prompt = library, inst_path, prompt
         self._opener = opener or _default_opener
         self.timeout_ms = timeout_ms
-        self._open: Dict[str, Tuple[tuple, Any, Any]] = (
-            {}
-        )  # name -> (key, instrument, link)
+        self._open: Dict[str, Tuple[tuple, Any, Any]] = {}  # name -> (key, instrument, link)
         self._lock = threading.Lock()
 
     def __call__(self, name: str, cancel: Optional[threading.Event] = None) -> Any:
@@ -119,6 +117,7 @@ class ProjectConnector:
     def _remote(self, name: str, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
         from .drivers import driver_for
         from .instrument import Instrument
+        from .identity import read_identity
         from .instrument_handle import InstrumentHandle
 
         identifier = entry.get("model_id") or entry.get("model")
@@ -154,6 +153,8 @@ class ProjectConnector:
                 handle.call("set_remote")
             except Exception as exc:
                 log.warning("set_remote not accepted by %s: %s", name, exc)
+        if fresh:  # who the apparatus is, read once per connection and kept for the saved runs
+            instrument.identity = read_identity(handle, address)
         return handle
 
     def _open_link(
