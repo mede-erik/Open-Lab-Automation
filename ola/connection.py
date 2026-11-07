@@ -113,6 +113,7 @@ class ProjectConnector:
             raise ConnectionProblem(f"manual instrument '{entry['instance_name']}': {exc}") from exc
 
     def _remote(self, name: str, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
+        from .drivers import driver_for
         from .instrument import Instrument
         from .instrument_handle import InstrumentHandle
 
@@ -138,7 +139,7 @@ class ProjectConnector:
                 if known is not None:
                     self._close_link(known[2])
                 link = self._open_link(name, address, model_id)
-                instrument = Instrument(name, link)
+                instrument = Instrument(name, link, driver_for(self.library, model_id, link))
                 self._open[name] = (key, instrument, link)
                 fresh = True
         handle = InstrumentHandle(name, self.library, model_id, instrument, cancel)
