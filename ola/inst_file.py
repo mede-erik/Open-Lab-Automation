@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The instrument file (``.inst``): reading, writing and checking its entries. No Qt.
 
 An ``.inst`` file lists the instruments of a project. Every entry has an ``instrument_type``,
