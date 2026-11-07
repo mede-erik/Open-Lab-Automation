@@ -24,6 +24,9 @@ def _b(x: BytesLike) -> bytes:
 
 
 class PyConnection:
+    """Pure-Python transport (TCP or serial) with the same behaviour as ``ola_native.Connection``;
+    the method contract is ``ola.transport.Transport``."""
+
     def __init__(self, link, kind: str, peer: str, timeout_ms: int):
         self._link = link
         self._kind = kind  # "tcp" | "serial"
@@ -40,6 +43,8 @@ class PyConnection:
     def open_tcp(
         host: str, port: int = 5025, timeout_ms: int = 5000, connect_timeout_ms: int = 3000
     ):
+        """Open a raw-socket connection (``TCP_NODELAY`` on); ``TransportError`` [TRN-001] if it
+        fails."""
         try:
             sock = socket.create_connection((host, port), timeout=connect_timeout_ms / 1000.0)
         except OSError as e:
@@ -57,6 +62,7 @@ class PyConnection:
         parity: str = "N",
         stop_bits: int = 1,
     ):
+        """Open a serial port (needs ``pyserial``); ``TransportError`` [TRN-001] if it fails."""
         try:
             import serial  # pyserial
         except ImportError as e:
@@ -79,14 +85,17 @@ class PyConnection:
     # ----- properties / settings --------------------------------------------------------
     @property
     def peer(self) -> str:
+        """Address of the instrument as text (see ``ola.transport.Transport``)."""
         return self._peer
 
     @property
     def is_open(self) -> bool:
+        """True until ``close()`` is called or the instrument closes the connection."""
         return self._link is not None
 
     @property
     def timeout_ms(self) -> int:
+        """Default timeout of every read, in milliseconds."""
         return int(self._timeout * 1000)
 
     @timeout_ms.setter
@@ -94,11 +103,13 @@ class PyConnection:
         self._timeout = value / 1000.0
 
     def set_terminators(self, write_term: BytesLike, read_term: BytesLike) -> None:
+        """Set the terminator appended by ``send`` and the one ``read_line`` waits for."""
         if not _b(read_term):
             raise TransportError("[TRN-006] invalid argument: read terminator must not be empty")
         self._wterm, self._rterm = _b(write_term), _b(read_term)
 
     def close(self) -> None:
+        """Close the connection; later calls raise ``TransportClosed``."""
         with self._lock:
             link, self._link = self._link, None
             self._rbuf.clear()
@@ -120,6 +131,7 @@ class PyConnection:
 
     # ----- writing ----------------------------------------------------------------------
     def write(self, data: BytesLike) -> None:
+        """Send ``data`` exactly as given (no terminator), in a single write."""
         with self._lock:
             link = self._need_link()
             try:
@@ -134,10 +146,12 @@ class PyConnection:
                 self._fail(e)
 
     def send(self, cmd: BytesLike) -> None:
+        """Send ``cmd`` followed by the write terminator, in a single write."""
         self.write(_b(cmd) + self._wterm)  # one write
 
     # ----- reading ----------------------------------------------------------------------
     def flush_input(self) -> None:
+        """Throw away everything received and not yet read (stale answers)."""
         with self._lock:
             self._rbuf.clear()
             self._pending_term = False
@@ -156,6 +170,7 @@ class PyConnection:
                     link.settimeout(self._timeout)
 
     def read_until(self, term: BytesLike, timeout_ms: Optional[int] = None) -> bytes:
+        """Read up to and consuming ``term`` (the terminator is not returned)."""
         term = _b(term)
         if not term:
             raise TransportError("[TRN-006] invalid argument: terminator must not be empty")
@@ -174,6 +189,7 @@ class PyConnection:
                 self._strip_pending()
 
     def read_line(self, timeout_ms: Optional[int] = None) -> str:
+        """Read one answer line, terminator removed (``TransportTimeout`` if none comes)."""
         return self._read_line_bytes(timeout_ms).decode("utf-8", errors="replace")
 
     def _read_line_bytes(self, timeout_ms: Optional[int]) -> bytes:
@@ -183,11 +199,13 @@ class PyConnection:
         return line
 
     def query(self, cmd: BytesLike, timeout_ms: Optional[int] = None) -> str:
+        """``send(cmd)`` followed by ``read_line()``."""
         with self._lock:
             self.send(cmd)
             return self.read_line(timeout_ms)
 
     def read_exact(self, n: int, timeout_ms: Optional[int] = None) -> bytes:
+        """Read exactly ``n`` bytes."""
         if n > MAX_RESPONSE:
             raise TransportError(f"[TRN-006] invalid argument: {n} bytes exceeds the limit")
         with self._lock:
@@ -199,6 +217,7 @@ class PyConnection:
             return out
 
     def read_block(self, timeout_ms: Optional[int] = None) -> bytes:
+        """Read an IEEE 488.2 definite-length block (waveform); drop the terminator after it."""
         with self._lock:
             deadline = self._deadline(timeout_ms)
             self._strip_pending()

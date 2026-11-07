@@ -12,6 +12,19 @@ to Python through PyO3. It replaces the C backend (`backend/`) for I/O.
 The Python entry point is `ola.transport`; it falls back to a pure-Python implementation
 with identical behaviour if this module is not installed (`OLA_TRANSPORT=python` forces it).
 
+## Layout
+
+| File | Content |
+|---|---|
+| `src/conn.rs` | `Connection`: TCP / serial link, buffered deadline-bounded reads, blocks, terminators |
+| `src/error.rs` | `Error` with the stable `TRN-001`..`TRN-006` codes |
+| `src/python.rs` | PyO3 bindings (feature `python`); a `Mutex` serialises use of one connection from several threads |
+| `tests/tcp.rs` | integration tests against a fake instrument on a real socket, including the 44 ms latency regression |
+
+Public items are documented with `///` and the crate builds with `#![warn(missing_docs)]`; read the API
+with `cargo doc --no-deps --open`. The Python-side contract of the same operations is
+`ola.transport.Transport`; how it fits in the engine is in [`docs/engine.md`](../docs/engine.md).
+
 ## Build
 
 ```bash

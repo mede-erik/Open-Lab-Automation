@@ -11,7 +11,7 @@ from __future__ import annotations
 import struct
 import sys
 from array import array
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 
 from .call_errors import ResponseNotRecognisedError
 
@@ -102,7 +102,55 @@ def siglent_waveform(
     }
 
 
-PARSERS: Dict[str, Callable[..., Any]] = {"siglent_waveform": siglent_waveform}
+def _numbers(text: Any, call: str, what: str) -> List[float]:
+    """Comma-separated numbers of an ASCII answer."""
+    try:
+        return [float(x) for x in str(text).replace("\n", ",").split(",") if x.strip()]
+    except ValueError:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the answer for {what} is not a list of numbers: {str(text)[:40]!r}",
+            call=call,
+        )
+
+
+def vna_sparameters(
+    correction_state: Any,
+    frequencies: Any,
+    *data: Any,
+    sparameters,
+    call: str = "read_sparameters",
+):
+    """Result of ``read_sparameters`` of an SCPI network analyzer (ASCII answers).
+
+    The answers, in order: the state of the error correction (``1``/``0``/``ON``/``OFF``), the
+    frequencies of the sweep points, and one list ``real, imaginary, real, imaginary, ...`` for each
+    requested S-parameter. Returns ``{"frequency", "parameters": {name: {"real", "imaginary"}},
+    "calibrated"}`` with arrays of floats.
+    """
+    if len(data) != len(sparameters):
+        raise ResponseNotRecognisedError(
+            f"call '{call}': {len(sparameters)} S-parameters asked, {len(data)} answers received",
+            call=call,
+        )
+    freq = _numbers(frequencies, call, "the frequencies")
+    parameters = {}
+    for name, text in zip(sparameters, data):
+        values = _numbers(text, call, name)
+        if len(values) != 2 * len(freq):
+            raise ResponseNotRecognisedError(
+                f"call '{call}': {name} has {len(values)} values for {len(freq)} frequencies "
+                "(expected real and imaginary parts)",
+                call=call,
+            )
+        parameters[name] = {"real": array("d", values[0::2]), "imaginary": array("d", values[1::2])}
+    state = str(correction_state).strip().upper() in ("1", "ON", "TRUE")
+    return {"frequency": array("d", freq), "parameters": parameters, "calibrated": state}
+
+
+PARSERS: Dict[str, Callable[..., Any]] = {
+    "siglent_waveform": siglent_waveform,
+    "vna_sparameters": vna_sparameters,
+}
 
 
 def get_parser(name: str, call: str = "?") -> Callable[..., Any]:

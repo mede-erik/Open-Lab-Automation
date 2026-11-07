@@ -1,0 +1,493 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Supply and oscilloscope",
+        "it": "Alimentatore e oscilloscopio",
+        "fr": "Alimentation et oscilloscope",
+        "es": "Fuente y osciloscopio",
+        "de": "Netzteil und Oszilloskop"
+      },
+      "fields": [
+        {
+          "path": "oscilloscope",
+          "kind": "instrument",
+          "label": {
+            "en": "Oscilloscope",
+            "it": "Oscilloscopio",
+            "fr": "Oscilloscope",
+            "es": "Osciloscopio",
+            "de": "Oszilloskop"
+          },
+          "help": {
+            "en": "The oscilloscope with the probe across the supply output.",
+            "it": "L'oscilloscopio con la sonda sull'uscita dell'alimentatore.",
+            "fr": "L'oscilloscope avec la sonde sur la sortie de l'alimentation.",
+            "es": "El osciloscopio con la sonda en la salida de la fuente.",
+            "de": "Das Oszilloskop mit dem Tastkopf am Netzteilausgang."
+          }
+        },
+        {
+          "path": "load",
+          "kind": "instrument",
+          "label": {
+            "en": "Electronic load",
+            "it": "Carico elettronico",
+            "fr": "Charge électronique",
+            "es": "Carga electrónica",
+            "de": "Elektronische Last"
+          },
+          "help": {
+            "en": "Only needed for the load currents below.",
+            "it": "Serve solo per le correnti di carico qui sotto.",
+            "fr": "Nécessaire seulement pour les courants de charge ci-dessous.",
+            "es": "Solo hace falta para las corrientes de carga de abajo.",
+            "de": "Nur für die Laststromwerte unten nötig."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Device from the registry",
+            "it": "Dispositivo dal registro",
+            "fr": "Dispositif du registre",
+            "es": "Dispositivo del registro",
+            "de": "Gerät aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "label_path": "device.label"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Supply or rail name",
+            "it": "Nome dell'alimentatore o della linea",
+            "fr": "Nom de l'alimentation ou du rail",
+            "es": "Nombre de la fuente o del carril",
+            "de": "Name des Netzteils oder der Schiene"
+          },
+          "help": {
+            "en": "Identifies what is measured: it is saved with every run.",
+            "it": "Identifica ciò che si misura: viene salvato con ogni esecuzione.",
+            "fr": "Identifie ce qui est mesuré : il est enregistré avec chaque exécution.",
+            "es": "Identifica lo que se mide: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Gemessene: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. 5 V rail",
+            "it": "es. linea 5 V",
+            "fr": "p. ex. rail 5 V",
+            "es": "p. ej. carril de 5 V",
+            "de": "z. B. 5-V-Schiene"
+          }
+        },
+        {
+          "path": "device.nominal_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Nominal output voltage",
+            "it": "Tensione di uscita nominale",
+            "fr": "Tension de sortie nominale",
+            "es": "Tensión de salida nominal",
+            "de": "Nennausgangsspannung"
+          },
+          "help": {
+            "en": "Optional: the ripple is also given as a percentage of it.",
+            "it": "Facoltativa: il ripple viene dato anche in percentuale.",
+            "fr": "Facultatif : l'ondulation est aussi donnée en pourcentage.",
+            "es": "Opcional: el rizado también se da en porcentaje.",
+            "de": "Optional: die Welligkeit wird auch in Prozent angegeben."
+          }
+        },
+        {
+          "path": "scope.channel",
+          "kind": "int",
+          "label": {
+            "en": "Channel",
+            "it": "Canale",
+            "fr": "Voie",
+            "es": "Canal",
+            "de": "Kanal"
+          }
+        },
+        {
+          "path": "scope.probe_attenuation",
+          "kind": "number",
+          "label": {
+            "en": "Probe attenuation",
+            "it": "Attenuazione della sonda",
+            "fr": "Atténuation de la sonde",
+            "es": "Atenuación de la sonda",
+            "de": "Tastkopfteilung"
+          },
+          "help": {
+            "en": "1 for a coax connection or a 1:1 probe, 10 for a 10:1 probe. Also set it on the probe.",
+            "it": "1 per un collegamento coassiale o una sonda 1:1, 10 per una sonda 10:1. Impostala anche sulla sonda.",
+            "fr": "1 pour une liaison coaxiale ou une sonde 1:1, 10 pour une sonde 10:1. Réglez-la aussi sur la sonde.",
+            "es": "1 para una conexión coaxial o una sonda 1:1, 10 para una sonda 10:1. Póngala también en la sonda.",
+            "de": "1 für Koaxialanschluss oder 1:1-Tastkopf, 10 für 10:1. Auch am Tastkopf einstellen."
+          }
+        },
+        {
+          "path": "scope.coupling",
+          "kind": "choice",
+          "label": {
+            "en": "Coupling",
+            "it": "Accoppiamento",
+            "fr": "Couplage",
+            "es": "Acoplamiento",
+            "de": "Kopplung"
+          },
+          "choices": [
+            {
+              "value": "AC",
+              "label": {
+                "en": "AC (ripple only)",
+                "it": "AC (solo ripple)",
+                "fr": "AC (ondulation seule)",
+                "es": "AC (solo rizado)",
+                "de": "AC (nur Welligkeit)"
+              }
+            },
+            {
+              "value": "DC",
+              "label": {
+                "en": "DC (with the level)",
+                "it": "DC (con il livello)",
+                "fr": "DC (avec le niveau)",
+                "es": "DC (con el nivel)",
+                "de": "DC (mit dem Pegel)"
+              }
+            }
+          ]
+        },
+        {
+          "path": "scope.bandwidth_limit_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Bandwidth limit",
+            "it": "Limite di banda",
+            "fr": "Limite de bande",
+            "es": "Límite de banda",
+            "de": "Bandbreitenbegrenzung"
+          },
+          "help": {
+            "en": "20 MHz is the usual way to quote ripple and noise. 0 = full bandwidth (shows the spikes too).",
+            "it": "20 MHz è il modo usuale di indicare ripple e rumore. 0 = banda intera (mostra anche i picchi).",
+            "fr": "20 MHz est la façon habituelle d'indiquer ondulation et bruit. 0 = bande complète (montre aussi les pics).",
+            "es": "20 MHz es la forma habitual de indicar rizado y ruido. 0 = banda completa (muestra también los picos).",
+            "de": "20 MHz ist die übliche Angabe für Welligkeit und Rauschen. 0 = volle Bandbreite (zeigt auch die Spitzen)."
+          }
+        },
+        {
+          "path": "scope.volts_per_div",
+          "kind": "number",
+          "unit": "V/div",
+          "label": {
+            "en": "Vertical scale",
+            "it": "Scala verticale",
+            "fr": "Échelle verticale",
+            "es": "Escala vertical",
+            "de": "Vertikale Skala"
+          },
+          "help": {
+            "en": "Optional. Small (10 mV/div) for a ripple of a few tens of millivolts, so the converter has enough levels. Leave empty to keep the setting of the oscilloscope.",
+            "it": "Facoltativa. Piccola (10 mV/div) per un ripple di qualche decina di millivolt, così il convertitore ha abbastanza livelli. Lascia vuoto per tenere l'impostazione dell'oscilloscopio.",
+            "fr": "Facultatif. Petite (10 mV/div) pour une ondulation de quelques dizaines de millivolts, pour que le convertisseur ait assez de niveaux. Laissez vide pour garder le réglage de l'oscilloscope.",
+            "es": "Opcional. Pequeña (10 mV/div) para un rizado de unas decenas de milivoltios, para que el convertidor tenga suficientes niveles. Déjelo vacío para mantener el ajuste del osciloscopio.",
+            "de": "Optional. Klein (10 mV/Div) für eine Welligkeit von einigen zehn Millivolt, damit der Wandler genug Stufen hat. Leer lassen, um die Einstellung des Oszilloskops zu behalten."
+          }
+        },
+        {
+          "path": "scope.offset_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Vertical offset",
+            "it": "Offset verticale",
+            "fr": "Décalage vertical",
+            "es": "Desplazamiento vertical",
+            "de": "Vertikaler Offset"
+          },
+          "help": {
+            "en": "Optional. With DC coupling put the level of the supply here to bring the signal to the centre.",
+            "it": "Facoltativo. Con accoppiamento DC metti qui il livello dell'alimentatore per portare il segnale al centro.",
+            "fr": "Facultatif. Avec couplage DC, mettez ici le niveau de l'alimentation pour centrer le signal.",
+            "es": "Opcional. Con acoplamiento DC ponga aquí el nivel de la fuente para llevar la señal al centro.",
+            "de": "Optional. Bei DC-Kopplung hier den Pegel des Netzteils eintragen, um das Signal in die Mitte zu bringen."
+          }
+        },
+        {
+          "path": "scope.time_per_div",
+          "kind": "number",
+          "unit": "s/div",
+          "label": {
+            "en": "Time per division",
+            "it": "Tempo per divisione",
+            "fr": "Temps par division",
+            "es": "Tiempo por división",
+            "de": "Zeit pro Division"
+          },
+          "help": {
+            "en": "Optional. Several periods of the ripple must fit in the 10 divisions (at least 5).",
+            "it": "Facoltativo. Nelle 10 divisioni devono entrare diversi periodi del ripple (almeno 5).",
+            "fr": "Facultatif. Plusieurs périodes de l'ondulation doivent tenir dans les 10 divisions (au moins 5).",
+            "es": "Opcional. En las 10 divisiones deben caber varios periodos del rizado (al menos 5).",
+            "de": "Optional. In die 10 Divisionen müssen mehrere Perioden der Welligkeit passen (mindestens 5)."
+          }
+        },
+        {
+          "path": "scope.memory_depth",
+          "kind": "int",
+          "label": {
+            "en": "Memory depth",
+            "it": "Profondità di memoria",
+            "fr": "Profondeur mémoire",
+            "es": "Profundidad de memoria",
+            "de": "Speichertiefe"
+          },
+          "help": {
+            "en": "Optional, in points. Most oscilloscopes accept only some values (10000, 100000, 1000000...). A deeper memory keeps a high sample rate over a long record.",
+            "it": "Facoltativa, in punti. La maggior parte degli oscilloscopi accetta solo alcuni valori (10000, 100000, 1000000...). Una memoria più profonda mantiene una frequenza di campionamento alta su un record lungo.",
+            "fr": "Facultative, en points. La plupart des oscilloscopes n'acceptent que certaines valeurs (10000, 100000, 1000000...). Une mémoire plus profonde garde une fréquence d'échantillonnage élevée sur un long enregistrement.",
+            "es": "Opcional, en puntos. La mayoría de los osciloscopios solo aceptan algunos valores (10000, 100000, 1000000...). Una memoria más profunda mantiene una frecuencia de muestreo alta en un registro largo.",
+            "de": "Optional, in Punkten. Die meisten Oszilloskope akzeptieren nur bestimmte Werte (10000, 100000, 1000000...). Ein tieferer Speicher hält eine hohe Abtastrate über eine lange Aufzeichnung."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Trigger and captures",
+        "it": "Trigger e acquisizioni",
+        "fr": "Déclenchement et acquisitions",
+        "es": "Disparo y capturas",
+        "de": "Trigger und Aufnahmen"
+      },
+      "fields": [
+        {
+          "path": "trigger.level_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Trigger level",
+            "it": "Livello del trigger",
+            "fr": "Niveau de déclenchement",
+            "es": "Nivel de disparo",
+            "de": "Triggerpegel"
+          },
+          "help": {
+            "en": "Optional. With AC coupling 0 V is the middle of the ripple.",
+            "it": "Facoltativo. Con accoppiamento AC 0 V è il centro del ripple.",
+            "fr": "Facultatif. Avec couplage AC, 0 V est le milieu de l'ondulation.",
+            "es": "Opcional. Con acoplamiento AC, 0 V es el centro del rizado.",
+            "de": "Optional. Bei AC-Kopplung ist 0 V die Mitte der Welligkeit."
+          }
+        },
+        {
+          "path": "trigger.slope",
+          "kind": "choice",
+          "label": {
+            "en": "Trigger slope",
+            "it": "Fronte del trigger",
+            "fr": "Front de déclenchement",
+            "es": "Flanco de disparo",
+            "de": "Triggerflanke"
+          },
+          "choices": [
+            {
+              "value": "RISE",
+              "label": {
+                "en": "Rising",
+                "it": "Salita",
+                "fr": "Montant",
+                "es": "Ascendente",
+                "de": "Steigend"
+              }
+            },
+            {
+              "value": "FALL",
+              "label": {
+                "en": "Falling",
+                "it": "Discesa",
+                "fr": "Descendant",
+                "es": "Descendente",
+                "de": "Fallend"
+              }
+            },
+            {
+              "value": "EITHER",
+              "label": {
+                "en": "Either",
+                "it": "Entrambi",
+                "fr": "Les deux",
+                "es": "Ambos",
+                "de": "Beide"
+              }
+            }
+          ]
+        },
+        {
+          "path": "trigger.mode",
+          "kind": "choice",
+          "label": {
+            "en": "Trigger mode",
+            "it": "Modo del trigger",
+            "fr": "Mode de déclenchement",
+            "es": "Modo de disparo",
+            "de": "Triggermodus"
+          },
+          "choices": [
+            {
+              "value": "AUTO",
+              "label": {
+                "en": "Auto",
+                "it": "Auto",
+                "fr": "Auto",
+                "es": "Auto",
+                "de": "Auto"
+              }
+            },
+            {
+              "value": "NORMAL",
+              "label": {
+                "en": "Normal",
+                "it": "Normale",
+                "fr": "Normal",
+                "es": "Normal",
+                "de": "Normal"
+              }
+            }
+          ]
+        },
+        {
+          "path": "captures",
+          "kind": "int",
+          "label": {
+            "en": "Captures",
+            "it": "Acquisizioni",
+            "fr": "Acquisitions",
+            "es": "Capturas",
+            "de": "Aufnahmen"
+          },
+          "help": {
+            "en": "More than one: the worst peak-to-peak is also reported. Useful for ripple that is not steady.",
+            "it": "Più di una: viene riportato anche il picco-picco peggiore. Utile per un ripple non stabile.",
+            "fr": "Plus d'une : le crête-à-crête le pire est aussi indiqué. Utile pour une ondulation instable.",
+            "es": "Más de una: también se informa del pico a pico peor. Útil para un rizado no estable.",
+            "de": "Mehr als eine: auch der schlechteste Spitze-Spitze-Wert wird angegeben. Nützlich bei unstetiger Welligkeit."
+          }
+        },
+        {
+          "path": "capture_wait_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Wait before reading",
+            "it": "Attesa prima della lettura",
+            "fr": "Attente avant la lecture",
+            "es": "Espera antes de leer",
+            "de": "Wartezeit vor dem Lesen"
+          },
+          "help": {
+            "en": "Optional. Time for the oscilloscope to fill its memory after it is started (0.5 s by default).",
+            "it": "Facoltativa. Tempo perché l'oscilloscopio riempia la memoria dopo l'avvio (0,5 s di default).",
+            "fr": "Facultatif. Temps pour que l'oscilloscope remplisse sa mémoire après le démarrage (0,5 s par défaut).",
+            "es": "Opcional. Tiempo para que el osciloscopio llene su memoria tras iniciarse (0,5 s por defecto).",
+            "de": "Optional. Zeit, bis das Oszilloskop nach dem Start seinen Speicher füllt (standardmäßig 0,5 s)."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Load, results and checks",
+        "it": "Carico, risultati e controlli",
+        "fr": "Charge, résultats et contrôles",
+        "es": "Carga, resultados y controles",
+        "de": "Last, Ergebnisse und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "conditions",
+          "kind": "json",
+          "label": {
+            "en": "Load currents",
+            "it": "Correnti di carico",
+            "fr": "Courants de charge",
+            "es": "Corrientes de carga",
+            "de": "Laststromwerte"
+          },
+          "help": {
+            "en": "Optional, needs an electronic load: {\"currents_a\": [0.1, 0.5, 1.0], \"settle_s\": 1} = one measurement per current, waiting 1 s after each change. The load is switched off at the end.",
+            "it": "Facoltativo, richiede un carico elettronico: {\"currents_a\": [0.1, 0.5, 1.0], \"settle_s\": 1} = una misura per corrente, con 1 s di attesa dopo ogni cambio. Il carico viene spento alla fine.",
+            "fr": "Facultatif, nécessite une charge électronique : {\"currents_a\": [0.1, 0.5, 1.0], \"settle_s\": 1} = une mesure par courant, avec 1 s d'attente après chaque changement. La charge est coupée à la fin.",
+            "es": "Opcional, requiere una carga electrónica: {\"currents_a\": [0.1, 0.5, 1.0], \"settle_s\": 1} = una medición por corriente, esperando 1 s tras cada cambio. La carga se apaga al final.",
+            "de": "Optional, braucht eine elektronische Last: {\"currents_a\": [0.1, 0.5, 1.0], \"settle_s\": 1} = eine Messung pro Strom, 1 s Wartezeit nach jeder Änderung. Die Last wird am Ende abgeschaltet."
+          }
+        },
+        {
+          "path": "spectrum",
+          "kind": "bool",
+          "label": {
+            "en": "Compute the spectrum (ripple frequency, noise)",
+            "it": "Calcola lo spettro (frequenza del ripple, rumore)",
+            "fr": "Calculer le spectre (fréquence de l'ondulation, bruit)",
+            "es": "Calcular el espectro (frecuencia del rizado, ruido)",
+            "de": "Spektrum berechnen (Welligkeitsfrequenz, Rauschen)"
+          }
+        },
+        {
+          "path": "peaks",
+          "kind": "int",
+          "label": {
+            "en": "Peaks to report",
+            "it": "Picchi da riportare",
+            "fr": "Pics à indiquer",
+            "es": "Picos a informar",
+            "de": "Zu meldende Spitzen"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limits",
+            "it": "Limiti",
+            "fr": "Limites",
+            "es": "Límites",
+            "de": "Grenzwerte"
+          },
+          "help": {
+            "en": "Optional pass / fail check: {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01} = at most 50 mV peak-to-peak and 10 mV rms.",
+            "it": "Controllo promosso / non promosso facoltativo: {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01} = al massimo 50 mV picco-picco e 10 mV rms.",
+            "fr": "Contrôle réussi / échoué facultatif : {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01} = au plus 50 mV crête-à-crête et 10 mV rms.",
+            "es": "Comprobación aprobado / suspendido opcional: {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01} = como máximo 50 mV pico a pico y 10 mV rms.",
+            "de": "Optionale Bestanden / Nicht-bestanden-Prüfung: {\"max_pp_v\": 0.05, \"max_rms_v\": 0.01} = höchstens 50 mV Spitze-Spitze und 10 mV eff."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to connect the probe before measuring",
+            "it": "Chiedi di collegare la sonda prima di misurare",
+            "fr": "Demander de connecter la sonde avant de mesurer",
+            "es": "Pedir conectar la sonda antes de medir",
+            "de": "Vor der Messung zum Anschließen des Tastkopfs auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

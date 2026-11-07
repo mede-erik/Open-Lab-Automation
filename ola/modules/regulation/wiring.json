@@ -1,0 +1,240 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "role": "supply",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "Power supply",
+        "it": "Alimentatore",
+        "fr": "Alimentation",
+        "es": "Fuente",
+        "de": "Netzteil"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": "{device.label|Converter under test}",
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "load",
+      "role": "load",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "Electronic load",
+        "it": "Carico elettronico",
+        "fr": "Charge électronique",
+        "es": "Carga electrónica",
+        "de": "Elektronische Last"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dmm",
+      "role": "meter",
+      "at": [
+        2,
+        1
+      ],
+      "title": {
+        "en": "Voltmeter / datalogger",
+        "it": "Voltmetro / datalogger",
+        "fr": "Voltmètre / enregistreur",
+        "es": "Voltímetro / registrador",
+        "de": "Voltmeter / Datenlogger"
+      },
+      "ports": [
+        {
+          "id": "vout",
+          "side": "left",
+          "label": {
+            "en": "Vout",
+            "it": "Vout",
+            "fr": "Vout",
+            "es": "Vout",
+            "de": "Vout"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "psu.out",
+      "to": "dut.in",
+      "label": {
+        "en": "input",
+        "it": "ingresso",
+        "fr": "entrée",
+        "es": "entrada",
+        "de": "Eingang"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "load.in",
+      "label": {
+        "en": "load",
+        "it": "carico",
+        "fr": "charge",
+        "es": "carga",
+        "de": "Last"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "dmm.vout",
+      "label": {
+        "en": "sense",
+        "it": "lettura",
+        "fr": "mesure",
+        "es": "medida",
+        "de": "Messung"
+      },
+      "style": "dashed"
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the output of the supply to the input of the converter ({device.label|converter under test}), plus to plus, minus to minus.",
+        "it": "Collega l'uscita dell'alimentatore all'ingresso del convertitore ({device.label|convertitore in prova}), più con più, meno con meno.",
+        "fr": "Connectez la sortie de l'alimentation à l'entrée du convertisseur ({device.label|convertisseur testé}), plus sur plus, moins sur moins.",
+        "es": "Conecte la salida de la fuente a la entrada del convertidor ({device.label|convertidor en prueba}), más con más, menos con menos.",
+        "de": "Den Ausgang des Netzteils mit dem Eingang des Wandlers ({device.label|Wandler im Test}) verbinden, Plus an Plus, Minus an Minus."
+      },
+      "when": "!supply_channel"
+    },
+    {
+      "text": {
+        "en": "Connect output {supply_channel} of the supply to the input of the converter ({device.label|converter under test}), plus to plus, minus to minus.",
+        "it": "Collega l'uscita {supply_channel} dell'alimentatore all'ingresso del convertitore ({device.label|convertitore in prova}), più con più, meno con meno.",
+        "fr": "Connectez la sortie {supply_channel} de l'alimentation à l'entrée du convertisseur ({device.label|convertisseur testé}), plus sur plus, moins sur moins.",
+        "es": "Conecte la salida {supply_channel} de la fuente a la entrada del convertidor ({device.label|convertidor en prueba}), más con más, menos con menos.",
+        "de": "Ausgang {supply_channel} des Netzteils mit dem Eingang des Wandlers ({device.label|Wandler im Test}) verbinden, Plus an Plus, Minus an Minus."
+      },
+      "when": "supply_channel"
+    },
+    {
+      "text": {
+        "en": "Connect the electronic load to the output of the converter, plus to plus, minus to minus, with short thick cables.",
+        "it": "Collega il carico elettronico all'uscita del convertitore, più con più, meno con meno, con cavi corti e spessi.",
+        "fr": "Connectez la charge électronique à la sortie du convertisseur, plus sur plus, moins sur moins, avec des câbles courts et épais.",
+        "es": "Conecte la carga electrónica a la salida del convertidor, más con más, menos con menos, con cables cortos y gruesos.",
+        "de": "Die elektronische Last an den Ausgang des Wandlers anschließen, Plus an Plus, Minus an Minus, mit kurzen dicken Kabeln."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect the voltmeter to the output terminals of the converter (not to the end of the load cables).",
+        "it": "Collega il voltmetro ai morsetti di uscita del convertitore (non in fondo ai cavi del carico).",
+        "fr": "Connectez le voltmètre aux bornes de sortie du convertisseur (pas au bout des câbles de charge).",
+        "es": "Conecte el voltímetro a los terminales de salida del convertidor (no al final de los cables de carga).",
+        "de": "Das Voltmeter an die Ausgangsklemmen des Wandlers anschließen (nicht am Ende der Lastkabel)."
+      },
+      "when": "!output_reading.args.channels"
+    },
+    {
+      "text": {
+        "en": "Connect channel {output_reading.args.channels} of the voltmeter to the output terminals of the converter (not to the end of the load cables).",
+        "it": "Collega il canale {output_reading.args.channels} del voltmetro ai morsetti di uscita del convertitore (non in fondo ai cavi del carico).",
+        "fr": "Connectez la voie {output_reading.args.channels} du voltmètre aux bornes de sortie du convertisseur (pas au bout des câbles de charge).",
+        "es": "Conecte el canal {output_reading.args.channels} del voltímetro a los terminales de salida del convertidor (no al final de los cables de carga).",
+        "de": "Kanal {output_reading.args.channels} des Voltmeters an die Ausgangsklemmen des Wandlers anschließen (nicht am Ende der Lastkabel)."
+      },
+      "when": "output_reading.args.channels"
+    },
+    {
+      "text": {
+        "en": "Connect channel {input_reading.args.channels} of the voltmeter to the input terminals of the converter, so that the input voltage is read where the converter sees it (not at the supply).",
+        "it": "Collega il canale {input_reading.args.channels} del voltmetro ai morsetti d'ingresso del convertitore, così la tensione d'ingresso è letta dove la vede il convertitore (non all'alimentatore).",
+        "fr": "Connectez la voie {input_reading.args.channels} du voltmètre aux bornes d'entrée du convertisseur, pour lire la tension d'entrée là où le convertisseur la voit (pas à l'alimentation).",
+        "es": "Conecte el canal {input_reading.args.channels} del voltímetro a los terminales de entrada del convertidor, para leer la tensión de entrada donde la ve el convertidor (no en la fuente).",
+        "de": "Kanal {input_reading.args.channels} des Voltmeters an die Eingangsklemmen des Wandlers anschließen, damit die Eingangsspannung dort gelesen wird, wo der Wandler sie sieht (nicht am Netzteil)."
+      },
+      "when": "input_reading.args.channels"
+    }
+  ],
+  "notes": [
+    {
+      "en": "The supply and the load are switched on by the measurement (the load at 0 A first) and switched off at the end.",
+      "it": "Alimentatore e carico vengono accesi dalla misura (il carico prima a 0 A) e spenti alla fine.",
+      "fr": "L'alimentation et la charge sont allumées par la mesure (la charge d'abord à 0 A) et éteintes à la fin.",
+      "es": "La fuente y la carga las enciende la medición (la carga primero a 0 A) y las apaga al final.",
+      "de": "Netzteil und Last werden von der Messung eingeschaltet (die Last zuerst mit 0 A) und am Ende ausgeschaltet."
+    },
+    {
+      "en": "Measure the output voltage at the output terminals with separate sense wires if you can: the drop in the load cables is not part of the regulation of the converter.",
+      "it": "Misura la tensione d'uscita ai morsetti d'uscita, con fili di lettura separati se puoi: la caduta nei cavi del carico non fa parte della regolazione del convertitore.",
+      "fr": "Mesurez la tension de sortie aux bornes de sortie, avec des fils de mesure séparés si possible : la chute dans les câbles de charge ne fait pas partie de la régulation du convertisseur.",
+      "es": "Mida la tensión de salida en los terminales de salida, con cables de medida separados si puede: la caída en los cables de carga no forma parte de la regulación del convertidor.",
+      "de": "Die Ausgangsspannung an den Ausgangsklemmen messen, wenn möglich mit getrennten Messleitungen: der Spannungsabfall in den Lastkabeln gehört nicht zur Regelung des Wandlers."
+    }
+  ],
+  "images": [
+    {
+      "file": "regulation",
+      "optional": true
+    }
+  ]
+}

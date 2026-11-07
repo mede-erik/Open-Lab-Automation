@@ -1,0 +1,19 @@
+{
+  "wir_title": "Anschlüsse - {name}",
+  "wir_button": "Anschlüsse...",
+  "wir_intro_run": "Die Geräte wie gezeigt anschließen, dann die Messung starten.",
+  "wir_intro_view": "So werden die Geräte für diese Messung angeschlossen.",
+  "wir_connections": "Verbindungen",
+  "wir_steps": "So wird angeschlossen",
+  "wir_notes": "Vor dem Start",
+  "wir_start": "Starten",
+  "wir_cancel": "Abbrechen",
+  "wir_close": "Schließen",
+  "wir_show_before": "Dies vor jeder Messung anzeigen",
+  "wir_none": "Für diese Messung gibt es keinen Anschlussplan.",
+  "wir_save_svg": "SVG speichern...",
+  "wir_saved": "Gespeichert {path}",
+  "wir_failed": "Speichern fehlgeschlagen: {error}",
+  "wir_image_failed": "Das Bild {path} kann nicht gelesen werden.",
+  "wir_error": "Der Anschlussplan kann nicht angezeigt werden: {error}"
+}

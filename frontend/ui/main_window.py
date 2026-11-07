@@ -23,6 +23,8 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QSettings
 
 from frontend.ui.RemoteControlTab import RemoteControlTab
+from frontend.ui.ProjectWindow import ProjectWindow, not_connected
+from frontend.ui.connector_setup import default_library_path, make_connector
 from frontend.ui.SettingsDialog import SettingsDialog
 from frontend.core.Translator import Translator
 from frontend.ui.EffFileDialog import EffFileDialog
@@ -30,6 +32,11 @@ from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
+from frontend.ui.CompareDialog import CompareDialog
+from frontend.ui.AssetsDialog import AssetsDialog
+from ola.assets import AssetError, AssetRegistry
+from ola.assets import default_path as default_assets_path
+from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments, get_library_path
@@ -112,16 +119,22 @@ class MainWindow(QMainWindow):
         self.remote_tab = RemoteControlTab(self.load_instruments)
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         
-        # Tab Avvia Efficienza (futura implementazione)
-        self.efficiency_tab = QWidget()
-        efficiency_layout = QVBoxLayout()
-        efficiency_label = QLabel('Avvia Efficienza - Funzionalità in arrivo...')
-        efficiency_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        efficiency_label.setStyleSheet('font-size: 16px; color: gray; padding: 50px;')
-        efficiency_layout.addWidget(efficiency_label)
-        self.efficiency_tab.setLayout(efficiency_layout)
-        self.tabs.addTab(self.efficiency_tab, 'Avvia Efficienza')
-        
+        # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
+        # The instruments are reached through the library and the project's .inst file
+        # (frontend/ui/connector_setup.py); `not_connected` is the fallback if that is not possible.
+        self.assets = self._open_assets()  # the registry of cables and devices (or None)
+        self.project_tab = ProjectWindow(
+            translator=self.translator,
+            assets=self.assets,
+            connect=not_connected,
+            connector_factory=lambda session: make_connector(
+                session, default_library_path(), self.translator, self
+            ),
+            wiring_before_run=self._wiring_preference(),
+            on_wiring_preference=self._save_wiring_preference,
+        )
+        self.tabs.addTab(self.project_tab, self.project_tab.tr_.t('prj_tab'))
+
         self.project_files_list = QListWidget()
         self.logger.debug("UI tabs and lists created.")
         
@@ -240,6 +253,16 @@ class MainWindow(QMainWindow):
         hexdec_action = QAction("Convertitore Hex/Dec", self)
         hexdec_action.triggered.connect(self.open_hexdec_converter)
         tools_menu.addAction(hexdec_action)
+        
+        # Compare saved results (two cables, a filter before and after...)
+        compare_action = QAction(CatalogTranslator("compare", self.translator).t("cmp_menu"), self)
+        compare_action.triggered.connect(self.open_compare_tool)
+        tools_menu.addAction(compare_action)
+        
+        # Cables and devices: codes, cards and labels
+        assets_action = QAction(CatalogTranslator("assets", self.translator).t("ast_menu"), self)
+        assets_action.triggered.connect(self.open_assets_tool)
+        tools_menu.addAction(assets_action)
         
         # Pulse Generator Tool
         pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
@@ -886,6 +909,49 @@ class MainWindow(QMainWindow):
         dlg = HexDecConverterDialog(self)
         dlg.exec()
     
+    def _open_assets(self):
+        """The registry of cables and devices, or None if its file is damaged (the program still
+        works: the cards are just not available until the file is repaired)."""
+        try:
+            return AssetRegistry()
+        except AssetError as exc:
+            self.logger.error(f"Registry of cables and devices not available: {exc}")
+            return None
+
+    def open_assets_tool(self):
+        """Open the window of the cables and devices (cards, labels, history)."""
+        if self.assets is None:
+            error = f"{default_assets_path()} (damaged or not readable)"
+            text = CatalogTranslator("assets", self.translator).t("ast_open_failed", error=error)
+            QMessageBox.warning(self, "Open Lab Automation", text)
+            return
+
+        def run_dirs():  # the runs folder of the project that is open now
+            session = getattr(self.project_tab, "session", None)
+            return [session.run_dir] if session is not None else []
+
+        self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
+        self._assets_tool.show()
+
+    @staticmethod
+    def _wiring_preference() -> bool:
+        """Whether the connection diagram is shown before every measurement (on by default)."""
+        value = QSettings('LabAutomation', 'App').value('show_wiring_before_run', True)
+        return str(value).lower() not in ('false', '0')
+
+    @staticmethod
+    def _save_wiring_preference(value: bool) -> None:
+        """Remember the tick of the connection diagram window."""
+        QSettings('LabAutomation', 'App').setValue('show_wiring_before_run', bool(value))
+
+    def open_compare_tool(self):
+        """Open the tool that compares saved results; it starts in the runs folder of the open
+        project (frontend/ui/CompareDialog.py)."""
+        session = getattr(self.project_tab, "session", None)
+        start = str(session.run_dir) if session is not None else ""
+        self._compare_tool = CompareDialog(translator=self.translator, parent=self, start_dir=start)
+        self._compare_tool.show()
+
     def open_pulse_generator(self):
         """Open the electronic load pulse generator tool."""
         # Check if project is open

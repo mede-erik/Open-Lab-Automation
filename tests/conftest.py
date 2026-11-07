@@ -4,6 +4,8 @@
   (or of a sibling checkout). Tests that use them are skipped when the library is missing, so
   the engine tests still run in a checkout without the submodule.
 * ``REPO``: the repository root.
+
+The Qt tests run without a screen (``QT_QPA_PLATFORM=offscreen``).
 """
 
 from __future__ import annotations
@@ -11,6 +13,8 @@ from __future__ import annotations
 import os
 
 import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

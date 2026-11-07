@@ -1,0 +1,37 @@
+{
+  "id": "amplifier",
+  "name": "RF amplifier",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".amp",
+  "entry": "measurement.py:AmplifierResponse",
+  "description": "An RF amplifier with a vector network analyzer (VNA): gain against frequency, gain flatness and 3 dB bandwidth, input and output return loss, reverse isolation, the stability factors K and mu (can it oscillate?), and optionally the 1 dB compression point from a power sweep. Includes checks to keep the amplifier and the VNA from being overdriven. The VNA is calibrated beforehand by the user.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer (two ports), calibrated with the attenuators that will be in the test"}
+  ],
+  "params_schema": {
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm: the VNA source power, keep it low"},
+    "device": {"type": "object", "required": false,
+               "description": "label identifies the amplifier; asset_id is its code in the registry of cables and devices"},
+    "input_attenuation_db": {"type": "number", "unit": "dB", "min": 0, "required": false,
+                             "description": "attenuation between the VNA source and the amplifier input (the power at the amplifier is this much lower)"},
+    "max_input_dbm": {"type": "number", "unit": "dBm", "required": false,
+                      "description": "the largest power the amplifier input can take: the measurement refuses to go above it"},
+    "passband": {"type": "object", "required": false,
+                 "description": "from_hz and to_hz: where the flatness, the worst return loss and the isolation are taken (the whole sweep by default)"},
+    "gain_edge_db": {"type": "number", "unit": "dB", "required": false,
+                     "description": "the band edges are where the gain is this far below its peak (3 by default)"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the gain is reported at these frequencies"},
+    "compression": {"type": "object", "required": false,
+                    "description": "frequency_hz, start_dbm, stop_dbm, step_db, compression_db (1): a power sweep at one frequency to find the compression point"},
+    "limits": {"type": "object", "required": false,
+               "description": "pass / fail mask on the gain in dB: {\"min\": 18} or bands"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate, connect and check the powers"}
+  }
+}

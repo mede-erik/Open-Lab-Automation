@@ -32,6 +32,9 @@ def _b(x) -> bytes:
 
 
 class VisaConnection:
+    """Transport over a pyvisa resource (USB-TMC, GPIB, VXI-11, ASRL); the method contract is
+    ``ola.transport.Transport``. A resource shared with other code is never left modified."""
+
     def __init__(self, resource, peer: str, timeout_ms: int, pyvisa_module):
         self._res = resource
         self._peer = peer
@@ -62,14 +65,17 @@ class VisaConnection:
     # ----- properties / settings ---------------------------------------------------------
     @property
     def peer(self) -> str:
+        """Address of the instrument as text (see ``ola.transport.Transport``)."""
         return self._peer
 
     @property
     def is_open(self) -> bool:
+        """True until ``close()`` is called or the instrument closes the connection."""
         return self._res is not None
 
     @property
     def timeout_ms(self) -> int:
+        """Default timeout of every read, in milliseconds."""
         return self._timeout_ms
 
     @timeout_ms.setter
@@ -77,6 +83,7 @@ class VisaConnection:
         self._timeout_ms = value  # applied per operation, the resource is left untouched
 
     def set_terminators(self, write_term, read_term) -> None:
+        """Set the terminator appended by ``send`` and the one ``read_line`` waits for."""
         if not _b(read_term):
             raise TransportError("[TRN-006] invalid argument: read terminator must not be empty")
         self._wterm, self._rterm = _b(write_term), _b(read_term)
@@ -99,6 +106,7 @@ class VisaConnection:
                 res.timeout = old_timeout
 
     def close(self) -> None:
+        """Close the connection; later calls raise ``TransportClosed``."""
         with self._lock:
             res, self._res = self._res, None
         if res is not None:
@@ -118,6 +126,7 @@ class VisaConnection:
 
     # ----- writing ------------------------------------------------------------------------
     def write(self, data) -> None:
+        """Send ``data`` exactly as given (no terminator), in a single write."""
         with self._lock:
             res = self._need()
             try:
@@ -126,10 +135,12 @@ class VisaConnection:
                 self._fail(e)
 
     def send(self, cmd) -> None:
+        """Send ``cmd`` followed by the write terminator, in a single write."""
         self.write(_b(cmd) + self._wterm)
 
     # ----- reading ------------------------------------------------------------------------
     def flush_input(self) -> None:
+        """Throw away everything received and not yet read (stale answers)."""
         with self._lock:
             res = self._need()
             with self._applied(res, timeout_ms=1):
@@ -141,6 +152,7 @@ class VisaConnection:
                         break
 
     def read_until(self, term, timeout_ms: Optional[int] = None) -> bytes:
+        """Read up to and consuming ``term`` (the terminator is not returned)."""
         term = _b(term)
         if not term:
             raise TransportError("[TRN-006] invalid argument: terminator must not be empty")
@@ -173,17 +185,20 @@ class VisaConnection:
         return bytes(data[:-1]) if data.endswith(term) else bytes(data)
 
     def read_line(self, timeout_ms: Optional[int] = None) -> str:
+        """Read one answer line, terminator removed (``TransportTimeout`` if none comes)."""
         line = self.read_until(self._rterm, timeout_ms)
         if self._rterm == b"\n" and line.endswith(b"\r"):
             line = line[:-1]
         return line.decode("utf-8", errors="replace")
 
     def query(self, cmd, timeout_ms: Optional[int] = None) -> str:
+        """``send(cmd)`` followed by ``read_line()``."""
         with self._lock:
             self.send(cmd)
             return self.read_line(timeout_ms)
 
     def read_exact(self, n: int, timeout_ms: Optional[int] = None) -> bytes:
+        """Read exactly ``n`` bytes."""
         if n > MAX_RESPONSE:
             raise TransportError(f"[TRN-006] invalid argument: {n} bytes exceeds the limit")
         with self._lock:

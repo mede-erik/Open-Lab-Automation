@@ -49,19 +49,30 @@ class Plan:
     logical_values: Optional[List[str]] = None
     # named parser: several raw results -> one logical value (see ola.parsers)
     parse: Optional[Dict[str, Any]] = None
+    # the logical arguments of the call (a parser may need some of them, see ``parse["args"]``)
+    logical_args: Dict[str, Any] = field(default_factory=dict)
 
     def interpret(self, raw_results: List[Any]) -> Any:
         """Turn the executor's raw results into the logical value of the call."""
         if self.parse:
             try:
-                values = [raw_results[i] for i in self.parse["from_steps"]]
-            except (IndexError, TypeError):
+                source = self.parse["from_steps"]
+                if source == "queries":  # the answers of every query step, in order
+                    values = [
+                        raw_results[i]
+                        for i, step in enumerate(self.steps)
+                        if step.get("op") in ("query", "read")
+                    ][int(self.parse.get("skip_queries", 0)) :]
+                else:
+                    values = [raw_results[i] for i in source]
+                extra = {n: self.logical_args[n] for n in self.parse.get("args", [])}
+            except (IndexError, TypeError, KeyError):
                 raise ResponseNotRecognisedError(
                     f"call '{self.call}': the answers needed by parser '{self.parse['name']}' "
                     "are missing",
                     call=self.call,
                 )
-            return get_parser(self.parse["name"], self.call)(*values, call=self.call)
+            return get_parser(self.parse["name"], self.call)(*values, call=self.call, **extra)
         idx = self.result.get("from_step")
         if idx is None:
             return None
@@ -191,6 +202,16 @@ def _logical_value(
                 raise ValueError
             else:
                 value = bool(value)
+        elif kind == "list":
+            items = (
+                [s.strip() for s in value.split(",") if s.strip()]
+                if isinstance(value, str)
+                else list(value)
+            )
+            if not items:
+                raise ValueError("empty list")
+            item_spec = {"type": types[t].get("item", "string")}
+            value = [_logical_value(name, item_spec, v, types, call) for v in items]
         elif kind == "enum":
             value = str(value).strip().upper()
             value = types[t].get("aliases", {}).get(value, value)
@@ -409,10 +430,13 @@ def plan_call(
 
     # ---- translate arguments into text
     pdefs = definition.get("parameters") or {}
-    texts = {
-        n: _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call)
-        for n, v in logical.items()
-    }
+    texts = {}
+    for n, v in logical.items():
+        if isinstance(v, list):  # {name} is the comma-separated list, {name_count} its length
+            texts[n] = ",".join(str(x) for x in v)
+            texts[f"{n}_count"] = str(len(v))
+        else:
+            texts[n] = _to_text(n, v, schema_args.get(n), pdefs.get(n, {}), types, model_id, call)
     # derived parameters: one logical argument drives several placeholders of the library
     for dname, ddef in pdefs.items():
         src = ddef.get("from")
@@ -437,9 +461,24 @@ def plan_call(
     if "steps" in half:
         for raw in half["steps"]:
             s = dict(raw)
-            if "text" in s:
-                s["text"] = _substitute(s["text"], texts, call)
-            steps.append(_validated(s, call))
+            if not _step_applies(s.pop("when", None), logical):
+                continue  # a step for other values of an argument (for example another kind)
+            repeat = s.pop("foreach", None)
+            if repeat is None:
+                if "text" in s:
+                    s["text"] = _substitute(s["text"], texts, call)
+                steps.append(_validated(s, call))
+                continue
+            # one step (or one group of "steps") per item of a list argument:
+            # {item}, {index} (from 0) and {n} (from 1)
+            group = s.pop("steps", None) or [s]
+            for index, item in enumerate(logical.get(repeat) or []):
+                item_texts = dict(texts, item=str(item), index=str(index), n=str(index + 1))
+                for member in group:
+                    each = dict(member)
+                    if "text" in each:
+                        each["text"] = _substitute(each["text"], item_texts, call)
+                    steps.append(_validated(each, call))
     else:
         text = _substitute(half["syntax"], texts, call)
         if half_name == "query":
@@ -474,6 +513,7 @@ def plan_call(
         logical_result=result_spec,
         logical_values=logical_values,
         parse=parse,
+        logical_args=logical,
     )
 
 
@@ -483,7 +523,23 @@ def _uses_arg(definition: Dict[str, Any], name: str, half_name: str) -> bool:
     if not h:
         return False
     texts = [h.get("syntax", "")] + [s.get("text", "") for s in h.get("steps", [])]
-    return any(name in _PLACEHOLDER.findall(t or "") for t in texts)
+    texts += [m.get("text", "") for s in h.get("steps", []) for m in s.get("steps", [])]
+    if any(s.get("foreach") == name for s in h.get("steps", [])):
+        return True
+    return any(
+        name in _PLACEHOLDER.findall(t or "") or f"{name}_count" in _PLACEHOLDER.findall(t or "")
+        for t in texts
+    )
+
+
+def _step_applies(when: Optional[Dict[str, Any]], logical: Dict[str, Any]) -> bool:
+    """A step with ``"when": {"argument": value or [values]}`` is used only if every listed
+    argument has one of the values (compared as text, upper case)."""
+    for name, accepted in (when or {}).items():
+        accepted = accepted if isinstance(accepted, list) else [accepted]
+        if str(logical.get(name)).upper() not in [str(a).upper() for a in accepted]:
+            return False
+    return True
 
 
 def _validated(step: Dict[str, Any], call: str) -> Dict[str, Any]:

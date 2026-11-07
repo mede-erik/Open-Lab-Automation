@@ -23,7 +23,7 @@ import threading
 import time
 from typing import Any, List, Optional, Protocol, Sequence
 
-from .call_errors import CallNotSupportedError, StepFailedError
+from .call_errors import CallError, CallNotSupportedError, StepFailedError
 from .steps import Step
 
 
@@ -34,7 +34,8 @@ class Aborted(Exception):
 class Driver(Protocol):
     """What a driver module must provide (Analog Discovery 2/3, ...)."""
 
-    def call(self, function: str, args: dict) -> Any: ...
+    def call(self, function: str, args: dict) -> Any:
+        """Run driver function ``function`` with ``args`` and return its result."""
 
 
 def _attr(obj, name, default=None):
@@ -44,6 +45,9 @@ def _attr(obj, name, default=None):
 
 
 class Instrument:
+    """One instrument: its transport (or driver) and the lock that serialises calls. Use ``run`` to
+    execute a plan."""
+
     def __init__(self, name: str, transport=None, driver: Optional[Driver] = None):
         self.name = name
         self.transport = transport
@@ -65,6 +69,9 @@ class Instrument:
     def execute_steps(
         self, call: str, steps: Sequence, cancel: Optional[threading.Event] = None
     ) -> List[Any]:
+        """Run ``steps`` of call ``call`` under the instrument lock; return the raw result of each
+        step (``None`` for write/delay). Raises ``StepFailedError`` (CALL-004) at the first
+        failure and ``Aborted`` if ``cancel`` is set."""
         steps = [Step.coerce(s) for s in steps]  # ValueError here = bad plan, not CALL-004
         if self.transport is None:
             raise CallNotSupportedError(f"instrument '{self.name}' has no transport", call=call)
@@ -131,5 +138,7 @@ class Instrument:
                 raise Aborted(f"call '{call}' aborted")
             try:
                 return [self.driver.call(function, args)]
+            except CallError:
+                raise  # the driver already reports a CALL-xxx error (value not handled, ...)
             except Exception as exc:
                 raise StepFailedError(call, 0, exc) from exc
