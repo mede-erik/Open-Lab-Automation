@@ -313,7 +313,13 @@ class ProjectWindow(QMainWindow):
             self.session.connect = self.connector
         self.setWindowTitle(f"{self._t('prj_title')} - {project.name}")
         self._refresh()
-        QTimer.singleShot(0, lambda: self.map_instruments(quiet=True))  # a received project
+        # a received project: offer to use your own instruments, once the window is shown. The timer
+        # belongs to the window, so it goes away with it (a bare ``QTimer.singleShot`` with a
+        # lambda would fire on a window that was already destroyed)
+        self._mapping_timer = QTimer(self)
+        self._mapping_timer.setSingleShot(True)
+        self._mapping_timer.timeout.connect(lambda: self.map_instruments(quiet=True))
+        self._mapping_timer.start(0)
 
     def _close_connector(self) -> None:
         """Close the connections of the previous project (if its connector can close them)."""
@@ -735,6 +741,9 @@ class ProjectWindow(QMainWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+        timer = getattr(self, "_mapping_timer", None)
+        if timer is not None:  # a window that is closed does not offer anything any more
+            timer.stop()
         for window in running:  # stop them first, so that their own windows do not ask again
             window.runner.stop()
             window.runner.join(15)
