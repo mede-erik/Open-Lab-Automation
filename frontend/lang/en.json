@@ -474,5 +474,8 @@
   "compat_char_frequency_min_hz": "Lowest frequency",
   "compat_char_frequency_max_hz": "Highest frequency",
   "compat_char_sparameters": "S-parameters",
-  "compat_char_source_power": "Source power control"
+  "compat_char_source_power": "Source power control",
+  "inst_rename_title": "Rename instrument",
+  "inst_rename_question": "{count} measurement(s) use \"{old}\" and will use \"{new}\" instead:\n\n{list}\n\nThe runs already made keep the old name in their record. Continue?",
+  "inst_rename_failed": "The instrument was not renamed: {error}"
 }
