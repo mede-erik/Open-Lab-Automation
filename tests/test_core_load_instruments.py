@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """frontend.core.LoadInstruments: the GUI view of the library must agree with the engine
 (ola.library) for every model, and must fail cleanly on a bad library file."""
 

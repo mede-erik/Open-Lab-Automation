@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Every example project under examples/ must load and reference existing files and models.
 
 tests/test_example_project.py checks the DC-DC project in depth; this file checks that every

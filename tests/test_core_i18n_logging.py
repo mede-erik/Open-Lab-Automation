@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Translator, translation files and the structured logger of frontend.core."""
 
 import glob
@@ -71,13 +75,20 @@ def _used_keys():
 def test_keys_used_by_the_code_exist_in_every_locale():
     """A key used with translator.t('...') but missing from a locale shows the raw key in the
     UI. scripts/check_translations.py checks the locales against each other; this checks the
-    code against the locales."""
+    code against the locales. A key counts as present in a language when it is in the
+    application catalog (lang/<lang>.json) or in a module catalog
+    (lang/modules/<module>/<lang>.json, read by frontend.ui.module_translator)."""
     used = _used_keys()
     assert len(used) > 50
     missing = []
     for lang in LOCALES:
-        with open(os.path.join(LANG_DIR, f"{lang}.json"), encoding="utf-8") as f:
-            keys = set(json.load(f))
+        keys = set()
+        catalogs = [os.path.join(LANG_DIR, f"{lang}.json")] + glob.glob(
+            os.path.join(LANG_DIR, "modules", "*", f"{lang}.json")
+        )
+        for path in catalogs:
+            with open(path, encoding="utf-8") as f:
+                keys |= set(json.load(f))
         missing += [f"{lang}: '{k}' ({where})" for k, where in used.items() if k not in keys]
     assert missing == []
 

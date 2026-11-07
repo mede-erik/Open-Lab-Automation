@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The real instrument library (``Instruments_LIB``) against the engine.
 
 ``Instruments_LIB/Tests/check_conformance.py`` checks the library against the schemas; these
@@ -45,7 +49,6 @@ def _model_ids():
 
 MODEL_IDS = _model_ids()
 TRANSPORT_KINDS = {"vxi11", "raw_socket", "usbtmc", "serial", "hislip", "gpib"}
-CONNECTION_TYPES = {"LXI", "USB-TMC", "SERIAL", "GPIB", "USB"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -83,6 +86,11 @@ def _sample(arg, types, pdef):
         return (mapped or logical)[0]
     if kind == "bool":
         return True
+    if kind == "list":  # e.g. a list of S-parameters: one valid item
+        item = types[t].get("item", "string")
+        return [_sample({"type": item}, types, pdef)]
+    if kind == "mapping":
+        return {}
     if pdef.get("map"):
         return next(iter(pdef["map"]))
     if pdef.get("values"):
@@ -175,7 +183,8 @@ def test_interface_block(library, model_id):
     conns = model.get("interface", {}).get("supported_connection_types", [])
     assert conns, f"{model_id} has no connection type"
     for conn in conns:
-        assert conn.get("type") in CONNECTION_TYPES, conn.get("type")
+        # "type" is a label shown to the user (LXI, USB-TMC, "LXI raw socket", ...)
+        assert isinstance(conn.get("type"), str) and conn["type"].strip(), conn
         for transport in conn.get("transports", []) or []:
             assert transport.get("kind") in TRANSPORT_KINDS, transport
             if transport["kind"] == "raw_socket":
@@ -193,7 +202,8 @@ def test_serial_settings_are_applicable(library, model_id):
         assert resource.baud_rate > 0
     for key in ("write_termination", "read_termination"):
         if key in settings:
-            assert isinstance(settings[key], str) and settings[key]
+            # empty for a binary protocol without terminator (LiteVNA)
+            assert isinstance(settings[key], str)
 
 
 # ---------------------------------------------------------------- planning
@@ -233,8 +243,11 @@ def test_every_logical_value_plans_or_is_refused_cleanly(library, model_id):
         base = _args(definition, spec, types)
         for arg_name, arg in spec.get("args", {}).items():
             kind = types.get(arg["type"], {}).get("kind")
+            item_type = types.get(types.get(arg["type"], {}).get("item"), {})
             if kind == "enum":
                 values = types[arg["type"]]["values"]
+            elif kind == "list" and item_type.get("kind") == "enum":
+                values = [[v] for v in item_type["values"]]
             elif kind == "bool":
                 values = [True, False]
             elif arg["type"] == "number_or_keyword":
@@ -291,7 +304,11 @@ def test_parsers_and_result_steps_exist(library, model_id):
             if parse:
                 if parse.get("name") not in PARSERS:
                     bad.append(f"{name}: unknown parser {parse.get('name')!r}")
-                if any(not 0 <= i < n_steps for i in parse.get("from_steps", [])):
+                source = parse.get("from_steps", [])  # a list of steps, or "queries"
+                if isinstance(source, str):
+                    if source != "queries":
+                        bad.append(f"{name}: parser reads from {source!r}")
+                elif any(not 0 <= i < n_steps for i in source):
                     bad.append(f"{name}: parser reads a step that does not exist")
             if "result_step" in half and not 0 <= half["result_step"] < n_steps:
                 bad.append(f"{name}: result_step {half['result_step']} out of range")

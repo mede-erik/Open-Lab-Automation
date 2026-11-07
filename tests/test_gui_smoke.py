@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """GUI smoke tests: every window and dialog of frontend/ui is built, shown and closed with an
 example project, without a display (QT_QPA_PLATFORM=offscreen) and without hardware.
 
@@ -9,10 +13,12 @@ nothing blocks; settings and config files go to a temporary HOME.
 
 from __future__ import annotations
 
+import glob
 import importlib
 import json
 import os
 import pkgutil
+import re
 import shutil
 
 import pytest
@@ -81,9 +87,16 @@ def deps():
 
 @pytest.fixture
 def project(tmp_path):
-    """A copy of the DC-DC example project (the GUI may write next to it)."""
+    """A copy of the DC-DC example project (the GUI may write next to it). Its instruments
+    point to localhost, so a test never reaches a real instrument on the lab network."""
     target = tmp_path / "project"
     shutil.copytree(EXAMPLE, target)
+    inst_file = target / "test_instruments.inst"
+    data = json.loads(inst_file.read_text(encoding="utf-8"))
+    for instrument in data["instruments"]:
+        if instrument.get("visa_address"):
+            instrument["visa_address"] = "TCPIP0::127.0.0.1::inst0::INSTR"
+    inst_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return target
 
 
@@ -156,10 +169,33 @@ def test_dialog_opens_without_errors(qtbot, deps, project, errors, name):
     assert errors() == []
 
 
-def test_every_dialog_module_is_covered():
-    """A new dialog file must get a smoke test above (or be listed here with the reason)."""
-    not_dialogs = {"__init__", "main_window", "PulseGeneratorDialog"}  # tested separately
-    assert set(UI_MODULES) - not_dialogs - set(DIALOGS) == set()
+def _ui_imports(text):
+    """Names of the frontend.ui modules a source text imports."""
+    names = set(re.findall(r"frontend\.ui\.(\w+)", text))
+    for group in re.findall(r"from frontend\.ui import \(?([\w\s,]+)\)?", text):
+        names |= {n.strip() for n in group.split(",") if n.strip()}
+    return names & set(UI_MODULES)
+
+
+def test_every_ui_module_is_tested():
+    """Every file of frontend/ui must be exercised by a test: opened above, imported by a test
+    file of its own (tests/test_project_window.py, ...), or used by a module that is."""
+    here = os.path.abspath(__file__)
+    covered = set(DIALOGS) | {"__init__", "main_window", "PulseGeneratorDialog"}
+    for path in glob.glob(os.path.join(REPO, "tests", "test_*.py")):
+        if os.path.abspath(path) != here:
+            with open(path, encoding="utf-8") as f:
+                covered |= _ui_imports(f.read())
+    ui_dir = os.path.dirname(frontend.ui.__file__)
+    while True:  # modules used by covered modules are exercised through them
+        used = set()
+        for name in covered & set(UI_MODULES):
+            with open(os.path.join(ui_dir, f"{name}.py"), encoding="utf-8") as f:
+                used |= _ui_imports(f.read())
+        if used <= covered:
+            break
+        covered |= used
+    assert set(UI_MODULES) - covered == set()
 
 
 def test_pulse_generator_with_a_library_load(qtbot, deps, project, errors, library):
@@ -219,5 +255,10 @@ def test_main_window_opens_a_project(qtbot, project, errors, monkeypatch):
     ]
     assert "test_instruments.inst" in listed and "osc1.was" in listed
     assert QtCore.QSettings("LabAutomation", "App").value("last_project_path") == project_file
+    # the remote panel polls the instruments with a timer that has no parent: stop it, or it
+    # keeps polling during the next tests
+    timer = getattr(getattr(window, "remote_tab", None), "measurement_timer", None)
+    if timer is not None:
+        timer.stop()
     window.close()
     assert errors() == []

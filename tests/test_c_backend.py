@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The legacy C backend (backend/*.c through frontend.core.c_backend), against a fake LXI
 instrument on localhost. The backend is not extended any more, but while it ships it must
 build, load and talk SCPI correctly. Skipped when the shared library is not built
