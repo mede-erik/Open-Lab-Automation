@@ -64,7 +64,33 @@ python scripts/golden_check.py runs/new.jsonl runs/golden.jsonl --spec tolerance
 The exit code is 0 for `PASS`, 1 for `FAIL` or `NO DATA`, 2 for a request that cannot be used (a wrong tolerance, two different
 kinds of measurement, a file that cannot be read), so a script can act on it.
 
+## In the comparison window
+
+The tab **Golden sample** of *Compare results* ([`compare.md`](compare.md)) does the same with the runs that are open: the
+**reference** run (★) is the golden sample and every other ticked run is checked against it. Choose the curve and its view, the
+tolerance and its **side** (above and below, only above: more loss is the failure, only below), the part of the golden curve that
+must be covered, and a tolerance for any figure of the summary (`0.3`, or `5%` of the golden value; empty = not checked); **Check**
+gives the verdict of each run with its reasons. **Keep the reference as golden sample...** writes it in the `golden/` folder of the
+project under a name, and **Open a golden sample...** opens one from there as the reference.
+
+## As a step of the cable measurement
+
+A cable measurement ([`cable.md`](cable.md)) can check itself at the end of the run: in its file
+
+```json
+"golden": {"name": "RG58 1m",
+           "tolerances": {"curves": [{"trace": "loss_db", "tolerance": 0.3}], "summary": {"max_loss_db": 0.2}}}
+```
+
+The project finds the golden sample by its **name** in its `golden/` folder (a run is refused before it starts if there is none, with
+the names that are there) and saves the file it used (`golden.run`) in the header of the run. The run gets a table `golden` (one row
+for each check: `check`, `passed`, `difference`, `at`, `margin`, `detail`) and `golden_verdict` (`PASS`, `FAIL` or `NO DATA`) and
+`golden_failed` in its summary row. Like a limit, a failed check is a **result**: the run still finishes, with warnings in the log. The
+curves of the measurement that can be checked are `loss_db`, `loss_db_per_m`, `group_delay_ns`, `return_loss_db` and the raw `S21`
+/ `S11` (in any view, `value` by default). The editor of the cable measurement has the two fields.
+
 ## Not done yet
 
-The check is not yet a step of a measurement or a button of the comparison window, and a report does not include it (see *Future
-features* in the README). Tolerances are written by hand: there is no way yet to work them out from several good units.
+A report does not include the check (see *Future features* in the README), and the other measurements (filter, amplifier,
+attenuator...) do not have the step yet: they can be checked in the comparison window. Tolerances are written by hand: there is no
+way yet to work them out from several good units.

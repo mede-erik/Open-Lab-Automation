@@ -8,7 +8,9 @@ Parameters (``.cbl`` file)::
      "cable": {"label": "RG58 #3", "length_m": 1.0},                # both optional
      "frequencies_of_interest": [433e6, 868e6, 2.4e9],              # optional
      "limits": {"max": [[1e6, 0.5], [3e9, 2.0]]},                   # optional, on the loss in dB
-     "also_s11": true, "averages": 1, "confirm_setup": true}
+     "also_s11": true, "averages": 1, "confirm_setup": true,
+     "golden": {"name": "RG58 1m",                                  # optional, see docs/golden.md
+                "tolerances": {"curves": [{"trace": "loss_db", "tolerance": 0.3}]}}}
 
 The VNA is calibrated by the user beforehand (at the ends of the test leads); the measurement asks
 for it once and then does not touch the calibration. What it asks of the instrument are two *logical
@@ -26,6 +28,10 @@ and the Smith chart use); the table ``sweep`` (a row per frequency); and one sum
 ``points`` (loss at the frequencies of interest, the worst loss, delay, velocity factor, return
 loss, verdict). A failed limit is a *result*, not an error: the run still finishes.
 
+With ``golden`` the result is also checked against a **golden sample** of the project (a good cable
+of the same kind, kept from the comparison window; ``ola.golden``): a table ``golden`` with one row
+per check, and ``golden_verdict`` in the summary.
+
 In reflection mode the signal goes to the end and back, so the loss of the cable is half of the
 loss measured on S11 (``-|S11|dB / 2``) and the delay is half of the delay of S11.
 """
@@ -34,6 +40,7 @@ from typing import Any, Dict, List, Optional
 
 from ola import rf
 from ola.efficiency_spec import Problem
+from ola.golden import check_golden_param, check_step, run_from_result
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
@@ -96,6 +103,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
 
     check_asset(params, "cable", out)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
+    check_golden_param(params, out)
     return out
 
 
@@ -274,6 +282,15 @@ class CableCharacterization(Measurement):
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"
             summary["margin_db"] = verdict.margin
             ctx.log(f"limit check: {verdict.summary()}", "info" if verdict.passed else "warning")
+        if p.get("golden"):  # like the good one? (a result too, not an error)
+            curves = {name: {"x": freq, "y": values, "kind": "complex"}
+                      for name, values in traces.items()}  # fmt: skip
+            for name in ("loss_db", "loss_db_per_m", "return_loss_db"):
+                if name in result:
+                    curves[name] = {"x": freq, "y": result[name]}
+            curves["group_delay_ns"] = {"x": freq, "y": [d * 1e9 for d in result["delay_s"]]}
+            current = run_from_result("cable", curves, summary, cable.get("label") or "this run")
+            summary.update(check_step(ctx, current, p["golden"]))
         label = f" '{cable['label']}'" if cable.get("label") else ""
         top = result["summary"]
         worst = f"{top['max_loss_db']:.3g} dB at {format_si(top['max_loss_at_hz'], 'Hz')}"

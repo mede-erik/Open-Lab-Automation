@@ -25,6 +25,8 @@
                "description": "pass / fail limit on the loss in dB: {\"max\": 1.5} or a line or bands (see ola/limits.py)"},
     "also_s11": {"type": "boolean", "required": false,
                  "description": "transmission only: also read S11 to report the return loss of the cable"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good cable of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
     "confirm_setup": {"type": "boolean", "required": false,

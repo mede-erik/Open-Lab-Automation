@@ -901,8 +901,12 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   retta della frequenza o asimmetrica, tolleranza assoluta/relativa sulle cifre del riepilogo, copertura minima dello sweep, verdetto con
   le ragioni, campione salvato in `<progetto>/golden/`) e **andamento nel tempo della perdita di un cavo** (`ola/trend.py`,
   `scripts/cable_trend.py`, `docs/trend.md`: retta ai minimi quadrati, variazione reale solo se la pendenza supera due volte la sua
-  incertezza, verdetto PASS/WARNING/FAIL/NOT ENOUGH DATA con la data in cui si raggiunge il limite). Da fare: il pulsante nella finestra di
-  confronto, il verdetto come passo di una misura e il grafico dell'andamento nella finestra o sull'etichetta del cavo.
+  incertezza, verdetto PASS/WARNING/FAIL/NOT ENOUGH DATA con la data in cui si raggiunge il limite). Poi (2026-11-08): la scheda **Campione di
+  riferimento** nella finestra di confronto (il riferimento ★ è il campione, tolleranza sulla curva con il lato, tolleranze sulle cifre,
+  salva/apri in `golden/`), il **passo della misura del cavo** (`golden.name` + `tolerances`, risolto dal progetto in `golden.run`, tabella
+  `golden` e `golden_verdict` nel riepilogo, campi nell'editor) e la finestra **Andamento...** dalla storia del cavo (`TrendDialog`: grafico
+  con misure, retta e limite, verdetto, CSV). Da fare: il passo del campione nelle altre misure (filtro, amplificatore, attenuatore), le
+  tolleranze ricavate da più pezzi buoni.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

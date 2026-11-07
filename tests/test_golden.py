@@ -118,7 +118,7 @@ def test_wrong_requests_are_refused_with_a_sentence(registry, tmp_path):
         ({"curves": [{**CURVE, "tolerance": -1}]}, "cannot be negative"),
         ({"curves": [{**CURVE, "tolerance": "big"}]}, "must be a number, a line or an object"),
         ({"curves": [{**CURVE, "tolerance": {"x": 1}}]}, "'upper' and 'lower'"),
-        ({"summary": {"loss_868MHz_db": {"abs": -1}}}, "cannot be negative"),
+        ({"summary": {"loss_868MHz_db": {"abs": -1}}}, "not negative"),
         ({"summary": {"loss_868MHz_db": 1}, "min_overlap": 0}, "min_overlap"),
         ({"summary": {"loss_868MHz_db": 1}, "extra": 1}, "unknown key"),
     ):
@@ -189,3 +189,101 @@ def test_the_script_gives_the_verdict_as_an_exit_code(registry, tmp_path, capsys
     assert main([str(good), "none", "--project", str(project), *args]) == 2
     assert "no golden sample called" in capsys.readouterr().err
     assert main([str(good), str(golden)]) == 2  # nothing to check
+
+
+# ---- the golden sample as a step of the cable measurement --------------------------------------
+def cable_params(**golden):
+    return {
+        "mode": "transmission",
+        "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 301, "scale": "linear"},
+        "cable": {"label": "unit 7", "length_m": 2.0},
+        "frequencies_of_interest": [868e6],
+        "confirm_setup": False,
+        "golden": golden,
+    }
+
+
+TOLERANCES = {"curves": [{"trace": "loss_db", "tolerance": 0.2}], "summary": {"max_loss_db": 0.2}}
+
+
+def measure(registry, params, loss):
+    runner = Runner(
+        registry.create("cable", params),
+        {"vna": [SimVna(length_m=2.0, loss_db_per_m_at_1ghz=loss)]},
+    )
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    rows, logs = {}, []
+    for e in runner.drain():
+        if e.kind == "point":
+            rows.setdefault(e.data["table"], []).append(e.data["values"])
+        elif e.kind == "log":
+            logs.append(e.data["message"])
+    return rows, logs
+
+
+def test_the_cable_measurement_checks_itself_against_the_golden_sample(registry, tmp_path):
+    golden = cable_run(registry, tmp_path, "golden", 0.6)
+    rows, _ = measure(registry, cable_params(run=str(golden), tolerances=TOLERANCES), 0.6)
+    assert rows["points"][0]["golden_verdict"] == "PASS" and rows["points"][0]["golden_failed"] == 0
+    assert [r["check"] for r in rows["golden"]] == ["loss_db (value)", "max_loss_db"]
+    rows, logs = measure(registry, cable_params(run=str(golden), tolerances=TOLERANCES), 0.9)
+    summary = rows["points"][0]
+    assert summary["golden_verdict"] == "FAIL" and summary["golden_failed"] == 2
+    assert all(not r["passed"] for r in rows["golden"]) and rows["golden"][0]["difference"] > 0.2
+    assert any("golden sample: loss_db" in m for m in logs)
+    assert "verdict" not in summary  # the limit verdict is another thing (there is no limit here)
+
+
+def test_a_golden_sample_that_cannot_be_read_is_no_data_not_a_failed_run(registry, tmp_path):
+    params = cable_params(run=str(tmp_path / "missing.jsonl"), tolerances=TOLERANCES)
+    rows, logs = measure(registry, params, 0.6)
+    assert rows["points"][0]["golden_verdict"] == "NO DATA" and "golden" not in rows
+    assert any("golden sample check not done" in m for m in logs)
+
+
+def test_the_golden_parameter_is_checked_with_its_field(registry):
+    def problems(**golden):
+        return [(p.path, str(p)) for p in registry.create("cable", cable_params(**golden)).check()]
+
+    assert problems(name="RG58", tolerances=TOLERANCES) == []
+    assert [p for p, _ in problems(tolerances=TOLERANCES)] == ["golden.name"]
+    bad = problems(name="RG58", tolerances={"curves": [{"trace": "loss_db", "tolerance": -1}]})
+    assert bad[0][0] == "golden.tolerances" and "negative" in bad[0][1]
+    assert [p for p, _ in problems(name="RG58")] == ["golden.tolerances"]
+    assert problems() == []  # both fields of the editor empty: no golden sample
+    p = cable_params()
+    p["golden"] = "RG58"
+    assert [x.path for x in registry.create("cable", p).check()] == ["golden"]
+
+
+def test_the_project_finds_the_golden_sample_by_its_name(registry, tmp_path):
+    from ola.measurement import MeasurementError
+    from ola.project import MeasurementFile, Project
+    from ola.project_session import ProjectSession
+
+    project = Project.new("P", tmp_path / "proj")
+    ref = project.add_measurement("cable", "unit 7", registry)
+    params = cable_params(name="RG58 1m", tolerances=TOLERANCES)
+    MeasurementFile(type="cable", role_bindings={"vna": ["vna1"]}, params=params).save(
+        project.directory / ref.file
+    )
+    project.save()
+    session = ProjectSession(
+        project,
+        registry,
+        connect=lambda n, cancel=None: SimVna(length_m=2.0, loss_db_per_m_at_1ghz=0.6),
+    )
+    with pytest.raises(MeasurementError, match="no golden sample called 'RG58 1m'"):
+        session.build_runner(ref)
+    set_golden(project.directory, "RG58 1m", cable_run(registry, tmp_path, "golden", 0.6))
+    assert session.resolve_golden({"x": 1}) == {"x": 1}
+    named = cable_params(run="somewhere.jsonl", tolerances=TOLERANCES)
+    assert session.resolve_golden(named) is named
+    runner, path = session.build_runner(ref)
+    assert runner.measurement.params["golden"]["run"].endswith("golden/RG58_1m.jsonl")
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    text = path.read_text(encoding="utf-8")
+    assert "RG58_1m.jsonl" in text.splitlines()[0]  # which golden sample, saved with the run
+    assert '"golden_verdict": "PASS"' in text

@@ -55,8 +55,15 @@ loss_868MHz_db: WARNING: +0.62/year (worse), last 1.58 of 4 measurements
 
 The exit code is 0 for `PASS`, 1 for anything else, 2 for a request that cannot be used.
 
+## In the registry window
+
+In *Tools* > *Cables and devices* ([`assets.md`](assets.md)), **History...** of a cable has **Trend...**: the same, drawn. Choose the
+figure, tick the limit, the fastest change accepted and the warning window if you want them, and *A lower value is worse* for a figure
+that must stay high. The plot shows the measurements against the days since the first one, the line through them (continued to the
+limit when it gets there) and the limit dashed; under it the text above. **Save as CSV...** writes the series.
+
 ## Not done yet
 
-The trend is not yet drawn in a window, nor printed on the label of the cable, and a straight line is all there is: a cable that
-is steady and then falls off a cliff is seen only after the cliff. It follows one figure at a time and does not compare cables
+The trend is not printed on the label of the cable (a label is printed once, the trend changes with every measurement), and a
+straight line is all there is: a cable that is steady and then falls off a cliff is seen only after the cliff. It follows one figure at a time and does not compare cables
 with each other (that is [`compare.md`](compare.md)).

@@ -188,25 +188,17 @@ def check_against_golden(run: RunData, golden: RunData, spec: Mapping[str, Any])
     """The verdict of a run against a golden sample: see the module docstring for ``spec``
     (``curves``, ``summary``, ``min_overlap``). ``GoldenError`` if the spec is wrong or the two are
     not the same kind of measurement."""
-    if not isinstance(spec, Mapping):
-        raise GoldenError("the tolerances must be an object")
-    unknown = sorted(set(spec) - {"curves", "summary", "min_overlap"})
-    if unknown:
-        raise GoldenError(f"unknown key(s) {unknown}: use curves, summary or min_overlap")
-    if not spec.get("curves") and not spec.get("summary"):
-        raise GoldenError("give at least one curve or one summary figure to check")
+    problems = validate_spec(spec)
+    if problems:
+        raise GoldenError("; ".join(problems))
     if run.measurement != golden.measurement:
         raise GoldenError(
             f"the run is a {run.measurement} measurement and the golden sample a "
             f"{golden.measurement} one"
         )
     overlap = spec.get("min_overlap", DEFAULT_OVERLAP)
-    if not _number(overlap) or not 0 < overlap <= 1:
-        raise GoldenError("min_overlap must be above 0 and at most 1")
     result = GoldenResult(golden.label, run.label)
     for item in spec.get("curves") or []:
-        if not isinstance(item, Mapping) or "trace" not in item or "tolerance" not in item:
-            raise GoldenError("a curve to check needs 'trace' and 'tolerance' (and a 'view')")
         result.checks.append(
             check_curve(
                 run, golden, str(item["trace"]), str(item.get("view", "value")),
@@ -219,6 +211,138 @@ def check_against_golden(run: RunData, golden: RunData, spec: Mapping[str, Any])
         if not check.passed:
             result.reasons.append(f"{check.name}: {check.detail}")
     return result
+
+
+def validate_spec(spec: Any) -> List[str]:
+    """The problems of a tolerances ``spec`` as sentences, without any run (for the editor and
+    the check of a measurement file). Empty if it can be used."""
+    problems: List[str] = []
+    if not isinstance(spec, Mapping):
+        return ["the tolerances must be an object with 'curves' and / or 'summary'"]
+    unknown = sorted(set(spec) - {"curves", "summary", "min_overlap"})
+    if unknown:
+        problems.append(f"unknown key(s) {unknown}: use curves, summary or min_overlap")
+    if not spec.get("curves") and not spec.get("summary"):
+        problems.append("give at least one curve or one summary figure to check")
+    overlap = spec.get("min_overlap", DEFAULT_OVERLAP)
+    if not _number(overlap) or not 0 < overlap <= 1:
+        problems.append("min_overlap must be above 0 and at most 1")
+    curves = spec.get("curves") or []
+    if not isinstance(curves, list):
+        problems.append("curves must be a list")
+        curves = []
+    for n, item in enumerate(curves, 1):
+        if not isinstance(item, Mapping) or "trace" not in item or "tolerance" not in item:
+            problems.append(f"curve {n} needs 'trace' and 'tolerance' (and a 'view')")
+            continue
+        try:
+            _limits_for(item["tolerance"], f"curve {n} ({item['trace']})")
+        except GoldenError as exc:
+            problems.append(str(exc))
+    figures = spec.get("summary") or {}
+    if not isinstance(figures, Mapping):
+        problems.append("summary must be an object: {figure: tolerance}")
+        figures = {}
+    for key, tolerance in figures.items():
+        tol = {"abs": tolerance} if _number(tolerance) else tolerance
+        if (
+            not isinstance(tol, Mapping)
+            or not tol
+            or not set(tol) <= {"abs", "rel"}
+            or any(not _number(v) or v < 0 for v in tol.values())
+        ):
+            problems.append(
+                f"{key}: the tolerance is a number or an object with 'abs' and 'rel' (not negative)"
+            )
+    return problems
+
+
+def run_from_result(
+    measurement: str,
+    traces: Mapping[str, Mapping[str, Any]],
+    summary: Mapping[str, Any],
+    label: str = "this run",
+    params: Optional[Mapping[str, Any]] = None,
+) -> RunData:
+    """A run that is being measured, as the comparison sees a run file: ``traces`` is
+    ``{name: {"x": [...], "y": [...], "kind": "real" | "complex"}}`` and ``summary`` the one
+    summary row. So that a measurement can check itself against a golden sample before it ends."""
+    return RunData(
+        path=Path(""),
+        label=label,
+        measurement=measurement,
+        name="",
+        asset_id="",
+        when="",
+        state="finished",
+        traces={
+            name: {
+                "name": name,
+                "kind": trace.get("kind", "real"),
+                "x": list(trace["x"]),
+                "y": list(trace["y"]),
+                "meta": dict(trace.get("meta") or {}),
+            }
+            for name, trace in traces.items()
+        },
+        points=[dict(summary)],
+        params=dict(params or {}),
+    )
+
+
+def check_step(ctx: Any, run: RunData, spec: Mapping[str, Any]) -> Dict[str, Any]:
+    """The golden-sample step of a measurement: ``spec`` is the ``golden`` parameter (``run``, the
+    golden run file, found from its ``name`` by the project; ``tolerances``). Emits a table
+    ``golden`` (one row per check), logs the reasons, and returns the figures to add to the summary
+    row: ``golden_verdict`` (``PASS``, ``FAIL`` or ``NO DATA``) and ``golden_failed``. A golden
+    sample that cannot be read is ``NO DATA`` with an error in the log, not a failed run."""
+    path = spec.get("run")
+    name = spec.get("name") or (Path(path).stem if path else "")
+    try:
+        if not path:
+            raise GoldenError(f"no golden sample file for {name!r}")
+        reference = load_run(path, label=f"golden {name}")
+        result = check_against_golden(run, reference, spec.get("tolerances") or {})
+    except (GoldenError, CompareError) as exc:
+        ctx.log(f"golden sample check not done: {exc}", "error")
+        return {"golden_verdict": "NO DATA"}
+    for check in result.checks:
+        ctx.emit_point(
+            {
+                "check": check.name,
+                "passed": check.passed,
+                "difference": check.worst,
+                "at": check.at_x,
+                "margin": check.margin,
+                "detail": check.detail,
+            },
+            table="golden",
+        )
+    ctx.log(f"golden sample {name}: {result.summary()}", "info" if result.passed else "warning")
+    for reason in result.reasons:
+        ctx.log(f"golden sample: {reason}", "warning")
+    failed = sum(not c.passed for c in result.checks)
+    return {"golden_verdict": result.verdict, "golden_failed": failed}
+
+
+def check_golden_param(params: Mapping[str, Any], out: List[Any]) -> None:
+    """The problems of the ``golden`` parameter of a measurement (``ola.efficiency_spec.Problem``
+    with the path of the field), appended to ``out``."""
+    from .efficiency_spec import Problem
+
+    spec = params.get("golden")
+    if spec is None or spec == {}:  # an editor with both fields empty leaves an empty object
+        return
+    if not isinstance(spec, Mapping):
+        out.append(Problem("golden", "must be an object with 'name' (or 'run') and 'tolerances'"))
+        return
+    if not (spec.get("name") or spec.get("run")):
+        out.append(Problem("golden.name", "the name of the golden sample (in the project)"))
+    for key in ("name", "run"):
+        if key in spec and not isinstance(spec[key], str):
+            out.append(Problem(f"golden.{key}", "must be text"))
+    for problem in validate_spec(spec.get("tolerances")):
+        out.append(Problem("golden.tolerances", problem))
 
 
 # ----- the golden samples of a project -----------------------------------------------------------
@@ -268,5 +392,6 @@ def format_result(result: GoldenResult) -> str:
 
 __all__ = [
     "Check", "GoldenError", "GoldenResult", "check_against_golden", "check_curve", "check_figure",
-    "find_golden", "format_result", "golden_path", "list_golden", "set_golden",
+    "check_golden_param", "check_step", "find_golden", "format_result", "golden_path",
+    "list_golden", "run_from_result", "set_golden", "validate_spec",
 ]  # fmt: skip

@@ -370,6 +370,42 @@
           }
         },
         {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good cable of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un cavo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (un bon câble du même type, gardé depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (un cable bueno del mismo tipo, guardado desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Kabel derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"curves\": [{\"trace\": \"loss_db\", \"tolerance\": 0.3}], \"summary\": {\"max_loss_db\": 0.2}} = the loss within 0.3 dB of the golden one at every frequency, the worst loss within 0.2 dB. {\"upper\": 0.3, \"lower\": 5} only limits more loss.",
+            "it": "{\"curves\": [{\"trace\": \"loss_db\", \"tolerance\": 0.3}], \"summary\": {\"max_loss_db\": 0.2}} = la perdita entro 0,3 dB da quella del campione a ogni frequenza, la perdita peggiore entro 0,2 dB. {\"upper\": 0.3, \"lower\": 5} limita solo una perdita maggiore.",
+            "fr": "{\"curves\": [{\"trace\": \"loss_db\", \"tolerance\": 0.3}], \"summary\": {\"max_loss_db\": 0.2}} = la perte à 0,3 dB près de celle de l'échantillon à chaque fréquence, la pire perte à 0,2 dB près. {\"upper\": 0.3, \"lower\": 5} ne limite qu'une perte plus grande.",
+            "es": "{\"curves\": [{\"trace\": \"loss_db\", \"tolerance\": 0.3}], \"summary\": {\"max_loss_db\": 0.2}} = la pérdida a menos de 0,3 dB de la de la muestra en cada frecuencia, la peor pérdida a menos de 0,2 dB. {\"upper\": 0.3, \"lower\": 5} solo limita una pérdida mayor.",
+            "de": "{\"curves\": [{\"trace\": \"loss_db\", \"tolerance\": 0.3}], \"summary\": {\"max_loss_db\": 0.2}} = der Verlust innerhalb 0,3 dB vom Referenzmuster bei jeder Frequenz, der schlechteste Verlust innerhalb 0,2 dB. {\"upper\": 0.3, \"lower\": 5} begrenzt nur einen höheren Verlust."
+          }
+        },
+        {
           "path": "averages",
           "kind": "int",
           "label": {

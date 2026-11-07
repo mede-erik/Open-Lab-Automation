@@ -8,7 +8,8 @@ Every physical object that is measured (cable, antenna, filter, amplifier, adapt
 * **Label...**: the label of the selected objects, to print (``LabelDialog``): the code, a QR code,
   and a few lines of what it is;
 * **History...**: the measurements made on the selected object, found by its code, with
-  **Compare** to put their curves together (``CompareDialog``);
+  **Compare** to put their curves together (``CompareDialog``) and **Trend** to see how a figure
+  (the loss of a cable) changes with the date (``TrendDialog``);
 * **Scan or type a code**: a USB barcode scanner types the code (``OLA:CBL-0042``) in the box and
   the object is selected; a code that is not in the registry says so.
 
@@ -65,11 +66,14 @@ class AssetHistoryDialog(QDialog):
         runs: Sequence[RunRef],
         translator: Any = None,
         parent: Optional[QWidget] = None,
+        run_dirs: Sequence[Union[str, Path]] = (),
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("assets", translator)
         self._t = self.tr_.t
         self.asset, self.runs, self.translator = asset, list(runs), translator
+        # where the trend looks for the runs: the folders given, else those of these runs
+        self.run_dirs = list(run_dirs) or sorted({str(r.path.parent) for r in self.runs})
         self.setWindowTitle(self._t("ast_history_title", code=asset.id, name=asset.name))
         self.resize(760, 420)
         root = QVBoxLayout(self)
@@ -93,8 +97,12 @@ class AssetHistoryDialog(QDialog):
         self.compare_btn = QPushButton(self._t("ast_compare"))
         self.compare_btn.setEnabled(len(self.runs) >= 1)
         self.compare_btn.clicked.connect(self.compare)
+        self.trend_btn = QPushButton(self._t("ast_trend"))
+        self.trend_btn.setEnabled(any(r.state == "finished" for r in self.runs))
+        self.trend_btn.clicked.connect(self.show_trend)
         close = QPushButton(self._t("ast_close"))
         close.clicked.connect(self.accept)
+        row_buttons.addWidget(self.trend_btn)
         row_buttons.addWidget(self.compare_btn)
         row_buttons.addWidget(close)
         root.addLayout(row_buttons)
@@ -110,6 +118,17 @@ class AssetHistoryDialog(QDialog):
                 run.label = f"{self.asset.id} {self.asset.name} - {run.when}"
         self.tool._fill_list()
         self.tool.show()
+
+    def show_trend(self) -> None:
+        """How the object ages: a figure of its measurements against the date."""
+        from frontend.ui.TrendDialog import TrendDialog
+
+        kinds = [r.measurement for r in self.runs if r.state == "finished"]
+        kind = "cable" if "cable" in kinds else (kinds[-1] if kinds else "cable")
+        self.trend_tool = TrendDialog(
+            self.asset.id, self.run_dirs, self.translator, self, self.asset.name, kind
+        )
+        self.trend_tool.show()
 
 
 class AssetsDialog(QDialog):
@@ -325,7 +344,9 @@ class AssetsDialog(QDialog):
         if len(chosen) != 1:
             return
         runs = self.index.get(chosen[0].id, [])
-        self.history_tool = AssetHistoryDialog(chosen[0], runs, self.translator, self)
+        self.history_tool = AssetHistoryDialog(
+            chosen[0], runs, self.translator, self, self.run_dirs()
+        )
         self.history_tool.show()
 
 

@@ -45,6 +45,13 @@ For runs with many points (an efficiency measurement): any numeric column agains
 value of a third column if you want one (efficiency against `vin`, a line for each `iout`, for the old and the new
 version of a converter).
 
+## Golden sample
+
+The **reference** run (★) is a unit known to be good, and every other ticked run is checked against it: a tolerance on one curve (on
+both sides of it, or only above or only below), the part of the golden curve the run must cover, and a tolerance for any figure of the
+summary. **Check** gives `PASS` or `FAIL` for each run with the reasons. The reference can be kept in the `golden/` folder of the project,
+and a golden sample kept there opened as the reference. See [`golden.md`](golden.md).
+
 ## Not done yet
 
 A report that includes the comparison (see *Future features* in the README). Checking a run against a **golden sample** with a

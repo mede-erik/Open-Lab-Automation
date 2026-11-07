@@ -100,5 +100,20 @@
   "lbl_save_png": "Save image",
   "lbl_save_svg": "Save SVG",
   "lbl_saved": "Saved {path}",
-  "lbl_failed": "Could not save: {error}"
+  "lbl_failed": "Could not save: {error}",
+  "ast_trend": "Trend...",
+  "ast_t_title": "Trend of {code} {name}",
+  "ast_t_figure": "Figure",
+  "ast_t_limit": "Limit (must not be reached)",
+  "ast_t_rate": "Fastest change for the worse accepted, per year",
+  "ast_t_warn": "Warn if the limit is reached within (days)",
+  "ast_t_lower_worse": "A lower value is worse (for a return loss)",
+  "ast_t_csv": "Save as CSV...",
+  "ast_t_none": "No finished measurement of {code} has a figure to follow.",
+  "ast_t_measured": "measured",
+  "ast_t_line": "trend",
+  "ast_t_limit_line": "limit",
+  "ast_t_days": "days since {date}",
+  "ast_t_failed": "Could not save: {error}",
+  "ast_t_saved": "Saved: {path}"
 }
