@@ -9,7 +9,7 @@ pytest.importorskip("PyQt6")
 from PyQt6.QtGui import QColor  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
-from frontend.ui.label_paint import render_image, write_pdf  # noqa: E402
+from frontend.ui.label_paint import make_font, render_image, text_measure, write_pdf  # noqa: E402
 from ola.assets import Asset  # noqa: E402
 from ola.labels import PRESETS, QR, SHEETS, build_drawing, sheet_drawings  # noqa: E402
 
@@ -122,3 +122,35 @@ def test_the_width_estimate_is_never_less_than_the_real_text_width(app, bold):
         real = metrics.horizontalAdvance(text) / 100  # in units of the font size
         assert text_width(text, 1.0, bold) >= real, (text, text_width(text, 1.0, bold), real)
         assert text_width(text, 1.0, bold) <= real * 1.6  # and not absurdly wasteful
+
+
+@pytest.mark.parametrize("name", ["RG316 SMA-SMA", "Semi-rigid 0.141 SMA-SMA low-loss test lead",
+                                  "OOOOOO ++++ ...... WWWW &&&&"])  # fmt: skip
+@pytest.mark.parametrize("bold_id", [True])
+def test_with_the_measure_of_the_real_font_no_text_leaves_the_label(app, name, bold_id):
+    """Whatever font the system gives for Helvetica, the text laid out with ``text_measure`` is
+    inside the label: measured here again with the font that paints it."""
+    from PyQt6.QtGui import QFontMetricsF
+
+    asset = Asset("CBL-0042", "cable", name, "a long description of the cable " * 2, {},
+                  created="2026-11-03")  # fmt: skip
+    for preset in ("50x25", "40x20", "flag 60x15"):
+        drawing = build_drawing(PRESETS[preset], asset, "0.6 dB @ 868MHz, 2026-11-03", text_measure)
+        texts = [i for i in drawing.items if hasattr(i, "text")]
+        assert texts
+        for item in texts:
+            metrics = QFontMetricsF(make_font(1000, item.bold))
+            real = metrics.horizontalAdvance(item.text) / 1000 * item.size
+            assert item.x + real <= drawing.width + 1e-6, (preset, item.text, item.x, real)
+
+
+def test_the_measure_is_the_width_of_the_font_that_paints(app):
+    from PyQt6.QtGui import QFontMetricsF
+
+    for bold in (False, True):
+        real = QFontMetricsF(make_font(1000, bold)).horizontalAdvance("RG316 SMA-SMA") / 1000
+        assert text_measure("RG316 SMA-SMA", 1.0, bold) >= real
+        assert text_measure("RG316 SMA-SMA", 1.0, bold) <= real * 1.05
+        assert text_measure("RG316 SMA-SMA", 3.0, bold) == pytest.approx(
+            text_measure("RG316 SMA-SMA", 1.0, bold) * 3
+        )
