@@ -354,3 +354,45 @@ def test_mapping_instruments_says_when_there_is_nothing_to_map(window, monkeypat
     assert told == []
     window.map_instruments()  # from the menu: it says so
     assert told == ["All the instruments the measurements name are in your instrument file."]
+
+
+def test_a_window_destroyed_before_the_mapping_offer_does_not_fail(app, tmp_path, monkeypatch):
+    """Opening a project schedules the offer to use your own instruments; if the window is
+    destroyed before it fires, nothing must run on the dead window."""
+    import sys
+
+    from PyQt6 import sip
+
+    errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *args: errors.append(args))
+    asked = []
+    monkeypatch.setattr(
+        ProjectWindow, "map_instruments", lambda self, quiet=False: asked.append(quiet)
+    )
+    w = ProjectWindow(
+        demo_project(str(tmp_path)),
+        connect=lambda name, cancel=None: DemoHandle(name, DemoLab()),
+        registry=default_registry(user_dir="/nonexistent"),
+    )
+    w._timer.stop()
+    sip.delete(w)  # destroyed now, before the event loop runs the timer
+    app.processEvents()
+    app.processEvents()
+    assert errors == [] and asked == []  # the offer never ran: the window was gone first
+
+
+def test_the_mapping_offer_runs_once_the_window_is_alive(window, app):
+    window._mapping_timer.stop()  # (the fixture's window may already have asked)
+    asked = []
+    window.map_instruments = lambda quiet=False: asked.append(quiet)
+    window._mapping_timer.start(0)
+    assert pump(app, lambda: asked)
+    assert asked == [True]  # quiet: nothing to say when there is nothing to map
+
+
+def test_a_closed_window_does_not_offer_the_mapping(window, app):
+    window.map_instruments = lambda quiet=False: (_ for _ in ()).throw(AssertionError("asked"))
+    window.close()
+    for _ in range(3):
+        app.processEvents()
+    assert not window._mapping_timer.isActive()
