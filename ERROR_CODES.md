@@ -2338,6 +2338,54 @@ the instrument model and of the command protocol.
 
 ---
 
+## GPIB - GPIB Adapter Errors (GPIB-XXX)
+
+Errors of the GPIB adapters tool (*Tools > GPIB adapters*, `ola/gpib_adapter.py`) and of the
+Prologix-compatible adapters (`ola/prologix.py`). Guide: [`docs/gpib-adapters.md`](docs/gpib-adapters.md).
+
+### GPIB-001: Adapter Not Found
+**Description**: The adapter cannot be opened: no VISA library sees the board `GPIBn`, or no
+Prologix-compatible adapter answers on the serial port / network address  
+**Common Cause**:
+- Adapter unplugged, driver not installed, wrong board number (GPIB0/GPIB1...)
+- Prologix: wrong port, port used by another program, wrong IP address
+
+**Solution**:
+1. *Tools > GPIB adapters > Driver check* and follow the hint for your system
+2. Check the interface number in Keysight Connection Expert / NI MAX (Linux: `/etc/gpib.conf`)
+
+### GPIB-002: Driver Software Missing
+**Description**: pyvisa (VISA adapters) or pyserial (Prologix USB) is not installed  
+**Solution**: `pip install pyvisa pyvisa-py pyserial`; on Windows install the adapter's VISA
+(Keysight IO Libraries Suite or NI-VISA + NI-488.2)
+
+### GPIB-003: Firmware Not Loaded
+**Description**: The adapter is on the USB bus with the product id of the "no firmware" state
+(Keysight 82357B: `0957:0518`, 82357A: `0957:0007`)  
+**Solution**: Linux: install the linux-gpib firmware package and run `gpib_config` (or fxload);
+Windows: reinstall the Keysight IO Libraries Suite and plug the adapter in again
+
+### GPIB-004: No Instrument Answers
+**Description**: The bus scan found no instrument  
+**Common Cause**: Instruments off, GPIB cable loose, address outside the scan range, instrument
+set to "talk only" or to another interface (RS-232/LAN), identification command not supported  
+**Solution**: Check the GPIB address on the instrument's front panel, widen the scan range,
+add the instrument's identification command (e.g. `ID?` for older HP instruments), raise the scan timeout
+
+### GPIB-005: Command Timeout
+**Description**: An instrument did not answer a command in time (shown as `TRN-003` by the connection)  
+**Solution**: Raise the command timeout of the adapter, check the command and the terminators
+
+### GPIB-006: Invalid Configuration
+**Description**: A value of the adapter configuration is not usable (empty name, two adapters
+with the same name, board outside 0-31, scan range outside 0-30, empty port...)  
+**Solution**: Correct the value shown in the message and save again
+
+### GPIB-007: Operation Not Supported
+**Description**: The adapter cannot do this bus operation (e.g. REN control on a Prologix-compatible adapter)
+
+---
+
 ## How to Use This Guide
 
 ### For Users
@@ -2398,6 +2446,7 @@ To add a new error code:
 | **PJDB** | 001-099 | Project database errors |
 | **SYS** | 001-099 | System-level errors |
 | **TRN** | 001-099 | Instrument transport (TCP/serial) errors |
+| **GPIB** | 001-099 | GPIB adapter errors (configuration, driver, bus scan) |
 
 ---
 

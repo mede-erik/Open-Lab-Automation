@@ -79,7 +79,12 @@ def open_visa(
     serial_override: Optional[Dict[str, Any]] = None,
 ):
     """Open a VISA resource (USB-TMC, GPIB, VXI-11, ASRL...) and wrap it for the executor.
-    Serial resources get the library settings (plus ``serial_override``)."""
+    Serial resources get the library settings (plus ``serial_override``). A ``PROLOGIX::...``
+    address (GPIB behind a Prologix-compatible adapter) is opened by ``ola.prologix``."""
+    from .prologix import PrologixConnection, is_prologix_address
+
+    if is_prologix_address(address):
+        return PrologixConnection.open(address, timeout_ms)
     import pyvisa
 
     from ._visa import VisaConnection

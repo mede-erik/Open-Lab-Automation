@@ -32,6 +32,7 @@ from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
 from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
+from frontend.ui.GpibAdapterDialog import GpibAdapterDialog
 from frontend.ui.CompareDialog import CompareDialog
 from frontend.ui.AssetsDialog import AssetsDialog
 from ola.assets import AssetError, AssetRegistry
@@ -263,6 +264,11 @@ class MainWindow(QMainWindow):
         assets_action = QAction(CatalogTranslator("assets", self.translator).t("ast_menu"), self)
         assets_action.triggered.connect(self.open_assets_tool)
         tools_menu.addAction(assets_action)
+        
+        # GPIB adapters (Keysight 82357B, NI GPIB-USB-HS, Prologix, AR488...): set up and scan
+        gpib_action = QAction(CatalogTranslator("gpib", self.translator).t("gpb_menu"), self)
+        gpib_action.triggered.connect(self.open_gpib_adapter_tool)
+        tools_menu.addAction(gpib_action)
         
         # Pulse Generator Tool
         pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
@@ -951,6 +957,17 @@ class MainWindow(QMainWindow):
         start = str(session.run_dir) if session is not None else ""
         self._compare_tool = CompareDialog(translator=self.translator, parent=self, start_dir=start)
         self._compare_tool.show()
+
+    def open_gpib_adapter_tool(self):
+        """Open the tool that configures the GPIB adapters, checks their drivers and scans the bus
+        (frontend/ui/GpibAdapterDialog.py)."""
+        tool = getattr(self, "_gpib_tool", None)
+        if tool is not None and tool.isVisible():
+            tool.raise_()
+            tool.activateWindow()
+            return
+        self._gpib_tool = GpibAdapterDialog(translator=self.translator, parent=self)
+        self._gpib_tool.show()
 
     def open_pulse_generator(self):
         """Open the electronic load pulse generator tool."""

@@ -44,7 +44,16 @@ def make_visa():
     return VisaConnection.open(f"TCPIP0::127.0.0.1::{inst.port}::SOCKET", 500, backend="@py")
 
 
+def make_prologix():
+    from ola.prologix import PrologixConnection
+    from tests.fake_instrument import FakePrologix
+
+    fake = FakePrologix({7: lambda cmd: b"1\n"})
+    return PrologixConnection.open_device(fake.port, 7, timeout_ms=500)
+
+
 FACTORIES = {
+    "prologix": make_prologix,
     "python": make_python,
     "native": make_native,
     "visa": make_visa,
