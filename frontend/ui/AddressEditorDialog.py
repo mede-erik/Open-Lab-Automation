@@ -1,9 +1,13 @@
 import json
 import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLabel, QLineEdit, QDialogButtonBox, QWidget, QFormLayout
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QHBoxLayout, QPushButton
+from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtWidgets import QMessageBox
+from frontend.core import gpib_settings
 from frontend.core.LoadInstruments import LoadInstruments
+from frontend.ui.module_translator import CatalogTranslator
+from ola.gpib_adapter import FAMILY_PROLOGIX, FAMILY_VISA, GpibError
 
 logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 
@@ -18,6 +22,11 @@ class AddressEditorDialog(QDialog):
         self.conn_type = None
         self.fields = {}
         self.templates = self.get_templates_for_instrument()
+        # GPIB: the adapters configured in Tools > GPIB adapters (GPIB0, GPIB1, Prologix...)
+        self.gpib_adapters = gpib_settings.adapters_or_default()
+        self.adapter_combo = None
+        lang = QSettings('LabAutomation', 'App').value('language', '', type=str) or None
+        self.gpib_tr = CatalogTranslator("gpib", lang=lang)
         self.init_ui()
 
     def get_templates_for_instrument(self):
@@ -92,8 +101,22 @@ class AddressEditorDialog(QDialog):
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
+        # Un indirizzo GPIB/Prologix esistente apre direttamente il tipo GPIB
+        if self.is_gpib_address(self.address):
+            gpib_type = next((k for k in self.templates if self.is_gpib_type(k)), None)
+            if gpib_type:
+                self.conn_combo.setCurrentText(gpib_type)
         # Mostra campi iniziali
         self.on_conn_type_changed(self.conn_combo.currentText())
+
+    @staticmethod
+    def is_gpib_address(address):
+        a = (address or '').strip().upper()
+        return a.startswith('GPIB') or a.startswith('PROLOGIX::')
+
+    def is_gpib_type(self, conn_type):
+        template = self.templates.get(conn_type, '') or ''
+        return template.upper().startswith('GPIB') and '{gpib_addr}' in template
 
     def on_conn_type_changed(self, conn_type):
         self.conn_type = conn_type
@@ -147,6 +170,11 @@ class AddressEditorDialog(QDialog):
             self.fields[param] = edit
             self.fields_layout.addRow(param.replace('_', ' ').title(), edit)
         
+        # GPIB: scelta dell'adattatore e degli strumenti trovati sul bus
+        self.adapter_combo = None
+        if self.is_gpib_type(conn_type):
+            self.add_gpib_widgets()
+
         # Aggiungi info speciali per comunicazione seriale
         if conn_type in ['SERIAL', 'USB-SERIAL']:
             info_label = QLabel("⚠️ Comunicazione seriale: Assicurarsi che i parametri seriali siano corretti (9600 baud, 8N1)")
@@ -158,6 +186,65 @@ class AddressEditorDialog(QDialog):
         if self.address and template and '{' in template:
             self.populate_fields_from_address()
     
+    def add_gpib_widgets(self):
+        """Adapter selector and 'Pick from the GPIB bus...' button (Tools > GPIB adapters)."""
+        t = self.gpib_tr.t
+        self.adapter_combo = QComboBox()
+        for cfg in self.gpib_adapters:
+            self.adapter_combo.addItem(f"{cfg.name}  ({cfg.address(1).replace('::1::', '::n::')})")
+        self.fields_layout.insertRow(0, t("gpb_pick_adapter"), self.adapter_combo)
+        row = QHBoxLayout()
+        self.pick_button = QPushButton(t("gpb_pick"))
+        self.pick_button.clicked.connect(self.pick_from_bus)
+        row.addWidget(self.pick_button)
+        row.addStretch(1)
+        holder = QWidget()
+        holder.setLayout(row)
+        self.fields_layout.addRow(holder)
+
+    @property
+    def gpib_adapter(self):
+        """The adapter chosen for a GPIB address (None if the type is not GPIB)."""
+        if self.adapter_combo is None:
+            return None
+        return self.gpib_adapters[max(0, self.adapter_combo.currentIndex())]
+
+    def pick_from_bus(self):
+        """Choose the instrument among those found on the bus of the selected adapter."""
+        from frontend.ui.GpibDevicePickerDialog import GpibDevicePickerDialog
+
+        dlg = GpibDevicePickerDialog(self.gpib_adapter, self.gpib_tr, self)
+        if dlg.exec() and dlg.chosen is not None and 'gpib_addr' in self.fields:
+            self.fields['gpib_addr'].setText(str(dlg.chosen.address))
+
+    def select_gpib_adapter(self, address):
+        """Select the adapter an existing address belongs to (GPIB<board> or PROLOGIX::<port>)."""
+        import re
+        from ola.prologix import is_prologix_address, parse_address
+        if self.adapter_combo is None:
+            return
+        if is_prologix_address(address):
+            try:
+                port, pad, _ = parse_address(address)
+            except Exception:
+                return
+
+            def match(c):
+                return c.family == FAMILY_PROLOGIX and c.port.strip().lower() == port.lower()
+        else:
+            m = re.match(r'GPIB(\d*)::(\d+)', address.strip(), re.I)
+            if not m:
+                return
+            board, pad = int(m.group(1) or 0), int(m.group(2))
+
+            def match(c):
+                return c.family == FAMILY_VISA and c.board == board
+        index = next((i for i, c in enumerate(self.gpib_adapters) if match(c)), None)
+        if index is not None:
+            self.adapter_combo.setCurrentIndex(index)
+        if 'gpib_addr' in self.fields:
+            self.fields['gpib_addr'].setText(str(pad))
+
     def populate_fields_from_address(self):
         """Cerca di estrarre i valori dall'indirizzo esistente"""
         try:
@@ -176,12 +263,9 @@ class AddressEditorDialog(QDialog):
                 if match and 'ip' in self.fields:
                     self.fields['ip'].setText(match.group(1))
             
-            # Per indirizzi GPIB
-            elif 'GPIB' in self.address:
-                import re
-                match = re.search(r'GPIB0::(\d+)::INSTR', self.address)
-                if match and 'gpib_addr' in self.fields:
-                    self.fields['gpib_addr'].setText(match.group(1))
+            # Per indirizzi GPIB (qualsiasi scheda GPIBn o adattatore Prologix)
+            elif self.is_gpib_address(self.address):
+                self.select_gpib_adapter(self.address)
             
             # Per indirizzi USB
             elif 'USB' in self.address:
@@ -223,12 +307,20 @@ class AddressEditorDialog(QDialog):
                     return None
             
             # Validazione per GPIB
-            elif self.conn_type == 'GPIB' and 'gpib_addr' in vals:
+            elif self.is_gpib_type(self.conn_type) and 'gpib_addr' in vals:
                 gpib_addr = vals['gpib_addr'].strip()
                 if not gpib_addr.isdigit() or not (1 <= int(gpib_addr) <= 30):
                     QMessageBox.warning(self, "Errore validazione", 
                                       "L'indirizzo GPIB deve essere un numero tra 1 e 30")
                     return None
+                if self.gpib_adapter is not None:
+                    try:
+                        addr = self.gpib_adapter.address(int(gpib_addr))
+                    except GpibError as exc:
+                        QMessageBox.warning(self, "Errore validazione", str(exc))
+                        return None
+                    logger.debug(f"Generated address: {addr}")
+                    return addr
             
             addr = template.format(**vals)
             logger.debug(f"Generated address: {addr}")

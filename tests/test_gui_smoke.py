@@ -133,6 +133,7 @@ DIALOGS = {
     "ElectronicLoadConfigDialog": lambda m, li, tr, p: m.ElectronicLoadConfigDialog(
         _first(p, "electronic_load"), load_instruments=li
     ),
+    "GpibAdapterDialog": lambda m, li, tr, p: m.GpibAdapterDialog(translator=tr),
     "HexDecConverterDialog": lambda m, li, tr, p: m.HexDecConverterDialog(translator=tr),
     "InstFileDialog": lambda m, li, tr, p: m.InstFileDialog(
         str(p / "test_instruments.inst"), li, tr
@@ -261,4 +262,22 @@ def test_main_window_opens_a_project(qtbot, project, errors, monkeypatch):
     if timer is not None:
         timer.stop()
     window.close()
+    assert errors() == []
+
+
+def test_tools_menu_opens_the_gpib_adapters_tool(qtbot, errors):
+    from frontend.ui.main_window import MainWindow
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    menus = {a.text(): a.menu() for a in window.menuBar().actions() if a.menu()}
+    tools = next(m for m in menus.values() if any("GPIB" in a.text() for a in m.actions()))
+    action = next(a for a in tools.actions() if "GPIB" in a.text())
+    action.trigger()
+    QtWidgets.QApplication.processEvents()
+    tool = window._gpib_tool
+    assert tool.isVisible()
+    action.trigger()  # a second click brings the same window forward
+    assert window._gpib_tool is tool
+    tool.close()
     assert errors() == []
