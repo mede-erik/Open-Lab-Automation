@@ -44,6 +44,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.module_translator import CatalogTranslator
+from ola import inst_file
 from ola import vna_calibration_flow as flow
 from ola.call_errors import CallError
 from ola.vna_calibration import CalKit
@@ -82,14 +83,18 @@ class CalibrationDialog(QDialog):
         project_path: Optional[Path] = None,
         translator: Any = None,
         parent: Optional[QWidget] = None,
+        entries: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
         """``analyzers``: ``{instance_name: model_id}`` of the project's VNAs
         (``flow.network_analyzers``). ``connect(name)``: gives the handle of an instrument.
-        ``project_path``: the project file the calibration is listed in (None: not saved)."""
+        ``project_path``: the project file the calibration is listed in (None: not saved).
+        ``entries``: the ``.inst`` entries by name; the usual sweep and the number of ports of an
+        instrument are taken from its entry."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("calibration", translator)
         self._t = self.tr_.t
         self.analyzers, self.library, self.connect = analyzers, library, connect
+        self.entries = entries or {}
         self.project_path = Path(project_path) if project_path else None
         self.session: Optional[flow.CalibrationSession] = None
         self.name = ""
@@ -274,7 +279,22 @@ class CalibrationDialog(QDialog):
         if not takes_kit:
             self.kit_group.setChecked(False)
         self.begin_button.setEnabled(self.kind.count() > 0)
+        self._use_entry_defaults()
         self._kind_changed()
+
+    def _use_entry_defaults(self) -> None:
+        """The sweep and the ports the instrument was given in the instrument file."""
+        entry = self.entries.get(self.name) or {}
+        sweep = entry.get("sweep") or {}
+        if sweep.get("start_hz") and sweep.get("stop_hz"):
+            self.start.setText(inst_file.format_frequency(sweep["start_hz"]))
+            self.stop.setText(inst_file.format_frequency(sweep["stop_hz"]))
+        if sweep.get("points"):
+            self.points.setValue(int(sweep["points"]))
+        ports = int(entry.get("num_ports") or 4)
+        self.port.setRange(1, ports)
+        self.port2.setRange(1, ports)
+        self.port2.setValue(min(2, ports))
 
     def _kind_changed(self) -> None:
         self.port2.setEnabled(self.kind.currentData() not in (None, "ONE_PORT"))
