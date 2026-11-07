@@ -493,5 +493,6 @@
   "roles_differences": "{name} - {n} diferencia(s) con el usado",
   "roles_blocked": "{name} - no puede hacer lo que pide la medida",
   "roles_nothing": "Todos los instrumentos que nombran las medidas están en su archivo de instrumentos.",
-  "roles_failed": "No se actualizaron las medidas: {error}"
+  "roles_failed": "No se actualizaron las medidas: {error}",
+  "function_generator": "Generador de funciones"
 }

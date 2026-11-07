@@ -14,7 +14,8 @@ class AddressEditorDialog(QDialog):
         self.setWindowTitle("Address Editor")
         self.instrument = instrument
         self.load_instruments = load_instruments
-        self.address = instrument.get('address', '')
+        # the .inst file keeps the address as visa_address: show it when the editor opens
+        self.address = instrument.get('visa_address', instrument.get('address', ''))
         self.conn_type = None
         self.fields = {}
         self.templates = self.get_templates_for_instrument()
@@ -50,6 +51,9 @@ class AddressEditorDialog(QDialog):
                         templates['SERIAL'] = 'ASRL{com_port}::INSTR'
                     elif conn_name == 'USB-SERIAL':
                         templates['USB-SERIAL'] = 'ASRL{com_port}::INSTR'
+                    elif conn_name == 'WAVEFORMS':
+                        # Digilent device through the WaveForms runtime, not VISA
+                        templates['WAVEFORMS'] = 'DWF::{serial}'
                     elif template:
                         # Usa il template personalizzato se disponibile
                         templates[conn_name] = template
@@ -137,6 +141,20 @@ class AddressEditorDialog(QDialog):
             elif param == 'product_id':
                 edit.setPlaceholderText("es: 0x2007")
                 edit.setToolTip("Product ID USB in formato hex")
+            elif param == 'serial' and conn_type == 'WAVEFORMS':
+                edit.setPlaceholderText("vuoto: il primo dispositivo trovato")
+                edit.setToolTip(
+                    "Numero seriale del dispositivo Digilent (senza il prefisso SN:). "
+                    "Lascialo vuoto per usare il primo dispositivo collegato."
+                )
+                try:  # suggest the devices WaveForms sees now
+                    from PyQt6.QtWidgets import QCompleter
+                    from ola.drivers.waveforms import DwfApi, load_library
+                    serials = [d['serial'][3:] if d['serial'].upper().startswith('SN:') else d['serial']
+                               for d in DwfApi(load_library()).enumerate()]
+                    edit.setCompleter(QCompleter(serials, edit))
+                except Exception:
+                    pass  # the WaveForms runtime is not installed or sees nothing
             elif param == 'serial':
                 edit.setPlaceholderText("es: MY12345678")
                 edit.setToolTip("Numero seriale del dispositivo")
@@ -161,8 +179,14 @@ class AddressEditorDialog(QDialog):
     def populate_fields_from_address(self):
         """Cerca di estrarre i valori dall'indirizzo esistente"""
         try:
+            # Per indirizzi DWF (Digilent, WaveForms)
+            if self.address.upper().startswith('DWF'):
+                value = self.address.split('::', 1)[1] if '::' in self.address else ''
+                if 'serial' in self.fields:
+                    self.fields['serial'].setText(value[3:] if value.upper().startswith('SN:') else value)
+
             # Per indirizzi ASRL (seriali)
-            if 'ASRL' in self.address:
+            elif 'ASRL' in self.address:
                 import re
                 from ola.serial_config import serial_port_of_address
                 port = serial_port_of_address(self.address)
@@ -230,7 +254,12 @@ class AddressEditorDialog(QDialog):
                                       "L'indirizzo GPIB deve essere un numero tra 1 e 30")
                     return None
             
-            addr = template.format(**vals)
+            if self.conn_type == 'WAVEFORMS':
+                serial = vals.get('serial', '').strip()
+                serial = serial[3:] if serial.upper().startswith('SN:') else serial
+                addr = f'DWF::{serial}' if serial else 'DWF'  # empty: the first device found
+            else:
+                addr = template.format(**vals)
             logger.debug(f"Generated address: {addr}")
             return addr
             
