@@ -249,6 +249,9 @@ class CompareDialog(QDialog):
         self.g_open_btn.clicked.connect(self.open_golden)
         self.g_save_btn = QPushButton(self._t("cmp_g_save"))
         self.g_save_btn.clicked.connect(self.save_golden)
+        self.g_suggest_btn = QPushButton(self._t("cmp_g_suggest"))
+        self.g_suggest_btn.setToolTip(self._t("cmp_g_suggest_tip"))
+        self.g_suggest_btn.clicked.connect(self.suggest_tolerances)
         self.g_check_btn = QPushButton(self._t("cmp_g_check"))
         self.g_check_btn.clicked.connect(self.check_golden)
         for button in (self.g_open_btn, self.g_save_btn):
@@ -256,6 +259,7 @@ class CompareDialog(QDialog):
         buttons.addWidget(self.g_open_btn)
         buttons.addWidget(self.g_save_btn)
         buttons.addStretch(1)
+        buttons.addWidget(self.g_suggest_btn)
         buttons.addWidget(self.g_check_btn)
         layout.addLayout(buttons)
         return page
@@ -644,6 +648,40 @@ class CompareDialog(QDialog):
             head + "\n\n" + "\n\n".join(golden.format_result(r) for r in results)
         )
         return results
+
+    def suggest_tolerances(self) -> Optional[Dict[str, Any]]:
+        """Treat every ticked run but the reference as a good unit and fill in the tolerances from
+        how far they are from the reference (``ola.golden.derive_tolerances``): the largest
+        tolerance of the curve, and one for every figure of the summary."""
+        runs = self.checked_runs()
+        reference = self._reference_run(runs)
+        good = [r for r in runs if r is not reference]
+        if reference is None or not good:
+            self.g_result.setPlainText(self._t("cmp_g_need_two"))
+            return None
+        name = self.g_trace_box.currentData()
+        curves = (
+            [(name, self.g_view_box.currentData() or "value")]
+            if self.g_curve_box.isChecked() and name
+            else []
+        )
+        keys = [self.g_figures.item(r, 0).text() for r in range(self.g_figures.rowCount())]
+        try:
+            spec = golden.derive_tolerances(reference, good, curves, keys)
+        except golden.GoldenError as exc:
+            self.g_result.setPlainText(self._t("cmp_g_error", error=exc))
+            return None
+        if spec.get("curves"):
+            self.g_tolerance.setValue(max(t for _x, t in spec["curves"][0]["tolerance"]))
+            self.g_side_box.setCurrentIndex(self.g_side_box.findData("both"))
+        figures = spec.get("summary", {})
+        for row, key in enumerate(keys):
+            value = figures.get(key)
+            self.g_figures.item(row, 1).setText(f"{value:.3g}" if value is not None else "")
+        self.g_result.setPlainText(
+            self._t("cmp_g_suggested", n=len(good), factor=f"{golden.DEFAULT_FACTOR:g}")
+        )
+        return spec
 
     def save_golden(self) -> None:
         """Keep the reference run in the ``golden/`` folder of the project under a name."""

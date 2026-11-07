@@ -9,6 +9,8 @@
     python scripts/golden_check.py RUN GOLDEN --spec tolerances.json
     python scripts/golden_check.py --set PROJECT NAME RUN       # RUN becomes the golden sample
     python scripts/golden_check.py --list PROJECT
+    python scripts/golden_check.py --derive GOLDEN GOOD [GOOD ...] --derive-curve S21:loss_db \
+        --factor 2 --out tolerances.json     # tolerances worked out from good units
 
 ``--curve TRACE:VIEW:TOLERANCE`` and ``--figure KEY:TOLERANCE`` (an absolute tolerance, or ``5%``
 for a relative one) can be repeated; ``--spec`` is a JSON file with the same form as in the guide.
@@ -26,6 +28,7 @@ from ola.compare import CompareError, load_run  # noqa: E402
 from ola.golden import (  # noqa: E402
     GoldenError,
     check_against_golden,
+    derive_tolerances,
     find_golden,
     format_result,
     list_golden,
@@ -66,11 +69,27 @@ def main(argv=None):
     parser.add_argument("--spec", help="a JSON file with the tolerances")
     parser.add_argument("--set", nargs=3, metavar=("PROJECT", "NAME", "RUN"))
     parser.add_argument("--list", metavar="PROJECT")
+    parser.add_argument("--derive", nargs="+", metavar="RUN", help="GOLDEN GOOD [GOOD ...]")
+    parser.add_argument("--derive-curve", action="append", help="TRACE:VIEW (with --derive)")
+    parser.add_argument("--factor", type=float, default=2.0, help="with --derive (default 2)")
+    parser.add_argument("--out", help="with --derive: write the tolerances to this file")
     args = parser.parse_args(argv)
     try:
         if args.list:
             names = list_golden(args.list)
             print("\n".join(names) if names else "no golden sample")
+            return 0
+        if args.derive:
+            if len(args.derive) < 2:
+                parser.error("--derive needs the golden run and at least one good run")
+            golden_run, *good = [load_run(p) for p in args.derive]
+            curves = [tuple(c.split(":", 1)) for c in args.derive_curve or []]
+            spec = derive_tolerances(golden_run, good, curves, factor=args.factor)
+            text = json.dumps(spec, indent=2)
+            if args.out:
+                with open(args.out, "w", encoding="utf-8") as f:
+                    f.write(text + "\n")
+            print(text)
             return 0
         if args.set:
             print(f"golden sample written: {set_golden(*args.set)}")

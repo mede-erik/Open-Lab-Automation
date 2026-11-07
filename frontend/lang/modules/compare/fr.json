@@ -53,5 +53,8 @@
   "cmp_g_header": "Par rapport à {ref} : {passed} sur {n} réussissent",
   "cmp_g_name_prompt": "Nom de l'échantillon (par exemple le type de câble)",
   "cmp_g_saved": "Échantillon gardé : {path}",
-  "cmp_g_golden": "référence"
+  "cmp_g_golden": "référence",
+  "cmp_g_suggest": "Proposer d'après les résultats cochés",
+  "cmp_g_suggest_tip": "Les résultats cochés autres que la référence sont de bonnes pièces : les tolérances deviennent leur écart à la référence, fois 2.",
+  "cmp_g_suggested": "Tolérances calculées d'après {n} bonne(s) pièce(s) : leur plus grand écart à l'échantillon fois {factor}. Vérifiez-les, puis Vérifier."
 }

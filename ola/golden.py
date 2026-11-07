@@ -40,7 +40,7 @@ import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 from .compare import CompareError, RunData, curve, difference, difference_stats, load_run
 from .limits import LimitError, Limits
@@ -325,6 +325,44 @@ def check_step(ctx: Any, run: RunData, spec: Mapping[str, Any]) -> Dict[str, Any
     return {"golden_verdict": result.verdict, "golden_failed": failed}
 
 
+class GoldenRecorder:
+    """The context of a measurement that checks itself against a golden sample: everything goes
+    through to the real context, the curves are also kept, and the summary row (the one row of the
+    table ``points``) gets ``golden_verdict`` before it goes out (see ``check_step``). A measurement
+    uses it with one line at the start of its ``run``: ``ctx = recording(ctx, "filter", params)``.
+    """
+
+    def __init__(self, ctx: Any, measurement: str, params: Mapping[str, Any]):
+        self._ctx, self._measurement, self._params = ctx, measurement, params
+        self.traces: Dict[str, Dict[str, Any]] = {}
+        self._checked = False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._ctx, name)
+
+    def emit_trace(self, name: str, x: Any, y: Any, kind: str = "real", **meta: Any) -> None:
+        """Keep the curve, then send it on."""
+        self.traces[name] = {"x": list(x), "y": list(y), "kind": kind, "meta": dict(meta)}
+        self._ctx.emit_trace(name, x, y, kind=kind, **meta)
+
+    def emit_point(self, values: Mapping[str, Any], table: str = "points") -> None:
+        """The first row of the main table is the summary: checked, then sent on."""
+        if table == "points" and not self._checked:
+            self._checked = True
+            from .compare import measured_name
+
+            label = measured_name(dict(self._params)) or "this run"
+            run = run_from_result(self._measurement, self.traces, values, label, self._params)
+            values = {**values, **check_step(self._ctx, run, self._params["golden"])}
+        self._ctx.emit_point(values, table)
+
+
+def recording(ctx: Any, measurement: str, params: Mapping[str, Any]) -> Any:
+    """``ctx`` itself, or a ``GoldenRecorder`` around it when the parameters ask for a golden
+    sample (a non-empty ``golden``)."""
+    return GoldenRecorder(ctx, measurement, params) if params.get("golden") else ctx
+
+
 def check_golden_param(params: Mapping[str, Any], out: List[Any]) -> None:
     """The problems of the ``golden`` parameter of a measurement (``ola.efficiency_spec.Problem``
     with the path of the field), appended to ``out``."""
@@ -343,6 +381,84 @@ def check_golden_param(params: Mapping[str, Any], out: List[Any]) -> None:
             out.append(Problem(f"golden.{key}", "must be text"))
     for problem in validate_spec(spec.get("tolerances")):
         out.append(Problem("golden.tolerances", problem))
+
+
+# ----- tolerances from several good units --------------------------------------------------------
+DEFAULT_FACTOR = 2.0
+DEFAULT_FLOOR = 0.05
+MAX_LINE_POINTS = 40
+
+
+def derive_tolerances(
+    reference: RunData,
+    good: Sequence[RunData],
+    curves: Sequence[Sequence[str]] = (),
+    figures: Optional[Sequence[str]] = None,
+    factor: float = DEFAULT_FACTOR,
+    floor: float = DEFAULT_FLOOR,
+    max_points: int = MAX_LINE_POINTS,
+) -> Dict[str, Any]:
+    """Tolerances worked out from **several good units** instead of written by hand: how far each
+    good unit is from the golden one (``reference``), times ``factor``, and at least ``floor``.
+
+    ``curves`` is a list of ``(trace, view)``: each gets a tolerance **line** of the frequency (at
+    most about ``max_points`` points, in flat stretches that each take the largest difference in
+    them, so the line is never tighter than the units it was made from). ``figures`` are keys of
+    the summary (all the numeric ones the reference has, by default): each gets an absolute
+    tolerance. A spread of good
+    units is the honest measure of what is normal: with only two or three of them, keep ``factor``
+    at 2 or more. ``GoldenError`` without a good unit, or if none has a curve asked for."""
+    if not good:
+        raise GoldenError("at least one good unit besides the golden one is needed")
+    if factor <= 0 or floor < 0:
+        raise GoldenError("the factor must be above 0 and the floor not negative")
+    spec: Dict[str, Any] = {}
+    for trace, view in curves:
+        try:
+            ref_curve = curve(reference, trace, view)
+        except CompareError as exc:
+            raise GoldenError(str(exc)) from exc
+        xs = list(ref_curve[0])
+        worst = [0.0] * len(xs)
+        found = 0
+        for unit in good:
+            if trace not in unit.traces:
+                continue
+            found += 1
+            dx, diffs = difference(ref_curve, curve(unit, trace, view))
+            where = {x: i for i, x in enumerate(xs)}
+            for x, d in zip(dx, diffs):
+                i = where[x]
+                worst[i] = max(worst[i], abs(d))
+        if not found:
+            raise GoldenError(f"no good unit has the curve {trace!r}")
+        # flat stretches (two points each, the same value), so that the line between two grid
+        # points never falls below the largest difference of the stretch
+        step = max(1, math.ceil(len(xs) / max(1, max_points // 2)))
+        line: List[List[float]] = []
+        for start in range(0, len(xs), step):
+            end = min(start + step, len(xs)) - 1
+            tol = max(floor, factor * max(worst[start : end + 1]))  # noqa: E203
+            line.append([xs[start], tol])
+            if end != start:
+                line.append([xs[end], tol])
+        spec.setdefault("curves", []).append({"trace": trace, "view": view, "tolerance": line})
+    keys = (
+        list(figures)
+        if figures is not None
+        else [k for k, v in reference.summary.items() if _number(v)]
+    )
+    summary: Dict[str, float] = {}
+    for key in keys:
+        want = reference.summary.get(key)
+        got = [u.summary.get(key) for u in good if _number(u.summary.get(key))]
+        if _number(want) and got:
+            summary[key] = max(floor, factor * max(abs(g - want) for g in got))
+    if summary:
+        spec["summary"] = summary
+    if not spec:
+        raise GoldenError("nothing to work the tolerances out from")
+    return spec
 
 
 # ----- the golden samples of a project -----------------------------------------------------------
@@ -391,7 +507,9 @@ def format_result(result: GoldenResult) -> str:
 
 
 __all__ = [
-    "Check", "GoldenError", "GoldenResult", "check_against_golden", "check_curve", "check_figure",
-    "check_golden_param", "check_step", "find_golden", "format_result", "golden_path",
-    "list_golden", "run_from_result", "set_golden", "validate_spec",
+    "Check", "GoldenError", "GoldenRecorder", "GoldenResult", "check_against_golden",
+    "check_curve", "check_figure", "check_golden_param", "check_step", "derive_tolerances",
+    "find_golden",
+    "format_result", "golden_path", "list_golden", "recording", "run_from_result", "set_golden",
+    "validate_spec",
 ]  # fmt: skip

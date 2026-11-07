@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional
 
 from ola import rf
 from ola.efficiency_spec import Problem
-from ola.golden import check_golden_param, check_step, run_from_result
+from ola.golden import check_golden_param, recording
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
@@ -204,6 +204,7 @@ class CableCharacterization(Measurement):
     # ----- the measurement --------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, sweep, read, compute, report."""
+        ctx = recording(ctx, "cable", self.params)  # with a golden sample: checked at the end
         p = self.params
         mode = p.get("mode", "transmission")
         sweep = p["sweep"]
@@ -282,15 +283,6 @@ class CableCharacterization(Measurement):
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"
             summary["margin_db"] = verdict.margin
             ctx.log(f"limit check: {verdict.summary()}", "info" if verdict.passed else "warning")
-        if p.get("golden"):  # like the good one? (a result too, not an error)
-            curves = {name: {"x": freq, "y": values, "kind": "complex"}
-                      for name, values in traces.items()}  # fmt: skip
-            for name in ("loss_db", "loss_db_per_m", "return_loss_db"):
-                if name in result:
-                    curves[name] = {"x": freq, "y": result[name]}
-            curves["group_delay_ns"] = {"x": freq, "y": [d * 1e9 for d in result["delay_s"]]}
-            current = run_from_result("cable", curves, summary, cable.get("label") or "this run")
-            summary.update(check_step(ctx, current, p["golden"]))
         label = f" '{cable['label']}'" if cable.get("label") else ""
         top = result["summary"]
         worst = f"{top['max_loss_db']:.3g} dB at {format_si(top['max_loss_at_hz'], 'Hz')}"

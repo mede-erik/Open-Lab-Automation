@@ -73,9 +73,10 @@ must be covered, and a tolerance for any figure of the summary (`0.3`, or `5%` o
 gives the verdict of each run with its reasons. **Keep the reference as golden sample...** writes it in the `golden/` folder of the
 project under a name, and **Open a golden sample...** opens one from there as the reference.
 
-## As a step of the cable measurement
+## As a step of a measurement
 
-A cable measurement ([`cable.md`](cable.md)) can check itself at the end of the run: in its file
+The VNA measurements, **cable**, **filter**, **amplifier**, **attenuator**, **return loss** and **antenna**, can check themselves at the
+end of the run: in their file
 
 ```json
 "golden": {"name": "RG58 1m",
@@ -85,12 +86,32 @@ A cable measurement ([`cable.md`](cable.md)) can check itself at the end of the 
 The project finds the golden sample by its **name** in its `golden/` folder (a run is refused before it starts if there is none, with
 the names that are there) and saves the file it used (`golden.run`) in the header of the run. The run gets a table `golden` (one row
 for each check: `check`, `passed`, `difference`, `at`, `margin`, `detail`) and `golden_verdict` (`PASS`, `FAIL` or `NO DATA`) and
-`golden_failed` in its summary row. Like a limit, a failed check is a **result**: the run still finishes, with warnings in the log. The
-curves of the measurement that can be checked are `loss_db`, `loss_db_per_m`, `group_delay_ns`, `return_loss_db` and the raw `S21`
-/ `S11` (in any view, `value` by default). The editor of the cable measurement has the two fields.
+`golden_failed` in its summary row. Like a limit, a failed check is a **result**: the run still finishes, with warnings in the log. Any
+curve the measurement draws can be checked, in any view (`value` by default): the cable's `loss_db`, the filter's and the amplifier's
+`S21` in `magnitude_db`, the attenuator's `attenuation_db`, the `return_loss_db` of the return loss and of the antenna... The editors of
+these measurements have the two fields. (In the code: one line at the start of the measurement, `ctx = recording(ctx, "filter",
+params)`, keeps the curves and checks the summary row before it goes out: a new module gets the step the same way.)
+
+## Tolerances from several good units
+
+Instead of writing the tolerances by hand, measure **a few good units** besides the golden one and let the program work them out
+(`derive_tolerances`): for each curve, how far each good unit is from the golden one, **times a factor** (2 by default) and at least a
+**floor** (0.05); the result is a tolerance **line** of the frequency, in flat stretches that each take the largest difference in
+them (so every unit it was made from passes), and an absolute tolerance for each figure of the summary.
+
+* In the comparison window: tick the golden sample (the reference) and the good units, then **Suggest from the ticked runs**: the
+  tolerance of the curve (the largest of the line) and of each figure are filled in. Look at them, then **Check**.
+* From a terminal, writing a file to use with `--spec` or in a measurement:
+
+```bash
+python scripts/golden_check.py --derive runs/golden.jsonl runs/good1.jsonl runs/good2.jsonl \
+    --derive-curve S21:loss_db --factor 2 --out tolerances.json
+```
+
+With two or three good units the spread is a rough guess: keep the factor at 2 or more, and widen the tolerances by hand where the
+units happen to agree too well (the floor is there for that).
 
 ## Not done yet
 
-A report does not include the check (see *Future features* in the README), and the other measurements (filter, amplifier,
-attenuator...) do not have the step yet: they can be checked in the comparison window. Tolerances are written by hand: there is no
-way yet to work them out from several good units.
+A report does not include the check (see *Future features* in the README). The measurements that are not VNA measurements
+(efficiency, regulation, ripple, Bode...) do not have the step: they can be checked in the comparison window.

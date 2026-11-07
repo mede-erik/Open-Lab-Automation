@@ -287,3 +287,149 @@ def test_the_project_finds_the_golden_sample_by_its_name(registry, tmp_path):
     text = path.read_text(encoding="utf-8")
     assert "RG58_1m.jsonl" in text.splitlines()[0]  # which golden sample, saved with the run
     assert '"golden_verdict": "PASS"' in text
+
+
+# ---- the same step in the other VNA measurements ------------------------------------------------
+from ola.sim_vna import SimAmplifier  # noqa: E402
+
+# module: (example block of its guide, the good unit, a different one, a curve, its view, tolerance)
+MODULES = {
+    "filter": (
+        "filter.md", "filter\\.flt",
+        lambda: SimVna(filter_type="bandpass", filter_f0_hz=868e6, filter_bw_hz=20e6,
+                       filter_order=3),
+        lambda: SimVna(filter_type="bandpass", filter_f0_hz=878e6, filter_bw_hz=20e6,
+                       filter_order=3),
+        "S21", "magnitude_db", 1.0,
+    ),
+    "amplifier": (
+        "amplifier.md", "amplifier\\.amp", lambda: SimAmplifier(), lambda: SimAmplifier(gain_db=17),
+        "S21", "magnitude_db", 1.0,
+    ),
+    "attenuator": (
+        "attenuator.md", "attenuator\\.att",
+        lambda: SimVna(attenuator_db=10.2, attenuator_slope_db_per_ghz=0.05),
+        lambda: SimVna(attenuator_db=11.0, attenuator_slope_db_per_ghz=0.05),
+        "attenuation_db", "value", 0.3,
+    ),
+    "return_loss": (
+        "return-loss.md", "return_loss\\.rtl", lambda: SimVna(termination="antenna"),
+        lambda: SimVna(termination="antenna", antenna_f0_hz=900e6),
+        "return_loss_db", "value", 1.0,
+    ),
+    "antenna": (
+        "antenna.md", "antenna\\.ant", lambda: SimVna(termination="antenna"),
+        lambda: SimVna(termination="antenna", antenna_f0_hz=900e6),
+        "return_loss_db", "value", 1.0,
+    ),
+}  # fmt: skip
+
+
+def module_run(registry, module, params, vna, path=None):
+    runner = Runner(registry.create(module, params), {"vna": [vna]})
+    if path is not None:
+        runner.add_listener(RunWriter(path, RunWriter.header_for(runner)))
+    runner.start()
+    assert runner.join(60) and runner.state.value == "finished", runner.error
+    return [e.data["values"] for e in runner.drain()
+            if e.kind == "point" and e.data["table"] == "points"]  # fmt: skip
+
+
+@pytest.mark.parametrize("module", sorted(MODULES))
+def test_every_vna_measurement_checks_itself_against_a_golden_sample(registry, tmp_path, module):
+    import json as _json
+    import re as _re
+    from pathlib import Path
+
+    doc, block, good, other, trace, view, tolerance = MODULES[module]
+    text = (Path(__file__).parent.parent / "docs" / doc).read_text(encoding="utf-8")
+    params = _json.loads(_re.search(rf"```json {block}\n(.*?)```", text, _re.S).group(1))
+    params["confirm_setup"] = False
+    params.pop("compression", None)  # the gain only: the compression test has no curve to compare
+    golden = tmp_path / f"{module}_golden_20261103_100000.jsonl"
+    module_run(registry, module, params, good(), golden)
+    tolerances = {"curves": [{"trace": trace, "view": view, "tolerance": tolerance}]}
+    params["golden"] = {"run": str(golden), "tolerances": tolerances}
+    assert [p for p in registry.create(module, params).check() if p.severity == "error"] == []
+    same = module_run(registry, module, params, good())
+    assert same[-1]["golden_verdict"] == "PASS", module
+    different = module_run(registry, module, params, other())
+    assert different[-1]["golden_verdict"] == "FAIL" and different[-1]["golden_failed"] == 1
+    bad = dict(params, golden={"name": "x", "tolerances": {"curves": []}})
+    assert any(p.path == "golden.tolerances" for p in registry.create(module, bad).check())
+
+
+def test_without_a_golden_sample_the_context_is_left_alone():
+    from ola.golden import GoldenRecorder, recording
+
+    ctx = object()
+    assert recording(ctx, "filter", {}) is ctx and recording(ctx, "filter", {"golden": {}}) is ctx
+    assert isinstance(recording(ctx, "filter", {"golden": {"name": "x"}}), GoldenRecorder)
+
+
+# ---- tolerances from several good units ---------------------------------------------------------
+def test_tolerances_are_worked_out_from_good_units_and_pass_them(registry, tmp_path):
+    from ola.golden import derive_tolerances
+
+    golden = load_run(cable_run(registry, tmp_path, "golden", 0.60))
+    good = [
+        load_run(cable_run(registry, tmp_path, f"good{n}", loss, stamp=f"2026110{n}_100000"))
+        for n, loss in ((4, 0.62), (5, 0.58), (6, 0.61))
+    ]
+    spec = derive_tolerances(golden, good, [("S21", "loss_db")], ["max_loss_db"], factor=1.5)
+    line = spec["curves"][0]["tolerance"]
+    assert 2 <= len(line) <= 42 and [x for x, _ in line] == sorted(x for x, _ in line)
+    assert line[0][1] == pytest.approx(0.05)  # the floor: at 1 MHz they are all the same
+    assert line[-1][1] > line[0][1]  # the units differ more at the top of the band
+    worst = 2 * 0.02 * 1.73  # 0.02 dB/m more over 2 m, growing as the root of the frequency
+    assert line[-1][1] == pytest.approx(1.5 * worst, rel=0.25)
+    assert set(spec["summary"]) == {"max_loss_db"}
+    for unit in good:  # every unit it was made from passes
+        assert check_against_golden(unit, golden, spec).verdict == "PASS"
+    worn = load_run(cable_run(registry, tmp_path, "worn", 0.75, stamp="20261109_100000"))
+    assert check_against_golden(worn, golden, spec).verdict == "FAIL"
+
+
+def test_the_line_is_never_tighter_than_a_good_unit_between_its_points(registry, tmp_path):
+    from ola.golden import derive_tolerances
+
+    golden = load_run(cable_run(registry, tmp_path, "golden", 0.60))
+    good = [load_run(cable_run(registry, tmp_path, "good", 0.66, stamp="20261104_100000"))]
+    for points in (4, 7, 40, 1000):
+        spec = derive_tolerances(golden, good, [("S21", "loss_db")], [], 1.0, 0.0, points)
+        assert check_against_golden(good[0], golden, spec).verdict == "PASS", points
+
+
+def test_tolerances_need_good_units_and_curves_they_have(registry, tmp_path):
+    from ola.golden import derive_tolerances
+
+    golden = load_run(cable_run(registry, tmp_path, "golden", 0.60))
+    good = load_run(cable_run(registry, tmp_path, "good", 0.62, stamp="20261104_100000"))
+    with pytest.raises(GoldenError, match="at least one good unit"):
+        derive_tolerances(golden, [])
+    with pytest.raises(GoldenError, match="factor"):
+        derive_tolerances(golden, [good], factor=0)
+    with pytest.raises(GoldenError, match="S99"):
+        derive_tolerances(golden, [good], [("S99", "value")])
+    with pytest.raises(GoldenError, match="nothing"):
+        derive_tolerances(golden, [good], [], [])
+    every = derive_tolerances(golden, [good])  # no curve, all the figures of the summary
+    assert "max_loss_db" in every["summary"] and "curves" not in every
+
+
+def test_the_script_works_the_tolerances_out(registry, tmp_path, capsys):
+    import json as _json
+
+    from scripts.golden_check import main
+
+    golden = cable_run(registry, tmp_path, "golden", 0.60)
+    good = cable_run(registry, tmp_path, "good", 0.62, stamp="20261104_100000")
+    out = tmp_path / "tol.json"
+    args = ["--derive", str(golden), str(good), "--derive-curve", "S21:loss_db", "--out", str(out)]
+    assert main(args) == 0
+    spec = _json.loads(out.read_text(encoding="utf-8"))
+    assert spec["curves"][0]["trace"] == "S21" and "max_loss_db" in spec["summary"]
+    capsys.readouterr()
+    assert main([str(good), str(golden), "--spec", str(out)]) == 0
+    with pytest.raises(SystemExit):
+        main(["--derive", str(golden)])  # the golden run alone: refused by the parser

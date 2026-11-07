@@ -905,8 +905,10 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   riferimento** nella finestra di confronto (il riferimento ★ è il campione, tolleranza sulla curva con il lato, tolleranze sulle cifre,
   salva/apri in `golden/`), il **passo della misura del cavo** (`golden.name` + `tolerances`, risolto dal progetto in `golden.run`, tabella
   `golden` e `golden_verdict` nel riepilogo, campi nell'editor) e la finestra **Andamento...** dalla storia del cavo (`TrendDialog`: grafico
-  con misure, retta e limite, verdetto, CSV). Da fare: il passo del campione nelle altre misure (filtro, amplificatore, attenuatore), le
-  tolleranze ricavate da più pezzi buoni.
+  con misure, retta e limite, verdetto, CSV). Poi: il passo del campione in tutte le misure VNA (filtro,
+  amplificatore, attenuatore, return loss, antenna) con `GoldenRecorder` (una riga in `run`), e le **tolleranze ricavate da più pezzi
+  buoni** (`derive_tolerances`: scarto massimo × fattore, minimo un pavimento, retta a tratti piatti che non è mai più stretta dei pezzi
+  usati; pulsante *Proponi dai risultati spuntati* e `golden_check.py --derive`). Da fare: il passo nelle misure non VNA.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

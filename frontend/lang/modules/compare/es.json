@@ -53,5 +53,8 @@
   "cmp_g_header": "Frente a {ref}: {passed} de {n} pasan",
   "cmp_g_name_prompt": "Nombre de la muestra (por ejemplo el tipo de cable)",
   "cmp_g_saved": "Muestra guardada: {path}",
-  "cmp_g_golden": "muestra"
+  "cmp_g_golden": "muestra",
+  "cmp_g_suggest": "Proponer a partir de los resultados marcados",
+  "cmp_g_suggest_tip": "Los resultados marcados distintos de la referencia son piezas buenas: las tolerancias pasan a ser cuánto se alejan de ella, por 2.",
+  "cmp_g_suggested": "Tolerancias calculadas a partir de {n} pieza(s) buena(s): su mayor diferencia con la muestra por {factor}. Revíselas y luego Comprobar."
 }

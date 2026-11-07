@@ -447,3 +447,27 @@ def test_the_reference_is_kept_as_golden_sample_and_opened_again(golden_dialog, 
     other.g_figures.item(figure_row(other, "max_loss_db"), 1).setText("0.05")
     assert [r.verdict for r in other.check_golden()] == ["FAIL"]  # the worn cable
     other.close()
+
+
+def test_the_tolerances_are_suggested_from_the_ticked_runs(app, registry, tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    paths = [
+        cable_run(registry, runs, name, length=2.0, loss=loss, stamp=stamp)
+        for name, loss, stamp in (("Golden", 0.60, "20261103_100000"),
+                                  ("Good 1", 0.62, "20261103_110000"),
+                                  ("Good 2", 0.58, "20261103_120000"))
+    ]  # fmt: skip
+    d = CompareDialog([str(p) for p in paths], start_dir=str(runs))
+    d.g_trace_box.setCurrentIndex(d.g_trace_box.findData("S21"))
+    d._fill_golden_views()
+    d.g_view_box.setCurrentIndex(d.g_view_box.findData("loss_db"))
+    spec = d.suggest_tolerances()
+    assert spec is not None and d.g_tolerance.value() > 0.05
+    assert d.g_figures.item(figure_row(d, "max_loss_db"), 1).text() != ""
+    assert "2" in d.g_result.toPlainText()
+    assert [r.verdict for r in d.check_golden()] == ["PASS", "PASS"]  # the units it came from
+    d.close()
+    alone = CompareDialog([str(paths[0])])
+    assert alone.suggest_tolerances() is None
+    alone.close()

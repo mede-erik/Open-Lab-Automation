@@ -53,5 +53,8 @@
   "cmp_g_header": "Rispetto a {ref}: {passed} su {n} superano la verifica",
   "cmp_g_name_prompt": "Nome del campione (per esempio il tipo di cavo)",
   "cmp_g_saved": "Campione salvato: {path}",
-  "cmp_g_golden": "campione"
+  "cmp_g_golden": "campione",
+  "cmp_g_suggest": "Proponi dai risultati spuntati",
+  "cmp_g_suggest_tip": "I risultati spuntati diversi dal riferimento sono pezzi buoni: le tolleranze diventano quanto distano da esso, per 2.",
+  "cmp_g_suggested": "Tolleranze ricavate da {n} pezzo/i buono/i: la loro differenza più grande dal campione per {factor}. Controllale, poi Verifica."
 }

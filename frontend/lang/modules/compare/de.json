@@ -53,5 +53,8 @@
   "cmp_g_header": "Gegen {ref}: {passed} von {n} bestanden",
   "cmp_g_name_prompt": "Name des Referenzmusters (zum Beispiel die Kabelart)",
   "cmp_g_saved": "Referenzmuster gespeichert: {path}",
-  "cmp_g_golden": "Referenz"
+  "cmp_g_golden": "Referenz",
+  "cmp_g_suggest": "Aus den angehakten Ergebnissen vorschlagen",
+  "cmp_g_suggest_tip": "Die angehakten Ergebnisse außer der Referenz sind gute Teile: die Toleranzen werden ihr Abstand zur Referenz mal 2.",
+  "cmp_g_suggested": "Toleranzen aus {n} guten Teil(en) ermittelt: ihre größte Abweichung vom Referenzmuster mal {factor}. Prüfen, dann Prüfen."
 }

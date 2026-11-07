@@ -53,5 +53,8 @@
   "cmp_g_header": "Against {ref}: {passed} of {n} pass",
   "cmp_g_name_prompt": "Name of the golden sample (for example the kind of cable)",
   "cmp_g_saved": "Golden sample kept: {path}",
-  "cmp_g_golden": "golden"
+  "cmp_g_golden": "golden",
+  "cmp_g_suggest": "Suggest from the ticked runs",
+  "cmp_g_suggest_tip": "The ticked runs other than the reference are good units: the tolerances become how far they are from it, times 2.",
+  "cmp_g_suggested": "Tolerances worked out from {n} good unit(s): their largest difference from the golden sample times {factor}. Check them, then Check."
 }

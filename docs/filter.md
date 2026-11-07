@@ -49,6 +49,7 @@ cut-off: widen the sweep"* and that figure is left out; it is not made up.
 | `limits` | a **mask on the gain in dB** ([`ola/limits.py`](../ola/limits.py)). The gain is negative: `min: -4` means *at least -4 dB* (the filter must pass), `max: -20` means *at most -20 dB* (the filter must reject). Constants, lines and bands can be mixed |
 | `also_s11` | also read S11 (return loss in the passband) |
 | `averages`, `confirm_setup` | sweeps averaged; `false` skips the question |
+| `golden` | optional: check the result against a **golden sample** of the project (a good unit of the same kind): `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 The sweep decides what can be found: it must include the edges and some of the stop band. For a narrow filter use
 enough points (a step much smaller than the bandwidth). The editor (*Edit* in the project window, from the module's
