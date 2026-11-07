@@ -46,6 +46,7 @@ anything is switched on."""
 import math
 from typing import Any, Dict, List, Sequence, Tuple
 
+from ola.golden import check_golden_param, recording
 from ola import rf, spectrum
 from ola.call_errors import CallError
 from ola.efficiency_spec import Problem
@@ -199,6 +200,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
                         f"of {cap:g} Vpp",
                     )
                 )
+    check_golden_param(params, out)
     return out
 
 
@@ -333,6 +335,7 @@ class Bode(Measurement):
     # ----- running ------------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the connections, step through the frequencies, report."""
+        ctx = recording(ctx, "bode", self.params)  # with a golden sample: checked at the end
         p = self.params
         gen, scope = ctx.instrument("generator"), ctx.instrument("oscilloscope")
         self._no_switch = not self._has_output_switch(gen)

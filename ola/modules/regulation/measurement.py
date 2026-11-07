@@ -49,6 +49,7 @@ the curves ``vout_vs_vin`` and ``vout_vs_load``. Out of limits is a *result*, no
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from ola.golden import check_golden_param, finish, recording
 from ola.efficiency_spec import Problem
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.run_view import format_si
@@ -189,6 +190,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
                     out.append(Problem("limits", f"{key} must be a number above 0"))
     if "confirm_setup" in params and not isinstance(params["confirm_setup"], bool):
         out.append(Problem("confirm_setup", "must be true or false"))
+    check_golden_param(params, out)
     return out
 
 
@@ -331,6 +333,8 @@ class Regulation(Measurement):
     # ----- running ------------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the connections, step through the points, report the regulation."""
+        # with a golden sample: the rows (one for each point) are checked at the end
+        ctx = recording(ctx, "regulation", self.params, summary_row=False)
         p = self.params
         points = build_points(p)
         needs_load = any(pt["i"] > 0 for pt in points) or bool(p.get("load_test"))
@@ -373,6 +377,7 @@ class Regulation(Measurement):
             self._draw(ctx, rows)
             ctx.progress(number, len(points), f"{point['test']} test, point {number}")
         self._summary(ctx, rows)
+        finish(ctx)
 
     def teardown(self, ctx: MeasurementContext) -> None:
         """The load back to 0 A and off, then the supply off: always, whatever happened."""

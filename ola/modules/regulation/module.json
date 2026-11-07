@@ -33,6 +33,8 @@
                "description": "max_vin_v and max_load_a: a point above them is an error and nothing is switched on"},
     "limits": {"type": "object", "required": false,
                "description": "max_line_pct, max_load_pct, vout_min_v, vout_max_v: pass / fail"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {rows: {match: [columns that pair the rows], columns: {column: tolerance}}, curves, min_overlap}"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to connect the instruments"}
   }

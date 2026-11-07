@@ -25,6 +25,8 @@
                  "description": "wait after every change of frequency (0.5 s by default)"},
     "capture_wait_s": {"type": "number", "unit": "s", "required": false,
                        "description": "wait after starting an acquisition before reading it (0.3 s by default)"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "max": 100, "required": false,
                  "description": "captures averaged at every frequency"},
     "loop": {"type": "boolean", "required": false,

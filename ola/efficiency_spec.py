@@ -61,7 +61,7 @@ from .formula import FUNCTIONS, Formula, FormulaError
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order")
+TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order", "golden")
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
 
@@ -819,7 +819,12 @@ def validate_params(
     ``bound_instruments`` are the names of the instruments of the project; if given, an unknown
     instrument is a problem (with a "did you mean"). ``checker`` is the optional second level that
     asks the instrument library whether each call exists and accepts its arguments and values."""
-    return _analyse(params, bound_instruments, checker)[1]
+    problems = _analyse(params, bound_instruments, checker)[1]
+    if isinstance(params, dict):
+        from .golden import check_golden_param  # the check against a golden sample
+
+        check_golden_param(params, problems)
+    return problems
 
 
 def parse_params(

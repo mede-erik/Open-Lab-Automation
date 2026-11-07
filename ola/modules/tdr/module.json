@@ -31,6 +31,8 @@
                           "description": "the length of the cable, if known: the length error and the velocity factor that fits it are given from the last reflection (the open or short end)"},
     "step_response": {"type": "boolean", "required": false,
                       "description": "also give the step response and the impedance profile (needs a sweep that starts at its own step)"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
     "limits": {"type": "object", "required": false,

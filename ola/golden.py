@@ -184,6 +184,82 @@ def check_figure(run: RunData, golden: RunData, key: str, tolerance: Any) -> Che
     )
 
 
+def _allowed(tolerance: Mapping[str, float], want: float) -> float:
+    return max(float(tolerance.get("abs", 0.0)), abs(want) * float(tolerance.get("rel", 0.0)))
+
+
+def _row_key(row: Mapping[str, Any], match: Sequence[str]) -> Optional[tuple]:
+    key = []
+    for column in match:
+        value = row.get(column)
+        if value is None:
+            return None
+        key.append(round(float(value), 9) if _number(value) else str(value))
+    return tuple(key)
+
+
+def check_rows(
+    run: RunData, golden: RunData, spec: Mapping[str, Any], min_overlap: float = DEFAULT_OVERLAP
+) -> List[Check]:
+    """The rows of the main table against those of the golden sample, for a measurement that gives
+    a table of many rows (ripple for each load current, efficiency for each input and output...).
+    ``spec`` is ``{"match": [columns], "columns": {column: tolerance}}``: the rows are paired by
+    the values of the ``match`` columns, and each of the ``columns`` gets a check over all the
+    pairs (its largest difference and where). The run must have at least ``min_overlap`` of the
+    golden rows, like a curve."""
+    match = list(spec["match"])
+    golden_rows = {}
+    for row in golden.points:
+        key = _row_key(row, match)
+        if key is not None:
+            golden_rows.setdefault(key, row)
+    pairs = []
+    for row in run.points:
+        key = _row_key(row, match)
+        if key is not None and key in golden_rows:
+            pairs.append((key, row, golden_rows[key]))
+    checks: List[Check] = []
+    covered = len({k for k, _r, _g in pairs}) / len(golden_rows) if golden_rows else 0.0
+    if covered < min_overlap:
+        checks.append(
+            Check(
+                f"rows by {', '.join(match)}",
+                False,
+                f"the run has {covered:.0%} of the rows of the golden sample "
+                f"(at least {min_overlap:.0%} needed)",
+            )
+        )
+        return checks
+    for column, raw in spec["columns"].items():
+        tolerance = {"abs": raw} if _number(raw) else dict(raw)
+        worst: Optional[float] = None
+        worst_key: Optional[tuple] = None
+        margin: Optional[float] = None
+        compared = bad = 0
+        for key, row, gold in pairs:
+            got, want = row.get(column), gold.get(column)
+            if not (_number(got) and _number(want)):
+                continue
+            compared += 1
+            delta = got - want
+            room = _allowed(tolerance, want) - abs(delta)
+            bad += room < 0
+            if worst is None or abs(delta) > abs(worst):
+                worst, worst_key = delta, key
+            margin = room if margin is None else min(margin, room)
+        name = f"{column} (rows)"
+        if not compared:
+            checks.append(Check(name, False, "no pair of rows has this column"))
+            continue
+        where = ", ".join(f"{c}={v:g}" if isinstance(v, float) else f"{c}={v}"
+                          for c, v in zip(match, worst_key or ()))  # fmt: skip
+        text = f"largest difference {worst:+.3g} at {where}"
+        if bad:
+            text += f"; {bad} of {compared} rows out of tolerance"
+        checks.append(Check(name, not bad, text, worst, None, margin))
+    return checks
+
+
 def check_against_golden(run: RunData, golden: RunData, spec: Mapping[str, Any]) -> GoldenResult:
     """The verdict of a run against a golden sample: see the module docstring for ``spec``
     (``curves``, ``summary``, ``min_overlap``). ``GoldenError`` if the spec is wrong or the two are
@@ -207,6 +283,8 @@ def check_against_golden(run: RunData, golden: RunData, spec: Mapping[str, Any])
         )
     for key, tolerance in (spec.get("summary") or {}).items():
         result.checks.append(check_figure(run, golden, str(key), tolerance))
+    if spec.get("rows"):
+        result.checks.extend(check_rows(run, golden, spec["rows"], float(overlap)))
     for check in result.checks:
         if not check.passed:
             result.reasons.append(f"{check.name}: {check.detail}")
@@ -219,11 +297,37 @@ def validate_spec(spec: Any) -> List[str]:
     problems: List[str] = []
     if not isinstance(spec, Mapping):
         return ["the tolerances must be an object with 'curves' and / or 'summary'"]
-    unknown = sorted(set(spec) - {"curves", "summary", "min_overlap"})
+    unknown = sorted(set(spec) - {"curves", "summary", "rows", "min_overlap"})
     if unknown:
-        problems.append(f"unknown key(s) {unknown}: use curves, summary or min_overlap")
-    if not spec.get("curves") and not spec.get("summary"):
-        problems.append("give at least one curve or one summary figure to check")
+        problems.append(f"unknown key(s) {unknown}: use curves, summary, rows or min_overlap")
+    if not spec.get("curves") and not spec.get("summary") and not spec.get("rows"):
+        problems.append("give at least one curve, summary figure or table column to check")
+    rows = spec.get("rows")
+    if rows is not None:
+        if (
+            not isinstance(rows, Mapping)
+            or not isinstance(rows.get("match"), list)
+            or not rows["match"]
+            or not all(isinstance(c, str) and c for c in rows["match"])
+            or not isinstance(rows.get("columns"), Mapping)
+            or not rows["columns"]
+        ):
+            problems.append(
+                'rows is {"match": [columns that pair the rows], "columns": {column: tolerance}}'
+            )
+        else:
+            for column, tolerance in rows["columns"].items():
+                tol = {"abs": tolerance} if _number(tolerance) else tolerance
+                if (
+                    not isinstance(tol, Mapping)
+                    or not tol
+                    or not set(tol) <= {"abs", "rel"}
+                    or any(not _number(v) or v < 0 for v in tol.values())
+                ):
+                    problems.append(
+                        f"rows.{column}: the tolerance is a number or an object with 'abs' and "
+                        "'rel' (not negative)"
+                    )
     overlap = spec.get("min_overlap", DEFAULT_OVERLAP)
     if not _number(overlap) or not 0 < overlap <= 1:
         problems.append("min_overlap must be above 0 and at most 1")
@@ -263,10 +367,12 @@ def run_from_result(
     summary: Mapping[str, Any],
     label: str = "this run",
     params: Optional[Mapping[str, Any]] = None,
+    points: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> RunData:
     """A run that is being measured, as the comparison sees a run file: ``traces`` is
     ``{name: {"x": [...], "y": [...], "kind": "real" | "complex"}}`` and ``summary`` the one
-    summary row. So that a measurement can check itself against a golden sample before it ends."""
+    summary row (or ``points``, all the rows of the main table of a measurement that gives many).
+    So that a measurement can check itself against a golden sample before it ends."""
     return RunData(
         path=Path(""),
         label=label,
@@ -285,7 +391,7 @@ def run_from_result(
             }
             for name, trace in traces.items()
         },
-        points=[dict(summary)],
+        points=[dict(p) for p in points] if points is not None else [dict(summary)],
         params=dict(params or {}),
     )
 
@@ -332,9 +438,19 @@ class GoldenRecorder:
     uses it with one line at the start of its ``run``: ``ctx = recording(ctx, "filter", params)``.
     """
 
-    def __init__(self, ctx: Any, measurement: str, params: Mapping[str, Any]):
+    def __init__(
+        self,
+        ctx: Any,
+        measurement: str,
+        params: Mapping[str, Any],
+        summary_row: bool = True,
+        derive: Optional[Any] = None,
+    ):
         self._ctx, self._measurement, self._params = ctx, measurement, params
+        self._summary_row = summary_row
+        self._derive = derive  # the measurement's ``derived``: the columns the runner adds
         self.traces: Dict[str, Dict[str, Any]] = {}
+        self.rows: List[Dict[str, Any]] = []
         self._checked = False
 
     def __getattr__(self, name: str) -> Any:
@@ -346,8 +462,17 @@ class GoldenRecorder:
         self._ctx.emit_trace(name, x, y, kind=kind, **meta)
 
     def emit_point(self, values: Mapping[str, Any], table: str = "points") -> None:
-        """The first row of the main table is the summary: checked, then sent on."""
-        if table == "points" and not self._checked:
+        """The first row of the main table is the summary: checked, then sent on. A measurement
+        of many rows (``summary_row=False``) keeps them for ``finish``."""
+        if table == "points" and not self._summary_row:
+            row = dict(values)
+            if self._derive is not None:
+                try:
+                    row.update({k: v for k, v in self._derive(values).items() if k not in row})
+                except Exception:  # the runner reports it; the check uses what there is
+                    pass
+            self.rows.append(row)
+        elif table == "points" and not self._checked:
             self._checked = True
             from .compare import measured_name
 
@@ -356,11 +481,43 @@ class GoldenRecorder:
             values = {**values, **check_step(self._ctx, run, self._params["golden"])}
         self._ctx.emit_point(values, table)
 
+    def finish(self) -> Optional[Dict[str, Any]]:
+        """For a measurement of many rows, at the end of its run: check all the rows and the
+        curves, and send the verdict as the one row of the table ``golden_result``."""
+        if self._summary_row or self._checked:
+            return None
+        self._checked = True
+        from .compare import measured_name
 
-def recording(ctx: Any, measurement: str, params: Mapping[str, Any]) -> Any:
+        label = measured_name(dict(self._params)) or "this run"
+        run = run_from_result(
+            self._measurement, self.traces, {}, label, self._params, points=self.rows
+        )
+        verdict = check_step(self._ctx, run, self._params["golden"])
+        self._ctx.emit_point(verdict, table="golden_result")
+        return verdict
+
+
+def recording(
+    ctx: Any,
+    measurement: str,
+    params: Mapping[str, Any],
+    summary_row: bool = True,
+    derive: Optional[Any] = None,
+) -> Any:
     """``ctx`` itself, or a ``GoldenRecorder`` around it when the parameters ask for a golden
-    sample (a non-empty ``golden``)."""
-    return GoldenRecorder(ctx, measurement, params) if params.get("golden") else ctx
+    sample (a non-empty ``golden``). ``summary_row=False`` for a measurement whose main table has
+    many rows: it then calls ``finish(ctx)`` at the end of its run. ``derive`` is the measurement's
+    ``derived`` (the columns the runner adds to each row, such as an efficiency formula)."""
+    if params.get("golden"):
+        return GoldenRecorder(ctx, measurement, params, summary_row, derive)
+    return ctx
+
+
+def finish(ctx: Any) -> Optional[Dict[str, Any]]:
+    """The end of the run of a measurement of many rows: the golden-sample check if there is one
+    (see ``GoldenRecorder.finish``); nothing otherwise."""
+    return ctx.finish() if isinstance(ctx, GoldenRecorder) else None
 
 
 def check_golden_param(params: Mapping[str, Any], out: List[Any]) -> None:
@@ -397,6 +554,7 @@ def derive_tolerances(
     factor: float = DEFAULT_FACTOR,
     floor: float = DEFAULT_FLOOR,
     max_points: int = MAX_LINE_POINTS,
+    rows: Optional[Mapping[str, Sequence[str]]] = None,
 ) -> Dict[str, Any]:
     """Tolerances worked out from **several good units** instead of written by hand: how far each
     good unit is from the golden one (``reference``), times ``factor``, and at least ``floor``.
@@ -407,7 +565,9 @@ def derive_tolerances(
     the summary (all the numeric ones the reference has, by default): each gets an absolute
     tolerance. A spread of good
     units is the honest measure of what is normal: with only two or three of them, keep ``factor``
-    at 2 or more. ``GoldenError`` without a good unit, or if none has a curve asked for."""
+    at 2 or more. ``rows`` (``{"match": [...], "columns": [...]}``) does the same for a table of
+    rows: each column gets the largest difference over the paired rows of the good units.
+    ``GoldenError`` without a good unit, or if none has a curve asked for."""
     if not good:
         raise GoldenError("at least one good unit besides the golden one is needed")
     if factor <= 0 or floor < 0:
@@ -456,6 +616,23 @@ def derive_tolerances(
             summary[key] = max(floor, factor * max(abs(g - want) for g in got))
     if summary:
         spec["summary"] = summary
+    if rows:
+        match = list(rows.get("match") or [])
+        gold = {k: r for r in reference.points if (k := _row_key(r, match)) is not None}
+        columns: Dict[str, float] = {}
+        for column in rows.get("columns") or []:
+            diffs = [
+                abs(row[column] - gold[key][column])
+                for unit in good
+                for row in unit.points
+                if (key := _row_key(row, match)) in gold
+                and _number(row.get(column))
+                and _number(gold[key].get(column))
+            ]
+            if diffs:
+                columns[column] = max(floor, factor * max(diffs))
+        if columns:
+            spec["rows"] = {"match": match, "columns": columns}
     if not spec:
         raise GoldenError("nothing to work the tolerances out from")
     return spec
@@ -508,8 +685,8 @@ def format_result(result: GoldenResult) -> str:
 
 __all__ = [
     "Check", "GoldenError", "GoldenRecorder", "GoldenResult", "check_against_golden",
-    "check_curve", "check_figure", "check_golden_param", "check_step", "derive_tolerances",
-    "find_golden",
+    "check_curve", "check_figure", "check_golden_param", "check_rows", "check_step",
+    "derive_tolerances", "find_golden", "finish",
     "format_result", "golden_path", "list_golden", "recording", "run_from_result", "set_golden",
     "validate_spec",
 ]  # fmt: skip

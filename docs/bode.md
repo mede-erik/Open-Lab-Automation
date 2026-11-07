@@ -66,6 +66,7 @@ all of it (180 for a loop measured with an inverting injection).
 | `phase_offset_deg`, `phase_start_deg` | see above |
 | `limits` | `min_phase_margin_deg`, `min_gain_margin_db`, `min_bandwidth_hz`, `max_peaking_db`. The margins need `loop` |
 | `safety` | `max_amplitude_vpp`: a larger amplitude is refused before anything is switched on |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 | `confirm_setup` | `false` skips the question |
 
 ## What you get

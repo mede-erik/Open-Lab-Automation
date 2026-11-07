@@ -908,7 +908,9 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   con misure, retta e limite, verdetto, CSV). Poi: il passo del campione in tutte le misure VNA (filtro,
   amplificatore, attenuatore, return loss, antenna) con `GoldenRecorder` (una riga in `run`), e le **tolleranze ricavate da più pezzi
   buoni** (`derive_tolerances`: scarto massimo × fattore, minimo un pavimento, retta a tratti piatti che non è mai più stretta dei pezzi
-  usati; pulsante *Proponi dai risultati spuntati* e `golden_check.py --derive`). Da fare: il passo nelle misure non VNA.
+  usati; pulsante *Proponi dai risultati spuntati* e `golden_check.py --derive`). Poi il passo anche in Bode, TDR e nelle misure con
+  una tabella di righe (ripple, regolazione, rendimento, parametri S): `rows` = righe abbinate per colonne (`match`) e tolleranza per
+  colonna, verdetto nella tabella `golden_result` (`summary_row=False` + `finish(ctx)`). Anche `derive_tolerances` per `rows` (da Python).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

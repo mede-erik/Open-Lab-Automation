@@ -62,6 +62,7 @@ the default threshold).
 | `expected_length_m` | the length, if known: with an open or short far end the **length error** and the **velocity factor that fits** are given |
 | `step_response` | also give the step response and the impedance profile (below) |
 | `limits` | `max_fault_reflection`: the largest reflection allowed **before the end of the line** |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 ## How to measure
 

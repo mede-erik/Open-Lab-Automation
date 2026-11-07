@@ -33,7 +33,8 @@ from a terminal. The comparison window ([`compare.md`](compare.md)) shows the sa
 | `curves` | the curves to compare: `trace` (`S21`...), `view` (`loss_db`, `magnitude_db`, `phase`, `value`... as in the comparison window; `value` by default) and the `tolerance` |
 | `tolerance` of a curve | a number (plus or minus that at every frequency), a **line** `[[frequency, tolerance], ...]` (straight between the points, flat outside: a cable can differ more at 3 GHz than at 10 MHz), or `{"upper": u, "lower": l}` for an asymmetric one: the run may be `u` above the golden curve and `l` below it (a cable that is more lossy than the good one is the failure, a less lossy one is not) |
 | `summary` | figures of the one-row summary, each with a number (absolute) or `{"abs": x, "rel": r}`: `rel` is a fraction of the golden value, and if both are given the **larger** allowance counts |
-| `min_overlap` | the part of the golden points that the run must cover, from above 0 to 1 (0.9 by default) |
+| `rows` | for a measurement that gives a **table of rows** (ripple for each load current, efficiency for each input and output, regulation, S-parameters for each sweep): `{"match": [columns], "columns": {column: tolerance}}`. The rows are paired by the values of the `match` columns, and each of the `columns` is checked over all the pairs, with the same tolerance as a figure (a number, or `abs` / `rel`) |
+| `min_overlap` | the part of the golden points (or rows) that the run must cover, from above 0 to 1 (0.9 by default) |
 
 The curves are compared **at the frequencies of the golden curve**, where the run has data (the run is read between its points; nothing is
 made up outside its range). A run of a narrower sweep proves nothing about the missing part, so it **fails** unless it covers at
@@ -75,8 +76,9 @@ project under a name, and **Open a golden sample...** opens one from there as th
 
 ## As a step of a measurement
 
-The VNA measurements, **cable**, **filter**, **amplifier**, **attenuator**, **return loss** and **antenna**, can check themselves at the
-end of the run: in their file
+Every measurement but the time log can check itself at the end of the run: the VNA measurements (**cable**, **filter**,
+**amplifier**, **attenuator**, **return loss**, **antenna**, **time domain**), the **Bode plot**, and those that give a table of rows
+(**ripple**, **regulation**, **efficiency**, **S-parameters**). In their file
 
 ```json
 "golden": {"name": "RG58 1m",
@@ -89,8 +91,21 @@ for each check: `check`, `passed`, `difference`, `at`, `margin`, `detail`) and `
 `golden_failed` in its summary row. Like a limit, a failed check is a **result**: the run still finishes, with warnings in the log. Any
 curve the measurement draws can be checked, in any view (`value` by default): the cable's `loss_db`, the filter's and the amplifier's
 `S21` in `magnitude_db`, the attenuator's `attenuation_db`, the `return_loss_db` of the return loss and of the antenna... The editors of
-these measurements have the two fields. (In the code: one line at the start of the measurement, `ctx = recording(ctx, "filter",
-params)`, keeps the curves and checks the summary row before it goes out: a new module gets the step the same way.)
+these measurements have the two fields.
+
+A measurement with a **table of rows** has no summary row to put the verdict in: its rows are checked with `rows` at the end of the
+run, and the verdict is the one row of the table `golden_result` (`golden_verdict`, `golden_failed`). For example:
+
+| Measurement | `rows` |
+|---|---|
+| ripple (one row per load current) | `{"match": ["load_current_a"], "columns": {"pp_v": 0.005, "rms_v": {"rel": 0.2}}}` |
+| efficiency (one row per point of the sweep) | `{"match": ["vin", "iout"], "columns": {"efficiency": 0.5}}`: the derived columns (the efficiency formula) are there too |
+| regulation (one row per point) | `{"match": ["test", "vin", "i"], "columns": {"vout": 0.01}}` |
+| S-parameters (one row per sweep) | `{"match": ["sweep"], "columns": {"S21_max_db": 0.2}}`; the `curves` are those of the last sweep |
+
+(In the code: one line at the start of the measurement, `ctx = recording(ctx, "filter", params)`, keeps the curves and checks the
+summary row before it goes out; a measurement of many rows passes `summary_row=False` and calls `finish(ctx)` at the end of its
+run. A new module gets the step the same way.)
 
 ## Tolerances from several good units
 
@@ -113,5 +128,6 @@ units happen to agree too well (the floor is there for that).
 
 ## Not done yet
 
-A report does not include the check (see *Future features* in the README). The measurements that are not VNA measurements
-(efficiency, regulation, ripple, Bode...) do not have the step: they can be checked in the comparison window.
+A report does not include the check (see *Future features* in the README). The time log has no step (a log has no good unit to
+compare with). `derive_tolerances` works out `rows` too (`rows={"match": [...], "columns": [...]}`), but only from Python: the
+comparison window and `--derive` fill in curves and summary figures.
