@@ -352,5 +352,6 @@
   "project_open_failed": "Failed to open project",
   "select_series": "Select series",
   "unsupported_file_type": "Unsupported file type",
-  "volt_per_div": "Volts/div"
+  "volt_per_div": "Volts/div",
+  "function_generator": "Function generator"
 }
