@@ -11,9 +11,10 @@ Errors are the CALL-xxx exceptions of ``ola.call_errors``.
 from __future__ import annotations
 
 import threading
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from .call_planner import plan_call
+from .compat import note_use, observe
 from .instrument import Instrument
 from .library import Library
 
@@ -34,11 +35,43 @@ class InstrumentHandle:
         self._library = library
         self._instrument = instrument
         self._cancel = cancel
+        # the largest value of each quantity set or read through this handle (one run)
+        self.observed: Dict[str, float] = {}
+        # what a VNA was asked that not every VNA can do (S-parameters read, source power set)
+        self.used: Dict[str, Any] = {}
+
+    @property
+    def library(self) -> Library:
+        """The instrument library the calls are planned with."""
+        return self._library
+
+    @property
+    def identity(self) -> Any:
+        """Who the apparatus is (``ola.identity.Identity``), or None if it was not read."""
+        return getattr(self._instrument, "identity", None)
+
+    @property
+    def calibration(self) -> Optional[dict]:
+        """The calibration the application applied to this connection (file, kind, date, sweep,
+        serial number), or None."""
+        return getattr(self._instrument, "calibration", None)
+
+    def set_calibration(self, info: Optional[dict]) -> None:
+        """Remember which calibration was applied (None: none)."""
+        self._instrument.calibration = dict(info) if info else None
 
     def call(self, name: str, **args: Any) -> Any:
         """Run a logical call and return its logical result (None for calls without result)."""
         plan = plan_call(self._library, self.model_id, name, args)
-        return plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        result = plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        try:
+            observe(self.observed, name, args, result)
+            note_use(self.used, name, args)
+        except Exception:  # remembering what was asked must never break a measurement
+            pass
+        if name in ("calibration_begin", "calibration_clear"):
+            self._instrument.calibration = None  # a new or removed calibration: the old one is gone
+        return result
 
     def readback(self, name: str, **args: Any) -> Any:
         """Read back the value of a ``set`` call (for example the voltage setpoint)."""
