@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """What an instrument can do, what a measurement has asked of it, and how they compare. No Qt.
 
 **Characteristics** are the numbers the library gives for a model (or the limits of a manual
