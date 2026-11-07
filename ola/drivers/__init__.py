@@ -14,8 +14,12 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from .litevna import LiteVnaDriver
+from .waveforms import WaveformsDriver
 
-DRIVERS: Dict[str, Callable[[Any], Any]] = {"litevna": LiteVnaDriver}
+DRIVERS: Dict[str, Callable[[Any], Any]] = {
+    "litevna": LiteVnaDriver,
+    "waveforms": WaveformsDriver,
+}
 
 
 def driver_for(library, model_id: str, transport) -> Optional[Any]:

@@ -25,7 +25,7 @@ Order when it matters: `black . && flake8 . && python scripts/check_translations
 ## Gotchas
 
 - **`.gitignore` used to exclude `*test*.py`.** Fixed — test files are now tracked. Only `*_old.py`, `*_debug.py`, `*.backup`, `*.bak` and `check_*.py` remain excluded.
-- **CI exists:** `.github/workflows/ci.yml` (lint → i18n check → build C → test import → test backend load).
+- **CI exists:** `.github/workflows/ci.yml` runs on every push and pull request (lint → i18n check → build C → full `pytest` suite incl. library integrity and GUI smoke tests → native Rust transport → PostgreSQL). See `docs/CI.md`.
 - **I18n validation:** `python scripts/check_translations.py` — run before committing new translation keys.
 - **`models.py` is deprecated.** Use `ProjectDatabaseManager` instead.
 - **`DatabaseManager.py` (capital) is deprecated.** Use `ProjectDatabaseManager` instead.
@@ -90,15 +90,19 @@ See `backend/backend.h` for the full API and `frontend/core/c_backend.py` for th
 
 ## Testing
 
-Unit tests live in `tests/` (Qt-free code under `ola/`); `test_basic_import.py` and
-`test_instrument_library.py` at the repo root cover the core imports and the instrument library
-(`git submodule update --init` is needed for the latter).
+Tests live in `tests/` (engine, whole-library integrity, `frontend/core`, scripts, C backend,
+GUI smoke tests); `test_basic_import.py` and `test_instrument_library.py` at the repo root cover
+the core imports and the instrument library (`git submodule update --init` is needed for the
+library tests). What each file covers and how CI runs them: `docs/CI.md`.
 
 ```bash
-pytest                          # everything (tests/ + test_*.py at root)
-pytest tests -q                 # Qt-free unit tests only
-pytest test_basic_import.py     # focused
+QT_QPA_PLATFORM=offscreen pytest   # everything (tests/ + test_*.py at root)
+pytest -m "not gui"                # without the Qt widgets
+pytest tests/test_library_integrity.py   # every call of every library model
 ```
+
+When you change the library usage, a dialog or an error code, run the suite: the integrity,
+GUI smoke and error-code tests are meant to catch exactly those changes.
 
 ---
 

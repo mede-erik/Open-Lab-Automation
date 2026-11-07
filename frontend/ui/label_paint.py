@@ -16,6 +16,7 @@ from PyQt6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PyQt6.QtGui import (
     QColor,
     QFont,
+    QFontMetricsF,
     QImage,
     QPageLayout,
     QPageSize,
@@ -27,6 +28,26 @@ from PyQt6.QtGui import (
 from ola.labels import QR, Box, Drawing, Line, Text
 
 FONT_FAMILY = "Helvetica"
+MEASURE_PIXELS = 200  # the size the font is measured at: large, so hinting does not matter
+MEASURE_MARGIN = 1.02  # and 2 % on top, for the rounding of the real size to whole pixels
+
+
+def make_font(pixel_size: int, bold: bool) -> QFont:
+    """The font of the labels: the same one for painting and for measuring."""
+    font = QFont(FONT_FAMILY)
+    font.setStyleHint(QFont.StyleHint.SansSerif)
+    font.setPixelSize(max(1, pixel_size))
+    font.setBold(bold)
+    return font
+
+
+def text_measure(text: str, size_mm: float, bold: bool = False) -> float:
+    """The width in mm of ``text`` at font size ``size_mm`` in the font that is **really used**
+    (the one the system gives for ``FONT_FAMILY``, which on a computer without Helvetica is a
+    wider one). Pass it as ``measure`` to ``ola.labels.build_drawing`` so that the layout fits
+    the text to the label with the true widths. Needs a ``QGuiApplication``."""
+    metrics = QFontMetricsF(make_font(MEASURE_PIXELS, bold))
+    return metrics.horizontalAdvance(text) / MEASURE_PIXELS * size_mm * MEASURE_MARGIN
 
 
 def paint_drawing(painter: QPainter, drawing: Drawing, scale: float, dx: float = 0, dy: float = 0):
@@ -38,11 +59,7 @@ def paint_drawing(painter: QPainter, drawing: Drawing, scale: float, dx: float =
     black = QColor("black")
     for item in drawing.items:
         if isinstance(item, Text):
-            font = QFont(FONT_FAMILY)
-            font.setStyleHint(QFont.StyleHint.SansSerif)
-            font.setPixelSize(max(1, round(item.size * scale)))
-            font.setBold(item.bold)
-            painter.setFont(font)
+            painter.setFont(make_font(round(item.size * scale), item.bold))
             painter.setPen(black)
             x = item.x * scale
             if item.anchor == "middle":

@@ -25,7 +25,7 @@ a QR code whose modules would print smaller than ``MIN_MODULE_MM`` is flagged in
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
 
 from .assets import Asset, qr_text
@@ -264,19 +264,36 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
 
 def char_width(ch: str) -> float:
     """The width of one character as a fraction of the font size, for a typical sans-serif font:
-    capitals and digits are wide, lower case narrower, spaces and punctuation narrow. Rounded up,
-    so that text is never wider than estimated."""
+    capitals and digits are wide, lower case narrower, spaces and punctuation narrow. Rounded up
+    to the widest of the usual sans-serif fonts (DejaVu Sans, which is what a system without
+    Helvetica or Arial gives), so that text is never wider than estimated. The painter does not
+    rely on it: it measures the real font (see ``Measure``)."""
     if ch == " ":
+        return 0.33
+    if ch in "il":
         return 0.32
-    if ch in "il.,:;'|!":
-        return 0.30
+    if ch in ".,'|":
+        return 0.36
+    if ch in ":;!":
+        return 0.43
     if ch in "-()[]/\\":
-        return 0.40
+        return 0.43
     if ch in "mwMW@%":
         return 1.10
+    if ch == "…":
+        return 1.0
+    if ch in "#&+<=>^~":
+        return 0.80
     if ch.isupper() or ch.isdigit():
-        return 0.70
-    return 0.58  # lower case
+        return 0.79
+    return 0.67  # lower case
+
+
+# A function ``(text, size_mm, bold) -> width_mm`` that measures text in the font really used to
+# draw it (the Qt painter has one, ``frontend.ui.label_paint.text_measure``). The layout needs it
+# because the width of a font cannot be known without the font: on a computer without Helvetica
+# the system uses another, wider one, and the estimate below is only an estimate.
+Measure = Callable[[str, float, bool], float]
 
 
 def text_width(text: str, size: float, bold: bool = False) -> float:
@@ -284,31 +301,45 @@ def text_width(text: str, size: float, bold: bool = False) -> float:
     return sum(char_width(c) for c in text) * size * (1.08 if bold else 1.0)
 
 
-def fit_text(text: str, width: float, start: float, floor: float = MIN_FONT_MM, bold: bool = False):
+def fit_text(
+    text: str,
+    width: float,
+    start: float,
+    floor: float = MIN_FONT_MM,
+    bold: bool = False,
+    measure: Optional[Measure] = None,
+):
     """``(size, text)``: the largest font size from ``start`` down to ``floor`` at which the text
-    fits ``width`` mm; if even ``floor`` is too big the text is cut with an ellipsis."""
+    fits ``width`` mm; if even ``floor`` is too big the text is cut with an ellipsis. ``measure``
+    (see ``Measure``) gives the real width of the text in the font that will be used; without it
+    the estimate ``text_width`` is used."""
+    width_of = measure or text_width
     size = start
-    while size > floor and text_width(text, size, bold) > width:
+    while size > floor and width_of(text, size, bold) > width:
         size = max(floor, size - 0.1)
-    if text_width(text, size, bold) <= width:
+    if width_of(text, size, bold) <= width:
         return size, text
     cut = text
-    while len(cut) > 1 and text_width(cut + "…", size, bold) > width:
+    while len(cut) > 1 and width_of(cut + "…", size, bold) > width:
         cut = cut[:-1]
     return size, cut.rstrip() + "…"
 
 
 # ----- one label -----------------------------------------------------------------------------
-def build_drawing(spec: LabelSpec, asset: Asset, last_measurement: str = "") -> Drawing:
+def build_drawing(
+    spec: LabelSpec, asset: Asset, last_measurement: str = "", measure: Optional[Measure] = None
+) -> Drawing:
     """Lay out the label of ``asset``. ``last_measurement`` is the text of that line (the window
-    makes it from the latest run); an empty line is not drawn."""
+    makes it from the latest run); an empty line is not drawn. ``measure`` measures text in the
+    real font (see ``Measure``): the painter passes it so that the text fits whatever font the
+    system uses; without it the widths are estimated."""
     drawing = Drawing(spec.width_mm, spec.height_mm)
     if spec.border:
         drawing.items.append(Box(0.2, 0.2, spec.width_mm - 0.4, spec.height_mm - 0.4))
     if spec.layout == "flag":
-        _flag(drawing, spec, asset, last_measurement)
+        _flag(drawing, spec, asset, last_measurement, measure)
     else:
-        _panel(drawing, spec, asset, last_measurement, 0.0, spec.width_mm, spec.qr)
+        _panel(drawing, spec, asset, last_measurement, 0.0, spec.width_mm, spec.qr, measure)
     return drawing
 
 
@@ -317,7 +348,16 @@ def _lines(spec: LabelSpec, asset: Asset, last: str) -> List[Tuple[str, str]]:
     return [(k, field_text(k, asset, last)) for k in keys if field_text(k, asset, last)]
 
 
-def _panel(d: Drawing, spec: LabelSpec, asset: Asset, last: str, x0: float, width: float, qr: bool):
+def _panel(
+    d: Drawing,
+    spec: LabelSpec,
+    asset: Asset,
+    last: str,
+    x0: float,
+    width: float,
+    qr: bool,
+    measure: Optional[Measure] = None,
+):
     """The content of one label (or one side of a flag) in the box from ``x0`` of ``width`` mm."""
     m, h = spec.margin_mm, spec.height_mm
     left = x0 + m
@@ -333,10 +373,10 @@ def _panel(d: Drawing, spec: LabelSpec, asset: Asset, last: str, x0: float, widt
     placed: List[Tuple[str, str, float, bool]] = []  # key, text, size, bold
     for key, text in lines:
         if key == "id":
-            size, shown = fit_text(text, text_width_, id_size, 2.5, bold=True)
+            size, shown = fit_text(text, text_width_, id_size, 2.5, bold=True, measure=measure)
             placed.append((key, shown, size, True))
         else:
-            size, shown = fit_text(text, text_width_, size_other)
+            size, shown = fit_text(text, text_width_, size_other, measure=measure)
             placed.append((key, shown, size, False))
     # drop the least important lines until the rest fits the height (the code is always kept)
     while sum(p[2] * 1.2 for p in placed) > available and len(placed) > 1:
@@ -367,14 +407,16 @@ def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: fl
     return text_left, x0 + width - m - text_left
 
 
-def _flag(d: Drawing, spec: LabelSpec, asset: Asset, last: str) -> None:
+def _flag(
+    d: Drawing, spec: LabelSpec, asset: Asset, last: str, measure: Optional[Measure] = None
+) -> None:
     """A strip that wraps round a cable: the same panel either side of a dashed fold line."""
     panel = (spec.width_mm - 1.0) / 2
     qr = spec.qr and spec.height_mm >= 8
     if spec.qr and not qr:
         d.warnings.append("a flag this narrow cannot have a QR code: only the code is written")
-    _panel(d, spec, asset, last, 0.0, panel, qr)
-    _panel(d, spec, asset, last, panel + 1.0, panel, qr)
+    _panel(d, spec, asset, last, 0.0, panel, qr, measure)
+    _panel(d, spec, asset, last, panel + 1.0, panel, qr, measure)
     d.items.append(Line(spec.width_mm / 2, 0, spec.width_mm / 2, spec.height_mm, dashed=True))
 
 
@@ -385,6 +427,7 @@ def sheet_drawings(
     assets: Sequence[Asset],
     skip: int = 0,
     last_measurements: Optional[Dict[str, str]] = None,
+    measure: Optional[Measure] = None,
 ) -> List[Drawing]:
     """The pages of a sheet of labels, one label per asset, **skipping the first ``skip`` positions
     of the first sheet** (the labels already used). Each page is one ``Drawing`` of the page size;
@@ -401,7 +444,7 @@ def sheet_drawings(
             index = skip if len(pages) == 1 else 0
             if index >= sheet.per_page:  # the first sheet is used up: start on a fresh one
                 index = 0
-        label = build_drawing(spec, asset, last_measurements.get(asset.id, ""))
+        label = build_drawing(spec, asset, last_measurements.get(asset.id, ""), measure)
         dx, dy = sheet.position(index)
         page.items.extend(label.translated(dx, dy))
         page.warnings += [

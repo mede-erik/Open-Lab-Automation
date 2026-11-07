@@ -27,11 +27,13 @@ from __future__ import annotations
 import json
 import threading
 import time
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .assets import normalize_code, snapshots_for
+from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
@@ -39,6 +41,8 @@ from .registry import ModuleInfo, ModuleRegistry
 from .runner import Runner
 from .runs import RunWriter, read_run
 from .wiring import Diagram, diagram_for, load_wiring
+
+log = logging.getLogger(__name__)
 
 Connect = Callable[[str, Optional[threading.Event]], Any]  # (name, run's stop event) -> handle
 RUNS_FOLDER = "runs"
@@ -212,11 +216,71 @@ class ProjectSession:
                     except Exception as exc:  # the real reason is shown to the user
                         raise MeasurementError(f"cannot reach instrument '{name}': {exc}") from exc
                 role_handles.append(cache[name])
+            if role.category == "network_analyzer":
+                self._restore_calibrations(role_handles, measurement_file.params)
             handles[role.name] = role_handles
         return handles
 
+    def _restore_calibrations(self, handles: List[Any], params: Dict[str, Any]) -> None:
+        """Before a run: each VNA gets back the saved software calibration made for **it** (its
+        serial number) and for the sweep of the measurement, if there is one. A failure is only
+        logged: the measurement then runs as before (it can require a calibration itself)."""
+        from .compat import sweep_of
+        from .vna_calibration_flow import auto_restore
+
+        sweep = sweep_of(params)
+        for handle in handles:
+            try:
+                auto_restore(handle, self.project.path, sweep)
+            except Exception as exc:
+                log.warning("the calibration of %s was not restored: %s", handle.name, exc)
+
+    def compatibility(
+        self,
+        ref: MeasurementRef,
+        characteristics_of: Callable[[str], Dict[str, float]],
+        abilities_of: Optional[Callable[[str], Dict[str, Any]]] = None,
+        bindings: Optional[Dict[str, Any]] = None,
+    ) -> List[Finding]:
+        """What the instruments now bound to the roles of a measurement have less of than the ones
+        of its previous runs (see ``ola.compat.check_role``). ``characteristics_of(name)`` gives
+        what an instrument of the project can do (``ProjectConnector.characteristics``). Nothing
+        is connected. ``abilities_of(name)``: what a network analyzer can measure (see
+        ``ProjectConnector.abilities``). For the previous instrument of a role there have to be
+        previous runs, except for a VNA, whose sweep is checked against the parameters of the
+        measurement whether or not it was run before. ``bindings`` (``{role: name or [names]}``)
+        is used instead of the ones in the measurement file, to see what an instrument that is only
+        proposed would give."""
+        row = next((r for r in self.rows() if r.ref.id == ref.id), None)
+        if row is None or row.info is None:
+            return []
+        measurement_file = self.load(ref)
+        runs = []
+        for path in self.runs(ref):
+            try:
+                runs.append(read_run(path))
+            except (OSError, ValueError):
+                continue
+        findings: List[Finding] = []
+        for role in row.info.roles:
+            chosen = bindings if bindings is not None else measurement_file.role_bindings
+            wanted = chosen.get(role.name) or list(self.instruments)
+            if isinstance(wanted, str):
+                wanted = [wanted]
+            bound = [{"name": n, "characteristics": characteristics_of(n)} for n in wanted]
+            if role.category == "network_analyzer":
+                for item in bound:
+                    item["abilities"] = abilities_of(item["name"]) if abilities_of else {}
+                findings += check_network_analyzer(role.name, bound, measurement_file.params, runs)
+            else:
+                findings += check_role(role.name, bound, runs)
+        return findings
+
     def build_runner(
-        self, ref: MeasurementRef, unattended: Optional[str] = None
+        self,
+        ref: MeasurementRef,
+        unattended: Optional[str] = None,
+        accepted_differences: Optional[List[Finding]] = None,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
         file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
@@ -246,6 +310,8 @@ class ProjectSession:
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
             extra["assets"] = cards
+        if accepted_differences:  # the user went on although an instrument has less than before
+            extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(
             runner,
             measurement_id=ref.id,
@@ -253,7 +319,7 @@ class ProjectSession:
             project=self.project.name,
             **extra,
         )
-        runner.add_listener(RunWriter(path, header))
+        runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
 
     def resolve_correction(self, params: Dict[str, Any]) -> Dict[str, Any]:

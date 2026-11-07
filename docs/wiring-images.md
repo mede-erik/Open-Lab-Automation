@@ -1,6 +1,6 @@
 # Wiring diagram images: what to draw
 
-List of the images that the modules look for. There are **17**. Each image is optional: until it is missing, the wiring
+List of the images that the modules look for. There are **19**. Each image is optional: while it is missing, the wiring
 window shows the diagram drawn by the program; as soon as you put the file with the right name, your drawing appears.
 You can make them one at a time, in any order.
 
@@ -70,7 +70,7 @@ also give a measurement file and the language: `python -m frontend.ui.WiringDial
 
 ---
 
-# The 17 images
+# The 19 images
 
 Each card says: **file**, **folder**, **when it is shown**, **what to draw** and the **details that must be there**.
 
@@ -265,6 +265,30 @@ Each card says: **file**, **folder**, **when it is shown**, **what to draw** and
   and the calibration plane before the accessories, as in 16.
 * **Details**: same setup as 16, so that it is seen that only the device changes.
 
+## 18. Bode plot
+
+* **File**: `bode`
+* **Folder**: `ola/modules/bode/`
+* **When it is seen**: Bode plot measurement (gain and phase of a circuit) with a function generator and an oscilloscope.
+* **What to draw**: from left to right: the **function generator** (with a sine wave on its display), the **circuit under
+  test** (a box with the input on the left and the output on the right) and the **oscilloscope**. The generator output goes to the **circuit
+  input** and, with a separate wire, to the **reference channel** of the oscilloscope (**CH1**); the **circuit output** goes to the
+  second channel (**CH2**).
+* **Details**: the **two probes identical**, with a short ground spring; the **input pick-up point close to the circuit** (not
+  at the generator output). If you wish, a smaller box showing the **loop gain** case (generator in series with
+  the loop through a resistor or an injection transformer, dashed because it is not always there).
+
+## 19. Time domain (TDR): where a fault is along a cable
+
+* **File**: `tdr`
+* **Folder**: `ola/modules/tdr/`
+* **When it is seen**: time-domain measurement of a line (cable) with the VNA.
+* **What to draw**: the VNA with **P1** connected, with a test lead, to the **near end** of a **long cable** (draw it wavy or
+  coiled, clearly different from the test lead). At the other end three possibilities, drawn as **three alternative endings** (or one end with
+  three symbols side by side): **open** (free connector), **short** (short cap), **device** (a box, for example an antenna).
+* **Details**: on the cable a **fault point** (a crush, a connector) with an arrow and the letter **d**, and a **dimension line** that
+  goes from the calibration plane (the end of the test lead, dashed with CAL) to that point: the distance is measured from there.
+
 ---
 
 # Checklist
@@ -288,6 +312,8 @@ Tick off as you go. The file goes in the indicated folder.
 - [ ] 15. `antenna_with_cable` — `ola/modules/antenna/`
 - [ ] 16. `filter_with_fixtures` — `ola/modules/filter/`
 - [ ] 17. `attenuator_with_fixtures` — `ola/modules/attenuator/`
+- [ ] 18. `bode` — `ola/modules/bode/`
+- [ ] 19. `tdr` — `ola/modules/tdr/`
 
 ## An idea to do less work
 

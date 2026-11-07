@@ -1,0 +1,41 @@
+{
+  "id": "tdr",
+  "name": "Time domain (TDR)",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".tdr",
+  "entry": "measurement.py:Tdr",
+  "description": "Where along a cable or a line a fault is, from the reflection of a vector network analyzer (VNA): the reflection S11 over a linear sweep is turned into the time domain and every reflection (a damaged spot, a connector, a change of impedance, the open or short at the far end) is given as a distance from the plane of the calibration, with its size, its sign (higher or lower impedance) and the impedance there. Gives the resolution and the range of the sweep, the velocity factor that fits a cable of known length, the step response and the impedance profile along the line, and a pass / fail check on the reflections before the end.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer, calibrated at the plane of the connector of the line (one port: open / short / load)"}
+  ],
+  "params_schema": {
+    "device": {"type": "object", "required": false,
+               "description": "label (identifies the cable) and asset_id (its code in the registry)"},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points: a linear sweep. The wider it is the finer the resolution; the more points the farther the range"},
+    "velocity_factor": {"type": "number", "required": false,
+                        "description": "velocity factor of the line, above 0 and at most 1 (0.66 by default, a solid polyethylene coax)"},
+    "z0": {"type": "number", "unit": "ohm", "required": false,
+           "description": "reference impedance (50 by default), for the impedance at each reflection"},
+    "window": {"type": "string", "required": false,
+               "description": "hann (default), hamming, blackman or rect: the window of the transform (a window lowers the sidelobes of a strong reflection, a rect gives the finest resolution)"},
+    "pad": {"type": "integer", "min": 1, "max": 64, "required": false,
+            "description": "zero padding: the curve is computed at this many times more points (8 by default)"},
+    "min_reflection": {"type": "number", "required": false,
+                       "description": "a peak below this reflection coefficient is not counted (0.05 by default)"},
+    "max_distance_m": {"type": "number", "unit": "m", "required": false,
+                       "description": "show and look for reflections only up to this distance"},
+    "expected_length_m": {"type": "number", "unit": "m", "required": false,
+                          "description": "the length of the cable, if known: the length error and the velocity factor that fits it are given from the last reflection (the open or short end)"},
+    "step_response": {"type": "boolean", "required": false,
+                      "description": "also give the step response and the impedance profile (needs a sweep that starts at its own step)"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "limits": {"type": "object", "required": false,
+               "description": "max_fault_reflection: the largest reflection allowed before the end of the line"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the line"}
+  }
+}

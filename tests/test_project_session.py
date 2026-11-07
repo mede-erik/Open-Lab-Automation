@@ -152,3 +152,80 @@ def test_choosing_the_instrument_file(tmp_path):
         session.set_instrument_file("../evil.inst")
     with pytest.raises(MeasurementError):
         session.set_instrument_file("nothere.inst")
+
+
+class ObservingHandle(DemoHandle):
+    """A demo handle that remembers what it was asked and gave, like a real handle does."""
+
+    def __init__(self, name, lab):
+        super().__init__(name, lab)
+        self.observed = {}
+
+    def call(self, name, **args):
+        result = super().call(name, **args)
+        from ola.compat import observe
+
+        observe(self.observed, name, args, result)
+        return result
+
+
+def test_the_end_of_a_run_file_keeps_what_the_instruments_were_asked_and_gave(tmp_path):
+    registry = default_registry(user_dir="/nonexistent")
+    lab = DemoLab()
+    session = ProjectSession(
+        Project.new("Demo", tmp_path),
+        registry,
+        connect=lambda name, cancel=None: ObservingHandle(name, lab),
+        instruments=INSTRUMENTS,
+    )
+    ref = add_efficiency(session)
+    runner, path = session.build_runner(ref)
+    runner.start()
+    runner.join(30)
+    run = read_run(path)
+    assert run["end"]["state"] == "finished"
+    seen = run["end"].get("observed")
+    assert seen, "the demo lab sets and reads voltages: something must have been observed"
+    for rows in seen.values():
+        for row in rows:
+            assert all(v >= 0 for v in row["observed"].values())
+    assert set(run["header"]["instruments"]) == set(run["header"]["bindings"])
+
+
+def test_the_instruments_are_compared_with_the_ones_of_the_previous_run(tmp_path):
+    registry = default_registry(user_dir="/nonexistent")
+    lab = DemoLab()
+    session = ProjectSession(
+        Project.new("Demo", tmp_path),
+        registry,
+        connect=lambda name, cancel=None: ObservingHandle(name, lab),
+        instruments=INSTRUMENTS,
+    )
+    ref = add_efficiency(session)
+    big = {name: {"max_voltage": 200.0} for name in INSTRUMENTS}
+    small = {name: {"max_voltage": 10.0} for name in INSTRUMENTS}
+    assert (
+        session.compatibility(ref, lambda name: big[name]) == []
+    )  # no run yet: nothing to compare
+    runner, path = session.build_runner(ref)
+    runner.start()
+    runner.join(30)
+    # the header of that run keeps what the instruments could do; here the handles have no library
+    # (they are demo handles), so write it as a real run would
+    text = path.read_text(encoding="utf-8").splitlines()
+    header = json.loads(text[0])
+    header["instruments"] = {
+        role: [{"name": n, "characteristics": big[n]} for n in names]
+        for role, names in header["bindings"].items()
+    }
+    text[0] = json.dumps(header)
+    path.write_text("\n".join(text) + "\n", encoding="utf-8")
+    found = session.compatibility(ref, lambda name: small[name])
+    assert found and all(f.characteristic == "max_voltage" and f.previous == 200.0 for f in found)
+    assert session.compatibility(ref, lambda name: big[name]) == []
+    # going on: the differences are written in the header of the next run
+    runner, path = session.build_runner(ref, accepted_differences=found)
+    runner.stop()
+    runner.join(30)
+    kept = read_run(path)["header"]["accepted_differences"]
+    assert kept[0]["characteristic"] == "max_voltage" and kept[0]["previous"] == 200.0

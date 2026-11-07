@@ -56,6 +56,8 @@ class Instrument:
         self.name = name
         self.transport = transport
         self.driver = driver
+        self.identity = None  # ola.identity.Identity, read once when the connection is opened
+        self.calibration: Optional[dict] = None  # what the application applied (see snapshot)
         self._lock = threading.RLock()
         self._stale = False  # a previous call failed: discard pending input first
 

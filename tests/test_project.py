@@ -100,7 +100,7 @@ def test_validate_reports_problems(tmp_path, registry):
     p.add_measurement("time_log", "ok", registry)
     p.measurements += [
         MeasurementRef("m1", "time_log", "dup id", "other.tlg"),  # duplicate id, file missing
-        MeasurementRef("m5", "bode", "no module", "e.bod"),  # unknown type
+        MeasurementRef("m5", "spectrumx", "no module", "e.spx"),  # unknown type
         MeasurementRef("m6", "time_log", "wrong ext", "x.json"),  # wrong extension
         MeasurementRef("m7", "time_log", "evil", "../outside.tlg"),  # path traversal
         MeasurementRef("m8", "time_log", "same file", "OK.tlg"),  # same file as the first
@@ -108,7 +108,7 @@ def test_validate_reports_problems(tmp_path, registry):
     text = "\n".join(p.validate(registry))
     for expected in (
         "duplicate measurement id 'm1'",
-        "unknown measurement type 'bode'",
+        "unknown measurement type 'spectrumx'",
         "should end with .tlg",
         "invalid file name '../outside.tlg'",
         "also used by m1",
@@ -129,3 +129,24 @@ def test_file_path_refuses_traversal(tmp_path):
     p = Project.new("P", tmp_path)
     with pytest.raises(MeasurementError):
         p.file_path(MeasurementRef("m1", "time_log", "x", "../../etc/passwd"))
+
+
+def test_saving_a_project_keeps_what_was_written_to_its_file_meanwhile(tmp_path):
+    """The calibration window lists calibrations in the project file while the project window
+    already holds the project: a later save (a measurement is added) must not lose them."""
+    project = Project.new("P", tmp_path)
+    project.save()
+    loaded = Project.load(project.path)
+    raw = json.loads(project.path.read_text(encoding="utf-8"))
+    raw["calibrations"] = [{"instrument": "VNA", "serial_number": "S1", "file": "x"}]
+    raw["note_from_elsewhere"] = 1
+    project.path.write_text(json.dumps(raw), encoding="utf-8")
+    loaded.name = "renamed"
+    loaded.save()
+    saved = json.loads(project.path.read_text(encoding="utf-8"))
+    assert saved["calibrations"][0]["serial_number"] == "S1"
+    assert saved["note_from_elsewhere"] == 1 and saved["project_name"] == "renamed"
+    # and the newest list wins over an old copy held in memory
+    loaded.extra["calibrations"] = []
+    loaded.save()
+    assert json.loads(project.path.read_text(encoding="utf-8"))["calibrations"][0]["file"] == "x"

@@ -87,7 +87,8 @@ def tracked_files():
         ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
     ).stdout
     return [
-        os.path.join(ROOT, name) for name in out.splitlines()
+        os.path.join(ROOT, name)
+        for name in out.splitlines()
         if os.path.splitext(name)[1] in STYLE and os.path.isfile(os.path.join(ROOT, name))
     ]
 

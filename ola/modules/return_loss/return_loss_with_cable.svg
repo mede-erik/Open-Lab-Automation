@@ -2,16 +2,16 @@
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
 <rect width="1600" height="846" fill="#f1f1f1"/>
 <rect x="20" y="20" width="1560" height="806" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">return_loss_with_cable</text>
-<text x="80" y="245" font-size="30" fill="#555">ola/modules/return_loss/ - Return loss, dispositivo dietro un cavo misurato</text>
-<text x="80" y="330" font-size="30">Quando si vede: quando il file di misura ha la correzione per un cavo (correction): il</text>
-<text x="80" y="372" font-size="30">dispositivo non è sul VNA ma in fondo a un cavo di cui hai già le misure.</text>
-<text x="80" y="439" font-size="30">Da disegnare: come l'immagine 4, ma tra il cavetto di test e il dispositivo c'è il cavo</text>
-<text x="80" y="481" font-size="30">misurato, disegnato lungo e ondulato per distinguerlo dai cavetti di test. P1 va al cavetto di</text>
-<text x="80" y="523" font-size="30">test, il cavetto al capo A del cavo, il capo B al dispositivo.</text>
-<text x="80" y="590" font-size="30">Dettagli: il piano di calibrazione disegnato alla fine del cavetto di test, PRIMA del cavo (un</text>
-<text x="80" y="632" font-size="30">tratto verticale tratteggiato con la scritta CAL): è il punto che cambia rispetto all'immagine</text>
-<text x="80" y="674" font-size="30">4. Il cavo non è nella calibrazione.</text>
-<text x="80" y="786" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/return_loss/ - Return loss, device behind a measured cable</text>
+<text x="80" y="330" font-size="30">When it is seen: when the measurement file has the correction for a cable (correction): the</text>
+<text x="80" y="372" font-size="30">device is not on the VNA but at the end of a cable of which you already have the measurements.</text>
+<text x="80" y="439" font-size="30">What to draw: like image 4, but between the test lead and the device there is the measured</text>
+<text x="80" y="481" font-size="30">cable, drawn long and wavy to distinguish it from the test leads. P1 goes to the test lead, the</text>
+<text x="80" y="523" font-size="30">lead to the end A of the cable, the end B to the device.</text>
+<text x="80" y="590" font-size="30">Details: the calibration plane drawn at the end of the test lead, BEFORE the cable (a dashed</text>
+<text x="80" y="632" font-size="30">vertical line with the word CAL): it is the point that changes compared with image 4. The cable</text>
+<text x="80" y="674" font-size="30">is not in the calibration.</text>
+<text x="80" y="786" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

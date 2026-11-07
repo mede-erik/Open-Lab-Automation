@@ -27,6 +27,7 @@ temporary folder).
 """
 
 import json
+import logging
 import sys
 import tempfile
 from pathlib import Path
@@ -56,6 +57,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.efficiency_widgets import text_color
+from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
 from ola.form_model import load_form_spec
 from ola.measurement import MeasurementError
@@ -63,6 +65,8 @@ from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
 from ola.runs import export_points_csv
+
+logger = logging.getLogger(__name__)
 
 REFRESH_MS = 1000  # the list of runs is refreshed while a run window is open
 
@@ -200,6 +204,9 @@ class ProjectWindow(QMainWindow):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
         self.wir_ = CatalogTranslator("wiring", translator)
+        self.cal_ = CatalogTranslator("calibration", translator)
+        # the shared language catalogs (frontend/lang), also when no translator was given
+        self.app_t = (translator or Translator()).t
         # show the connection diagram of a measurement before it starts (a tick in that window
         # turns it off; ``on_wiring_preference`` is told so that it can be remembered)
         self.wiring_before_run = wiring_before_run
@@ -229,8 +236,9 @@ class ProjectWindow(QMainWindow):
             ("prj_new_project", self.new_project),
             ("prj_open_project", self.open_project),
             ("prj_choose_inst", self.choose_instrument_file),
+            ("roles_menu", self.map_instruments),
         ):
-            action = menu.addAction(self._t(key))
+            action = menu.addAction(self.app_t(key) if key.startswith("roles_") else self._t(key))
             action.triggered.connect(lambda _c=False, h=handler: h())
         central = QWidget()
         self.setCentralWidget(central)
@@ -264,12 +272,12 @@ class ProjectWindow(QMainWindow):
             ("prj_edit", self.edit_measurement),
             ("prj_run", self.run_measurement),
             ("wir_button", self.show_connections),
+            ("cal_button", self.calibrate_analyzer),
             ("prj_rename", self.rename_measurement),
             ("prj_remove", self.remove_measurement),
         ):
-            button = QPushButton(
-                self.wir_.t(key) if key.startswith("wir_") else self._t(key)
-            )
+            catalog = {"wir_": self.wir_, "cal_": self.cal_}.get(key[:4])
+            button = QPushButton(catalog.t(key) if catalog else self._t(key))
             button.clicked.connect(lambda _c=False, h=handler: h())
             self.buttons[key] = button
             row.addWidget(button)
@@ -309,6 +317,13 @@ class ProjectWindow(QMainWindow):
             self.session.connect = self.connector
         self.setWindowTitle(f"{self._t('prj_title')} - {project.name}")
         self._refresh()
+        # a received project: offer to use your own instruments, once the window is shown. The timer
+        # belongs to the window, so it goes away with it (a bare ``QTimer.singleShot`` with a
+        # lambda would fire on a window that was already destroyed)
+        self._mapping_timer = QTimer(self)
+        self._mapping_timer.setSingleShot(True)
+        self._mapping_timer.timeout.connect(lambda: self.map_instruments(quiet=True))
+        self._mapping_timer.start(0)
 
     def _close_connector(self) -> None:
         """Close the connections of the previous project (if its connector can close them)."""
@@ -428,6 +443,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_edit"].setEnabled(usable)
         self.buttons["prj_run"].setEnabled(usable)
         self.buttons["wir_button"].setEnabled(usable)
+        self.buttons["cal_button"].setEnabled(self.session is not None)
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
@@ -517,6 +533,86 @@ class ProjectWindow(QMainWindow):
             return
         dialog.exec()
 
+    def calibrate_analyzer(self) -> None:
+        """Open the calibration window for the network analyzers of the project."""
+        from ola import vna_calibration_flow as flow
+        from ola.connection import ConnectionProblem, read_inst_entries
+
+        library = getattr(self.connector, "library", None)
+        project = self.session.project
+        try:
+            if library is None:
+                raise ConnectionProblem("the instrument library is not available")
+            if not project.inst_file:
+                raise ConnectionProblem("the project has no instrument file (.inst)")
+            entries = read_inst_entries(project.directory / project.inst_file)
+        except ConnectionProblem as exc:
+            QMessageBox.warning(
+                self, self.cal_.t("cal_title"), self.cal_.t("cal_no_connection", error=exc)
+            )
+            return
+        analyzers = flow.network_analyzers(library, entries)
+        if not analyzers:
+            QMessageBox.information(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"))
+            return
+        from frontend.ui.CalibrationDialog import CalibrationDialog
+
+        CalibrationDialog(
+            analyzers,
+            library,
+            self.connector,
+            project.path,
+            self.translator,
+            parent=self,
+            entries=entries,
+        ).exec()
+
+    def map_instruments(self, quiet: bool = False) -> None:
+        """Let the user name their own instruments where the measurements name instruments that
+        are not in the instrument file (a project received from someone else). ``quiet``: say
+        nothing when there is nothing to map (used when a project is opened)."""
+        if self.session is None:
+            return
+        from frontend.ui.RolesDialog import RolesDialog
+
+        dialog = RolesDialog(
+            self.session,
+            getattr(self.connector, "characteristics", None),
+            getattr(self.connector, "abilities", None),
+            self.translator,
+            self,
+        )
+        if not dialog.gaps:
+            if not quiet:
+                QMessageBox.information(self, self._t("prj_title"), self.app_t("roles_nothing"))
+            return
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._refresh()
+
+    def _check_compatibility(self, ref: MeasurementRef):
+        """Compare the instruments now bound to the measurement with the ones of its previous
+        runs. Returns ``(go_on, accepted_differences)``: if something is less than before the
+        user decides (and a difference that makes the measurement impossible stops it). A failure
+        of the check itself never stops a measurement."""
+        characteristics_of = getattr(self.connector, "characteristics", None)
+        if characteristics_of is None:
+            return True, None
+        try:
+            findings = self.session.compatibility(
+                ref, characteristics_of, getattr(self.connector, "abilities", None)
+            )
+        except Exception as exc:  # the check is a help: it must not prevent the run
+            logger.warning("the instruments could not be compared: %s", exc)
+            return True, None
+        if not findings:
+            return True, None
+        from frontend.ui.CompatibilityDialog import CompatibilityDialog
+
+        dialog = CompatibilityDialog(findings, self.translator, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return False, None
+        return True, findings
+
     def _confirm_wiring(self, ref: MeasurementRef) -> bool:
         """Before a run: show the diagram and ask to start. False if the user cancels."""
         if not self.wiring_before_run:
@@ -539,8 +635,11 @@ class ProjectWindow(QMainWindow):
             return
         if not self._confirm_wiring(ref):
             return
+        proceed, accepted = self._check_compatibility(ref)
+        if not proceed:
+            return
         try:
-            runner, run_file = self.session.build_runner(ref)
+            runner, run_file = self.session.build_runner(ref, accepted_differences=accepted)
         except MeasurementError as exc:
             QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
             return
@@ -646,6 +745,9 @@ class ProjectWindow(QMainWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+        timer = getattr(self, "_mapping_timer", None)
+        if timer is not None:  # a window that is closed does not offer anything any more
+            timer.stop()
         for window in running:  # stop them first, so that their own windows do not ask again
             window.runner.stop()
             window.runner.join(15)

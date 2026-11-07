@@ -2,15 +2,15 @@
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
 <rect width="1600" height="804" fill="#f1f1f1"/>
 <rect x="20" y="20" width="1560" height="764" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">filter</text>
-<text x="80" y="245" font-size="30" fill="#555">ola/modules/filter/ - Filtro</text>
-<text x="80" y="330" font-size="30">Quando si vede: misura della risposta di un filtro (passa-basso, passa-alto, passa-banda,</text>
-<text x="80" y="372" font-size="30">elimina-banda).</text>
-<text x="80" y="439" font-size="30">Da disegnare: il VNA con P1 e P2; il filtro in mezzo, con l'ingresso collegato a P1 e l'uscita</text>
-<text x="80" y="481" font-size="30">collegata a P2, ciascuno con un cavetto di test.</text>
-<text x="80" y="548" font-size="30">Dettagli: ingresso (IN) e uscita (OUT) del filtro indicati chiaramente (il filtro è un</text>
-<text x="80" y="590" font-size="30">dispositivo direzionale: l'utente deve sapere quale lato va su P1). Il simbolo del filtro può</text>
-<text x="80" y="632" font-size="30">essere il classico riquadro con la curva (non scegliere il tipo: vale per tutti e quattro).</text>
-<text x="80" y="744" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/filter/ - Filter</text>
+<text x="80" y="330" font-size="30">When it is seen: measurement of the response of a filter (low-pass, high-pass, band-pass, band-</text>
+<text x="80" y="372" font-size="30">stop).</text>
+<text x="80" y="439" font-size="30">What to draw: the VNA with P1 and P2; the filter in the middle, with the input connected to P1</text>
+<text x="80" y="481" font-size="30">and the output connected to P2, each with a test lead.</text>
+<text x="80" y="548" font-size="30">Details: the filter's input (IN) and output (OUT) clearly indicated (the filter is a</text>
+<text x="80" y="590" font-size="30">directional device: the user must know which side goes to P1). The filter symbol can be the</text>
+<text x="80" y="632" font-size="30">classic box with the curve (do not choose the type: it applies to all four).</text>
+<text x="80" y="744" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

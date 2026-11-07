@@ -237,6 +237,8 @@ def test_the_asset_field_of_the_forms_asks_for_its_kind_and_the_name_it_fills(re
         "attenuator": ("attenuator.asset_id", "attenuator", "attenuator.label"),
         "ripple": ("device.asset_id", None, "device.label"),
         "regulation": ("device.asset_id", None, "device.label"),
+        "bode": ("device.asset_id", None, "device.label"),
+        "tdr": ("device.asset_id", "cable", "device.label"),
     }
     for module, (path, kind, label) in wanted.items():
         field = next(f for f in load_form_spec(registry.get(module)).fields() if f.kind == "asset")
@@ -273,6 +275,8 @@ def test_an_unknown_code_is_a_warning_not_an_error(registry, tmp_path):
         ("attenuator", "attenuator"),
         ("ripple", "device"),
         ("regulation", "device"),
+        ("bode", "device"),
+        ("tdr", "device"),
     ],
 )
 def test_every_measurement_checks_the_code_it_is_given(registry, module, group):

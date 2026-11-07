@@ -92,3 +92,48 @@ def test_edge_cases():
 def test_a_long_record_is_cut_to_a_power_of_two():
     f, a = spectrum.amplitude_spectrum(sine(50e3, 1.0, n=5000), DT)
     assert len(f) == 4096 // 2 + 1
+
+
+# ---- the sine fit ------------------------------------------------------------------------------
+@pytest.mark.parametrize("use_numpy", [True, False])
+def test_a_sine_fit_gives_amplitude_phase_and_offset(use_numpy):
+    dt, f = 1e-7, 123456.0
+    y = [0.7 * math.cos(2 * math.pi * f * k * dt + 0.9) + 0.2 for k in range(5000)]
+    fit = spectrum.fit_sine(y, dt, f, use_numpy=use_numpy)
+    assert fit["amplitude"] == pytest.approx(0.7, abs=1e-9)
+    assert fit["phase_rad"] == pytest.approx(0.9, abs=1e-9) and fit["offset"] == pytest.approx(0.2)
+    assert fit["residual_rms"] < 1e-9
+
+
+def test_a_sine_fit_finds_the_signal_in_a_lot_of_noise_and_reports_what_is_left():
+    import random
+
+    rng = random.Random(4)
+    dt, f = 1e-6, 5000.0
+    y = [0.01 * math.cos(2 * math.pi * f * k * dt - 1.2) + rng.gauss(0, 0.05) for k in range(20000)]
+    fit = spectrum.fit_sine(y, dt, f)
+    assert fit["amplitude"] == pytest.approx(0.01, abs=0.002)  # the noise is 5 times the signal
+    assert fit["phase_rad"] == pytest.approx(-1.2, abs=0.2)
+    assert fit["residual_rms"] == pytest.approx(0.05, rel=0.05)  # and what is left is that noise
+
+
+def test_the_phase_between_two_channels_is_the_difference_of_their_phases():
+    dt, f = 1e-7, 3e4
+    a = [math.cos(2 * math.pi * f * k * dt + 0.4) for k in range(3000)]
+    b = [0.25 * math.cos(2 * math.pi * f * k * dt + 0.4 - 0.7) for k in range(3000)]
+    fa, fb = spectrum.fit_sine(a, dt, f), spectrum.fit_sine(b, dt, f)
+    assert fb["amplitude"] / fa["amplitude"] == pytest.approx(0.25)
+    assert fb["phase_rad"] - fa["phase_rad"] == pytest.approx(-0.7)
+
+
+def test_a_sine_fit_refuses_what_it_cannot_fit():
+    with pytest.raises(ValueError, match="at least 8"):
+        spectrum.fit_sine([1.0] * 5, 1e-6, 1e3)
+    with pytest.raises(ValueError, match="above 0"):
+        spectrum.fit_sine([1.0] * 50, 1e-6, 0)
+    with pytest.raises(ValueError, match="above 0"):
+        spectrum.fit_sine([1.0] * 50, 0, 1e3)
+    with pytest.raises(ValueError, match="do not cover"):
+        spectrum.fit_sine(
+            [1.0] * 50, 1e-6, 5e5
+        )  # exactly 2 samples a cycle: cos and sin are dependent

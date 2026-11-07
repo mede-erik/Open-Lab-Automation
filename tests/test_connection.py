@@ -286,3 +286,41 @@ def test_a_whole_run_through_the_session_reads_the_instrument(tmp_path):
     assert runner.join(10) and runner.state is RunState.FINISHED, runner.error
     points = read_run(run_file)["points"]
     assert len(points) == 3 and all(p["values"]["v"] == 3.5 for p in points)
+
+
+def test_serial_settings_and_timeout_of_the_entry_reach_the_opener(tmp_path):
+    seen = []
+
+    def opener(address, library, model_id, timeout_ms, serial_override=None):
+        seen.append((address, timeout_ms, serial_override))
+        return SimTransport(lambda cmd: "3.5")
+
+    entry = {**REAL, "visa_address": "ASRL3::INSTR", "serial": {"baud": 19200}, "timeout_ms": 9000}
+    path = write_inst(tmp_path, [entry])
+    connector = ProjectConnector(library(), lambda: path, opener=opener)
+    connector("PSU")
+    connector("PSU")  # same settings: the open connection is reused
+    assert seen == [("ASRL3::INSTR", 9000, {"baud": 19200})]
+    path = write_inst(tmp_path, [{**entry, "serial": {"baud": 9600}}])
+    connector("PSU")  # other settings: opened again
+    assert len(seen) == 2 and seen[1][2] == {"baud": 9600}
+
+
+def test_an_entry_without_settings_calls_the_opener_as_before(tmp_path):
+    connector, opener = make(tmp_path, [REAL])
+    connector("PSU")
+    assert opener.opened[0][:2] == ("TCPIP0::1.2.3.4::inst0::INSTR", "PSU1")
+
+
+def test_what_an_instrument_can_do_is_known_without_connecting(tmp_path):
+    manual = {
+        "instrument_type": "power_supply",
+        "instance_name": "VIN",
+        "is_manual": True,
+        "channels": [{"enabled": True, "name": "CH1", "max_voltage": 30.0, "max_current": 5.0}],
+    }
+    connector, opener = make(tmp_path, [REAL, manual])
+    assert connector.characteristics("VIN") == {"max_voltage": 30.0, "max_current": 5.0}
+    assert connector.characteristics("PSU") == {}  # the test library gives no numbers
+    assert connector.characteristics("nobody") == {}
+    assert opener.opened == []  # nothing was opened

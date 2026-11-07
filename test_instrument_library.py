@@ -31,12 +31,13 @@ def test_library_structure(lib):
 
 def test_get_all_types(lib):
     assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load', 'switch_unit',
-                                   'network_analyzer']
+                                   'network_analyzer', 'function_generator']
 
 
 def test_get_series_key(lib):
     assert lib.get_series_key('power_supply') == 'power_supplies_series'
     assert lib.get_series_key('oscilloscope') == 'oscilloscopes_series'
+    assert lib.get_series_key('function_generator') == 'function_generators_series'
     assert lib.get_series_key('boh') is None
 
 

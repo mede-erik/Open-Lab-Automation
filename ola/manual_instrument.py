@@ -30,6 +30,7 @@ from .call_errors import (
     ManualActionCancelledError,
 )
 from .call_planner import _logical_value
+from .compat import observe
 from .library import Library
 
 # manual instrument type of the .inst file -> category of the library schemas
@@ -118,6 +119,7 @@ class ManualInstrumentHandle:
         self._schema = library.schema(CATEGORIES[instrument_type]) or {"calls": {}, "types": {}}
         self._prompt = prompt
         self._cancel = cancel
+        self.observed: Dict[str, float] = {}  # the largest value the operator was asked to set
 
     def supports(self, name: str) -> bool:
         """True for the calls the operator can carry out by hand."""
@@ -153,6 +155,7 @@ class ManualInstrumentHandle:
         visible = {k: v for k, v in checked.items() if k != "channel_number"}
         request = ManualRequest(self.name, name, visible, _describe(self.name, name, visible, unit))
         self._ask(request)
+        observe(self.observed, name, checked, None)  # confirmed: it was set
 
     def readback(self, name: str, **args: Any) -> Any:
         """Manual instruments cannot be read back."""

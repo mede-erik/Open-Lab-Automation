@@ -1,0 +1,381 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Line and instrument",
+        "it": "Linea e strumento",
+        "fr": "Ligne et instrument",
+        "es": "Línea e instrumento",
+        "de": "Leitung und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, calibrated at the plane of the connector of the line (one port).",
+            "it": "L'analizzatore di reti, calibrato al piano del connettore della linea (una porta).",
+            "fr": "L'analyseur de réseau, étalonné au plan du connecteur de la ligne (un port).",
+            "es": "El analizador de redes, calibrado en el plano del conector de la línea (un puerto).",
+            "de": "Der Netzwerkanalysator, kalibriert an der Ebene des Steckers der Leitung (ein Tor)."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Cable from the registry",
+            "it": "Cavo dal registro",
+            "fr": "Câble du registre",
+            "es": "Cable del registro",
+            "de": "Kabel aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "cable",
+          "label_path": "device.label"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Cable name",
+            "it": "Nome del cavo",
+            "fr": "Nom du câble",
+            "es": "Nombre del cable",
+            "de": "Kabelname"
+          },
+          "help": {
+            "en": "Identifies the line: it is saved with every run.",
+            "it": "Identifica la linea: viene salvato con ogni esecuzione.",
+            "fr": "Identifie la ligne : il est enregistré avec chaque exécution.",
+            "es": "Identifica la línea: se guarda con cada ejecución.",
+            "de": "Kennzeichnet die Leitung: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. antenna feed",
+            "it": "es. discesa d'antenna",
+            "fr": "p. ex. descente d'antenne",
+            "es": "p. ej. bajada de antena",
+            "de": "z. B. Antennenzuleitung"
+          }
+        },
+        {
+          "path": "velocity_factor",
+          "kind": "number",
+          "label": {
+            "en": "Velocity factor",
+            "it": "Fattore di velocità",
+            "fr": "Facteur de vélocité",
+            "es": "Factor de velocidad",
+            "de": "Verkürzungsfaktor"
+          },
+          "help": {
+            "en": "0.66 for a solid polyethylene coax, 0.82 for a foam one, 0.95 for air. It scales every distance: if it is wrong all the distances are wrong by the same ratio.",
+            "it": "0,66 per un coassiale con polietilene pieno, 0,82 con schiuma, 0,95 in aria. Scala tutte le distanze: se è sbagliato sono tutte sbagliate dello stesso rapporto.",
+            "fr": "0,66 pour un coaxial à polyéthylène plein, 0,82 pour un en mousse, 0,95 pour l'air. Il met à l'échelle toutes les distances : s'il est faux elles le sont toutes du même rapport.",
+            "es": "0,66 para un coaxial con polietileno macizo, 0,82 con espuma, 0,95 con aire. Escala todas las distancias: si es erróneo todas lo son en la misma proporción.",
+            "de": "0,66 für ein Koax mit Vollpolyethylen, 0,82 mit Schaum, 0,95 mit Luft. Er skaliert alle Entfernungen: ist er falsch, sind alle im gleichen Verhältnis falsch."
+          }
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance",
+            "it": "Impedenza di riferimento",
+            "fr": "Impédance de référence",
+            "es": "Impedancia de referencia",
+            "de": "Bezugsimpedanz"
+          },
+          "help": {
+            "en": "50 ohm by default: the impedance at each reflection is given relative to it.",
+            "it": "50 ohm di default: l'impedenza a ogni riflessione è data rispetto ad essa.",
+            "fr": "50 ohms par défaut : l'impédance à chaque réflexion est donnée par rapport à elle.",
+            "es": "50 ohmios por defecto: la impedancia en cada reflexión se da respecto a ella.",
+            "de": "Standardmäßig 50 Ohm: die Impedanz bei jeder Reflexion wird darauf bezogen angegeben."
+          }
+        },
+        {
+          "path": "expected_length_m",
+          "kind": "number",
+          "unit": "m",
+          "label": {
+            "en": "Known length",
+            "it": "Lunghezza nota",
+            "fr": "Longueur connue",
+            "es": "Longitud conocida",
+            "de": "Bekannte Länge"
+          },
+          "help": {
+            "en": "Optional: if you know the length and the far end is open or shorted, the length error and the velocity factor that fits it are given.",
+            "it": "Facoltativa: se conosci la lunghezza e il capo lontano è aperto o in corto, si danno l'errore di lunghezza e il fattore di velocità che torna.",
+            "fr": "Facultative : si vous connaissez la longueur et que l'extrémité lointaine est ouverte ou en court-circuit, l'erreur de longueur et le facteur de vélocité qui convient sont donnés.",
+            "es": "Opcional: si conoce la longitud y el extremo lejano está abierto o en corto, se dan el error de longitud y el factor de velocidad que encaja.",
+            "de": "Optional: ist die Länge bekannt und das ferne Ende offen oder kurzgeschlossen, werden der Längenfehler und der passende Verkürzungsfaktor angegeben."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep and analysis",
+        "it": "Sweep e analisi",
+        "fr": "Balayage et analyse",
+        "es": "Barrido y análisis",
+        "de": "Sweep und Analyse"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "help": {
+            "en": "The wider the sweep the finer the resolution: 1 GHz at a velocity factor of 0.66 separates faults 10 cm apart.",
+            "it": "Più è largo lo sweep più è fine la risoluzione: 1 GHz con fattore di velocità 0,66 separa guasti a 10 cm.",
+            "fr": "Plus le balayage est large, plus la résolution est fine : 1 GHz avec un facteur de vélocité de 0,66 sépare des défauts à 10 cm.",
+            "es": "Cuanto más ancho el barrido, más fina la resolución: 1 GHz con un factor de velocidad de 0,66 separa fallos a 10 cm.",
+            "de": "Je breiter der Sweep, desto feiner die Auflösung: 1 GHz bei einem Verkürzungsfaktor von 0,66 trennt Fehler im Abstand von 10 cm."
+          },
+          "placeholder": {
+            "en": "e.g. 1G",
+            "it": "es. 1G",
+            "fr": "p. ex. 1G",
+            "es": "p. ej. 1G",
+            "de": "z. B. 1G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "The more points the farther the range: it is the line length that fits before the reflections wrap round (shown in the result). A long cable needs many points.",
+            "it": "Più punti, più è lontano il campo: è la lunghezza di linea prima che le riflessioni si ripieghino (indicata nel risultato). Un cavo lungo richiede molti punti.",
+            "fr": "Plus de points, plus la portée est grande : c'est la longueur de ligne avant que les réflexions se replient (indiquée dans le résultat). Un long câble demande beaucoup de points.",
+            "es": "Cuantos más puntos, mayor el alcance: es la longitud de línea antes de que las reflexiones se replieguen (se indica en el resultado). Un cable largo requiere muchos puntos.",
+            "de": "Je mehr Punkte, desto größer die Reichweite: es ist die Leitungslänge, bevor sich die Reflexionen zurückfalten (im Ergebnis angegeben). Ein langes Kabel braucht viele Punkte."
+          }
+        },
+        {
+          "path": "window",
+          "kind": "choice",
+          "label": {
+            "en": "Window",
+            "it": "Finestra",
+            "fr": "Fenêtre",
+            "es": "Ventana",
+            "de": "Fenster"
+          },
+          "help": {
+            "en": "Hann is a good balance. A window keeps the sidelobes of a strong reflection from hiding a weak one; Rectangular has the finest resolution and the most sidelobes.",
+            "it": "Hann è un buon compromesso. Una finestra evita che i lobi laterali di una riflessione forte nascondano una debole; Rettangolare ha la risoluzione più fine e più lobi laterali.",
+            "fr": "Hann est un bon compromis. Une fenêtre évite que les lobes latéraux d'une réflexion forte cachent une faible ; Rectangulaire a la résolution la plus fine et le plus de lobes latéraux.",
+            "es": "Hann es un buen compromiso. Una ventana evita que los lóbulos laterales de una reflexión fuerte oculten una débil; Rectangular tiene la resolución más fina y más lóbulos laterales.",
+            "de": "Hann ist ein guter Kompromiss. Ein Fenster verhindert, dass die Nebenkeulen einer starken Reflexion eine schwache verdecken; Rechteck hat die feinste Auflösung und die meisten Nebenkeulen."
+          },
+          "choices": [
+            {
+              "value": "hann",
+              "label": {
+                "en": "Hann",
+                "it": "Hann",
+                "fr": "Hann",
+                "es": "Hann",
+                "de": "Hann"
+              }
+            },
+            {
+              "value": "hamming",
+              "label": {
+                "en": "Hamming",
+                "it": "Hamming",
+                "fr": "Hamming",
+                "es": "Hamming",
+                "de": "Hamming"
+              }
+            },
+            {
+              "value": "blackman",
+              "label": {
+                "en": "Blackman",
+                "it": "Blackman",
+                "fr": "Blackman",
+                "es": "Blackman",
+                "de": "Blackman"
+              }
+            },
+            {
+              "value": "rect",
+              "label": {
+                "en": "Rectangular",
+                "it": "Rettangolare",
+                "fr": "Rectangulaire",
+                "es": "Rectangular",
+                "de": "Rechteck"
+              }
+            }
+          ]
+        },
+        {
+          "path": "pad",
+          "kind": "int",
+          "label": {
+            "en": "Zero padding",
+            "it": "Zero padding",
+            "fr": "Remplissage de zéros",
+            "es": "Relleno de ceros",
+            "de": "Zero-Padding"
+          },
+          "help": {
+            "en": "The curve is computed at this many times more points (8 by default): it makes the peaks smooth and their distance exact.",
+            "it": "La curva è calcolata con tanti punti in più (8 di default): rende i picchi lisci e la loro distanza esatta.",
+            "fr": "La courbe est calculée avec autant de points en plus (8 par défaut) : elle rend les pics lisses et leur distance exacte.",
+            "es": "La curva se calcula con tantos puntos más (8 por defecto): hace los picos suaves y su distancia exacta.",
+            "de": "Die Kurve wird mit so viel mehr Punkten berechnet (standardmäßig 8): das macht die Spitzen glatt und ihre Entfernung genau."
+          }
+        },
+        {
+          "path": "min_reflection",
+          "kind": "number",
+          "label": {
+            "en": "Smallest reflection counted",
+            "it": "Riflessione minima contata",
+            "fr": "Plus petite réflexion comptée",
+            "es": "Reflexión mínima contada",
+            "de": "Kleinste gezählte Reflexion"
+          },
+          "help": {
+            "en": "A peak below this reflection coefficient (0 to 1) is not a fault (0.05 by default).",
+            "it": "Un picco sotto questo coefficiente di riflessione (da 0 a 1) non è un guasto (0,05 di default).",
+            "fr": "Un pic sous ce coefficient de réflexion (0 à 1) n'est pas un défaut (0,05 par défaut).",
+            "es": "Un pico por debajo de este coeficiente de reflexión (0 a 1) no es un fallo (0,05 por defecto).",
+            "de": "Eine Spitze unter diesem Reflexionsfaktor (0 bis 1) ist kein Fehler (standardmäßig 0,05)."
+          }
+        },
+        {
+          "path": "max_distance_m",
+          "kind": "number",
+          "unit": "m",
+          "label": {
+            "en": "Look only up to",
+            "it": "Cerca solo fino a",
+            "fr": "Chercher seulement jusqu'à",
+            "es": "Buscar solo hasta",
+            "de": "Nur suchen bis"
+          },
+          "help": {
+            "en": "Optional: a distance after which nothing is shown or looked for.",
+            "it": "Facoltativa: una distanza oltre la quale non si mostra né si cerca niente.",
+            "fr": "Facultatif : une distance au-delà de laquelle rien n'est montré ni cherché.",
+            "es": "Opcional: una distancia a partir de la cual no se muestra ni se busca nada.",
+            "de": "Optional: eine Entfernung, ab der nichts angezeigt oder gesucht wird."
+          }
+        },
+        {
+          "path": "step_response",
+          "kind": "bool",
+          "label": {
+            "en": "Also the step response and the impedance profile",
+            "it": "Anche la risposta al gradino e il profilo di impedenza",
+            "fr": "Aussi la réponse à l'échelon et le profil d'impédance",
+            "es": "También la respuesta al escalón y el perfil de impedancia",
+            "de": "Auch Sprungantwort und Impedanzprofil"
+          },
+          "help": {
+            "en": "Needs a sweep that starts at its own step (the start frequency a multiple of the step between points).",
+            "it": "Richiede uno sweep che parta dal proprio passo (la frequenza iniziale un multiplo del passo tra i punti).",
+            "fr": "Nécessite un balayage qui part de son propre pas (la fréquence de départ un multiple du pas entre les points).",
+            "es": "Requiere un barrido que empiece en su propio paso (la frecuencia inicial un múltiplo del paso entre puntos).",
+            "de": "Braucht einen Sweep, der bei seiner eigenen Schrittweite beginnt (die Startfrequenz ein Vielfaches des Punktabstands)."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limits",
+            "it": "Limiti",
+            "fr": "Limites",
+            "es": "Límites",
+            "de": "Grenzwerte"
+          },
+          "help": {
+            "en": "Optional pass / fail: {\"max_fault_reflection\": 0.1} = no reflection above 0.1 before the end of the line (the last peak is the open, the short or the device).",
+            "it": "Promosso / non promosso facoltativo: {\"max_fault_reflection\": 0.1} = nessuna riflessione sopra 0,1 prima della fine della linea (l'ultimo picco è l'aperto, il corto o il dispositivo).",
+            "fr": "Réussi / échoué facultatif : {\"max_fault_reflection\": 0.1} = aucune réflexion au-dessus de 0,1 avant la fin de la ligne (le dernier pic est l'ouvert, le court-circuit ou le dispositif).",
+            "es": "Aprobado / suspendido opcional: {\"max_fault_reflection\": 0.1} = ninguna reflexión por encima de 0,1 antes del final de la línea (el último pico es el abierto, el corto o el dispositivo).",
+            "de": "Optional bestanden / nicht bestanden: {\"max_fault_reflection\": 0.1} = keine Reflexion über 0,1 vor dem Ende der Leitung (die letzte Spitze ist das Offene, der Kurzschluss oder das Gerät)."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

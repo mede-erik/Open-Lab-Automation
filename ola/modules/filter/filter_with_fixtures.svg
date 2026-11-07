@@ -2,17 +2,17 @@
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
 <rect width="1600" height="888" fill="#f1f1f1"/>
 <rect x="20" y="20" width="1560" height="848" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">filter_with_fixtures</text>
-<text x="80" y="245" font-size="30" fill="#555">ola/modules/filter/ - Filtro con accessori (cavi o attenuatori) su una o due porte</text>
-<text x="80" y="330" font-size="30">Quando si vede: quando il file di misura ha la correzione (correction): il filtro non è</text>
-<text x="80" y="372" font-size="30">collegato direttamente al VNA ma attraverso cavi, adattatori o attenuatori già misurati, su una</text>
-<text x="80" y="414" font-size="30">porta o su entrambe.</text>
-<text x="80" y="481" font-size="30">Da disegnare: come l'immagine 6, ma tra ogni porta del VNA e il filtro c'è un accessorio (un</text>
-<text x="80" y="523" font-size="30">tratto di cavo ondulato o il simbolo di un attenuatore), su P1, su P2 o su entrambe: disegna</text>
-<text x="80" y="565" font-size="30">entrambe, con la P2 in tratteggio per dire che non c'è sempre.</text>
-<text x="80" y="632" font-size="30">Dettagli: il piano di calibrazione alla fine dei cavetti di test, PRIMA degli accessori (tratto</text>
-<text x="80" y="674" font-size="30">verticale tratteggiato con la scritta CAL); gli accessori sono fuori dalla calibrazione. IN e</text>
-<text x="80" y="716" font-size="30">OUT del filtro ben visibili.</text>
-<text x="80" y="828" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/filter/ - Filter with accessories (cables or attenuators) on one or two ports</text>
+<text x="80" y="330" font-size="30">When it is seen: when the measurement file has the correction (correction): the filter is not</text>
+<text x="80" y="372" font-size="30">connected directly to the VNA but through cables, adapters or attenuators already measured, on</text>
+<text x="80" y="414" font-size="30">one port or on both.</text>
+<text x="80" y="481" font-size="30">What to draw: like image 6, but between each VNA port and the filter there is an accessory (a</text>
+<text x="80" y="523" font-size="30">stretch of wavy cable or the symbol of an attenuator), on P1, on P2 or on both: draw both, with</text>
+<text x="80" y="565" font-size="30">P2 dashed to show that it is not always there.</text>
+<text x="80" y="632" font-size="30">Details: the calibration plane at the end of the test leads, BEFORE the accessories (dashed</text>
+<text x="80" y="674" font-size="30">vertical line with the word CAL); the accessories are outside the calibration. IN and OUT of</text>
+<text x="80" y="716" font-size="30">the filter clearly visible.</text>
+<text x="80" y="828" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

@@ -281,3 +281,122 @@ def test_the_window_closes_the_connector_of_the_previous_project(app, tmp_path):
         w._timer.stop()
         w.close()
     assert closed == [True, True]
+
+
+def test_the_calibration_button_says_why_it_cannot_open(window, monkeypatch):
+    """The demo project has no instrument library behind its connector, so there is nothing to
+    calibrate: the user is told, no window opens."""
+    seen = []
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: seen.append(a[2])))
+    assert window.buttons["cal_button"].isEnabled()
+    window.buttons["cal_button"].click()
+    assert len(seen) == 1 and "library" in seen[0]
+
+
+def test_the_user_decides_when_an_instrument_has_less_than_before(window, monkeypatch):
+    """Cancel stops the run before anything starts; Continue goes on and keeps the differences."""
+    from PyQt6.QtWidgets import QDialog
+
+    from frontend.ui.CompatibilityDialog import CompatibilityDialog
+    from ola.compat import Finding
+
+    found = [Finding("dmm", "NEW", "max_voltage", 100.0, 200.0, "OLD", 39.6)]
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: found)
+    answers = []
+
+    def fake_exec(self):
+        answers.append(self.table.item(0, 3).text())
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(CompatibilityDialog, "exec", fake_exec)
+    assert window._check_compatibility(ref) == (False, None)
+    assert answers == ["100 V"]
+    monkeypatch.setattr(CompatibilityDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    assert window._check_compatibility(ref) == (True, found)
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: [])
+    assert window._check_compatibility(ref) == (True, None)  # nothing to say: no pop-up
+
+
+def test_a_failing_comparison_never_stops_a_run(window, monkeypatch):
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+
+    def boom(r, f, a=None):
+        raise RuntimeError("cannot compare")
+
+    monkeypatch.setattr(window.session, "compatibility", boom)
+    assert window._check_compatibility(ref) == (True, None)
+
+
+def test_a_sweep_the_vna_cannot_do_stops_the_run_and_nothing_can_be_accepted(window, monkeypatch):
+    from PyQt6.QtWidgets import QDialog
+
+    from frontend.ui.CompatibilityDialog import CompatibilityDialog
+    from ola.compat import Finding
+
+    found = [Finding("vna", "LITE", "frequency_max_hz", 6.3e9, 4.5e9, "OLD", 8e9, True)]
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f, a=None: found)
+    seen = []
+
+    def fake_exec(self):
+        seen.append((self.blocking, hasattr(self, "continue_button")))
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(CompatibilityDialog, "exec", fake_exec)
+    assert window._check_compatibility(ref) == (False, None)
+    assert seen == [(True, False)]  # only Close: there is no button that goes on
+
+
+def test_mapping_instruments_says_when_there_is_nothing_to_map(window, monkeypatch):
+    told = []
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(a[2])))
+    window.map_instruments(quiet=True)  # when a project is opened: silent
+    assert told == []
+    window.map_instruments()  # from the menu: it says so
+    assert told == ["All the instruments the measurements name are in your instrument file."]
+
+
+def test_a_window_destroyed_before_the_mapping_offer_does_not_fail(app, tmp_path, monkeypatch):
+    """Opening a project schedules the offer to use your own instruments; if the window is
+    destroyed before it fires, nothing must run on the dead window."""
+    import sys
+
+    from PyQt6 import sip
+
+    errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *args: errors.append(args))
+    asked = []
+    monkeypatch.setattr(
+        ProjectWindow, "map_instruments", lambda self, quiet=False: asked.append(quiet)
+    )
+    w = ProjectWindow(
+        demo_project(str(tmp_path)),
+        connect=lambda name, cancel=None: DemoHandle(name, DemoLab()),
+        registry=default_registry(user_dir="/nonexistent"),
+    )
+    w._timer.stop()
+    sip.delete(w)  # destroyed now, before the event loop runs the timer
+    app.processEvents()
+    app.processEvents()
+    assert errors == [] and asked == []  # the offer never ran: the window was gone first
+
+
+def test_the_mapping_offer_runs_once_the_window_is_alive(window, app):
+    window._mapping_timer.stop()  # (the fixture's window may already have asked)
+    asked = []
+    window.map_instruments = lambda quiet=False: asked.append(quiet)
+    window._mapping_timer.start(0)
+    assert pump(app, lambda: asked)
+    assert asked == [True]  # quiet: nothing to say when there is nothing to map
+
+
+def test_a_closed_window_does_not_offer_the_mapping(window, app):
+    window.map_instruments = lambda quiet=False: (_ for _ in ()).throw(AssertionError("asked"))
+    window.close()
+    for _ in range(3):
+        app.processEvents()
+    assert not window._mapping_timer.isActive()

@@ -81,6 +81,30 @@ def supported_kinds(library, model_id: str) -> List[str]:
     return [k for k in KINDS if k in (kinds or KINDS)]
 
 
+def parse_sweep(start: str, stop: str, points: Any) -> Dict[str, float]:
+    """The sweep of a calibration from what the user typed ('1M', '2.4G', ...).
+
+    Raises ``InvalidArgumentError`` (CALL-003) with a message for the user if a value is wrong."""
+    try:
+        first, last = parse_frequency(start), parse_frequency(stop)
+    except ValueError as exc:
+        raise InvalidArgumentError(f"{exc} (examples: 1M, 100k, 2.4G)") from exc
+    if first <= 0 or last <= first:
+        raise InvalidArgumentError("the stop frequency must be higher than the start frequency")
+    try:
+        count = int(points)
+    except (TypeError, ValueError) as exc:
+        raise InvalidArgumentError(f"not a number of points: {points!r}") from exc
+    if count < 2:
+        raise InvalidArgumentError("a sweep needs at least 2 points")
+    return {"start": first, "stop": last, "points": count}
+
+
+def supports_kit(library, model_id: str) -> bool:
+    """True if the model accepts the values of a calibration kit (``set_calibration_kit``)."""
+    return "set_calibration_kit" in (library.commands(model_id) or {})
+
+
 @dataclass(frozen=True)
 class CalibrationStep:
     """One standard to connect and measure."""
@@ -126,6 +150,7 @@ class CalibrationRecord:
     sweep: Optional[Dict[str, float]]
     standards: List[str]
     kit: Optional[Dict[str, float]] = None  # values of the calibration kit; None: ideal standards
+    serial_number: Optional[str] = None  # the apparatus it was made for (read from the instrument)
     date: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     data: Optional[Dict[str, Any]] = None  # software calibration: restorable
     note: str = (
@@ -202,8 +227,10 @@ class CalibrationSession:
                 data = self.handle.call("calibration_export")
             except CallError:
                 data = None
+        identity = getattr(self.handle, "identity", None)
         return CalibrationRecord(
             instrument=instrument_name,
+            serial_number=getattr(identity, "serial_number", None),
             model_id=model_id,
             kind=self.kind,
             port=self.port,
@@ -240,11 +267,17 @@ def _slug(text: str) -> str:
 
 
 def save_record(record: CalibrationRecord, directory) -> Path:
-    """Write the record as ``<instrument>_<date>.cal.json`` in ``directory``."""
+    """Write the record as ``<instrument>_<serial>_<date>.cal.json`` in ``directory`` (no serial in
+    the name if there is none); a file that exists is never overwritten."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     stamp = re.sub(r"[^0-9]", "", record.date)
-    path = directory / f"{_slug(record.instrument)}_{stamp}.cal.json"
+    serial = f"_{_slug(record.serial_number)}" if record.serial_number else ""
+    path = directory / f"{_slug(record.instrument)}{serial}_{stamp}.cal.json"
+    counter = 2
+    while path.exists():  # never overwrite another calibration (two in the same second)
+        path = directory / f"{_slug(record.instrument)}{serial}_{stamp}_{counter}.cal.json"
+        counter += 1
     path.write_text(
         json.dumps(asdict(record), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -263,12 +296,14 @@ def load_record(path) -> CalibrationRecord:
 
 
 def attach_to_project(project_path, record_path, record: CalibrationRecord) -> None:
-    """List the calibration in the project file (key ``calibrations``, the newest per
-    instrument replaces the older one). Other keys of the project file are kept."""
+    """List the calibration in the project file (key ``calibrations``, the newest per apparatus --
+    the same instrument name and serial number -- replaces the older one). Other keys of the
+    project file are kept."""
     project_path = Path(project_path)
     raw = json.loads(project_path.read_text(encoding="utf-8"))
     entry = {
         "instrument": record.instrument,
+        "serial_number": record.serial_number,
         "kind": record.kind,
         "date": record.date,
         "file": (
@@ -277,7 +312,12 @@ def attach_to_project(project_path, record_path, record: CalibrationRecord) -> N
             else str(record_path)
         ),
     }
-    others = [c for c in raw.get("calibrations", []) if c.get("instrument") != record.instrument]
+    others = [
+        c
+        for c in raw.get("calibrations", [])
+        if (c.get("instrument"), c.get("serial_number"))
+        != (record.instrument, record.serial_number)
+    ]
     raw["calibrations"] = others + [entry]
     project_path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -301,3 +341,114 @@ def restore(handle, record: CalibrationRecord) -> None:
             points=int(record.sweep["points"]),
         )
     handle.call("calibration_import", data=record.data)
+
+
+def network_analyzers(library, entries: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
+    """The VNAs among the instruments of an ``.inst`` file: ``{instance_name: model_id}``.
+
+    ``entries`` is what ``ola.connection.read_inst_entries`` returns. Manual instruments and
+    models that are not network analyzers are left out."""
+    found = {}
+    for name, entry in entries.items():
+        if entry.get("is_manual"):
+            continue
+        model_id = library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        ref = library.find_model(model_id) if model_id else None
+        if ref is not None and ref.category == "network_analyzers_series":
+            found[name] = model_id
+    return found
+
+
+def save_and_attach(record: CalibrationRecord, project_path) -> Path:
+    """Save the record in the ``calibrations`` folder next to the project file and list it in
+    the project. Returns the path of the record."""
+    project_path = Path(project_path)
+    path = save_record(record, project_path.parent / "calibrations")
+    attach_to_project(project_path, path, record)
+    return path
+
+
+def calibration_info(record: CalibrationRecord, path, project_path=None) -> Dict[str, Any]:
+    """What the snapshot of a run keeps about the calibration that was applied: the record file
+    (relative to the project if it is inside it), kind, date, sweep and the serial number it was
+    made for."""
+    file = str(path)
+    if project_path is not None:
+        try:
+            file = str(Path(path).resolve().relative_to(Path(project_path).resolve().parent))
+        except ValueError:
+            pass
+    return {
+        "file": file,
+        "kind": record.kind,
+        "date": record.date,
+        "sweep": record.sweep,
+        "serial_number": record.serial_number,
+    }
+
+
+def _same_sweep(saved: Optional[Dict[str, float]], asked: Optional[Dict[str, float]]) -> bool:
+    """True if a calibration made for sweep ``saved`` (start / stop / points) is valid for the
+    sweep ``asked`` (start_hz / stop_hz / points) of a measurement."""
+    if not saved or not asked:
+        return False
+    try:
+        return (
+            abs(float(saved["start"]) - float(asked["start_hz"])) < 0.5
+            and abs(float(saved["stop"]) - float(asked["stop_hz"])) < 0.5
+            and int(saved["points"]) == int(asked["points"])
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def find_record(project_path, serial_number: Optional[str], instrument: str = ""):
+    """The newest calibration of the project made **for this apparatus**: ``(record, path)`` or
+    None. A calibration belongs to one apparatus, found by its serial number: without a serial
+    number (the instrument gives none) nothing is found, so a calibration is never taken for
+    another instrument that happens to have the same name."""
+    if not serial_number:
+        return None
+    project_path = Path(project_path)
+    try:
+        raw = json.loads(project_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    entries = [
+        c
+        for c in raw.get("calibrations", [])
+        if isinstance(c, dict) and c.get("serial_number") == serial_number
+    ]
+    for entry in sorted(entries, key=lambda c: str(c.get("date", "")), reverse=True):
+        path = project_path.parent / str(entry.get("file", ""))
+        try:
+            record = load_record(path)
+        except CallError:
+            continue
+        if record.serial_number == serial_number:  # the file says so too
+            return record, path
+    return None
+
+
+def auto_restore(
+    handle, project_path, sweep: Optional[Dict[str, float]]
+) -> Optional[Dict[str, Any]]:
+    """Put back, before a measurement, the saved software calibration of **this apparatus** when it
+    was made for the sweep of the measurement. Returns what the snapshot of the run keeps about it
+    (see ``calibration_info``), or None when nothing was restored: the instrument keeps its own
+    calibration, gives no serial number, has none saved for it, a calibration is already applied, or
+    the sweep is another one. Never raises for those reasons."""
+    if getattr(handle, "calibration", None) or not handle.supports("calibration_import"):
+        return None
+    identity = getattr(handle, "identity", None)
+    found = find_record(project_path, getattr(identity, "serial_number", None))
+    if found is None:
+        return None
+    record, path = found
+    if not record.data or not _same_sweep(record.sweep, sweep):
+        return None
+    restore(handle, record)
+    info = calibration_info(record, path, project_path)
+    info["restored"] = True
+    handle.set_calibration(info)
+    return info

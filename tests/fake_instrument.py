@@ -105,3 +105,64 @@ class FakePtyInstrument:
                 os.close(fd)
             except OSError:
                 pass
+
+
+class FakePrologix:
+    """A fake Prologix GPIB-ETHERNET adapter on TCP with instruments behind it.
+
+    ``devices`` maps a GPIB address to ``reply(command) -> answer`` (bytes, or None for no answer);
+    ``commands`` records the ``++`` commands received, ``data`` the (unescaped) bytes sent to each
+    address. ``port`` is the address to give to ``PrologixConnection`` (``127.0.0.1:<tcp port>``).
+    """
+
+    def __init__(self, devices, version: bytes = b"Prologix GPIB-ETHERNET version 1.6.6.0"):
+        self.devices = dict(devices)
+        self.version = version
+        self.commands: list = []
+        self.data: dict = {}
+        self.addr = None
+        self._pending: dict = {}
+        self._server = FakeTcpInstrument(self._handle)
+        self.port = f"127.0.0.1:{self._server.port}"
+
+    def close(self):
+        self._server.close()
+
+    def _line(self, conn, raw: bytes, escaped: bool) -> None:
+        if raw.startswith(b"++") and not escaped:
+            cmd = raw.decode("ascii").strip()
+            self.commands.append(cmd)
+            if cmd == "++ver":
+                conn.sendall(self.version + b"\r\n")
+            elif cmd.startswith("++addr"):
+                self.addr = int(cmd.split()[1])
+            elif cmd == "++read eoi":
+                answer = self._pending.pop(self.addr, None)
+                if answer:
+                    conn.sendall(answer)
+            return
+        self.data.setdefault(self.addr, []).append(raw)
+        reply = self.devices.get(self.addr)
+        answer = reply(raw.rstrip(b"\r\n")) if reply is not None else None
+        if answer is not None:
+            self._pending[self.addr] = answer
+
+    def _handle(self, conn) -> None:
+        line, escape, escaped = bytearray(), False, False
+        while True:
+            data = conn.recv(4096)
+            if not data:
+                return
+            for byte in data:
+                b = bytes([byte])
+                if escape:
+                    line += b
+                    escape, escaped = False, True
+                elif b == b"\x1b":
+                    escape = True
+                elif b in (b"\n", b"\r"):
+                    if line:
+                        self._line(conn, bytes(line), escaped)
+                    line, escaped = bytearray(), False
+                else:
+                    line += b

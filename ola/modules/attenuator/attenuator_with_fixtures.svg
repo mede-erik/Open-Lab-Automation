@@ -2,12 +2,12 @@
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
 <rect width="1600" height="800" fill="#f1f1f1"/>
 <rect x="20" y="20" width="1560" height="760" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">attenuator_with_fixtures</text>
-<text x="80" y="245" font-size="30" fill="#555">ola/modules/attenuator/ - Attenuatore con accessori su una o due porte</text>
-<text x="80" y="330" font-size="30">Quando si vede: come la 16, per la misura dell'attenuatore.</text>
-<text x="80" y="397" font-size="30">Da disegnare: come l'immagine 7 (VNA, attenuatore al centro) con gli accessori su P1 e su P2</text>
-<text x="80" y="439" font-size="30">(P2 tratteggiato) e il piano di calibrazione prima degli accessori, come nella 16.</text>
-<text x="80" y="506" font-size="30">Dettagli: stessa impostazione della 16, così si vede che cambia solo il dispositivo.</text>
-<text x="80" y="740" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/attenuator/ - Attenuator with accessories on one or two ports</text>
+<text x="80" y="330" font-size="30">When it is seen: like 16, for the attenuator measurement.</text>
+<text x="80" y="397" font-size="30">What to draw: like image 7 (VNA, attenuator in the middle) with the accessories on P1 and on P2</text>
+<text x="80" y="439" font-size="30">(P2 dashed) and the calibration plane before the accessories, as in 16.</text>
+<text x="80" y="506" font-size="30">Details: same setup as 16, so that it is seen that only the device changes.</text>
+<text x="80" y="740" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

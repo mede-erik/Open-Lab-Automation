@@ -1,0 +1,191 @@
+{
+  "nodes": [
+    {
+      "id": "gen",
+      "role": "generator",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "Function generator",
+        "it": "Generatore di funzioni",
+        "fr": "Générateur de fonctions",
+        "es": "Generador de funciones",
+        "de": "Funktionsgenerator"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": "{device.label|Circuit under test}",
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "role": "oscilloscope",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "Oscilloscope",
+        "it": "Oscilloscopio",
+        "fr": "Oscilloscope",
+        "es": "Osciloscopio",
+        "de": "Oszilloskop"
+      },
+      "ports": [
+        {
+          "id": "cha",
+          "side": "left",
+          "label": "CH{scope.output_channel|2}"
+        },
+        {
+          "id": "chb",
+          "side": "left",
+          "label": "CH{scope.input_channel|1}"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "gen.out",
+      "to": "dut.in",
+      "label": {
+        "en": "sine",
+        "it": "sinusoide",
+        "fr": "sinusoïde",
+        "es": "sinusoide",
+        "de": "Sinus"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "scope.cha",
+      "label": {
+        "en": "output",
+        "it": "uscita",
+        "fr": "sortie",
+        "es": "salida",
+        "de": "Ausgang"
+      }
+    },
+    {
+      "from": "gen.out",
+      "to": "scope.chb",
+      "label": {
+        "en": "input",
+        "it": "ingresso",
+        "fr": "entrée",
+        "es": "entrada",
+        "de": "Eingang"
+      },
+      "style": "dashed"
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the output of the function generator to the input of the circuit ({device.label|circuit under test}).",
+        "it": "Collega l'uscita del generatore di funzioni all'ingresso del circuito ({device.label|circuito in prova}).",
+        "fr": "Connectez la sortie du générateur de fonctions à l'entrée du circuit ({device.label|circuit testé}).",
+        "es": "Conecte la salida del generador de funciones a la entrada del circuito ({device.label|circuito en prueba}).",
+        "de": "Den Ausgang des Funktionsgenerators mit dem Eingang der Schaltung ({device.label|Schaltung im Test}) verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect channel {scope.input_channel|1} of the oscilloscope to the input of the circuit, as close to it as possible: it is the reference.",
+        "it": "Collega il canale {scope.input_channel|1} dell'oscilloscopio all'ingresso del circuito, il più vicino possibile: è il riferimento.",
+        "fr": "Connectez la voie {scope.input_channel|1} de l'oscilloscope à l'entrée du circuit, au plus près : c'est la référence.",
+        "es": "Conecte el canal {scope.input_channel|1} del osciloscopio a la entrada del circuito, lo más cerca posible: es la referencia.",
+        "de": "Kanal {scope.input_channel|1} des Oszilloskops so nah wie möglich an den Eingang der Schaltung anschließen: er ist die Referenz."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect channel {scope.output_channel|2} of the oscilloscope to the output of the circuit.",
+        "it": "Collega il canale {scope.output_channel|2} dell'oscilloscopio all'uscita del circuito.",
+        "fr": "Connectez la voie {scope.output_channel|2} de l'oscilloscope à la sortie du circuit.",
+        "es": "Conecte el canal {scope.output_channel|2} del osciloscopio a la salida del circuito.",
+        "de": "Kanal {scope.output_channel|2} des Oszilloskops an den Ausgang der Schaltung anschließen."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same kind of probe and the same ground lead length on both channels: a difference in cable delay shows up as phase at high frequency.",
+        "it": "Usa lo stesso tipo di sonda e la stessa lunghezza del puntale di massa sui due canali: una differenza di ritardo dei cavi si vede come fase alle alte frequenze.",
+        "fr": "Utilisez le même type de sonde et la même longueur de fil de masse sur les deux voies : une différence de retard des câbles apparaît comme de la phase aux hautes fréquences.",
+        "es": "Use el mismo tipo de sonda y la misma longitud del cable de masa en los dos canales: una diferencia de retardo de los cables aparece como fase a alta frecuencia.",
+        "de": "Auf beiden Kanälen denselben Tastkopftyp und dieselbe Massekabellänge verwenden: ein Laufzeitunterschied der Kabel zeigt sich bei hohen Frequenzen als Phase."
+      }
+    },
+    {
+      "text": {
+        "en": "For a loop gain, inject the signal in series with the loop (a small resistor or a transformer) and measure on both sides of the injection: the circuit has to be working in its normal state.",
+        "it": "Per un guadagno d'anello inietta il segnale in serie all'anello (una piccola resistenza o un trasformatore) e misura da entrambi i lati dell'iniezione: il circuito deve funzionare nel suo stato normale.",
+        "fr": "Pour un gain de boucle, injectez le signal en série avec la boucle (une petite résistance ou un transformateur) et mesurez des deux côtés de l'injection : le circuit doit fonctionner dans son état normal.",
+        "es": "Para una ganancia de lazo, inyecte la señal en serie con el lazo (una resistencia pequeña o un transformador) y mida a ambos lados de la inyección: el circuito debe funcionar en su estado normal.",
+        "de": "Bei einer Schleifenverstärkung das Signal in Reihe mit der Schleife einspeisen (ein kleiner Widerstand oder ein Transformator) und auf beiden Seiten der Einspeisung messen: die Schaltung muss in ihrem normalen Zustand arbeiten."
+      },
+      "when": "loop"
+    }
+  ],
+  "notes": [
+    {
+      "en": "The generator is switched on by the measurement and off at the end. Keep its amplitude small: a circuit that saturates gives a wrong gain.",
+      "it": "Il generatore viene acceso dalla misura e spento alla fine. Tieni piccola l'ampiezza: un circuito che satura dà un guadagno sbagliato.",
+      "fr": "Le générateur est allumé par la mesure et éteint à la fin. Gardez son amplitude petite : un circuit qui sature donne un gain faux.",
+      "es": "El generador lo enciende la medición y lo apaga al final. Mantenga su amplitud pequeña: un circuito que satura da una ganancia errónea.",
+      "de": "Der Generator wird von der Messung ein- und am Ende ausgeschaltet. Die Amplitude klein halten: eine gesättigte Schaltung liefert eine falsche Verstärkung."
+    }
+  ],
+  "images": [
+    {
+      "file": "bode",
+      "optional": true
+    }
+  ]
+}

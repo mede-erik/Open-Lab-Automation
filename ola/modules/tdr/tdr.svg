@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="846" viewBox="0 0 1600 846" font-family="Helvetica, Arial, sans-serif">
+<!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
+<rect width="1600" height="846" fill="#f1f1f1"/>
+<rect x="20" y="20" width="1560" height="806" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
+<text x="80" y="190" font-size="64" font-weight="bold">tdr</text>
+<text x="80" y="245" font-size="30" fill="#555">ola/modules/tdr/ - Time domain (TDR): where a fault is along a cable</text>
+<text x="80" y="330" font-size="30">When it is seen: time-domain measurement of a line (cable) with the VNA.</text>
+<text x="80" y="397" font-size="30">What to draw: the VNA with P1 connected, with a test lead, to the near end of a long cable</text>
+<text x="80" y="439" font-size="30">(draw it wavy or coiled, clearly different from the test lead). At the other end three</text>
+<text x="80" y="481" font-size="30">possibilities, drawn as three alternative endings (or one end with three symbols side by side):</text>
+<text x="80" y="523" font-size="30">open (free connector), short (short cap), device (a box, for example an antenna).</text>
+<text x="80" y="590" font-size="30">Details: on the cable a fault point (a crush, a connector) with an arrow and the letter d, and</text>
+<text x="80" y="632" font-size="30">a dimension line that goes from the calibration plane (the end of the test lead, dashed with</text>
+<text x="80" y="674" font-size="30">CAL) to that point: the distance is measured from there.</text>
+<text x="80" y="786" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
+</svg>
