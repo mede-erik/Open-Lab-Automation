@@ -36,7 +36,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from frontend.ui.label_paint import paint_drawing, render_image, write_pdf
+from frontend.ui.label_paint import paint_drawing, render_image, text_measure, write_pdf
 from frontend.ui.module_translator import CatalogTranslator
 from ola.assets import Asset
 from ola.labels import (
@@ -216,11 +216,13 @@ class LabelDialog(QDialog):
         self.error = ""
         try:
             if kind == SINGLE:
-                self.pages = [build_drawing(spec, a, self.last_line(a)) for a in self.assets]
+                self.pages = [
+                    build_drawing(spec, a, self.last_line(a), text_measure) for a in self.assets
+                ]
             else:
                 lines = {a.id: self.last_line(a) for a in self.assets}
                 self.pages = sheet_drawings(
-                    SHEETS[name], spec, self.assets, self.skip_box.value(), lines
+                    SHEETS[name], spec, self.assets, self.skip_box.value(), lines, text_measure
                 )
         except RuntimeError as exc:  # the QR code needs segno
             self.pages, self.error = [], str(exc)
