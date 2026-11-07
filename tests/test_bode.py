@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Bode plot: parameters, the maths, and whole runs on a simulated generator, scope and circuit."""
 
 import cmath

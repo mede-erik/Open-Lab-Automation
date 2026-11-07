@@ -242,8 +242,7 @@ and the software reaches a beta state. The detailed plan (in Italian) is in [`PL
   (and Touchstone for RF traces).
 - **Measurement templates**: ready-made measurement files to choose from *New measurement* (line and load
   regulation, I-V curve...) for the measurements that are a variation of an existing module.
-- **More measurement modules**: ripple and noise, Bode plot, load transient, spectrum analysis, battery
-  discharge. See the table in `PLAN.md`.
+- **More measurement modules**: load transient, battery discharge. See the table in `PLAN.md`.
 - **Instruments without SCPI**: the LiteVNA67 (text commands on a serial port) and the Analog Discovery 2/3
   (driver system).
 
