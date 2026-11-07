@@ -26,7 +26,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - Measurement projects with their configuration files: `.json` (project and variables), `.inst` (instruments), `.eff` (efficiency sweep), `.was` (oscilloscope settings).
   - Dedicated editors for instruments, efficiency sweeps and oscilloscope settings, with advanced naming options for files and instances.
   - Optional PostgreSQL storage of the measurement data; the connection settings are saved with an encrypted password.
-  - The automatic execution of the measurements (efficiency sweeps and the other measurement types) is **under development** and not yet available in this version: the *Avvia Efficienza* tab is a placeholder.
+  - Measurements are run from the *Measurements* tab (the project window): new measurement, edit, **Start measurement** and the runs already made; see the [Engine](#engine-ola-and-native) section for the measurement types. They have been tried only with simulated instruments so far.
 
 - **Tools** (*Tools* menu)
   - **Pulse Generator**: current pulses on an electronic load with a live preview of the trapezoidal waveform (amplitude, base level, width, frequency, rise/fall time). The current and, when the library gives the load's maximum power, the **peak and average power** (P = I × V, with a *working voltage* field) are checked while editing and again at start, when the voltage is read from the load; the parameter changed last is corrected to the largest safe value. Only the commands defined in the library are used.
@@ -283,7 +283,7 @@ Tried on a real instrument so far: **Agilent 34970A** over RS-232 and **Siglent 
    - For other instruments: configure channels, variables, and measurement settings
 4. Set up efficiency sweeps with nested variables in the `.eff` file editor
 5. Configure oscilloscope acquisition and trigger in the `.was` file editor
-6. Use the remote control panel to drive the instruments; the automatic run of the measurements is under development
+6. Start the measurements from the *Measurements* tab and follow them in the run window; the remote control panel drives single instruments by hand
 
 ### Example Projects
 Check the `examples/` directory for sample configurations:
