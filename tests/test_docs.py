@@ -700,3 +700,57 @@ def test_tdr_example_in_the_docs_is_valid_and_runs():
     names = ("c * vf * t / 2", "higher impedance", "lower impedance", "velocity_factor_estimate")
     for name in names + ("step_response", "ola/tdr.py", "resolution", "range"):
         assert name in text, name
+
+
+def test_sparameters_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/sparameters.md is a real file: it validates and runs."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "sparameters.md")
+    block = re.search(r"```json sparameters\.spm\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/sparameters.md"
+    params = _json.loads(block.group(1))
+    params["interval_s"] = 0.0
+    m = default_registry(user_dir="/nonexistent").create("sparameters", params)
+    assert m.validate() == [], m.validate()
+    runner = Runner(m, {"vna": [SimVna(library_calls=True, library_extras=True)]})
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert [r["sweep"] for r in rows] == [1, 2, 3]
+    for key in ("S11_min_db", "S11_min_hz", "S21_max_db"):
+        assert key in rows[0] and key in text, key
+
+
+def test_time_log_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/time-log.md is a real file: it validates and runs."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from tests.measurement_helpers import FakeHandle, run_to_end
+
+    text = read(ROOT / "docs" / "time-log.md")
+    block = re.search(r"```json temperatures\.tlg\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/time-log.md"
+    params = _json.loads(block.group(1))
+    params.pop("duration_s")
+    params.update(samples=3, interval_s=0.01)
+    m = default_registry(user_dir="/nonexistent").create("time_log", params)
+    assert m.validate() == [], m.validate()
+    handles = {
+        "instruments": [
+            FakeHandle("dmm1", {"read_voltage": 5.0}),
+            FakeHandle("daq", {"measure_temperature": 25.0}),
+        ]
+    }
+    runner = run_to_end(Runner(m, handles))
+    assert runner.state.value == "finished", runner.error
+    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert len(rows) == 3 and rows[0]["vout"] == 5.0 and rows[0]["temp1"] == 25.0
+    for name in ("duration_s", "samples", "t_s", "instruments"):
+        assert name in text, name
