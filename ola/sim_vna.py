@@ -18,7 +18,9 @@ cable's round trip, as in a real measurement through a cable). ``filter_type`` p
 Butterworth filter between the ports (S21 is its response); ``attenuator_db`` (and a
 ``attenuator_slope_db_per_ghz``) an attenuator instead of the cable. ``fixture1_m`` and
 ``fixture2_m`` put a length of the same cable on port 1 and on port 2, between the calibration
-plane and the filter or the attenuator (the device is then measured through them). ``noise_db``
+plane and the filter or the attenuator (the device is then measured through them);
+``fault_at_m`` and ``fault_gamma`` put a discontinuity in the cable, ``fault_gamma`` of reflection
+at that distance from port 1, for the time-domain measurement. ``noise_db``
 adds a little random error to every point; ``calls`` records what was asked.
 
 Two ways to be asked: the **simple calls** ``set_sweep`` and ``read_sparameter`` (the default) or,
@@ -78,6 +80,8 @@ class SimVna:
         library_extras: bool = True,
         library_sweep_type: bool = False,
         library_linear_only: bool = False,
+        fault_at_m: float = 0.0,
+        fault_gamma: complex = 0.0,
     ):
         self.name = name
         self.length_m = length_m
@@ -91,6 +95,7 @@ class SimVna:
         self.library_calls, self.calibrated = library_calls, calibrated
         self.library_extras, self.library_sweep_type = library_extras, library_sweep_type
         self.library_linear_only = library_linear_only
+        self.fault_at_m, self.fault_gamma = fault_at_m, complex(fault_gamma)
         self._swept = False
         self._lib_power, self._lib_ifbw = -10.0, 1000.0
         self.sweep: Dict[str, Any] = {}
@@ -150,8 +155,19 @@ class SimVna:
         z = complex(r, q * r * (f / f0 - f0 / f))
         return (z - 50.0) / (z + 50.0)
 
+    def fault_echo(self, f: float) -> complex:
+        """The reflection of a discontinuity of the cable (``fault_gamma`` at ``fault_at_m`` from
+        port 1: a damaged spot, a connector) as port 1 sees it: weakened and delayed by the round
+        trip to it (single reflections only)."""
+        if not self.fault_at_m or not self.fault_gamma:
+            return 0j
+        return self.fault_gamma * self.fixture(f, self.fault_at_m) ** 2
+
     def reflection(self, f: float) -> complex:
         """What port 1 sees (S11)."""
+        return self._end_reflection(f) + self.fault_echo(f)
+
+    def _end_reflection(self, f: float) -> complex:
         t = self.transmission(f)
         if self.termination == "open":
             return t * t

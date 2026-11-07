@@ -636,3 +636,121 @@ def test_deembedding_doc_matches_the_code():
     assert "ola/fixtures.py" in read(ROOT / "README.md")
     for image in ("filter_with_fixtures", "attenuator_with_fixtures"):
         assert image in read(ROOT / "docs" / "wiring-images.md")
+
+
+def test_bode_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/bode.md is a real file: it validates and runs on the simulated bench."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_bode import SimBodeLab, integrator_with_pole
+
+    text = read(ROOT / "docs" / "bode.md")
+    block = re.search(r"```json bode\.bod\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/bode.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("bode", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    lab = SimBodeLab(plant=integrator_with_pole(2e4, 2e5), noise_v=0.0001)
+    runner = Runner(m, {"generator": [lab.generator], "oscilloscope": [lab.scope]})
+    runner.start()
+    assert runner.join(120) and runner.state.value == "finished", runner.error
+    rows = [
+        e.data["values"]
+        for e in runner.drain()
+        if e.kind == "point" and e.data["table"] == "points"
+    ]
+    row = rows[0]
+    assert abs(row["crossover_hz"] - 2e4) < 1e3 and abs(row["phase_margin_deg"] - 84.3) < 3
+    assert row["verdict"] == "PASS" and not lab.generator_on
+    for name in ("set_output_state", "set_frequency", "set_amplitude", "function_generator",
+                 "read_waveform_full", "phase_margin_deg", "gain_margin_db"):  # fmt: skip
+        assert name in text, name
+
+
+def test_tdr_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/tdr.md is a real file: it validates and finds the end of the cable."""
+    import json as _json
+
+    from ola import tdr
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "tdr.md")
+    block = re.search(r"```json tdr\.tdr\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/tdr.md"
+    params = _json.loads(block.group(1))
+    m = default_registry(user_dir="/nonexistent").create("tdr", params)
+    assert m.check() == [], [str(p) for p in m.check()]
+    vna = SimVna(length_m=5.0, termination="open", velocity_factor=0.66, fault_at_m=2.0,
+                 fault_gamma=0.3)  # fmt: skip
+    runner = Runner(m, {"vna": [vna]})
+    runner.start()
+    assert runner.join(60) and runner.state.value == "finished", runner.error
+    rows = {}
+    for e in runner.drain():
+        if e.kind == "point":
+            rows.setdefault(e.data["table"], []).append(e.data["values"])
+    point = rows["points"][0]
+    assert abs(point["last_reflection_m"] - 5.0) < 0.05 and abs(point["length_error_m"]) < 0.05
+    assert point["verdict"] == "PASS" and len(rows["faults"]) == 2
+    assert abs(point["resolution_m"] - tdr.resolution_m(1e9, 0.66)) < 0.02
+    names = ("c * vf * t / 2", "higher impedance", "lower impedance", "velocity_factor_estimate")
+    for name in names + ("step_response", "ola/tdr.py", "resolution", "range"):
+        assert name in text, name
+
+
+def test_sparameters_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/sparameters.md is a real file: it validates and runs."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_vna import SimVna
+
+    text = read(ROOT / "docs" / "sparameters.md")
+    block = re.search(r"```json sparameters\.spm\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/sparameters.md"
+    params = _json.loads(block.group(1))
+    params["interval_s"] = 0.0
+    m = default_registry(user_dir="/nonexistent").create("sparameters", params)
+    assert m.validate() == [], m.validate()
+    runner = Runner(m, {"vna": [SimVna(library_calls=True, library_extras=True)]})
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert [r["sweep"] for r in rows] == [1, 2, 3]
+    for key in ("S11_min_db", "S11_min_hz", "S21_max_db"):
+        assert key in rows[0] and key in text, key
+
+
+def test_time_log_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/time-log.md is a real file: it validates and runs."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from tests.measurement_helpers import FakeHandle, run_to_end
+
+    text = read(ROOT / "docs" / "time-log.md")
+    block = re.search(r"```json temperatures\.tlg\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/time-log.md"
+    params = _json.loads(block.group(1))
+    params.pop("duration_s")
+    params.update(samples=3, interval_s=0.01)
+    m = default_registry(user_dir="/nonexistent").create("time_log", params)
+    assert m.validate() == [], m.validate()
+    handles = {
+        "instruments": [
+            FakeHandle("dmm1", {"read_voltage": 5.0}),
+            FakeHandle("daq", {"measure_temperature": 25.0}),
+        ]
+    }
+    runner = run_to_end(Runner(m, handles))
+    assert runner.state.value == "finished", runner.error
+    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert len(rows) == 3 and rows[0]["vout"] == 5.0 and rows[0]["temp1"] == 25.0
+    for name in ("duration_s", "samples", "t_s", "instruments"):
+        assert name in text, name

@@ -876,6 +876,28 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   (la bozza aveva `select_sparameters`, tolta). `SimVna(library_calls=True)`; un test
   controlla che le sei misure diano gli stessi numeri con i due contratti e che le chiamate esistano per i LiteVNA 62/64/67.
   `docs/vna-calls.md` riscritto (categoria corretta). Lo sweep logaritmico (`set_sweep_type`) lo aggiunge la sessione della libreria.
+  **Bode plot** (2026-11-07, scelta dell'utente: "procedi con il bode plot poi con vna"): modulo `bode` (`.bod`) con
+  generatore di funzioni e oscilloscopio. A ogni frequenza: generatore, base dei tempi per mostrare N periodi, **un'acquisizione,
+  due canali** (`read_waveform_full` con `stop=False` per il secondo) e **fit di una sinusoide alla frequenza nota** su ciascuno
+  (`ola.spectrum.fit_sine`, minimi quadrati: guadagno = rapporto delle ampiezze, fase = differenza delle fasi; regge anche
+  rumore 5 volte il segnale); **scale verticali automatiche** (ricattura se satura o riempie poco, tenendo conto anche del
+  rumore). Fase continua lungo lo sweep. Risultati: curva complessa `H` (Bode), banda a -3 dB, picco e, con `loop`,
+  frequenza di attraversamento, **margine di fase** e **margine di guadagno**, verdetto sui limiti (un valore non trovato non si
+  inventa: il limite fallisce con il motivo). Sicurezza: generatore spento mentre si prepara, ampiezza massima rifiutata prima di
+  accendere, spento in teardown. Mancano nella libreria la categoria **function_generator**: chiamate proposte in
+  `docs/bode.md` (`set_output_state`, `set_frequency`, `set_amplitude`, opz. `set_waveform_shape`, `set_offset`) da passare alla
+  sessione della libreria. `ola/sim_bode.py` (banco simulato). Immagine 18. Da fare: ampiezza diversa a frequenze diverse,
+  impedenza d'uscita (iniezione di corrente), AWG interno dell'oscilloscopio come sorgente.
+  **Time domain (TDR) con il VNA** (2026-11-07, "poi con vna": la prima delle estensioni): modulo `tdr` (`.tdr`) e `ola/tdr.py`
+  (senza Qt). Da S11 su uno sweep lineare, risposta all'impulso con finestra (Hann di default) e zero padding: ogni riflessione è un
+  picco a `d = c·vf·t/2`; per ogni picco la riflessione complessa sommando i dati al ritardo esatto (modulo, **segno**: impedenza
+  più alta = aperto, più bassa = corto) e l'impedenza; **risoluzione** `c·vf/(2B)` e **portata** `c·vf/(2·df)` dichiarate; lunghezza
+  attesa → errore di lunghezza e **fattore di velocità** che torna; risposta al gradino e profilo di impedenza per un cavo a
+  sezioni (richiede start = multiplo del passo; sotto lo start la fase del primo punto continuata all'indietro, DC = parte reale),
+  verdetto sulle riflessioni **prima della fine** (l'ultimo picco è l'aperto/corto/dispositivo). `SimVna(fault_at_m, fault_gamma)`.
+  Guida `docs/tdr.md`, immagine 19. Da fare: togliere la perdita del cavo dall'ampiezza delle riflessioni lontane, echi multipli,
+  gating per misurare una sola riflessione. Restano delle estensioni con il VNA: confronto con un campione "buono" con verdetto,
+  andamento nel tempo della perdita di un cavo.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

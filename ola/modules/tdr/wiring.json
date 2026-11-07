@@ -1,0 +1,160 @@
+{
+  "nodes": [
+    {
+      "id": "vna",
+      "role": "vna",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "VNA",
+        "it": "VNA",
+        "fr": "VNA",
+        "es": "VNA",
+        "de": "VNA"
+      },
+      "ports": [
+        {
+          "id": "p1",
+          "side": "right",
+          "label": {
+            "en": "Port 1",
+            "it": "Porta 1",
+            "fr": "Port 1",
+            "es": "Puerto 1",
+            "de": "Tor 1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "line",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": "{device.label|Line under test}",
+      "ports": [
+        {
+          "id": "a",
+          "side": "left",
+          "label": {
+            "en": "Near end",
+            "it": "Capo vicino",
+            "fr": "Extrémité proche",
+            "es": "Extremo cercano",
+            "de": "Nahes Ende"
+          }
+        },
+        {
+          "id": "b",
+          "side": "right",
+          "label": {
+            "en": "Far end",
+            "it": "Capo lontano",
+            "fr": "Extrémité lointaine",
+            "es": "Extremo lejano",
+            "de": "Fernes Ende"
+          }
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "Open / short / device",
+        "it": "Aperto / corto / dispositivo",
+        "fr": "Ouvert / court-circuit / dispositif",
+        "es": "Abierto / corto / dispositivo",
+        "de": "Offen / Kurzschluss / Gerät"
+      },
+      "ports": [
+        {
+          "id": "c",
+          "side": "left",
+          "label": {
+            "en": "Connector",
+            "it": "Connettore",
+            "fr": "Connecteur",
+            "es": "Conector",
+            "de": "Anschluss"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "vna.p1",
+      "to": "line.a",
+      "label": {
+        "en": "test lead",
+        "it": "cavetto di test",
+        "fr": "câble de test",
+        "es": "cable de prueba",
+        "de": "Messkabel"
+      }
+    },
+    {
+      "from": "line.b",
+      "to": "end.c",
+      "label": {
+        "en": "line",
+        "it": "linea",
+        "fr": "ligne",
+        "es": "línea",
+        "de": "Leitung"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "Connect the near end of the line ({device.label|line under test}) to port 1 of the VNA.",
+        "it": "Collega il capo vicino della linea ({device.label|linea in prova}) alla porta 1 del VNA.",
+        "fr": "Connectez l'extrémité proche de la ligne ({device.label|ligne testée}) au port 1 du VNA.",
+        "es": "Conecte el extremo cercano de la línea ({device.label|línea en prueba}) al puerto 1 del VNA.",
+        "de": "Das nahe Ende der Leitung ({device.label|Leitung im Test}) mit Tor 1 des VNA verbinden."
+      }
+    },
+    {
+      "text": {
+        "en": "Leave the far end open, or put a short on it, or connect the device it feeds: the last reflection is that end.",
+        "it": "Lascia aperto il capo lontano, oppure mettici un corto, oppure collega il dispositivo che alimenta: l'ultima riflessione è quel capo.",
+        "fr": "Laissez l'extrémité lointaine ouverte, ou mettez-y un court-circuit, ou connectez le dispositif qu'elle alimente : la dernière réflexion est cette extrémité.",
+        "es": "Deje abierto el extremo lejano, o ponga un corto, o conecte el dispositivo que alimenta: la última reflexión es ese extremo.",
+        "de": "Das ferne Ende offen lassen, kurzschließen oder das gespeiste Gerät anschließen: die letzte Reflexion ist dieses Ende."
+      }
+    },
+    {
+      "text": {
+        "en": "Use the same test lead and adapters that were used for the calibration.",
+        "it": "Usa lo stesso cavetto di test e gli stessi adattatori usati per la calibrazione.",
+        "fr": "Utilisez le même câble de test et les mêmes adaptateurs que pour l'étalonnage.",
+        "es": "Use el mismo cable de prueba y los mismos adaptadores que en la calibración.",
+        "de": "Dasselbe Messkabel und dieselben Adapter wie bei der Kalibrierung verwenden."
+      }
+    }
+  ],
+  "notes": [
+    {
+      "en": "Calibrate the VNA (open / short / load, one port) at the plane of the connector the line goes on, over the sweep you will use: the distances are measured from that plane.",
+      "it": "Calibra il VNA (open / short / load, una porta) al piano del connettore su cui va la linea, sull'intervallo dello sweep che userai: le distanze si misurano da quel piano.",
+      "fr": "Étalonnez le VNA (open / short / load, un port) au plan du connecteur sur lequel va la ligne, sur la plage du balayage utilisé : les distances sont mesurées depuis ce plan.",
+      "es": "Calibre el VNA (open / short / load, un puerto) en el plano del conector donde va la línea, en el rango del barrido que usará: las distancias se miden desde ese plano.",
+      "de": "Den VNA (Open / Short / Load, ein Tor) an der Ebene des Steckers kalibrieren, an den die Leitung kommt, über den verwendeten Sweep-Bereich: die Entfernungen werden von dieser Ebene aus gemessen."
+    }
+  ],
+  "images": [
+    {
+      "file": "tdr",
+      "optional": true
+    }
+  ]
+}
