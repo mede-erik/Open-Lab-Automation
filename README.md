@@ -29,6 +29,13 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - **Advanced Efficiency Sweeps**: Multi-variable nested sweep system with configurable order, list/range modes, and timing parameters.
   - **Automatic Measurement**: All project variables (control and measure) are automatically measured during sweeps.
 
+- **Measurements** (each one a module of `ola/modules/`, with a guide in `docs/` and a simulated bench for the tests; details in the table of the engine section)
+  - Power: efficiency sweep, line and load regulation, ripple and noise.
+  - RF with a VNA: S-parameters, return loss, filter, amplifier, attenuator, antenna, cable (with de-embedding of cables and pads), time domain (TDR) for the position of a fault along a cable.
+  - Frequency response with a generator and a scope: Bode plot with bandwidth, phase and gain margin.
+  - Time log of any variable.
+  - Cable and device registry with labels, wiring diagrams before each run, CSV results (Touchstone for RF).
+
 - **Backend Communication**
   - C backend for efficient, direct communication with instruments.
   - Designed to be easily extendable to new instruments and protocols.
