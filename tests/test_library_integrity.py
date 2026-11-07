@@ -48,7 +48,7 @@ def _model_ids():
 
 
 MODEL_IDS = _model_ids()
-TRANSPORT_KINDS = {"vxi11", "raw_socket", "usbtmc", "serial", "hislip", "gpib"}
+TRANSPORT_KINDS = {"vxi11", "raw_socket", "usbtmc", "serial", "hislip", "gpib", "dwf"}
 
 
 # ---------------------------------------------------------------- helpers
