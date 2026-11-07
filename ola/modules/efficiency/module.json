@@ -1,0 +1,22 @@
+{
+  "id": "efficiency",
+  "name": "Efficiency",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".eff",
+  "entry": "measurement.py:Efficiency",
+  "description": "Efficiency of a converter or of anything that needs one: sets the input and output conditions, sweeps any parameter, reads the input and output quantities and computes efficiency (or any other quantity) from formulas.",
+  "roles": [
+    {"name": "instruments", "category": "any", "multiple": true,
+     "description": "Every instrument used: sources, loads, meters, data loggers"}
+  ],
+  "params_schema": {
+    "variables": {"type": "list", "required": true,
+                  "description": "Ordered list of parameters; the first one changes first (innermost sweep)"},
+    "timing": {"type": "object", "required": false,
+               "description": "settle_s after setting, then 'samples' readings 'interval_s' apart, averaged"},
+    "derived": {"type": "object", "required": false, "description": "name -> formula"},
+    "startup": {"type": "list", "required": false},
+    "shutdown": {"type": "list", "required": false}
+  }
+}

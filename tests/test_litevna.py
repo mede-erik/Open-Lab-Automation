@@ -200,3 +200,10 @@ def test_the_library_models_work_through_the_handle():
     )
     assert plan.access == "driver" and plan.driver["function"] == "set_frequency_sweep"
     assert isinstance(handle, InstrumentHandle) and isinstance(handle._instrument, Instrument)
+
+
+def test_litevna_sweeps_linearly_only():
+    d, _ = driver()
+    d.call("set_sweep_type", {"sweep_type": "LINEAR"})
+    with pytest.raises(ValueNotHandledError):
+        d.call("set_sweep_type", {"sweep_type": "LOG"})

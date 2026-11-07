@@ -1,0 +1,397 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Cable and instrument",
+        "it": "Cavo e strumento",
+        "fr": "Câble et instrument",
+        "es": "Cable e instrumento",
+        "de": "Kabel und Gerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "cable.asset_id",
+          "kind": "asset",
+          "label_path": "cable.label",
+          "label": {
+            "en": "Cable from the registry",
+            "it": "Cavo dal registro",
+            "fr": "Câble du registre",
+            "es": "Cable del registro",
+            "de": "Kabel aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "cable"
+        },
+        {
+          "path": "cable.label",
+          "kind": "text",
+          "label": {
+            "en": "Cable name",
+            "it": "Nome del cavo",
+            "fr": "Nom du câble",
+            "es": "Nombre del cable",
+            "de": "Kabelname"
+          },
+          "help": {
+            "en": "Identifies the cable: it is saved with every run.",
+            "it": "Identifica il cavo: viene salvato con ogni esecuzione.",
+            "fr": "Identifie le câble : il est enregistré avec chaque exécution.",
+            "es": "Identifica el cable: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Kabel: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. RG58 #3",
+            "it": "es. RG58 n.3",
+            "fr": "p. ex. RG58 n°3",
+            "es": "p. ej. RG58 n.º 3",
+            "de": "z. B. RG58 Nr. 3"
+          }
+        },
+        {
+          "path": "cable.length_m",
+          "kind": "number",
+          "unit": "m",
+          "label": {
+            "en": "Length",
+            "it": "Lunghezza",
+            "fr": "Longueur",
+            "es": "Longitud",
+            "de": "Länge"
+          },
+          "help": {
+            "en": "Gives the loss in dB/m and the velocity factor.",
+            "it": "Dà la perdita in dB/m e il fattore di velocità.",
+            "fr": "Donne la perte en dB/m et le facteur de vitesse.",
+            "es": "Da la pérdida en dB/m y el factor de velocidad.",
+            "de": "Ergibt den Verlust in dB/m und den Verkürzungsfaktor."
+          }
+        },
+        {
+          "path": "mode",
+          "kind": "choice",
+          "label": {
+            "en": "Measurement",
+            "it": "Misura",
+            "fr": "Mesure",
+            "es": "Medición",
+            "de": "Messung"
+          },
+          "choices": [
+            {
+              "value": "transmission",
+              "label": {
+                "en": "Transmission (S21): cable between port 1 and port 2",
+                "it": "Trasmissione (S21): cavo tra la porta 1 e la porta 2",
+                "fr": "Transmission (S21) : câble entre le port 1 et le port 2",
+                "es": "Transmisión (S21): cable entre el puerto 1 y el puerto 2",
+                "de": "Transmission (S21): Kabel zwischen Port 1 und Port 2"
+              }
+            },
+            {
+              "value": "reflection",
+              "label": {
+                "en": "Reflection (S11): one end on port 1, open or short on the other",
+                "it": "Riflessione (S11): un capo sulla porta 1, aperto o corto sull'altro",
+                "fr": "Réflexion (S11) : une extrémité sur le port 1, ouvert ou court-circuit sur l'autre",
+                "es": "Reflexión (S11): un extremo en el puerto 1, abierto o cortocircuito en el otro",
+                "de": "Reflexion (S11): ein Ende an Port 1, offen oder kurzgeschlossen am anderen"
+              }
+            }
+          ]
+        },
+        {
+          "path": "termination",
+          "kind": "choice",
+          "visible_if": {
+            "path": "mode",
+            "equals": "reflection"
+          },
+          "label": {
+            "en": "Far end",
+            "it": "Altro capo",
+            "fr": "Autre extrémité",
+            "es": "Otro extremo",
+            "de": "Anderes Ende"
+          },
+          "choices": [
+            {
+              "value": "open",
+              "label": {
+                "en": "Open",
+                "it": "Aperto",
+                "fr": "Ouvert",
+                "es": "Abierto",
+                "de": "Offen"
+              }
+            },
+            {
+              "value": "short",
+              "label": {
+                "en": "Short",
+                "it": "Corto",
+                "fr": "Court-circuit",
+                "es": "Cortocircuito",
+                "de": "Kurzschluss"
+              }
+            }
+          ]
+        },
+        {
+          "path": "also_s11",
+          "kind": "bool",
+          "visible_if": {
+            "path": "mode",
+            "equals": "transmission"
+          },
+          "label": {
+            "en": "Also measure the return loss of the cable (S11)",
+            "it": "Misura anche la perdita di ritorno del cavo (S11)",
+            "fr": "Mesurer aussi la perte de retour du câble (S11)",
+            "es": "Medir también la pérdida de retorno del cable (S11)",
+            "de": "Auch die Rückflussdämpfung des Kabels messen (S11)"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "More points for a longer cable: the phase must not turn by more than half a turn between two points.",
+            "it": "Più punti per un cavo più lungo: la fase non deve girare più di mezzo giro tra due punti.",
+            "fr": "Plus de points pour un câble plus long : la phase ne doit pas tourner de plus d'un demi-tour entre deux points.",
+            "es": "Más puntos para un cable más largo: la fase no debe girar más de media vuelta entre dos puntos.",
+            "de": "Mehr Punkte für ein längeres Kabel: die Phase darf zwischen zwei Punkten nicht mehr als eine halbe Drehung machen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Results and checks",
+        "it": "Risultati e controlli",
+        "fr": "Résultats et contrôles",
+        "es": "Resultados y controles",
+        "de": "Ergebnisse und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the loss at",
+            "it": "Riporta la perdita a",
+            "fr": "Indiquer la perte à",
+            "es": "Informar la pérdida en",
+            "de": "Verlust angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 433M, 868M, 2.4G",
+            "it": "es. 433M, 868M, 2.4G",
+            "fr": "p. ex. 433M, 868M, 2.4G",
+            "es": "p. ej. 433M, 868M, 2.4G",
+            "de": "z. B. 433M, 868M, 2.4G"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limit on the loss (dB)",
+            "it": "Limite sulla perdita (dB)",
+            "fr": "Limite sur la perte (dB)",
+            "es": "Límite de la pérdida (dB)",
+            "de": "Grenzwert für den Verlust (dB)"
+          },
+          "help": {
+            "en": "Optional pass / fail check. A constant {\"max\": 1.5}, a line {\"max\": [[1e6, 0.5], [3e9, 2]]} or bands {\"bands\": [{\"from\": 1e6, \"to\": 1e9, \"max\": 1}]}.",
+            "it": "Controllo promosso / non promosso facoltativo. Una costante {\"max\": 1.5}, una retta {\"max\": [[1e6, 0.5], [3e9, 2]]} o bande {\"bands\": [{\"from\": 1e6, \"to\": 1e9, \"max\": 1}]}.",
+            "fr": "Contrôle réussi / échoué facultatif. Une constante {\"max\": 1.5}, une droite {\"max\": [[1e6, 0.5], [3e9, 2]]} ou des bandes {\"bands\": [{\"from\": 1e6, \"to\": 1e9, \"max\": 1}]}.",
+            "es": "Comprobación aprobado / suspendido opcional. Una constante {\"max\": 1.5}, una recta {\"max\": [[1e6, 0.5], [3e9, 2]]} o bandas {\"bands\": [{\"from\": 1e6, \"to\": 1e9, \"max\": 1}]}.",
+            "de": "Optionale Bestanden / Nicht-bestanden-Prüfung. Eine Konstante {\"max\": 1.5}, eine Gerade {\"max\": [[1e6, 0.5], [3e9, 2]]} oder Bänder {\"bands\": [{\"from\": 1e6, \"to\": 1e9, \"max\": 1}]}."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

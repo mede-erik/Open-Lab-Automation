@@ -1,0 +1,20 @@
+{
+  "form_field": "Feld",
+  "form_problem": "Problem",
+  "form_problems": "Probleme: {errors} Fehler, {warnings} Warnung(en) - Doppelklick springt zum Feld",
+  "form_summary_ok": "Bereit zum Messen",
+  "form_summary_errors": "Start noch nicht möglich: {errors} Fehler zu beheben",
+  "form_choose_instrument": "Gerät für '{role}' wählen",
+  "form_asset_placeholder": "Code oder Scan, z. B. CBL-0001",
+  "form_asset_invalid": "Kein Code (z. B. CBL-0001)",
+  "form_save": "Speichern",
+  "form_close": "Schließen",
+  "form_saved": "Gespeichert",
+  "form_save_failed": "Speichern fehlgeschlagen: {error}",
+  "form_save_with_errors": "Es gibt {errors} Fehler: Die Messung kann erst nach der Korrektur starten. Trotzdem speichern?",
+  "form_unsaved_changes": "Änderungen speichern?",
+  "form_not_a_number": "Keine gültige Zahl (Sie können 433M, 2.4G... schreiben)",
+  "form_not_an_integer": "Muss eine ganze Zahl sein",
+  "form_json_invalid": "Kein gültiges JSON: {error}",
+  "form_no_form": "Das Modul '{module}' hat kein Formular zum Bearbeiten."
+}

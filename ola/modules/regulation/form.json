@@ -1,0 +1,519 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Converter and instruments",
+        "it": "Convertitore e strumenti",
+        "fr": "Convertisseur et instruments",
+        "es": "Convertidor e instrumentos",
+        "de": "Wandler und Geräte"
+      },
+      "fields": [
+        {
+          "path": "supply",
+          "kind": "instrument",
+          "label": {
+            "en": "Supply",
+            "it": "Alimentatore",
+            "fr": "Alimentation",
+            "es": "Fuente",
+            "de": "Netzteil"
+          },
+          "help": {
+            "en": "The supply that feeds the input of the converter.",
+            "it": "L'alimentatore che alimenta l'ingresso del convertitore.",
+            "fr": "L'alimentation qui alimente l'entrée du convertisseur.",
+            "es": "La fuente que alimenta la entrada del convertidor.",
+            "de": "Das Netzteil, das den Eingang des Wandlers speist."
+          }
+        },
+        {
+          "path": "load",
+          "kind": "instrument",
+          "label": {
+            "en": "Electronic load",
+            "it": "Carico elettronico",
+            "fr": "Charge électronique",
+            "es": "Carga electrónica",
+            "de": "Elektronische Last"
+          },
+          "help": {
+            "en": "Needed for the load test, and for the line test if it has a load current.",
+            "it": "Serve per la prova di carico e per quella di linea se ha una corrente di carico.",
+            "fr": "Nécessaire pour l'essai en charge et pour l'essai en ligne s'il a un courant de charge.",
+            "es": "Necesaria para la prueba de carga y para la de línea si tiene una corriente de carga.",
+            "de": "Nötig für den Lasttest und für den Linientest, wenn er einen Laststrom hat."
+          }
+        },
+        {
+          "path": "meter",
+          "kind": "instrument",
+          "label": {
+            "en": "Voltmeter (multimeter or datalogger)",
+            "it": "Voltmetro (multimetro o datalogger)",
+            "fr": "Voltmètre (multimètre ou enregistreur)",
+            "es": "Voltímetro (multímetro o registrador)",
+            "de": "Voltmeter (Multimeter oder Datenlogger)"
+          },
+          "help": {
+            "en": "It reads the output voltage (and the input at the converter, if you ask). A datalogger needs the channel below.",
+            "it": "Legge la tensione d'uscita (e l'ingresso al convertitore, se lo chiedi). Un datalogger richiede il canale qui sotto.",
+            "fr": "Il lit la tension de sortie (et l'entrée au convertisseur, si vous le demandez). Un enregistreur a besoin de la voie ci-dessous.",
+            "es": "Lee la tensión de salida (y la entrada en el convertidor, si lo pide). Un registrador necesita el canal de abajo.",
+            "de": "Er liest die Ausgangsspannung (und den Eingang am Wandler, wenn gewünscht). Ein Datenlogger braucht den Kanal unten."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Converter from the registry",
+            "it": "Convertitore dal registro",
+            "fr": "Convertisseur du registre",
+            "es": "Convertidor del registro",
+            "de": "Wandler aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "label_path": "device.label"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Converter name",
+            "it": "Nome del convertitore",
+            "fr": "Nom du convertisseur",
+            "es": "Nombre del convertidor",
+            "de": "Name des Wandlers"
+          },
+          "help": {
+            "en": "Identifies what is measured: it is saved with every run.",
+            "it": "Identifica ciò che si misura: viene salvato con ogni esecuzione.",
+            "fr": "Identifie ce qui est mesuré : il est enregistré avec chaque exécution.",
+            "es": "Identifica lo que se mide: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Gemessene: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. 5 V buck",
+            "it": "es. buck 5 V",
+            "fr": "p. ex. buck 5 V",
+            "es": "p. ej. buck de 5 V",
+            "de": "z. B. 5-V-Buck"
+          }
+        },
+        {
+          "path": "device.nominal_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Nominal output voltage",
+            "it": "Tensione di uscita nominale",
+            "fr": "Tension de sortie nominale",
+            "es": "Tensión de salida nominal",
+            "de": "Nennausgangsspannung"
+          },
+          "help": {
+            "en": "Optional. The regulation in % refers to it; without it, to the mean output (line) or the output at the highest load current (load).",
+            "it": "Facoltativa. La regolazione in % si riferisce a lei; senza, all'uscita media (linea) o all'uscita alla corrente di carico più alta (carico).",
+            "fr": "Facultative. La régulation en % s'y rapporte ; sans elle, à la sortie moyenne (ligne) ou à la sortie au courant de charge le plus élevé (charge).",
+            "es": "Opcional. La regulación en % se refiere a ella; sin ella, a la salida media (línea) o a la salida con la corriente de carga más alta (carga).",
+            "de": "Optional. Die Regelung in % bezieht sich darauf; ohne sie auf den Mittelwert (Linie) bzw. die Ausgangsspannung beim höchsten Laststrom (Last)."
+          }
+        },
+        {
+          "path": "supply_channel",
+          "kind": "int",
+          "label": {
+            "en": "Supply output channel",
+            "it": "Canale di uscita dell'alimentatore",
+            "fr": "Voie de sortie de l'alimentation",
+            "es": "Canal de salida de la fuente",
+            "de": "Ausgangskanal des Netzteils"
+          },
+          "help": {
+            "en": "Optional, for a supply with several outputs.",
+            "it": "Facoltativo, per un alimentatore con più uscite.",
+            "fr": "Facultatif, pour une alimentation à plusieurs sorties.",
+            "es": "Opcional, para una fuente con varias salidas.",
+            "de": "Optional, für ein Netzteil mit mehreren Ausgängen."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "How the voltages are read",
+        "it": "Come si leggono le tensioni",
+        "fr": "Comment les tensions sont lues",
+        "es": "Cómo se leen las tensiones",
+        "de": "Wie die Spannungen gelesen werden"
+      },
+      "fields": [
+        {
+          "path": "output_reading.call",
+          "kind": "text",
+          "label": {
+            "en": "Output reading: call",
+            "it": "Lettura dell'uscita: chiamata",
+            "fr": "Lecture de la sortie : appel",
+            "es": "Lectura de la salida: llamada",
+            "de": "Ausgangsmessung: Aufruf"
+          },
+          "help": {
+            "en": "The logical call that gives a DC voltage: measure_dc_voltage for a multimeter or a datalogger.",
+            "it": "La chiamata logica che dà una tensione continua: measure_dc_voltage per un multimetro o un datalogger.",
+            "fr": "L'appel logique qui donne une tension continue : measure_dc_voltage pour un multimètre ou un enregistreur.",
+            "es": "La llamada lógica que da una tensión continua: measure_dc_voltage para un multímetro o un registrador.",
+            "de": "Der logische Aufruf, der eine Gleichspannung liefert: measure_dc_voltage für ein Multimeter oder einen Datenlogger."
+          },
+          "placeholder": {
+            "en": "measure_dc_voltage",
+            "it": "measure_dc_voltage",
+            "fr": "measure_dc_voltage",
+            "es": "measure_dc_voltage",
+            "de": "measure_dc_voltage"
+          }
+        },
+        {
+          "path": "output_reading.args",
+          "kind": "json",
+          "label": {
+            "en": "Output reading: arguments",
+            "it": "Lettura dell'uscita: argomenti",
+            "fr": "Lecture de la sortie : arguments",
+            "es": "Lectura de la salida: argumentos",
+            "de": "Ausgangsmessung: Argumente"
+          },
+          "help": {
+            "en": "The arguments of the call. A datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. A multimeter has no channels and wants numbers: {\"range\": 10, \"resolution\": 0.001}.",
+            "it": "Gli argomenti della chiamata. Un datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multimetro non ha canali e vuole numeri: {\"range\": 10, \"resolution\": 0.001}.",
+            "fr": "Les arguments de l'appel. Un enregistreur : {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multimètre n'a pas de voies et veut des nombres : {\"range\": 10, \"resolution\": 0.001}.",
+            "es": "Los argumentos de la llamada. Un registrador: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multímetro no tiene canales y quiere números: {\"range\": 10, \"resolution\": 0.001}.",
+            "de": "Die Argumente des Aufrufs. Ein Datenlogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Ein Multimeter hat keine Kanäle und will Zahlen: {\"range\": 10, \"resolution\": 0.001}."
+          }
+        },
+        {
+          "path": "output_reading.scale",
+          "kind": "number",
+          "label": {
+            "en": "Output reading: scale",
+            "it": "Lettura dell'uscita: scala",
+            "fr": "Lecture de la sortie : échelle",
+            "es": "Lectura de la salida: escala",
+            "de": "Ausgangsmessung: Skalierung"
+          },
+          "help": {
+            "en": "Optional. The voltage is reading x scale + offset: a divider of 1/2 has scale 2.",
+            "it": "Facoltativa. La tensione è lettura x scala + offset: un partitore 1/2 ha scala 2.",
+            "fr": "Facultative. La tension est lecture x échelle + décalage : un diviseur 1/2 a l'échelle 2.",
+            "es": "Opcional. La tensión es lectura x escala + desplazamiento: un divisor 1/2 tiene escala 2.",
+            "de": "Optional. Die Spannung ist Messwert x Skalierung + Offset: ein Teiler 1/2 hat Skalierung 2."
+          }
+        },
+        {
+          "path": "output_reading.offset",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Output reading: offset",
+            "it": "Lettura dell'uscita: offset",
+            "fr": "Lecture de la sortie : décalage",
+            "es": "Lectura de la salida: desplazamiento",
+            "de": "Ausgangsmessung: Offset"
+          }
+        },
+        {
+          "path": "input_reading.role",
+          "kind": "choice",
+          "label": {
+            "en": "Input reading: instrument",
+            "it": "Lettura dell'ingresso: strumento",
+            "fr": "Lecture de l'entrée : instrument",
+            "es": "Lectura de la entrada: instrumento",
+            "de": "Eingangsmessung: Gerät"
+          },
+          "help": {
+            "en": "Optional. Reading the input AT THE CONVERTER (not the supply setpoint) shows the drop in the cables. Leave all the input reading fields empty to use the setpoint.",
+            "it": "Facoltativa. Leggere l'ingresso AL CONVERTITORE (non il valore impostato) mostra la caduta nei cavi. Lascia vuoti tutti i campi della lettura dell'ingresso per usare il valore impostato.",
+            "fr": "Facultatif. Lire l'entrée AU CONVERTISSEUR (pas la consigne) montre la chute dans les câbles. Laissez vides tous les champs de lecture de l'entrée pour utiliser la consigne.",
+            "es": "Opcional. Leer la entrada EN EL CONVERTIDOR (no la consigna) muestra la caída en los cables. Deje vacíos todos los campos de lectura de la entrada para usar la consigna.",
+            "de": "Optional. Die Eingangsmessung AM WANDLER (nicht der Sollwert) zeigt den Spannungsabfall in den Kabeln. Alle Felder der Eingangsmessung leer lassen, um den Sollwert zu verwenden."
+          },
+          "choices": [
+            {
+              "value": "meter",
+              "label": {
+                "en": "The voltmeter",
+                "it": "Il voltmetro",
+                "fr": "Le voltmètre",
+                "es": "El voltímetro",
+                "de": "Das Voltmeter"
+              }
+            },
+            {
+              "value": "supply",
+              "label": {
+                "en": "The supply itself",
+                "it": "L'alimentatore stesso",
+                "fr": "L'alimentation elle-même",
+                "es": "La propia fuente",
+                "de": "Das Netzteil selbst"
+              }
+            }
+          ]
+        },
+        {
+          "path": "input_reading.call",
+          "kind": "text",
+          "label": {
+            "en": "Input reading: call",
+            "it": "Lettura dell'ingresso: chiamata",
+            "fr": "Lecture de l'entrée : appel",
+            "es": "Lectura de la entrada: llamada",
+            "de": "Eingangsmessung: Aufruf"
+          },
+          "placeholder": {
+            "en": "measure_dc_voltage",
+            "it": "measure_dc_voltage",
+            "fr": "measure_dc_voltage",
+            "es": "measure_dc_voltage",
+            "de": "measure_dc_voltage"
+          }
+        },
+        {
+          "path": "input_reading.args",
+          "kind": "json",
+          "label": {
+            "en": "Input reading: arguments",
+            "it": "Lettura dell'ingresso: argomenti",
+            "fr": "Lecture de l'entrée : arguments",
+            "es": "Lectura de la entrada: argumentos",
+            "de": "Eingangsmessung: Argumente"
+          },
+          "help": {
+            "en": "The arguments of the call. A datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"101\"}. A multimeter has no channels and wants numbers: {\"range\": 10, \"resolution\": 0.001}.",
+            "it": "Gli argomenti della chiamata. Un datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"101\"}. Un multimetro non ha canali e vuole numeri: {\"range\": 10, \"resolution\": 0.001}.",
+            "fr": "Les arguments de l'appel. Un enregistreur : {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"101\"}. Un multimètre n'a pas de voies et veut des nombres : {\"range\": 10, \"resolution\": 0.001}.",
+            "es": "Los argumentos de la llamada. Un registrador: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"101\"}. Un multímetro no tiene canales y quiere números: {\"range\": 10, \"resolution\": 0.001}.",
+            "de": "Die Argumente des Aufrufs. Ein Datenlogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"101\"}. Ein Multimeter hat keine Kanäle und will Zahlen: {\"range\": 10, \"resolution\": 0.001}."
+          }
+        },
+        {
+          "path": "input_reading.scale",
+          "kind": "number",
+          "label": {
+            "en": "Input reading: scale",
+            "it": "Lettura dell'ingresso: scala",
+            "fr": "Lecture de l'entrée : échelle",
+            "es": "Lectura de la entrada: escala",
+            "de": "Eingangsmessung: Skalierung"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Line test and load test",
+        "it": "Prova di linea e prova di carico",
+        "fr": "Essai en ligne et en charge",
+        "es": "Prueba de línea y de carga",
+        "de": "Linien- und Lasttest"
+      },
+      "fields": [
+        {
+          "path": "line_test.vin_v",
+          "kind": "json",
+          "label": {
+            "en": "Line test: input voltages",
+            "it": "Prova di linea: tensioni d'ingresso",
+            "fr": "Essai en ligne : tensions d'entrée",
+            "es": "Prueba de línea: tensiones de entrada",
+            "de": "Linientest: Eingangsspannungen"
+          },
+          "help": {
+            "en": "The input voltages to try: {\"start\": 9, \"stop\": 15, \"points\": 7} or {\"values\": [9, 12, 15]}. Empty = no line test.",
+            "it": "Le tensioni d'ingresso da provare: {\"start\": 9, \"stop\": 15, \"points\": 7} oppure {\"values\": [9, 12, 15]}. Vuoto = nessuna prova di linea.",
+            "fr": "Les tensions d'entrée à essayer : {\"start\": 9, \"stop\": 15, \"points\": 7} ou {\"values\": [9, 12, 15]}. Vide = pas d'essai en ligne.",
+            "es": "Las tensiones de entrada a probar: {\"start\": 9, \"stop\": 15, \"points\": 7} o {\"values\": [9, 12, 15]}. Vacío = sin prueba de línea.",
+            "de": "Die zu prüfenden Eingangsspannungen: {\"start\": 9, \"stop\": 15, \"points\": 7} oder {\"values\": [9, 12, 15]}. Leer = kein Linientest."
+          }
+        },
+        {
+          "path": "line_test.load_a",
+          "kind": "number",
+          "unit": "A",
+          "label": {
+            "en": "Line test: load current",
+            "it": "Prova di linea: corrente di carico",
+            "fr": "Essai en ligne : courant de charge",
+            "es": "Prueba de línea: corriente de carga",
+            "de": "Linientest: Laststrom"
+          },
+          "help": {
+            "en": "The fixed load current during the line test (0 = no load).",
+            "it": "La corrente di carico fissa durante la prova di linea (0 = senza carico).",
+            "fr": "Le courant de charge fixe pendant l'essai en ligne (0 = sans charge).",
+            "es": "La corriente de carga fija durante la prueba de línea (0 = sin carga).",
+            "de": "Der feste Laststrom beim Linientest (0 = ohne Last)."
+          }
+        },
+        {
+          "path": "load_test.i_a",
+          "kind": "json",
+          "label": {
+            "en": "Load test: load currents",
+            "it": "Prova di carico: correnti di carico",
+            "fr": "Essai en charge : courants de charge",
+            "es": "Prueba de carga: corrientes de carga",
+            "de": "Lasttest: Laststromwerte"
+          },
+          "help": {
+            "en": "The load currents to try: {\"start\": 0, \"stop\": 2, \"points\": 5}. Empty = no load test.",
+            "it": "Le correnti di carico da provare: {\"start\": 0, \"stop\": 2, \"points\": 5}. Vuoto = nessuna prova di carico.",
+            "fr": "Les courants de charge à essayer : {\"start\": 0, \"stop\": 2, \"points\": 5}. Vide = pas d'essai en charge.",
+            "es": "Las corrientes de carga a probar: {\"start\": 0, \"stop\": 2, \"points\": 5}. Vacío = sin prueba de carga.",
+            "de": "Die zu prüfenden Laststromwerte: {\"start\": 0, \"stop\": 2, \"points\": 5}. Leer = kein Lasttest."
+          }
+        },
+        {
+          "path": "load_test.vin_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Load test: input voltage",
+            "it": "Prova di carico: tensione d'ingresso",
+            "fr": "Essai en charge : tension d'entrée",
+            "es": "Prueba de carga: tensión de entrada",
+            "de": "Lasttest: Eingangsspannung"
+          },
+          "help": {
+            "en": "The fixed input voltage during the load test.",
+            "it": "La tensione d'ingresso fissa durante la prova di carico.",
+            "fr": "La tension d'entrée fixe pendant l'essai en charge.",
+            "es": "La tensión de entrada fija durante la prueba de carga.",
+            "de": "Die feste Eingangsspannung beim Lasttest."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Timing, safety and checks",
+        "it": "Tempi, sicurezza e controlli",
+        "fr": "Temps, sécurité et contrôles",
+        "es": "Tiempos, seguridad y controles",
+        "de": "Zeiten, Sicherheit und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "timing.settle_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Wait after a change",
+            "it": "Attesa dopo un cambio",
+            "fr": "Attente après un changement",
+            "es": "Espera tras un cambio",
+            "de": "Wartezeit nach einer Änderung"
+          },
+          "help": {
+            "en": "Seconds to let the output settle (1 s by default).",
+            "it": "Secondi per far assestare l'uscita (1 s di default).",
+            "fr": "Secondes pour laisser la sortie se stabiliser (1 s par défaut).",
+            "es": "Segundos para que la salida se estabilice (1 s por defecto).",
+            "de": "Sekunden, bis sich der Ausgang eingeschwungen hat (standardmäßig 1 s)."
+          }
+        },
+        {
+          "path": "timing.samples",
+          "kind": "int",
+          "label": {
+            "en": "Readings averaged",
+            "it": "Letture mediate",
+            "fr": "Lectures moyennées",
+            "es": "Lecturas promediadas",
+            "de": "Gemittelte Messwerte"
+          }
+        },
+        {
+          "path": "timing.interval_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Interval between readings",
+            "it": "Intervallo tra le letture",
+            "fr": "Intervalle entre les lectures",
+            "es": "Intervalo entre lecturas",
+            "de": "Intervall zwischen den Messwerten"
+          }
+        },
+        {
+          "path": "safety.max_vin_v",
+          "kind": "number",
+          "unit": "V",
+          "label": {
+            "en": "Safety: highest input voltage",
+            "it": "Sicurezza: tensione d'ingresso massima",
+            "fr": "Sécurité : tension d'entrée maximale",
+            "es": "Seguridad: tensión de entrada máxima",
+            "de": "Sicherheit: höchste Eingangsspannung"
+          },
+          "help": {
+            "en": "Optional. A test that goes above it is an error and nothing is switched on.",
+            "it": "Facoltativa. Una prova che la supera è un errore e non si accende niente.",
+            "fr": "Facultative. Un essai qui la dépasse est une erreur et rien n'est allumé.",
+            "es": "Opcional. Una prueba que la supere es un error y no se enciende nada.",
+            "de": "Optional. Ein Test darüber ist ein Fehler, und nichts wird eingeschaltet."
+          }
+        },
+        {
+          "path": "safety.max_load_a",
+          "kind": "number",
+          "unit": "A",
+          "label": {
+            "en": "Safety: highest load current",
+            "it": "Sicurezza: corrente di carico massima",
+            "fr": "Sécurité : courant de charge maximal",
+            "es": "Seguridad: corriente de carga máxima",
+            "de": "Sicherheit: höchster Laststrom"
+          }
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limits",
+            "it": "Limiti",
+            "fr": "Limites",
+            "es": "Límites",
+            "de": "Grenzwerte"
+          },
+          "help": {
+            "en": "Optional pass / fail: {\"max_line_pct\": 1, \"max_load_pct\": 1, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}.",
+            "it": "Promosso / non promosso facoltativo: {\"max_line_pct\": 1, \"max_load_pct\": 1, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}.",
+            "fr": "Réussi / échoué facultatif : {\"max_line_pct\": 1, \"max_load_pct\": 1, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}.",
+            "es": "Aprobado / suspendido opcional: {\"max_line_pct\": 1, \"max_load_pct\": 1, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}.",
+            "de": "Optional bestanden / nicht bestanden: {\"max_line_pct\": 1, \"max_load_pct\": 1, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to connect before measuring",
+            "it": "Chiedi di collegare prima di misurare",
+            "fr": "Demander de connecter avant de mesurer",
+            "es": "Pedir conectar antes de medir",
+            "de": "Vor der Messung zum Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,491 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Amplifier and instrument",
+        "it": "Amplificatore e strumento",
+        "fr": "Amplificateur et instrument",
+        "es": "Amplificador e instrumento",
+        "de": "Verstärker und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label_path": "device.label",
+          "label": {
+            "en": "Amplifier from the registry",
+            "it": "Amplificatore dal registro",
+            "fr": "Amplificateur du registre",
+            "es": "Amplificador del registro",
+            "de": "Verstärker aus dem Register"
+          },
+          "help": {
+            "en": "Pick, type or scan the code of the object (Tools > Cables and devices): its results are tied to it. Leave empty to measure without one.",
+            "it": "Scegli, scrivi o scansiona il codice dell'oggetto (Strumenti > Cavi e dispositivi): i risultati restano legati a lui. Lascia vuoto per misurare senza.",
+            "fr": "Choisissez, saisissez ou scannez le code de l'objet (Outils > Câbles et dispositifs) : ses résultats lui sont liés. Laissez vide pour mesurer sans.",
+            "es": "Elija, escriba o escanee el código del objeto (Herramientas > Cables y dispositivos): sus resultados quedan ligados a él. Déjelo vacío para medir sin él.",
+            "de": "Code des Objekts wählen, eintippen oder scannen (Werkzeuge > Kabel und Geräte): seine Ergebnisse sind daran gebunden. Leer lassen, um ohne zu messen."
+          },
+          "asset_kind": "amplifier"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Amplifier name",
+            "it": "Nome dell'amplificatore",
+            "fr": "Nom de l'amplificateur",
+            "es": "Nombre del amplificador",
+            "de": "Verstärkername"
+          },
+          "help": {
+            "en": "Identifies the amplifier: it is saved with every run.",
+            "it": "Identifica l'amplificatore: viene salvato con ogni esecuzione.",
+            "fr": "Identifie l'amplificateur : il est enregistré avec chaque exécution.",
+            "es": "Identifica el amplificador: se guarda con cada ejecución.",
+            "de": "Kennzeichnet den Verstärker: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. LNA #1",
+            "it": "es. LNA n.1",
+            "fr": "p. ex. LNA n°1",
+            "es": "p. ej. LNA n.º 1",
+            "de": "z. B. LNA Nr. 1"
+          }
+        },
+        {
+          "path": "input_attenuation_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Attenuator at the input",
+            "it": "Attenuatore all'ingresso",
+            "fr": "Atténuateur à l'entrée",
+            "es": "Atenuador en la entrada",
+            "de": "Dämpfungsglied am Eingang"
+          },
+          "help": {
+            "en": "Between the VNA source and the amplifier, as in the calibration. The power at the amplifier is this much lower.",
+            "it": "Tra la sorgente del VNA e l'amplificatore, come nella calibrazione. La potenza all'amplificatore è inferiore di questo valore.",
+            "fr": "Entre la source du VNA et l'amplificateur, comme dans la calibration. La puissance à l'amplificateur est inférieure d'autant.",
+            "es": "Entre la fuente del VNA y el amplificador, como en la calibración. La potencia en el amplificador es menor en esa cantidad.",
+            "de": "Zwischen VNA-Quelle und Verstärker, wie bei der Kalibrierung. Die Leistung am Verstärker ist um diesen Wert niedriger."
+          }
+        },
+        {
+          "path": "max_input_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Maximum input power of the amplifier",
+            "it": "Potenza massima all'ingresso dell'amplificatore",
+            "fr": "Puissance d'entrée maximale de l'amplificateur",
+            "es": "Potencia máxima de entrada del amplificador",
+            "de": "Maximale Eingangsleistung des Verstärkers"
+          },
+          "help": {
+            "en": "Optional protection: a sweep or a compression test that would go above it is refused.",
+            "it": "Protezione facoltativa: uno sweep o un test di compressione che la superasse viene rifiutato.",
+            "fr": "Protection facultative : un balayage ou un test de compression qui la dépasserait est refusé.",
+            "es": "Protección opcional: se rechaza un barrido o una prueba de compresión que la superase.",
+            "de": "Optionaler Schutz: ein Sweep oder Kompressionstest darüber wird abgelehnt."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "More points for a longer cable: the phase must not turn by more than half a turn between two points.",
+            "it": "Più punti per un cavo più lungo: la fase non deve girare più di mezzo giro tra due punti.",
+            "fr": "Plus de points pour un câble plus long : la phase ne doit pas tourner de plus d'un demi-tour entre deux points.",
+            "es": "Más puntos para un cable más largo: la fase no debe girar más de media vuelta entre dos puntos.",
+            "de": "Mehr Punkte für ein längeres Kabel: die Phase darf zwischen zwei Punkten nicht mehr als eine halbe Drehung machen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "The VNA source power. Keep it low (for example -30 dBm): an amplifier can be overdriven.",
+            "it": "La potenza della sorgente del VNA. Tienila bassa (per esempio -30 dBm): un amplificatore si può sovraccaricare.",
+            "fr": "La puissance de la source du VNA. Gardez-la basse (par exemple -30 dBm) : un amplificateur peut être surchargé.",
+            "es": "La potencia de la fuente del VNA. Manténgala baja (por ejemplo -30 dBm): un amplificador puede sobrecargarse.",
+            "de": "Die Quellleistung des VNA. Niedrig halten (z. B. -30 dBm): ein Verstärker kann übersteuert werden."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Band",
+        "it": "Banda",
+        "fr": "Bande",
+        "es": "Banda",
+        "de": "Band"
+      },
+      "fields": [
+        {
+          "path": "passband.from_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Band from",
+            "it": "Banda da",
+            "fr": "Bande de",
+            "es": "Banda desde",
+            "de": "Band von"
+          },
+          "help": {
+            "en": "Optional: where the flatness, the worst return loss and the isolation are taken (the whole sweep by default).",
+            "it": "Facoltativa: dove si prendono la planarità, il peggior return loss e l'isolamento (di default tutto lo sweep).",
+            "fr": "Facultatif : où sont pris la planéité, le pire affaiblissement de retour et l'isolation (tout le balayage par défaut).",
+            "es": "Opcional: dónde se toman la planitud, la peor pérdida de retorno y el aislamiento (por defecto todo el barrido).",
+            "de": "Optional: wo Welligkeit, schlechteste Rückflussdämpfung und Isolation genommen werden (standardmäßig der ganze Sweep)."
+          }
+        },
+        {
+          "path": "passband.to_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Band to",
+            "it": "Banda a",
+            "fr": "Bande à",
+            "es": "Banda hasta",
+            "de": "Band bis"
+          }
+        },
+        {
+          "path": "gain_edge_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Band edges at",
+            "it": "Bordi di banda a",
+            "fr": "Bords de bande à",
+            "es": "Bordes de banda a",
+            "de": "Bandkanten bei"
+          },
+          "help": {
+            "en": "The band edges are where the gain is this far below its peak (3 dB is usual).",
+            "it": "I bordi di banda sono dove il guadagno è così sotto il picco (3 dB è comune).",
+            "fr": "Les bords de bande sont là où le gain est à cette distance sous le pic (3 dB est courant).",
+            "es": "Los bordes de banda están donde la ganancia está así por debajo del pico (3 dB es habitual).",
+            "de": "Die Bandkanten liegen dort, wo die Verstärkung so weit unter dem Maximum liegt (3 dB ist üblich)."
+          }
+        },
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the gain at",
+            "it": "Riporta il guadagno a",
+            "fr": "Indiquer le gain à",
+            "es": "Informar la ganancia en",
+            "de": "Verstärkung angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 433M, 868M, 2.4G",
+            "it": "es. 433M, 868M, 2.4G",
+            "fr": "p. ex. 433M, 868M, 2.4G",
+            "es": "p. ej. 433M, 868M, 2.4G",
+            "de": "z. B. 433M, 868M, 2.4G"
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Compression point (optional)",
+        "it": "Punto di compressione (facoltativo)",
+        "fr": "Point de compression (facultatif)",
+        "es": "Punto de compresión (opcional)",
+        "de": "Kompressionspunkt (optional)"
+      },
+      "fields": [
+        {
+          "path": "compression.frequency_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Frequency",
+            "it": "Frequenza",
+            "fr": "Fréquence",
+            "es": "Frecuencia",
+            "de": "Frequenz"
+          },
+          "help": {
+            "en": "A power sweep at this frequency finds where the gain falls. Leave the four fields empty to skip it.",
+            "it": "Uno sweep di potenza a questa frequenza trova dove cala il guadagno. Lascia vuoti i quattro campi per saltarlo.",
+            "fr": "Un balayage en puissance à cette fréquence trouve où le gain baisse. Laissez les quatre champs vides pour l'ignorer.",
+            "es": "Un barrido de potencia a esta frecuencia encuentra dónde cae la ganancia. Deje vacíos los cuatro campos para omitirlo.",
+            "de": "Ein Leistungssweep bei dieser Frequenz findet, wo die Verstärkung abfällt. Die vier Felder leer lassen, um ihn zu überspringen."
+          }
+        },
+        {
+          "path": "compression.start_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Source power from",
+            "it": "Potenza della sorgente da",
+            "fr": "Puissance de la source de",
+            "es": "Potencia de la fuente desde",
+            "de": "Quellleistung von"
+          },
+          "help": {
+            "en": "Low enough to be in the linear range.",
+            "it": "Abbastanza bassa da essere nel campo lineare.",
+            "fr": "Assez basse pour être dans la plage linéaire.",
+            "es": "Lo bastante baja para estar en el rango lineal.",
+            "de": "Niedrig genug für den linearen Bereich."
+          }
+        },
+        {
+          "path": "compression.stop_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Source power to",
+            "it": "Potenza della sorgente a",
+            "fr": "Puissance de la source à",
+            "es": "Potencia de la fuente hasta",
+            "de": "Quellleistung bis"
+          },
+          "help": {
+            "en": "Check the protection: this is what reaches the amplifier, minus the attenuator.",
+            "it": "Controlla la protezione: è ciò che arriva all'amplificatore, meno l'attenuatore.",
+            "fr": "Vérifiez la protection : c'est ce qui arrive à l'amplificateur, moins l'atténuateur.",
+            "es": "Compruebe la protección: es lo que llega al amplificador, menos el atenuador.",
+            "de": "Schutz prüfen: das erreicht den Verstärker, abzüglich des Dämpfungsglieds."
+          }
+        },
+        {
+          "path": "compression.step_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Step",
+            "it": "Passo",
+            "fr": "Pas",
+            "es": "Paso",
+            "de": "Schritt"
+          }
+        },
+        {
+          "path": "compression.compression_db",
+          "kind": "number",
+          "unit": "dB",
+          "label": {
+            "en": "Compression",
+            "it": "Compressione",
+            "fr": "Compression",
+            "es": "Compresión",
+            "de": "Kompression"
+          },
+          "help": {
+            "en": "The gain has fallen this much below the small-signal gain (1 dB is usual).",
+            "it": "Il guadagno è calato di tanto rispetto a quello a piccolo segnale (1 dB è comune).",
+            "fr": "Le gain a baissé de cette valeur par rapport au gain petit signal (1 dB est courant).",
+            "es": "La ganancia ha caído esto respecto a la de pequeña señal (1 dB es habitual).",
+            "de": "Die Verstärkung ist um diesen Betrag unter die Kleinsignalverstärkung gefallen (1 dB ist üblich)."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Checks",
+        "it": "Controlli",
+        "fr": "Contrôles",
+        "es": "Controles",
+        "de": "Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Mask on the gain (dB)",
+            "it": "Maschera sul guadagno (dB)",
+            "fr": "Gabarit sur le gain (dB)",
+            "es": "Máscara de la ganancia (dB)",
+            "de": "Maske für die Verstärkung (dB)"
+          },
+          "help": {
+            "en": "Optional pass / fail check, for example {\"min\": 18} (at least 18 dB) or per band.",
+            "it": "Controllo promosso / non promosso facoltativo, per esempio {\"min\": 18} (almeno 18 dB) o per banda.",
+            "fr": "Contrôle réussi / échoué facultatif, par exemple {\"min\": 18} (au moins 18 dB) ou par bande.",
+            "es": "Comprobación aprobado / suspendido opcional, por ejemplo {\"min\": 18} (al menos 18 dB) o por banda.",
+            "de": "Optionale Bestanden / Nicht-bestanden-Prüfung, z. B. {\"min\": 18} (mindestens 18 dB) oder je Band."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

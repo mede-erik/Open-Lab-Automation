@@ -1,0 +1,281 @@
+"""Cable characterization: the loss of an RF cable against frequency, with a VNA.
+
+Parameters (``.cbl`` file)::
+
+    {"mode": "transmission",                      # or "reflection" (open / short on the far end)
+     "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 401, "scale": "linear",
+               "if_bandwidth_hz": 1000, "power_dbm": -10},          # the last two are optional
+     "cable": {"label": "RG58 #3", "length_m": 1.0},                # both optional
+     "frequencies_of_interest": [433e6, 868e6, 2.4e9],              # optional
+     "limits": {"max": [[1e6, 0.5], [3e9, 2.0]]},                   # optional, on the loss in dB
+     "also_s11": true, "averages": 1, "confirm_setup": true}
+
+The VNA is calibrated by the user beforehand (at the ends of the test leads); the measurement asks
+for it once and then does not touch the calibration. What it asks of the instrument are two *logical
+calls*, the same for every VNA (the library translates them for the model):
+
+    set_sweep(start_frequency, stop_frequency, points, sweep_type, if_bandwidth, power)
+    read_sparameter(parameter="S21")  ->  {"frequency": [...], "values": [[re, im], ...]}
+
+The answer of ``read_sparameter`` may also be a plain list of complex numbers (or ``[re, im]``
+pairs); the frequencies are then those of the sweep.
+
+Results: the curves ``loss_db`` (positive = loss), ``loss_db_per_m`` (with the length) and
+``group_delay_ns`` plus the raw S-parameters (hidden at first: they are what the Touchstone export
+and the Smith chart use); the table ``sweep`` (a row per frequency); and one summary row in
+``points`` (loss at the frequencies of interest, the worst loss, delay, velocity factor, return
+loss, verdict). A failed limit is a *result*, not an error: the run still finishes.
+
+In reflection mode the signal goes to the end and back, so the loss of the cable is half of the
+loss measured on S11 (``-|S11|dB / 2``) and the delay is half of the delay of S11.
+"""
+
+from typing import Any, Dict, List, Optional
+
+from ola import rf
+from ola.efficiency_spec import Problem
+from ola.limits import parse_limits
+from ola.measurement import Measurement, MeasurementContext
+from ola.run_view import format_si
+from ola.vna_common import (
+    acquire,
+    ask_setup,
+    check_asset,
+    check_common,
+    check_sweep,
+    frequency_label,
+    is_number,
+)
+
+MODES = ("transmission", "reflection")
+TERMINATIONS = ("open", "short")
+SPEED_OF_LIGHT = rf.SPEED_OF_LIGHT
+
+
+def default_params() -> Dict[str, Any]:
+    """The starting parameters of a new cable measurement (used by the editor)."""
+    return {
+        "mode": "transmission",
+        "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 401, "scale": "linear"},
+        "cable": {"label": "", "length_m": 1.0},
+        "frequencies_of_interest": [],
+        "averages": 1,
+        "confirm_setup": True,
+    }
+
+
+def check_params(params: Dict[str, Any]) -> List[Problem]:
+    """Everything wrong with the parameters, each with the path of the field. Does no I/O."""
+    out: List[Problem] = []
+
+    def err(path: str, message: str) -> None:
+        out.append(Problem(path, message))
+
+    mode = params.get("mode", "transmission")
+    if mode not in MODES:
+        err("mode", f"must be one of {', '.join(MODES)} (not {mode!r})")
+    termination = params.get("termination", "open")
+    if mode == "reflection" and termination not in TERMINATIONS:
+        err("termination", f"must be one of {', '.join(TERMINATIONS)} (not {termination!r})")
+
+    start, stop = check_sweep(params, out)
+
+    cable = params.get("cable", {})
+    if not isinstance(cable, dict):
+        err("cable", "must be an object with 'label' and 'length_m'")
+    else:
+        if "length_m" in cable and cable["length_m"] is not None:
+            if not is_number(cable["length_m"]) or cable["length_m"] <= 0:
+                err("cable.length_m", "the length must be a number above 0 (metres)")
+        if "label" in cable and not isinstance(cable["label"], str):
+            err("cable.label", "the label must be text")
+
+    warning = _step_warning(params)
+    if warning:
+        out.append(Problem("sweep.points", warning, "warning"))
+
+    check_asset(params, "cable", out)
+    check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
+    return out
+
+
+TYPICAL_VELOCITY_FACTOR = 0.6  # a little below most coaxial cables: errs on the safe side
+
+
+def max_frequency_step(length_m: float) -> float:
+    """The largest step between two frequency points for which the phase of a cable of this
+    length changes by less than half a turn: beyond it the phase wraps and the group delay cannot
+    be found. ``1 / (2 delay)``."""
+    delay = length_m / (TYPICAL_VELOCITY_FACTOR * SPEED_OF_LIGHT)
+    return 1.0 / (2.0 * delay)
+
+
+def _step_warning(params: Dict[str, Any]) -> Optional[str]:
+    """A sentence if the sweep is too coarse for the cable's length (needs a valid sweep)."""
+    sweep, cable = params.get("sweep"), params.get("cable") or {}
+    length = cable.get("length_m") if isinstance(cable, dict) else None
+    try:
+        start, stop, n = float(sweep["start_hz"]), float(sweep["stop_hz"]), sweep["points"]
+        if isinstance(n, bool) or not isinstance(n, int) or n < 2:
+            return None  # (a wrong number of points is reported as an error already)
+        if not (length and length > 0 and 0 < start < stop):
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    if sweep.get("scale") == "log":
+        step = stop - stop / ((stop / start) ** (1 / (n - 1)))  # the widest step: at the top
+    else:
+        step = (stop - start) / (n - 1)
+    limit = max_frequency_step(length)
+    if step <= limit:
+        return None
+    needed = int((stop - start) / limit) + 2
+    return (
+        f"the step between points ({format_si(step, 'Hz')}) is too large for a cable of "
+        f"{length:g} m: the phase wraps between points, so the group delay and the velocity "
+        f"factor cannot be found (the loss is not affected). Use at least {needed} points"
+    )
+
+
+def compute_results(
+    freq: List[float], traces: Dict[str, List[complex]], params: Dict[str, Any]
+) -> Dict[str, Any]:
+    """The loss, delay and summary from the measured S-parameters. No I/O: ``traces`` has ``S21``
+    (transmission) or ``S11`` (reflection), and optionally ``S11`` in transmission."""
+    mode = params.get("mode", "transmission")
+    length = (params.get("cable") or {}).get("length_m")
+    if mode == "transmission":
+        loss = rf.insertion_loss_db(traces["S21"])
+        delay = rf.group_delay_s(freq, traces["S21"])
+    else:  # the signal goes to the far end and back
+        loss = [v / 2 for v in rf.return_loss_db(traces["S11"])]
+        delay = [d / 2 for d in rf.group_delay_s(freq, traces["S11"])]
+    result: Dict[str, Any] = {"loss_db": loss, "delay_s": delay}
+    if length:
+        result["loss_db_per_m"] = [v / length for v in loss]
+    summary: Dict[str, Any] = {
+        "mode": mode,
+        "points": len(freq),
+        "max_loss_db": max(loss),
+        "max_loss_at_hz": freq[loss.index(max(loss))],
+        "mean_delay_ns": sum(delay) / len(delay) * 1e9,
+    }
+    if length:
+        summary["length_m"] = length
+        mean_delay = sum(delay) / len(delay)
+        if mean_delay > 0:
+            factor = rf.velocity_factor(mean_delay, length)
+            if 0.2 <= factor <= 1.05:  # beyond this the delay is not real: the phase wrapped
+                summary["velocity_factor"] = factor
+    for f in params.get("frequencies_of_interest") or []:
+        name = frequency_label(f)
+        summary[f"loss_{name}_db"] = rf.value_at(freq, loss, f)
+        if length:
+            summary[f"loss_{name}_db_per_m"] = rf.value_at(freq, result["loss_db_per_m"], f)
+    s11 = traces.get("S11")
+    if s11 is not None and mode == "transmission":
+        return_loss = rf.return_loss_db(s11)
+        summary["min_return_loss_db"] = min(return_loss)
+        summary["max_vswr"] = max(rf.vswr(s11))
+        result["return_loss_db"] = return_loss
+    result["summary"] = summary
+    return result
+
+
+class CableCharacterization(Measurement):
+    """Loss of an RF cable with a VNA; see the module docstring."""
+
+    def check(self) -> List[Problem]:
+        """The problems of the parameters with the path of each field (for the editor)."""
+        return check_params(self.params)
+
+    def validate(self) -> List[str]:
+        """The errors as readable sentences."""
+        return [str(p) for p in self.check() if p.severity == "error"]
+
+    # ----- the measurement --------------------------------------------------------------------
+    def run(self, ctx: MeasurementContext) -> None:
+        """Ask for the set-up, sweep, read, compute, report."""
+        p = self.params
+        mode = p.get("mode", "transmission")
+        sweep = p["sweep"]
+        handle = ctx.instrument("vna")
+        if p.get("confirm_setup", True):
+            self._confirm_setup(ctx, mode)
+        wanted = ["S21"] if mode == "transmission" else ["S11"]
+        if mode == "transmission" and p.get("also_s11"):
+            wanted.append("S11")
+        freq, traces = acquire(ctx, handle, sweep, wanted, int(p.get("averages", 1)))
+        self._report(ctx, freq, traces)
+
+    def _confirm_setup(self, ctx: MeasurementContext, mode: str) -> None:
+        if mode == "transmission":
+            connect = "Connect the cable under test between port 1 and port 2 of the VNA."
+        else:
+            far = self.params.get("termination", "open")
+            connect = (
+                f"Connect one end of the cable under test to port 1 and put an {far} circuit "
+                f"on the other end."
+            )
+        ask_setup(ctx, connect, self.params["sweep"], mode=mode)
+
+    def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
+        p = self.params
+        mode = p.get("mode", "transmission")
+        cable = p.get("cable") or {}
+        log_x = (p.get("sweep") or {}).get("scale") == "log"
+        base = {"xlabel": "Frequency", "x_unit": "Hz", "log_x": log_x}
+        for name, values in traces.items():  # the raw measurement: hidden at first
+            ctx.emit_trace(name, freq, values, kind="complex", hidden=True, **base)
+        result = compute_results(freq, traces, p)
+        limits = parse_limits(p.get("limits"))
+        meta = dict(base, ylabel="Loss (dB)")
+        if not limits.empty:
+            meta["limits"] = {"view": "value", **limits.lines(freq)}
+        ctx.emit_trace("loss_db", freq, result["loss_db"], **meta)
+        if "loss_db_per_m" in result:
+            ctx.emit_trace(
+                "loss_db_per_m",
+                freq,
+                result["loss_db_per_m"],
+                hidden=True,
+                **dict(base, ylabel="Loss (dB/m)"),
+            )
+        ctx.emit_trace(
+            "group_delay_ns",
+            freq,
+            [d * 1e9 for d in result["delay_s"]],
+            hidden=True,
+            **dict(base, ylabel="Group delay (ns)"),
+        )
+        if "return_loss_db" in result:
+            ctx.emit_trace(
+                "return_loss_db",
+                freq,
+                result["return_loss_db"],
+                hidden=True,
+                **dict(base, ylabel="Return loss (dB)"),
+            )
+        for i, f in enumerate(freq):  # the whole sweep as a table, for the CSV export
+            row = {"frequency_hz": f, "loss_db": result["loss_db"][i]}
+            if "loss_db_per_m" in result:
+                row["loss_db_per_m"] = result["loss_db_per_m"][i]
+            row["group_delay_ns"] = result["delay_s"][i] * 1e9
+            ctx.emit_point(row, table="sweep")
+        summary = {"cable": cable.get("label", ""), **result["summary"]}
+        if cable.get("length_m") and "velocity_factor" not in summary:
+            ctx.log(
+                "the group delay and the velocity factor could not be found: the phase changes "
+                "too much between points. Use more points (the loss is not affected)",
+                "warning",
+            )
+        if not limits.empty:
+            verdict = limits.check(freq, result["loss_db"])
+            summary["verdict"] = "PASS" if verdict.passed else "FAIL"
+            summary["margin_db"] = verdict.margin
+            ctx.log(f"limit check: {verdict.summary()}", "info" if verdict.passed else "warning")
+        label = f" '{cable['label']}'" if cable.get("label") else ""
+        top = result["summary"]
+        worst = f"{top['max_loss_db']:.3g} dB at {format_si(top['max_loss_at_hz'], 'Hz')}"
+        ctx.log(f"cable{label} ({mode}): worst loss {worst}")
+        ctx.emit_point(summary)
