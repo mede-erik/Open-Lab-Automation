@@ -896,8 +896,13 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   sezioni (richiede start = multiplo del passo; sotto lo start la fase del primo punto continuata all'indietro, DC = parte reale),
   verdetto sulle riflessioni **prima della fine** (l'ultimo picco è l'aperto/corto/dispositivo). `SimVna(fault_at_m, fault_gamma)`.
   Guida `docs/tdr.md`, immagine 19. Da fare: togliere la perdita del cavo dall'ampiezza delle riflessioni lontane, echi multipli,
-  gating per misurare una sola riflessione. Restano delle estensioni con il VNA: confronto con un campione "buono" con verdetto,
-  andamento nel tempo della perdita di un cavo.
+  gating per misurare una sola riflessione. Le altre due estensioni con il VNA sono fatte (2026-11-07):
+  **confronto con un campione "buono"** (`ola/golden.py`, `scripts/golden_check.py`, `docs/golden.md`: tolleranza sulle curve come numero,
+  retta della frequenza o asimmetrica, tolleranza assoluta/relativa sulle cifre del riepilogo, copertura minima dello sweep, verdetto con
+  le ragioni, campione salvato in `<progetto>/golden/`) e **andamento nel tempo della perdita di un cavo** (`ola/trend.py`,
+  `scripts/cable_trend.py`, `docs/trend.md`: retta ai minimi quadrati, variazione reale solo se la pendenza supera due volte la sua
+  incertezza, verdetto PASS/WARNING/FAIL/NOT ENOUGH DATA con la data in cui si raggiunge il limite). Da fare: il pulsante nella finestra di
+  confronto, il verdetto come passo di una misura e il grafico dell'andamento nella finestra o sull'etichetta del cavo.
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

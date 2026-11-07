@@ -47,6 +47,6 @@ version of a converter).
 
 ## Not done yet
 
-Comparing against a **stored limit or a reference cable** (a golden sample) from the project, and a report that includes
-the comparison (see *Future features* in the README). The cable **label tool** will tie each result to a physical cable; until
-then the name typed in the measurement file is what identifies it.
+A report that includes the comparison (see *Future features* in the README). Checking a run against a **golden sample** with a
+verdict is done, but not from this window yet: see [`golden.md`](golden.md). The loss of a cable against the date is in
+[`trend.md`](trend.md).

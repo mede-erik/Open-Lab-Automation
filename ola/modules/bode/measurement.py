@@ -435,8 +435,10 @@ class Bode(Measurement):
 
         if not self._no_switch:
             gen.call("set_output_state", channel_number=ch, state=False)
-        optional(gen, "set_waveform_shape", channel_number=ch, shape="SINE")
-        optional(gen, "set_offset", channel_number=ch, value=float(src.get("offset_v", 0)))
+        # both are mandatory in the library: a generator that ignored the offset would be measured
+        # at the wrong bias without a word
+        gen.call("set_waveform_shape", channel_number=ch, shape="SINE")
+        gen.call("set_offset", channel_number=ch, value=float(src.get("offset_v", 0)))
         gen.call("set_amplitude", channel_number=ch, value=float(src.get("amplitude_vpp", 0.1)))
         self._scale = {}
         first = snap_up(float(src.get("amplitude_vpp", 0.1)) / 2 / (FILL * 4))
