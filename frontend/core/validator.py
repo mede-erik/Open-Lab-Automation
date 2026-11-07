@@ -315,6 +315,7 @@ def is_valid_visa_address(address: str) -> bool:
         r'^USB\d*::[^:]+::[^:]+::[^:]+(::\d+)?::INSTR$',  # USB-TMC
         r'^GPIB\d*::\d+(::\d+)?::INSTR$',  # GPIB
         r'^ASRL[^:]+::INSTR$',  # Serial
+        r'^PROLOGIX::.+::\d+(::\d+)?::INSTR$',  # GPIB behind a Prologix-compatible adapter
     ]
     
     for pattern in patterns:
