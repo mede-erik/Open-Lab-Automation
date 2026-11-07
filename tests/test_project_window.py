@@ -345,3 +345,12 @@ def test_a_sweep_the_vna_cannot_do_stops_the_run_and_nothing_can_be_accepted(win
     monkeypatch.setattr(CompatibilityDialog, "exec", fake_exec)
     assert window._check_compatibility(ref) == (False, None)
     assert seen == [(True, False)]  # only Close: there is no button that goes on
+
+
+def test_mapping_instruments_says_when_there_is_nothing_to_map(window, monkeypatch):
+    told = []
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: told.append(a[2])))
+    window.map_instruments(quiet=True)  # when a project is opened: silent
+    assert told == []
+    window.map_instruments()  # from the menu: it says so
+    assert told == ["All the instruments the measurements name are in your instrument file."]

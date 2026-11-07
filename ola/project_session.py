@@ -236,6 +236,7 @@ class ProjectSession:
         ref: MeasurementRef,
         characteristics_of: Callable[[str], Dict[str, float]],
         abilities_of: Optional[Callable[[str], Dict[str, Any]]] = None,
+        bindings: Optional[Dict[str, Any]] = None,
     ) -> List[Finding]:
         """What the instruments now bound to the roles of a measurement have less of than the ones
         of its previous runs (see ``ola.compat.check_role``). ``characteristics_of(name)`` gives
@@ -243,7 +244,9 @@ class ProjectSession:
         is connected. ``abilities_of(name)``: what a network analyzer can measure (see
         ``ProjectConnector.abilities``). For the previous instrument of a role there have to be
         previous runs, except for a VNA, whose sweep is checked against the parameters of the
-        measurement whether or not it was run before."""
+        measurement whether or not it was run before. ``bindings`` (``{role: name or [names]}``)
+        is used instead of the ones in the measurement file, to see what an instrument that is only
+        proposed would give."""
         row = next((r for r in self.rows() if r.ref.id == ref.id), None)
         if row is None or row.info is None:
             return []
@@ -256,7 +259,8 @@ class ProjectSession:
                 continue
         findings: List[Finding] = []
         for role in row.info.roles:
-            wanted = measurement_file.role_bindings.get(role.name) or list(self.instruments)
+            chosen = bindings if bindings is not None else measurement_file.role_bindings
+            wanted = chosen.get(role.name) or list(self.instruments)
             if isinstance(wanted, str):
                 wanted = [wanted]
             bound = [{"name": n, "characteristics": characteristics_of(n)} for n in wanted]

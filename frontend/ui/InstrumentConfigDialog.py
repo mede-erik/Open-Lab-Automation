@@ -16,6 +16,7 @@ from frontend.ui.DataloggerSlotConfigDialog import DataloggerSlotConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.ui.InstrumentPanels import NetworkAnalyzerPanel, SerialPanel, SwitchUnitPanel
 from ola import inst_file as inst
+from ola import project_rename
 
 # PyVISA opzionale per discovery
 try:
@@ -338,7 +339,8 @@ class InstrumentConfigDialog(QDialog):
         form = QFormLayout()
         # Nome assegnato
         self.name_edit = QLineEdit(entry.get('instance_name', entry.get('name', '')))
-        self.name_edit.textChanged.connect(lambda val: self.on_name_changed(val))
+        self.name_edit.textChanged.connect(lambda val: self.check_name(val))
+        self.name_edit.editingFinished.connect(self.commit_name)
         form.addRow(t('inst_field_name'), self.name_edit)
         self.name_error = QLabel()
         self.name_error.setStyleSheet("color: #b00020;")
@@ -739,29 +741,72 @@ class InstrumentConfigDialog(QDialog):
         self.editor_layout.addWidget(table)
         self.channel_table = table
 
-    def on_name_changed(self, val):
-        """Rename the instrument. The name is what measurements use to find it, so an empty
-        name or one that another instrument already has is refused (the old name stays)."""
+    def name_error_text(self, name):
+        """Why ``name`` cannot be the name of the selected instrument ('' if it can)."""
+        t = self.translator.t
+        taken = [self._name_of(e) for e in self.instruments if e is not self.current_instrument]
+        if not name:
+            return t('manual_name_required')
+        if name in taken:
+            return t('manual_name_exists')
+        return ''
+
+    def check_name(self, val):
+        """While typing: show whether the name can be used (nothing is changed yet)."""
         if self.current_instrument is None:
             return
-        t = self.translator.t
-        name = val.strip()
-        taken = [self._name_of(e) for e in self.instruments if e is not self.current_instrument]
-        error = ''
-        if not name:
-            error = t('manual_name_required')
-        elif name in taken:
-            error = t('manual_name_exists')
+        error = self.name_error_text(val.strip())
         self.name_error.setText(error)
         self.name_error.setVisible(bool(error))
         self.name_edit.setStyleSheet("border: 1px solid #b00020;" if error else "")
-        if error:
+
+    def commit_name(self):
+        """The name was typed (Enter, or the field lost the focus): rename the instrument.
+
+        The name is what measurements use to find the instrument, so an empty or used name is
+        refused (the old name comes back) and the measurements that name the instrument are
+        updated, after showing which ones, so that none is left pointing at a name that is gone."""
+        entry = self.current_instrument
+        if entry is None:
             return
-        self.current_instrument['instance_name'] = name
+        t = self.translator.t
+        old, new = self._name_of(entry), self.name_edit.text().strip()
+        if new == old:
+            self.check_name(old)
+            return
+        if self.name_error_text(new):
+            self.name_edit.setText(old)  # refused: the old name stays
+            self.check_name(old)
+            return
+        references = project_rename.find_references(self.inst_file_path, old)
+        if references:
+            listing = "\n".join(
+                f"\u2022 {r.project} / {r.measurement_name} ({r.role})" for r in references)
+            reply = QMessageBox.question(
+                self, t('inst_rename_title'),
+                t('inst_rename_question').format(
+                    count=len({(r.project_path, r.measurement_id) for r in references}),
+                    old=old, new=new, list=listing),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes)
+            if reply != QMessageBox.StandardButton.Yes:
+                self.name_edit.setText(old)
+                self.check_name(old)
+                return
+            try:
+                project_rename.rename_references(self.inst_file_path, old, new, references)
+            except project_rename.RenameError as exc:
+                QMessageBox.warning(self, t('inst_rename_title'),
+                                    t('inst_rename_failed').format(error=exc))
+                self.name_edit.setText(old)
+                self.check_name(old)
+                return
+        entry['instance_name'] = new
         self.save_instruments()
         item = self.list_widget.currentItem()
         if item is not None:
-            item.setText(name)
+            item.setText(new)
+        self.check_name(new)
         self.refresh_problems()
 
     def open_address_editor(self):
