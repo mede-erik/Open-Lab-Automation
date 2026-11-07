@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
@@ -36,6 +37,8 @@ from .registry import ModuleInfo, ModuleRegistry
 from .runner import Runner
 from .runs import RunWriter, read_run
 from .wiring import Diagram, diagram_for, load_wiring
+
+log = logging.getLogger(__name__)
 
 Connect = Callable[[str, Optional[threading.Event]], Any]  # (name, run's stop event) -> handle
 RUNS_FOLDER = "runs"
@@ -209,8 +212,24 @@ class ProjectSession:
                     except Exception as exc:  # the real reason is shown to the user
                         raise MeasurementError(f"cannot reach instrument '{name}': {exc}") from exc
                 role_handles.append(cache[name])
+            if role.category == "network_analyzer":
+                self._restore_calibrations(role_handles, measurement_file.params)
             handles[role.name] = role_handles
         return handles
+
+    def _restore_calibrations(self, handles: List[Any], params: Dict[str, Any]) -> None:
+        """Before a run: each VNA gets back the saved software calibration made for **it** (its
+        serial number) and for the sweep of the measurement, if there is one. A failure is only
+        logged: the measurement then runs as before (it can require a calibration itself)."""
+        from .compat import sweep_of
+        from .vna_calibration_flow import auto_restore
+
+        sweep = sweep_of(params)
+        for handle in handles:
+            try:
+                auto_restore(handle, self.project.path, sweep)
+            except Exception as exc:
+                log.warning("the calibration of %s was not restored: %s", handle.name, exc)
 
     def compatibility(
         self,
