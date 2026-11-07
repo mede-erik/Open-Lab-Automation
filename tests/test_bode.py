@@ -519,3 +519,23 @@ def test_a_generator_with_no_output_switch_measures_and_warns(registry):
     logs = [e.data["message"] for e in runner.drain() if e.kind == "log"]
     assert any("no output switch" in m for m in logs)
     assert any("still on: switch it off by hand" in m for m in logs)
+
+
+def test_the_default_coupling_is_dc_and_a_scope_with_no_ac_coupling_gives_a_clear_message(registry):
+    from ola.modules.bode.measurement import default_params
+
+    assert default_params()["scope"]["coupling"] == "DC"
+    lab = SimBodeLab(ac_coupling=False, plant=lowpass(1e3))
+    p = params(sweep={"points": 3})
+    p["scope"].pop("coupling", None)  # none given: DC, which this scope does
+    runner, lab = run(registry, p, lab=lab)
+    assert runner.state is RunState.FINISHED, runner.error
+    sent = [a["coupling_type"] for _, c, a in lab.log if c == "set_channel_coupling"]
+    assert sent and set(sent) == {"DC"}
+
+    lab = SimBodeLab(ac_coupling=False)
+    runner, lab = run(registry, params(scope={"coupling": "AC"}), lab=lab)
+    assert runner.state is RunState.FAILED
+    message = str(runner.error)
+    assert "does not have AC coupling" in message and "scope.coupling to DC" in message
+    assert not lab.generator_on

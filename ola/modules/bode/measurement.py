@@ -47,8 +47,9 @@ import math
 from typing import Any, Dict, List, Sequence, Tuple
 
 from ola import rf, spectrum
+from ola.call_errors import CallError
 from ola.efficiency_spec import Problem
-from ola.measurement import Measurement, MeasurementContext, Stopped
+from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.run_view import format_si
 from ola.vna_common import check_asset, check_sweep, is_number, sweep_frequencies
 
@@ -73,7 +74,7 @@ def default_params() -> Dict[str, Any]:
         "source": {"channel": 1, "amplitude_vpp": 0.1, "offset_v": 0},
         "scope": {
             "input_channel": 1, "output_channel": 2, "probe_attenuation": 1,
-            "coupling": "AC", "cycles": DEFAULT_CYCLES,
+            "coupling": "DC", "cycles": DEFAULT_CYCLES,
         },  # fmt: skip
         "settle_s": 0.5,
         "capture_wait_s": 0.3,
@@ -130,7 +131,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         if "coupling" in scope and scope["coupling"] not in COUPLINGS:
             out.append(Problem("scope.coupling", f"must be one of {', '.join(COUPLINGS)}"))
         elif (
-            scope.get("coupling", "AC") == "AC"
+            scope.get("coupling", "DC") == "AC"
             and start is not None
             and start < AC_COUPLING_CORNER_HZ
         ):
@@ -408,6 +409,21 @@ class Bode(Measurement):
         if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
             raise Stopped()
 
+    @staticmethod
+    def _set_coupling(scope: Any, number: int, coupling: str) -> None:
+        """Set the coupling of a scope channel; a model that does not do it (the Analog Discovery
+        has no AC coupling: CALL-002) gives a message that says what to change."""
+        try:
+            scope.call("set_channel_coupling", channel_number=number, coupling_type=coupling)
+        except CallError as exc:
+            if exc.code != "CALL-002":
+                raise
+            other = "DC" if coupling == "AC" else "AC"
+            raise MeasurementError(
+                f"this oscilloscope does not have {coupling} coupling (channel {number}): "
+                f"set scope.coupling to {other}"
+            ) from exc
+
     def _configure(self, gen: Any, scope: Any) -> None:
         p = self.params
         src, sc = p["source"], p["scope"]
@@ -430,10 +446,7 @@ class Bode(Measurement):
                 "set_probe_attenuation", channel_number=number,
                 value=float(sc.get("probe_attenuation", 1)),
             )  # fmt: skip
-            scope.call(
-                "set_channel_coupling", channel_number=number,
-                coupling_type=sc.get("coupling", "AC"),
-            )  # fmt: skip
+            self._set_coupling(scope, number, sc.get("coupling", "DC"))
             if "bandwidth_limit_hz" in sc:
                 scope.call(
                     "set_channel_bandwidth_limit", channel_number=number,

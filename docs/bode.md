@@ -55,7 +55,7 @@ all of it (180 for a loop measured with an inverting injection).
 | `source.channel`, `source.amplitude_vpp`, `source.offset_v` | the generator: its output, the peak-to-peak amplitude (the same at every frequency) and a DC offset. Small enough not to saturate the circuit, large enough to read |
 | `scope.input_channel`, `scope.output_channel` | the scope channels on the input and on the output of the circuit (different) |
 | `scope.probe_attenuation` | the same on both channels (10 = 10:1) |
-| `scope.coupling` | `AC` (the default in the editor) or `DC`. **AC coupling adds phase lead below about 20 Hz**: a sweep that starts lower is warned about and should use `DC` |
+| `scope.coupling` | `DC` (the default) or `AC`. A scope that has no AC coupling (the Analog Discovery) refuses `AC`: the run stops before anything is switched on, with a message that says to use `DC`. **AC coupling adds phase lead below about 20 Hz**: a sweep that starts lower is warned about and should use `DC` |
 | `scope.cycles` | the periods shown at every frequency (5 by default) |
 | `scope.memory_depth` | optional, in points; most oscilloscopes accept only some values (`10000`, `100000`, `1000000`...). At the highest frequency it must give at least 8 samples a cycle (a warning says when not) |
 | `scope.bandwidth_limit_hz` | optional; a limit lowers the noise but also changes the phase near it |
