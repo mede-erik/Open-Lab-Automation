@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """What the calibration window relies on: the VNAs of a project, the connection of a driver
 instrument, and the saving of a finished calibration in the project."""
 

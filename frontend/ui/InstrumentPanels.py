@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Parts of the instrument file editor for the settings of one instrument entry.
 
 ``InstrumentConfigDialog`` shows one of these panels below the common fields of an entry. Each
