@@ -79,7 +79,13 @@ def open_visa(
     serial_override: Optional[Dict[str, Any]] = None,
 ):
     """Open a VISA resource (USB-TMC, GPIB, VXI-11, ASRL...) and wrap it for the executor.
-    Serial resources get the library settings (plus ``serial_override``)."""
+    Serial resources get the library settings (plus ``serial_override``). An address ``DWF`` or
+    ``DWF::<serial number>`` is a Digilent device opened through the WaveForms runtime, not
+    through VISA (``ola.drivers.waveforms``)."""
+    if address.strip().upper().split("::")[0] == "DWF":
+        from .drivers.waveforms import open_dwf
+
+        return open_dwf(address)
     import pyvisa
 
     from ._visa import VisaConnection

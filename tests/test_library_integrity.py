@@ -48,7 +48,7 @@ def _model_ids():
 
 
 MODEL_IDS = _model_ids()
-TRANSPORT_KINDS = {"vxi11", "raw_socket", "usbtmc", "serial", "hislip", "gpib"}
+TRANSPORT_KINDS = {"vxi11", "raw_socket", "usbtmc", "serial", "hislip", "gpib", "dwf"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -372,4 +372,6 @@ def test_example_oscilloscope_settings_plan_on_every_oscilloscope(library, was_f
     scopes = [m for m in MODEL_IDS if library.find_model(m).category == "oscilloscopes_series"]
     for model_id in scopes:
         for name, args in calls:
-            assert plan_call(library, model_id, name, args).steps, f"{model_id}.{name}"
+            plan = plan_call(library, model_id, name, args)
+            # a driver model has no steps: its plan is the call handed to the driver
+            assert plan.steps or plan.driver, f"{model_id}.{name}"
