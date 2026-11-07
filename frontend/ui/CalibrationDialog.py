@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The window that calibrates a vector network analyzer of the project, step by step.
 
 It is only layout and signal wiring: the steps, the calls and the saving of the result are
