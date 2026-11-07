@@ -105,6 +105,25 @@ class ProjectConnector:
         return self._remote(name, entry, cancel)
 
     # ----- the two kinds of instrument -------------------------------------------------------
+    def characteristics(self, name: str) -> Dict[str, float]:
+        """What the instrument ``name`` of the instrument file can do, without connecting to it:
+        the limits of a manual instrument, the numbers the library gives for any other. Empty if
+        the instrument or its model is not known."""
+        from .compat import characteristics
+
+        entry = read_inst_entries(self._inst_path()).get(name)
+        if entry is None:
+            return {}
+        if entry.get("is_manual"):
+            channel = (entry.get("channels") or [{}])[0]
+            return {
+                k: float(channel[k])
+                for k in ("max_voltage", "max_current", "max_power")
+                if isinstance(channel.get(k), (int, float)) and channel[k]
+            }
+        model_id = self.library.resolve_model_id(entry.get("model_id") or entry.get("model") or "")
+        return characteristics(self.library, model_id) if model_id else {}
+
     def _manual(self, entry: Dict[str, Any], cancel: Optional[threading.Event]) -> Any:
         from .manual_instrument import manual_handle_from_inst
 

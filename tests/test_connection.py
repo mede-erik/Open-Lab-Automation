@@ -306,3 +306,17 @@ def test_an_entry_without_settings_calls_the_opener_as_before(tmp_path):
     connector, opener = make(tmp_path, [REAL])
     connector("PSU")
     assert opener.opened[0][:2] == ("TCPIP0::1.2.3.4::inst0::INSTR", "PSU1")
+
+
+def test_what_an_instrument_can_do_is_known_without_connecting(tmp_path):
+    manual = {
+        "instrument_type": "power_supply",
+        "instance_name": "VIN",
+        "is_manual": True,
+        "channels": [{"enabled": True, "name": "CH1", "max_voltage": 30.0, "max_current": 5.0}],
+    }
+    connector, opener = make(tmp_path, [REAL, manual])
+    assert connector.characteristics("VIN") == {"max_voltage": 30.0, "max_current": 5.0}
+    assert connector.characteristics("PSU") == {}  # the test library gives no numbers
+    assert connector.characteristics("nobody") == {}
+    assert opener.opened == []  # nothing was opened

@@ -24,6 +24,7 @@ the instrument that made the previous run (``ola.identity.snapshot`` keeps them)
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 NEED_MARGIN = 1.2  # the need is the largest value observed plus 20 %
@@ -180,3 +181,104 @@ def previous_instruments(runs: Iterable[Dict[str, Any]], role: str) -> List[Dict
         if rows:
             return list(rows)
     return []
+
+
+# ====================================================================== comparing
+# unit shown after each characteristic (frequencies are shown with k / M / G)
+UNITS = {
+    VOLTAGE: "V",
+    CURRENT: "A",
+    POWER: "W",
+    "bandwidth_mhz": "MHz",
+    "sample_rate_gsa_s": "GSa/s",
+    "memory_depth_mpts": "Mpts",
+    "vertical_resolution_bits": "bit",
+    "number_of_channels": "",
+    "number_of_ports": "",
+    "max_sweep_points": "",
+    "frequency_min_hz": "Hz",
+    "frequency_max_hz": "Hz",
+}
+
+
+def format_value(key: str, value: Optional[float]) -> str:
+    """A characteristic as it is shown to the user (``None``: a dash)."""
+    if value is None:
+        return "-"
+    if UNITS.get(key) == "Hz":
+        for unit, divisor in (("GHz", 1e9), ("MHz", 1e6), ("kHz", 1e3)):
+            if abs(value) >= divisor:
+                return f"{value / divisor:g} {unit}"
+        return f"{value:g} Hz"
+    unit = UNITS.get(key, "")
+    return f"{value:g} {unit}".strip()
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One thing the instrument of a role has less of than the previous run asked for.
+
+    ``value``: what the new instrument has; ``previous``: what the instrument of the previous run
+    had; ``need``: what the previous runs needed (largest value observed + 20 %), if known.
+    ``blocking``: the measurement cannot be made (an instrument that cannot do the sweep); the user
+    cannot go on."""
+
+    role: str
+    instrument: str
+    characteristic: str
+    value: float
+    previous: Optional[float] = None
+    previous_name: str = ""
+    need: Optional[float] = None
+    blocking: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """What is kept in the run header when the user goes on (``accepted_differences``)."""
+        return {k: v for k, v in asdict(self).items() if v not in (None, "")}
+
+
+def check_role(
+    role: str,
+    instruments: List[Dict[str, Any]],
+    runs: List[Dict[str, Any]],
+) -> List[Finding]:
+    """What the instruments now bound to ``role`` have less of than the previous runs of the
+    measurement asked for.
+
+    ``instruments``: ``[{"name": ..., "characteristics": {...}}]`` for the instruments of the role;
+    ``runs``: the read runs of the measurement, newest first (``ola.runs.read_run``). A role
+    with no previous run, an instrument the library gives no numbers for, or a characteristic the
+    previous instrument did not have are not compared: nothing is invented.
+
+    For a quantity that is learned (voltage, current, power) the reference is the need when there is
+    one (a 100 V multimeter is fine after measurements that never went beyond 33 V); for any other
+    characteristic, or when nothing was observed, it is the value of the previous instrument."""
+    previous = previous_instruments(runs, role)
+    if not previous:
+        return []
+    need = role_need(runs, role)
+    findings: List[Finding] = []
+    for index, new in enumerate(instruments):
+        old = next((p for p in previous if p.get("name") == new.get("name")), None)
+        if old is None and index < len(previous):
+            old = previous[index]
+        before = (old or {}).get("characteristics") or {}
+        for key, value in (new.get("characteristics") or {}).items():
+            if key in LOWER_IS_BETTER:
+                continue  # frequencies are checked against the sweep (see the VNA check)
+            have = before.get(key)
+            reference = need.get(key, have)
+            if reference is None or value >= reference:
+                continue
+            findings.append(
+                Finding(
+                    role,
+                    str(new.get("name", "?")),
+                    key,
+                    value,
+                    have,
+                    str((old or {}).get("name", "")),
+                    need.get(key),
+                )
+            )
+    return findings

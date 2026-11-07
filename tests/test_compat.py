@@ -169,3 +169,95 @@ def test_the_snapshot_keeps_what_the_instrument_could_do_that_day():
     )
     assert snapshot(manual)["characteristics"] == {"max_voltage": 60.0, "max_current": 5.0}
     json.dumps(snapshot(manual))
+
+
+# ---- comparing the instruments of a role with the ones of the previous runs --------------------
+def previous_run(name, characteristics, observed=None):
+    return {
+        "header": {"instruments": {"dmm": [{"name": name, "characteristics": characteristics}]}},
+        "end": {"observed": {"dmm": [{"name": name, "observed": observed}]}} if observed else {},
+    }
+
+
+def new(name, characteristics):
+    return [{"name": name, "characteristics": characteristics}]
+
+
+def test_without_a_previous_run_nothing_is_compared():
+    assert compat.check_role("dmm", new("A", {"max_voltage": 1}), []) == []
+    assert (
+        compat.check_role("dmm", new("A", {"max_voltage": 1}), [{"header": {}, "end": None}]) == []
+    )
+
+
+def test_a_lower_limit_than_the_previous_instrument_is_reported_with_both_values():
+    runs = [previous_run("OLD", {"max_voltage": 200.0})]
+    found = compat.check_role("dmm", new("NEW", {"max_voltage": 100.0}), runs)
+    assert len(found) == 1
+    f = found[0]
+    assert (f.role, f.instrument, f.characteristic) == ("dmm", "NEW", "max_voltage")
+    assert (f.value, f.previous, f.previous_name, f.need) == (100.0, 200.0, "OLD", None)
+    assert compat.check_role("dmm", new("NEW", {"max_voltage": 200.0}), runs) == []  # equal: fine
+    assert compat.check_role("dmm", new("NEW", {"max_voltage": 300.0}), runs) == []  # more: fine
+
+
+def test_what_was_really_needed_decides_not_what_the_old_instrument_could_do():
+    """The 200 V multimeter only read 33 V (need 39.6 V): a 100 V one is accepted, a 30 V is not."""
+    runs = [previous_run("OLD", {"max_voltage": 200.0}, {"max_voltage": 33.0})]
+    assert compat.check_role("dmm", new("NEW", {"max_voltage": 100.0}), runs) == []
+    found = compat.check_role("dmm", new("TINY", {"max_voltage": 30.0}), runs)
+    assert len(found) == 1 and found[0].need == pytest.approx(39.6) and found[0].previous == 200.0
+
+
+def test_a_characteristic_the_previous_instrument_did_not_have_is_not_compared():
+    runs = [previous_run("OLD", {"max_voltage": 200.0})]
+    assert compat.check_role("dmm", new("NEW", {"max_current": 0.001}), runs) == []
+
+
+def test_the_instrument_of_the_same_name_is_compared_with_itself_then_by_position():
+    runs = [
+        {
+            "header": {
+                "instruments": {
+                    "dmm": [
+                        {"name": "A", "characteristics": {"max_voltage": 100.0}},
+                        {"name": "B", "characteristics": {"max_voltage": 500.0}},
+                    ]
+                }
+            },
+            "end": {},
+        }
+    ]
+    bound = [
+        {"name": "B", "characteristics": {"max_voltage": 400.0}},
+        {"name": "C", "characteristics": {"max_voltage": 90.0}},
+    ]
+    found = compat.check_role("dmm", bound, runs)
+    assert [(f.instrument, f.previous_name) for f in found] == [("B", "B"), ("C", "B")]
+
+
+def test_lowest_frequency_is_left_to_the_sweep_check():
+    runs = [previous_run("OLD", {"frequency_min_hz": 1e3})]
+    assert compat.check_role("dmm", new("NEW", {"frequency_min_hz": 5e4}), runs) == []
+
+
+def test_values_are_shown_with_their_unit():
+    assert compat.format_value("max_voltage", 39.6) == "39.6 V"
+    assert compat.format_value("frequency_max_hz", 6.3e9) == "6.3 GHz"
+    assert compat.format_value("frequency_min_hz", 5e4) == "50 kHz"
+    assert compat.format_value("number_of_channels", 4) == "4"
+    assert compat.format_value("max_voltage", None) == "-"
+
+
+def test_a_difference_is_kept_in_plain_values_for_the_run_header():
+    f = compat.Finding("dmm", "NEW", "max_voltage", 100.0, 200.0, "OLD", None)
+    assert f.to_dict() == {
+        "role": "dmm",
+        "instrument": "NEW",
+        "characteristic": "max_voltage",
+        "value": 100.0,
+        "previous": 200.0,
+        "previous_name": "OLD",
+        "blocking": False,
+    }
+    json.dumps(f.to_dict())

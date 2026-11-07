@@ -23,6 +23,7 @@ temporary folder).
 """
 
 import json
+import logging
 import sys
 import tempfile
 from pathlib import Path
@@ -59,6 +60,8 @@ from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
 from ola.runs import export_points_csv
+
+logger = logging.getLogger(__name__)
 
 REFRESH_MS = 1000  # the list of runs is refreshed while a run window is open
 
@@ -549,6 +552,28 @@ class ProjectWindow(QMainWindow):
             entries=entries,
         ).exec()
 
+    def _check_compatibility(self, ref: MeasurementRef):
+        """Compare the instruments now bound to the measurement with the ones of its previous
+        runs. Returns ``(go_on, accepted_differences)``: if something is less than before the
+        user decides (and a difference that makes the measurement impossible stops it). A failure
+        of the check itself never stops a measurement."""
+        characteristics_of = getattr(self.connector, "characteristics", None)
+        if characteristics_of is None:
+            return True, None
+        try:
+            findings = self.session.compatibility(ref, characteristics_of)
+        except Exception as exc:  # the check is a help: it must not prevent the run
+            logger.warning("the instruments could not be compared: %s", exc)
+            return True, None
+        if not findings:
+            return True, None
+        from frontend.ui.CompatibilityDialog import CompatibilityDialog
+
+        dialog = CompatibilityDialog(findings, self.translator, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return False, None
+        return True, findings
+
     def _confirm_wiring(self, ref: MeasurementRef) -> bool:
         """Before a run: show the diagram and ask to start. False if the user cancels."""
         if not self.wiring_before_run:
@@ -571,8 +596,11 @@ class ProjectWindow(QMainWindow):
             return
         if not self._confirm_wiring(ref):
             return
+        proceed, accepted = self._check_compatibility(ref)
+        if not proceed:
+            return
         try:
-            runner, run_file = self.session.build_runner(ref)
+            runner, run_file = self.session.build_runner(ref, accepted_differences=accepted)
         except MeasurementError as exc:
             QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
             return

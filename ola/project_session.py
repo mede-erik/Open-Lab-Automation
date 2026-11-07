@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .assets import normalize_code, snapshots_for
-from .compat import observed_of
+from .compat import Finding, check_role, observed_of
 from .deembed import latest_cable_run
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
@@ -212,8 +212,37 @@ class ProjectSession:
             handles[role.name] = role_handles
         return handles
 
+    def compatibility(
+        self, ref: MeasurementRef, characteristics_of: Callable[[str], Dict[str, float]]
+    ) -> List[Finding]:
+        """What the instruments now bound to the roles of a measurement have less of than the ones
+        of its previous runs (see ``ola.compat.check_role``). ``characteristics_of(name)`` gives
+        what an instrument of the project can do (``ProjectConnector.characteristics``). Nothing
+        is connected. Empty if there are no previous runs."""
+        row = next((r for r in self.rows() if r.ref.id == ref.id), None)
+        if row is None or row.info is None:
+            return []
+        measurement_file = self.load(ref)
+        runs = []
+        for path in self.runs(ref):
+            try:
+                runs.append(read_run(path))
+            except (OSError, ValueError):
+                continue
+        findings: List[Finding] = []
+        for role in row.info.roles:
+            wanted = measurement_file.role_bindings.get(role.name) or list(self.instruments)
+            if isinstance(wanted, str):
+                wanted = [wanted]
+            bound = [{"name": n, "characteristics": characteristics_of(n)} for n in wanted]
+            findings += check_role(role.name, bound, runs)
+        return findings
+
     def build_runner(
-        self, ref: MeasurementRef, unattended: Optional[str] = None
+        self,
+        ref: MeasurementRef,
+        unattended: Optional[str] = None,
+        accepted_differences: Optional[List[Finding]] = None,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
         file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
@@ -243,6 +272,8 @@ class ProjectSession:
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
             extra["assets"] = cards
+        if accepted_differences:  # the user went on although an instrument has less than before
+            extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(
             runner,
             measurement_id=ref.id,

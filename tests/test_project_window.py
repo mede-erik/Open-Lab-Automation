@@ -287,3 +287,40 @@ def test_the_calibration_button_says_why_it_cannot_open(window, monkeypatch):
     assert window.buttons["cal_button"].isEnabled()
     window.buttons["cal_button"].click()
     assert len(seen) == 1 and "library" in seen[0]
+
+
+def test_the_user_decides_when_an_instrument_has_less_than_before(window, monkeypatch):
+    """Cancel stops the run before anything starts; Continue goes on and keeps the differences."""
+    from PyQt6.QtWidgets import QDialog
+
+    from frontend.ui.CompatibilityDialog import CompatibilityDialog
+    from ola.compat import Finding
+
+    found = [Finding("dmm", "NEW", "max_voltage", 100.0, 200.0, "OLD", 39.6)]
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f: found)
+    answers = []
+
+    def fake_exec(self):
+        answers.append(self.table.item(0, 3).text())
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(CompatibilityDialog, "exec", fake_exec)
+    assert window._check_compatibility(ref) == (False, None)
+    assert answers == ["100 V"]
+    monkeypatch.setattr(CompatibilityDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    assert window._check_compatibility(ref) == (True, found)
+    monkeypatch.setattr(window.session, "compatibility", lambda r, f: [])
+    assert window._check_compatibility(ref) == (True, None)  # nothing to say: no pop-up
+
+
+def test_a_failing_comparison_never_stops_a_run(window, monkeypatch):
+    ref = window.session.project.measurements[0]
+    window.connector = type("C", (), {"characteristics": staticmethod(lambda name: {})})()
+
+    def boom(r, f):
+        raise RuntimeError("cannot compare")
+
+    monkeypatch.setattr(window.session, "compatibility", boom)
+    assert window._check_compatibility(ref) == (True, None)
