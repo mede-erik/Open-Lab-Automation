@@ -80,6 +80,7 @@ instrument layer  ola/instrument.py                  steps write / query / read 
         v
 transport  ola/transport.py                          TCP raw socket, serial (Rust)
            ola/_visa.py                              USB-TMC, GPIB, VXI-11 (pyvisa)
+           ola/prologix.py                           GPIB via Prologix-compatible adapters
 ```
 
 | Path | Purpose |
@@ -87,6 +88,7 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 | `native/` | Rust crate `ola_native` (PyO3): TCP (`TCP_NODELAY`, deadline-bounded buffered reads), serial, IEEE 488.2 blocks. The GIL is released during I/O. |
 | `ola/transport.py`, `ola/_pyconn.py` | Entry point; uses `ola_native` if installed, otherwise a pure-Python implementation with identical behaviour (`OLA_TRANSPORT=python` forces it). |
 | `ola/_visa.py` | pyvisa adapter with the same interface. It never leaves a shared pyvisa resource modified. |
+| `ola/gpib_adapter.py`, `ola/prologix.py`, `ola/gpib_linux.py`, `frontend/ui/GpibAdapterDialog.py` | **GPIB adapters** (*Tools > GPIB adapters*): profiles of the supported adapters (Keysight 82357B / 82357A, NI GPIB-USB-HS, Measurement Computing USB-488, any VISA `GPIBn` board, Prologix GPIB-USB / GPIB-ETHERNET, AR488), their configuration, the driver check, the bus scan, IFC / REN and a console. `ola/prologix.py` is the transport for the Prologix-compatible adapters (address `PROLOGIX::<port>::<gpib address>::INSTR`; several instruments share one link). `ola/gpib_linux.py` checks and does the Linux set-up of an adapter driven by linux-gpib (a new Keysight 82357B: linux-gpib, firmware and fxload, udev, `/etc/gpib.conf`, `gpib` group), as administrator through `pkexec`. Guide: [`docs/gpib-adapters.md`](docs/gpib-adapters.md). |
 | `ola/steps.py`, `ola/instrument.py` | A call is a list of steps (`write`, `query`, `read`, `delay`) run in order; the first failure stops it (`CALL-004` with the step index). `driver` plans (e.g. Analog Discovery via its SDK) are dispatched to a driver object. |
 | `ola/measurement.py`, `ola/runner.py` | `Measurement` base class and the thread runner: `setup`, `run`, and **always** `teardown`; stop, pause/resume, errors with code and traceback. |
 | `ola/registry.py`, `ola/modules/` | Measurement modules, found from their `module.json`. Finding a module never runs its code; a module that is not built in needs explicit permission to load. |
