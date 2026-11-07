@@ -124,3 +124,13 @@ def test_a_kit_with_values_reaches_the_driver(app, setup):
     dialog.begin_button.click()
     assert pump(app, lambda: dialog.session is not None)
     assert dialog.session.kit["open_c0"] == 49.4
+
+
+def test_the_sweep_and_ports_of_the_instrument_file_are_the_defaults(app, setup):
+    dialog, _sim, project = setup
+    entries = {"VNA": {"num_ports": 2, "sweep": {"start_hz": 5e4, "stop_hz": 6e9, "points": 401}}}
+    other = CalibrationDialog(
+        dialog.analyzers, dialog.library, dialog.connect, project, entries=entries
+    )
+    assert (other.start.text(), other.stop.text(), other.points.value()) == ("50k", "6G", 401)
+    assert other.port.maximum() == 2 and other.port2.maximum() == 2
