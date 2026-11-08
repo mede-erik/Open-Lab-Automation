@@ -250,7 +250,7 @@ def _to_text(
     kind = types.get(t, {}).get("kind")
     table = pdef.get("map")
     if table is not None:
-        found, text = _lookup(table, value)
+        found, text = _lookup(table, value, pdef.get("map_select"))
         if found:
             return text
         if pdef.get("map_default") != "pass":
@@ -322,9 +322,22 @@ def _evaluate(expression: str, values: Dict[str, Any], call: str) -> float:
         )
 
 
-def _lookup(table: Dict[str, Any], value: Any):
+def _lookup(table: Dict[str, Any], value: Any, select: Optional[str] = None):
     """Find ``value`` in a library ``map``. Keys are strings; numbers match numerically
-    (``"20000000"`` matches 2e7), booleans use the keys ``"true"``/``"false"``."""
+    (``"20000000"`` matches 2e7), booleans use the keys ``"true"``/``"false"``.
+    With ``select="ceiling"`` a number takes the entry of the smallest numeric key that is not
+    below it (a measurement range that contains the value)."""
+    if select == "ceiling" and isinstance(value, (int, float)) and not isinstance(value, bool):
+        keys = []
+        for k, v in table.items():
+            try:
+                keys.append((float(k), v))
+            except ValueError:
+                continue
+        fitting = [(k, v) for k, v in keys if k >= float(value)]
+        if not fitting:
+            return False, None
+        return True, str(min(fitting, key=lambda kv: kv[0])[1])
     if isinstance(value, bool):
         key = "true" if value else "false"
         return (key in table), (str(table[key]) if key in table else None)
@@ -455,7 +468,7 @@ def plan_call(
                 texts[dname] = _fmt_number(_evaluate(ddef["expr"], logical, call))
             continue
         if src is not None and src in logical:
-            found, text = _lookup(ddef.get("map", {}), logical[src])
+            found, text = _lookup(ddef.get("map", {}), logical[src], ddef.get("map_select"))
             if not found:
                 raise ValueNotHandledError(
                     f"value {logical[src]!r} of argument '{src}' is not handled by model "
@@ -500,7 +513,7 @@ def plan_call(
             steps.append(_validated({"op": "write", "text": text}, call))
 
     # ---- which step carries the answer, and how to interpret it
-    query_idx = [i for i, s in enumerate(steps) if s["op"] == "query"]
+    query_idx = [i for i, s in enumerate(steps) if s["op"] in ("query", "read")]
     from_step = half.get("result_step", query_idx[-1] if query_idx else None)
     response = {
         k: half[k] for k in ("response_map", "bool", "split", "index", "as_list") if k in half

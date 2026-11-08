@@ -435,3 +435,36 @@ def test_number_or_keyword_argument():
     assert plan_call(lib, "M", "set_range", {"range": "auto"}).steps[0]["text"] == "RANG AUTO"
     with pytest.raises(InvalidArgumentError):
         plan_call(lib, "M", "set_range", {"range": "huge"})
+
+
+def test_a_read_step_carries_the_answer():
+    # an instrument that talks when addressed (HP 3478A): the reading comes from a 'read' step
+    lib = _lib_with(
+        {"read_value": {"query": {"steps": [{"op": "read", "returns": "float"}]}}}
+    )
+    p = plan_call(lib, "M", "read_value")
+    assert [s["op"] for s in p.steps] == ["read"]
+    assert p.interpret([1.5]) == 1.5
+
+
+def test_ceiling_map_selects_the_smallest_range_that_contains_the_value():
+    lib = _lib_with(
+        {
+            "set_bw": {
+                "set": {"syntax": "R{code}"},
+                "parameters": {
+                    "bandwidth": {"type": "float"},
+                    "code": {
+                        "from": "bandwidth",
+                        "map": {"0.3": "-1", "3": "0", "30": "1"},
+                        "map_select": "ceiling",
+                    },
+                },
+            },
+        }
+    )
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 1}).steps[0]["text"] == "R0"
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 3}).steps[0]["text"] == "R0"
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 0.01}).steps[0]["text"] == "R-1"
+    with pytest.raises(ValueNotHandledError):
+        plan_call(lib, "M", "set_bw", {"bandwidth": 31})
