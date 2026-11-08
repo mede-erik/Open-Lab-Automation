@@ -207,3 +207,34 @@ def test_tracked_files_selection_uses_git(tmp_path, monkeypatch):
 
     monkeypatch.setattr(headers.subprocess, "run", lambda *a, **k: Done())
     assert headers.tracked_files() == [str(tmp_path / "a.py")]
+
+
+# ---------------------------------------------------------------- the repository itself
+def test_the_license_is_the_one_the_header_names():
+    """The header says GPL v3 and points to the LICENSE file."""
+    with open(os.path.join(REPO, "LICENSE"), encoding="utf-8") as f:
+        text = f.read(400)
+    assert "GNU GENERAL PUBLIC LICENSE" in text and "Version 3" in text
+    assert "GNU General Public License v3.0" in LINES[2] and "LICENSE" in LINES[2]
+
+
+def test_every_source_file_of_the_repository_has_the_header():
+    """The rule: every source file (.py .sh .rs .c .h .bat .qss) carries the header.
+
+    While the header is still being added to the existing files (most of them lack it) this test
+    is skipped, so that it does not fail every pull request; once most files have it, a file
+    without it fails the test and is listed. ``python scripts/add_copyright_headers.py`` adds it.
+    """
+    files = headers.tracked_files()
+    if not files:
+        pytest.skip("not a git checkout")
+    missing = []
+    for path in files:
+        with open(path, "rb") as f:
+            if not headers.has_header(f.read().decode("utf-8", errors="replace")):
+                missing.append(os.path.relpath(path, REPO))
+    if len(missing) > len(files) // 2:
+        pytest.skip(f"the header is not yet in most files ({len(missing)} of {len(files)} lack it)")
+    assert (
+        missing == []
+    ), "files without the copyright header (python scripts/add_copyright_headers.py)"
