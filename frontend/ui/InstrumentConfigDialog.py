@@ -278,21 +278,20 @@ class InstrumentConfigDialog(QDialog):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            # Rimuovi dalla lista dati
+            # Rimuovi dalla lista dati e dalla lista UI. I segnali della lista restano bloccati:
+            # takeItem() farebbe emettere currentRowChanged con la riga numerata come prima della
+            # rimozione, che non esiste piu' in self.instruments (l'editor resterebbe vuoto).
             del self.instruments[current_row]
+            self.list_widget.blockSignals(True)
+            try:
+                self.list_widget.takeItem(current_row)
+                if self.instruments:
+                    self.list_widget.setCurrentRow(min(current_row, len(self.instruments) - 1))
+            finally:
+                self.list_widget.blockSignals(False)
 
-            # Rimuovi dalla lista UI
-            self.list_widget.takeItem(current_row)
-
-            # Aggiorna la selezione
-            if self.instruments:
-                if current_row >= len(self.instruments):
-                    self.list_widget.setCurrentRow(len(self.instruments) - 1)
-                else:
-                    self.list_widget.setCurrentRow(current_row)
-            else:
-                self.current_instrument = None
-                self.show_empty_editor()
+            # Mostra lo strumento che ora e' selezionato (o l'editor vuoto)
+            self.on_instrument_selected(self.list_widget.currentRow())
 
             # Salva automaticamente
             self.save_instruments()
