@@ -31,7 +31,7 @@ def test_library_structure(lib):
 
 def test_get_all_types(lib):
     assert lib.get_all_types() == ['power_supply', 'datalogger', 'oscilloscope', 'electronic_load', 'switch_unit',
-                                   'network_analyzer', 'function_generator']
+                                   'network_analyzer', 'function_generator', 'multimeter']
 
 
 def test_get_series_key(lib):

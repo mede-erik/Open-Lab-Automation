@@ -83,6 +83,7 @@ are the names of the instruments of the project.
 | `reads` | zero or more readings: `{label: {instrument, call, args, scale, offset}}`; the result is `reading * scale + offset` (for a shunt, `scale` is 1 / resistance) |
 | `verify` | compare the setpoint with one of its readings (below) |
 | `limits` | `{"min", "max"}`: allowed setpoints, checked against every value of the sweep |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 | `output` | how the output of its instrument is switched on and off: `on`, `off` and `mode` (below) |
 
 A parameter that has `set` needs `value` **or** `sweep`. A parameter without `set` is only read (for

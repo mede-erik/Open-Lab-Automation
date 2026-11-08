@@ -78,6 +78,8 @@ falls at the lowest powers the log says so.
 isolation are taken (the whole sweep by default); `limits` is a mask on the **gain in dB** ([`ola/limits.py`](../ola/limits.py)),
 for example `{"min": 18}`. The editor (*Edit* in the project window, from the module's `form.json`) shows every
 problem at its field, including the protection errors.
+`golden` (optional) checks the result against a **golden sample** of the project, a good amplifier of the same kind, for
+example the gain `S21` in `magnitude_db` within 1 dB ([`golden.md`](golden.md#as-a-step-of-a-measurement)).
 
 ## Results
 

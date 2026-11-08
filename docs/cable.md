@@ -39,6 +39,7 @@ With `"also_s11": true` in transmission mode the return loss and the VSWR of the
 | `frequencies_of_interest` | the loss is reported at these frequencies (read from the curve; they must be inside the sweep) |
 | `limits` | pass / fail limit on the loss in dB: a constant, a line, or one limit per band ([`ola/limits.py`](../ola/limits.py)) |
 | `averages` | number of sweeps averaged (reduces noise) |
+| `golden` | optional: check the result against a **golden sample** of the project, a good cable of the same kind: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 | `confirm_setup` | `false` skips the question (for scripts) |
 
 The editor (*Edit* in the project window, built from the module's `form.json`) checks the file while it is filled in: every problem is shown at its field, a number can be typed as `433M` or `2.4 GHz`, and the VNA is chosen from the instruments of the project.

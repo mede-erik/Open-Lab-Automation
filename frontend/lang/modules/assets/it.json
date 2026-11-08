@@ -100,5 +100,20 @@
   "lbl_save_png": "Salva immagine",
   "lbl_save_svg": "Salva SVG",
   "lbl_saved": "Salvato {path}",
-  "lbl_failed": "Salvataggio non riuscito: {error}"
+  "lbl_failed": "Salvataggio non riuscito: {error}",
+  "ast_trend": "Andamento...",
+  "ast_t_title": "Andamento di {code} {name}",
+  "ast_t_figure": "Valore",
+  "ast_t_limit": "Limite (da non raggiungere)",
+  "ast_t_rate": "Peggioramento più rapido accettato, all'anno",
+  "ast_t_warn": "Avvisa se il limite si raggiunge entro (giorni)",
+  "ast_t_lower_worse": "Un valore più basso è peggiore (per un return loss)",
+  "ast_t_csv": "Salva come CSV...",
+  "ast_t_none": "Nessuna misura finita di {code} ha un valore da seguire.",
+  "ast_t_measured": "misurato",
+  "ast_t_line": "andamento",
+  "ast_t_limit_line": "limite",
+  "ast_t_days": "giorni dal {date}",
+  "ast_t_failed": "Impossibile salvare: {error}",
+  "ast_t_saved": "Salvato: {path}"
 }

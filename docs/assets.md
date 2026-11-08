@@ -40,7 +40,8 @@ A code that is not in the registry is a warning, not an error; something that is
 When a run starts, **the card as it is that day** is saved in the header of the run next to the code (`assets`). If the
 cable is renamed or its length corrected later, the old runs still say what it was. The **Measurements** column of the
 registry counts the runs found by code in the runs folder of the open project; **History...** lists them (date,
-measurement, result) and **Compare...** puts their curves together in the [comparison tool](compare.md).
+measurement, result), **Compare...** puts their curves together in the [comparison tool](compare.md) and **Trend...** shows how a figure
+of the measurements (the loss of a cable) changes with the date, with a verdict before the cable is out of use ([`trend.md`](trend.md)).
 
 ## Labels
 

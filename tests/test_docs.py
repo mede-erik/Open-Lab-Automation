@@ -758,3 +758,39 @@ def test_time_log_example_in_the_docs_is_valid_and_runs():
     assert len(rows) == 3 and rows[0]["vout"] == 5.0 and rows[0]["temp1"] == 25.0
     for name in ("duration_s", "samples", "t_s", "instruments"):
         assert name in text, name
+
+
+def test_golden_example_in_the_docs_is_valid_and_gives_a_verdict(tmp_path):
+    """The tolerances of docs/golden.md are a real spec: a good cable passes, a worn one fails."""
+    import json as _json
+
+    from ola.compare import load_run
+    from ola.golden import check_against_golden
+    from tests.test_golden import cable_run
+    from ola.registry import default_registry
+
+    text = read(ROOT / "docs" / "golden.md")
+    block = re.search(r"```json tolerances\.json\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/golden.md"
+    spec = _json.loads(block.group(1))
+    registry = default_registry(user_dir="/nonexistent")
+    golden = load_run(cable_run(registry, tmp_path, "golden", 0.6))
+    good = load_run(cable_run(registry, tmp_path, "good", 0.6, stamp="20261104_100000"))
+    worn = load_run(cable_run(registry, tmp_path, "worn", 1.2, stamp="20261105_100000"))
+    assert check_against_golden(good, golden, spec).verdict == "PASS"
+    assert check_against_golden(worn, golden, spec).verdict == "FAIL"
+    for name in ("golden/", "min_overlap", "NO DATA", "set_golden", "upper", "lower"):
+        assert name in text, name
+
+
+def test_trend_doc_names_the_verdicts_and_the_figures_that_exist():
+    """docs/trend.md names verdicts and options of the code, and the figures of a cable run."""
+    from ola import trend
+
+    text = read(ROOT / "docs" / "trend.md")
+    for verdict in ("FAIL", "WARNING", "PASS", "NOT ENOUGH DATA"):
+        assert f"`{verdict}`" in text
+    assert trend.DEFAULT_FIGURE in text and "max_rate_per_year" in text
+    for option in ("--figure", "--limit", "--max-rate", "--warn-days", "--list-figures", "--csv"):
+        assert option in text, option
+        assert option in read(ROOT / "scripts" / "cable_trend.py"), option

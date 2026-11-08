@@ -45,6 +45,7 @@ have reflections too: all four S-parameters are read and the transfer matrices a
 
 from typing import Any, Dict, List, Optional
 
+from ola.golden import check_golden_param, recording
 from ola import rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
@@ -109,6 +110,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     check_asset(params, "filter", out)
     check_fixtures(params, out, Problem)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
+    check_golden_param(params, out)
     return out
 
 
@@ -207,6 +209,7 @@ class FilterResponse(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, sweep, read, compute, report."""
+        ctx = recording(ctx, "filter", self.params)  # with a golden sample: checked at the end
         p = self.params
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):

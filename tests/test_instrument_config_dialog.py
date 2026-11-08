@@ -405,3 +405,37 @@ def test_changing_instrument_leaves_no_widget_of_the_previous_one(app, tmp_path)
     assert panel(dialog, NetworkAnalyzerPanel) is None
     names = [w for w in dialog.editor_widget.findChildren(QLineEdit) if w.text() == "VNA"]
     assert names == []
+
+
+def _delete(dialog, monkeypatch):
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+    dialog.delete_instrument()
+
+
+def test_after_deleting_the_first_instrument_the_next_one_is_shown(app, tmp_path, monkeypatch):
+    """takeItem() made the list emit the old row number; the editor used to stay empty."""
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    select(dialog, "PSU")
+    _delete(dialog, monkeypatch)
+    assert [e["instance_name"] for e in saved(path)["instruments"]] == ["LOAD"]
+    assert dialog.list_widget.currentRow() == 0
+    assert dialog.current_instrument is dialog.instruments[0]
+    assert dialog.current_instrument["instance_name"] == "LOAD"
+
+
+def test_after_deleting_the_last_instrument_the_previous_one_is_shown(app, tmp_path, monkeypatch):
+    dialog, path = make(tmp_path, [PSU, LOAD])
+    select(dialog, "LOAD")
+    _delete(dialog, monkeypatch)
+    assert dialog.list_widget.currentRow() == 0
+    assert dialog.current_instrument["instance_name"] == "PSU"
+
+
+def test_deleting_the_only_instrument_leaves_an_empty_editor(app, tmp_path, monkeypatch):
+    dialog, path = make(tmp_path, [LOAD])
+    select(dialog, "LOAD")
+    _delete(dialog, monkeypatch)
+    assert dialog.current_instrument is None
+    assert saved(path)["instruments"] == []

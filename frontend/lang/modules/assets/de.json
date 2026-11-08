@@ -100,5 +100,20 @@
   "lbl_save_png": "Bild speichern",
   "lbl_save_svg": "SVG speichern",
   "lbl_saved": "Gespeichert {path}",
-  "lbl_failed": "Speichern fehlgeschlagen: {error}"
+  "lbl_failed": "Speichern fehlgeschlagen: {error}",
+  "ast_trend": "Verlauf...",
+  "ast_t_title": "Verlauf von {code} {name}",
+  "ast_t_figure": "Wert",
+  "ast_t_limit": "Grenze (darf nicht erreicht werden)",
+  "ast_t_rate": "Schnellste zulässige Verschlechterung pro Jahr",
+  "ast_t_warn": "Warnen, wenn die Grenze erreicht wird in (Tagen)",
+  "ast_t_lower_worse": "Ein niedrigerer Wert ist schlechter (für eine Rückflussdämpfung)",
+  "ast_t_csv": "Als CSV speichern...",
+  "ast_t_none": "Keine abgeschlossene Messung von {code} hat einen Wert zum Verfolgen.",
+  "ast_t_measured": "gemessen",
+  "ast_t_line": "Trend",
+  "ast_t_limit_line": "Grenze",
+  "ast_t_days": "Tage seit {date}",
+  "ast_t_failed": "Speichern nicht möglich: {error}",
+  "ast_t_saved": "Gespeichert: {path}"
 }

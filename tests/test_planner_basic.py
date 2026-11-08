@@ -321,6 +321,23 @@ def test_derived_parameters():
     )
     p = plan_call(lib, "M", "set_fmt", {"format_type": "word"})
     assert [s["text"] for s in p.steps] == ["DAT:ENC RIB", "DAT:WID 2"]
+    # without the argument, the error names it, not the derived placeholder
+    with pytest.raises(InvalidArgumentError, match="needs argument 'format_type'"):
+        plan_call(lib, "M", "set_fmt")
+
+
+def test_missing_optional_source_of_a_derived_parameter_is_named():
+    lib = _lib_with(
+        {
+            "set_bw": {
+                "set": {"syntax": "BW {bw_text}"},
+                "parameters": {"bw_text": {"from": "bandwidth", "map": {"0": "FULL"}}},
+            },
+        }
+    )
+    lib.schema("c")["calls"]["set_bw"]["args"]["bandwidth"]["required"] = False
+    with pytest.raises(InvalidArgumentError, match="needs argument 'bandwidth'"):
+        plan_call(lib, "M", "set_bw")
 
 
 def test_expression_parameters_and_defaults():
@@ -422,3 +439,36 @@ def test_number_or_keyword_argument():
     assert plan_call(lib, "M", "set_range", {"range": "auto"}).steps[0]["text"] == "RANG AUTO"
     with pytest.raises(InvalidArgumentError):
         plan_call(lib, "M", "set_range", {"range": "huge"})
+
+
+def test_a_read_step_carries_the_answer():
+    # an instrument that talks when addressed (HP 3478A): the reading comes from a 'read' step
+    lib = _lib_with(
+        {"read_value": {"query": {"steps": [{"op": "read", "returns": "float"}]}}}
+    )
+    p = plan_call(lib, "M", "read_value")
+    assert [s["op"] for s in p.steps] == ["read"]
+    assert p.interpret([1.5]) == 1.5
+
+
+def test_ceiling_map_selects_the_smallest_range_that_contains_the_value():
+    lib = _lib_with(
+        {
+            "set_bw": {
+                "set": {"syntax": "R{code}"},
+                "parameters": {
+                    "bandwidth": {"type": "float"},
+                    "code": {
+                        "from": "bandwidth",
+                        "map": {"0.3": "-1", "3": "0", "30": "1"},
+                        "map_select": "ceiling",
+                    },
+                },
+            },
+        }
+    )
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 1}).steps[0]["text"] == "R0"
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 3}).steps[0]["text"] == "R0"
+    assert plan_call(lib, "M", "set_bw", {"bandwidth": 0.01}).steps[0]["text"] == "R-1"
+    with pytest.raises(ValueNotHandledError):
+        plan_call(lib, "M", "set_bw", {"bandwidth": 31})
