@@ -332,6 +332,32 @@ def test_the_first_channel_is_used_when_none_is_given():
     assert dll.sent("frequency") == [(0, 0, 1000.0)]
 
 
+def test_without_a_channel_the_configured_channels_start_together():
+    """Started one call after the other, two channels have a random phase between them."""
+    drv, dll = driver()
+    drv.call("set_frequency", {"channel_number": 1, "value": 1000.0})
+    drv.call("set_frequency", {"channel_number": 2, "value": 1000.0})
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1), (1, 0, 1)]
+    assert dll.sent("configure") == [(-1, 1)]  # one start for the whole generator
+    drv.call("set_output_state", {"state": False})
+    assert dll.sent("configure") == [(-1, 1), (-1, 0)]
+    assert dll.sent("enable")[2:] == [(0, 0, 0), (1, 0, 0)]
+
+
+def test_a_channel_that_was_not_configured_is_not_started_by_the_group_call():
+    drv, dll = driver()
+    drv.call("set_frequency", {"channel_number": 1, "value": 1000.0})
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1)]  # W2 keeps the default signal off
+
+
+def test_without_a_channel_and_nothing_configured_the_first_channel_is_used():
+    drv, dll = driver()
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1)] and dll.sent("configure") == [(-1, 1)]
+
+
 def test_a_channel_the_device_does_not_have_is_an_invalid_argument():
     drv, _ = driver()
     for number in (0, 3):
