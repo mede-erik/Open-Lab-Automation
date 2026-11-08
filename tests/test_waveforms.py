@@ -763,3 +763,28 @@ def test_the_mandatory_calls_the_device_has_no_equivalent_for_say_so(call):
     drv, _ = scope()
     with pytest.raises(CallNotSupportedError, match=f"call '{call}' has no equivalent"):
         drv.call(f"unsupported_{call}", {})
+
+
+def test_the_scale_limits_follow_the_probe_attenuation():
+    """Measured on a real Analog Discovery 2: with a x10 probe the library gives at least ten
+    times the minimum range, and a smaller request was rounded up silently."""
+    drv, dll = scope()  # the fake device gives 0.2 to 50 V of range, 0.02 to 5 V/div
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 10.0})
+    with pytest.raises(ValueNotHandledError, match=r"with a x10 probe \(0.2 to 50 V/div\)"):
+        drv.call("set_channel_scale", {"channel_number": 1, "value": 0.1})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.5})  # 5 V range at the tip
+    assert dll.sent("in_range") == [(0, 5.0)]
+    drv.call("set_channel_scale", {"channel_number": 2, "value": 0.05})  # channel 2 has no probe
+    with pytest.raises(ValueNotHandledError):
+        drv.call("set_channel_scale", {"channel_number": 2, "value": 6.0})
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 1.0})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.1})  # fine without the probe
+    with pytest.raises(ValueNotHandledError):
+        drv.call("set_channel_scale", {"channel_number": 1, "value": 0.01})
+
+
+def test_a_scope_reset_forgets_the_probe_attenuation():
+    drv, _ = scope()
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 10.0})
+    drv.call("scope_reset", {})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.05})  # allowed without a probe

@@ -573,6 +573,7 @@ class WaveformsDriver:
         # oscilloscope
         self._in_channels: Optional[int] = None
         self._enabled: set = set()  # AnalogIn channel indexes enabled through this driver
+        self._attenuation: Dict[int, float] = {}  # probe factor per AnalogIn channel (default 1)
         self._timebase: Optional[float] = None  # seconds per division
         self._depth: Optional[int] = None  # points
         self._state = "idle"  # idle | running | done
@@ -708,6 +709,7 @@ class WaveformsDriver:
         """Default parameters of the oscilloscope (the generator is not touched)."""
         self.api.ain_reset(self.handle)
         self._enabled.clear()
+        self._attenuation.clear()  # the device goes back to no probe
         self._timebase = self._depth = None
         self._state, self._capture = "idle", {}
         self._trigger_timeout = 0.0
@@ -719,14 +721,23 @@ class WaveformsDriver:
         (self._enabled.add if state else self._enabled.discard)(channel)
 
     def fn_set_channel_scale(self, value: float, channel_number: Optional[int] = None) -> None:
-        """Volts per division: the range is ``VERTICAL_DIVISIONS`` times that; a range the device
-        does not have is not handled by this model."""
+        """Volts per division at the probe tip: the range is ``VERTICAL_DIVISIONS`` times that; a
+        range the device does not have is not handled by this model.
+
+        The range the library reports is the one at the device input. With a probe attenuation set
+        the library applies it to the range (measured on an Analog Discovery 2: with a x10 probe
+        every request between 0.5 and 10 V gave 54.9 V, ten times the 5.49 V minimum without a
+        probe), so the limits are multiplied by the attenuation and the scale is the one of the
+        signal being measured. Asking for less than that used to be rounded up silently."""
         channel = self._in_channel(channel_number, "set_channel_scale")
         volts = float(value) * VERTICAL_DIVISIONS
+        attenuation = self._attenuation.get(channel, 1.0)
         low, high = self.api.ain_range_info(self.handle)
+        low, high = low * attenuation, high * attenuation
         if not low <= volts <= high:
+            probe = f" with a x{attenuation:g} probe" if attenuation != 1.0 else ""
             raise ValueNotHandledError(
-                f"{value:g} V/div is outside what this device gives "
+                f"{value:g} V/div is outside what this device gives{probe} "
                 f"({low / VERTICAL_DIVISIONS:g} to {high / VERTICAL_DIVISIONS:g} V/div)",
                 call="set_channel_scale",
             )
@@ -768,6 +779,7 @@ class WaveformsDriver:
         """Tell the library about the attenuation applied outside the device."""
         channel = self._in_channel(channel_number, "set_probe_attenuation")
         self.api.ain_attenuation_set(self.handle, channel, float(value))
+        self._attenuation[channel] = float(value)
 
     def fn_set_timebase_scale(self, value: float) -> None:
         """Time per division (``HORIZONTAL_DIVISIONS`` divisions); the sample frequency is set
