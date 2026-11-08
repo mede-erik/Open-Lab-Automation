@@ -724,24 +724,36 @@ class WaveformsDriver:
         """Volts per division at the probe tip: the range is ``VERTICAL_DIVISIONS`` times that; a
         range the device does not have is not handled by this model.
 
-        The range the library reports is the one at the device input. With a probe attenuation set
-        the library applies it to the range (measured on an Analog Discovery 2: with a x10 probe
-        every request between 0.5 and 10 V gave 54.9 V, ten times the 5.49 V minimum without a
-        probe), so the limits are multiplied by the attenuation and the scale is the one of the
-        signal being measured. Asking for less than that used to be rounded up silently."""
+        The range the library reports (``RangeInfo``) is the one at the device input and is only
+        a guide: measured on an Analog Discovery 2 it says 5 to 50 V but the two real ranges are
+        5.49 and 60.36 V, and every request goes to the first range that is not smaller. With a
+        probe attenuation set the library applies it to the range (a x10 probe gave 54.9 V for
+        every request between 0.5 and 10 V, ten times the minimum), so the lower limit is
+        multiplied by the attenuation and a request below it is refused instead of being rounded
+        up silently. The upper limit is the one the device really gives: the range is set, read
+        back, and put back as it was if the device could not cover the request."""
         channel = self._in_channel(channel_number, "set_channel_scale")
         volts = float(value) * VERTICAL_DIVISIONS
         attenuation = self._attenuation.get(channel, 1.0)
-        low, high = self.api.ain_range_info(self.handle)
-        low, high = low * attenuation, high * attenuation
-        if not low <= volts <= high:
+        low, _ = self.api.ain_range_info(self.handle)
+        low *= attenuation
+        if volts < low:
             probe = f" with a x{attenuation:g} probe" if attenuation != 1.0 else ""
             raise ValueNotHandledError(
                 f"{value:g} V/div is outside what this device gives{probe} "
-                f"({low / VERTICAL_DIVISIONS:g} to {high / VERTICAL_DIVISIONS:g} V/div)",
+                f"(at least {low / VERTICAL_DIVISIONS:g} V/div)",
                 call="set_channel_scale",
             )
+        before = self.api.ain_range_get(self.handle, channel)
         self.api.ain_range_set(self.handle, channel, volts)
+        real = self.api.ain_range_get(self.handle, channel)
+        if real < volts * 0.999:  # the device has no range that large
+            self.api.ain_range_set(self.handle, channel, before)
+            raise ValueNotHandledError(
+                f"{value:g} V/div is outside what this device gives "
+                f"(at most {real / VERTICAL_DIVISIONS:g} V/div)",
+                call="set_channel_scale",
+            )
 
     def fn_query_channel_scale(self, channel_number: Optional[int] = None) -> float:
         """Volts per division the device really uses."""
