@@ -358,3 +358,116 @@ def test_figures_show_frequencies_with_units_and_hide_changes_that_are_nothing(d
     assert same == "301"  # the same in both runs: no "(+0)"
     top = dialog.summary.item(keys.index("max_loss_at_hz"), 2).text()
     assert top == "3 GHz"
+
+
+# ---- the golden sample --------------------------------------------------------------------------
+@pytest.fixture
+def golden_dialog(app, registry, tmp_path):
+    runs = tmp_path / "project" / "runs"
+    runs.mkdir(parents=True)
+    good = cable_run(registry, runs, "Good", length=2.0, loss=0.6)
+    same = cable_run(registry, runs, "Same", length=2.0, loss=0.6, stamp="20261103_110000")
+    worn = cable_run(registry, runs, "Worn", length=2.0, loss=0.9, stamp="20261103_120000")
+    d = CompareDialog([str(good), str(same), str(worn)], start_dir=str(runs))
+    yield d
+    d.close()
+
+
+def figure_row(dialog, key):
+    for row in range(dialog.g_figures.rowCount()):
+        if dialog.g_figures.item(row, 0).text() == key:
+            return row
+    raise AssertionError(f"no figure {key}")
+
+
+def test_the_golden_tab_checks_every_run_against_the_reference(golden_dialog):
+    d = golden_dialog
+    assert d.tabs.tabText(3) == d._t("cmp_tab_golden")
+    assert d.g_trace_box.findData("S21") >= 0 and d.g_view_box.currentData() == "loss_db"
+    d.g_trace_box.setCurrentIndex(d.g_trace_box.findData("S21"))
+    d._fill_golden_views()
+    d.g_view_box.setCurrentIndex(d.g_view_box.findData("loss_db"))
+    d.g_tolerance.setValue(0.2)
+    d.g_figures.item(figure_row(d, "loss_868MHz_db"), 1).setText("5%")
+    results = d.check_golden()
+    assert [r.verdict for r in results] == ["PASS", "FAIL"]
+    text = d.g_result.toPlainText()
+    assert "1 of 2" in text or "1" in text.splitlines()[0]
+    assert "FAIL" in text and "loss_868MHz_db" in text and "S21 (loss_db)" in text
+
+
+def test_the_side_of_the_tolerance_decides_which_change_fails(golden_dialog):
+    d = golden_dialog
+    d.g_trace_box.setCurrentIndex(d.g_trace_box.findData("S21"))
+    d._fill_golden_views()
+    d.g_view_box.setCurrentIndex(d.g_view_box.findData("loss_db"))
+    d.g_tolerance.setValue(0.1)
+    d.g_side_box.setCurrentIndex(d.g_side_box.findData("lower"))  # only less loss fails
+    assert [r.verdict for r in d.check_golden()] == ["PASS", "PASS"]
+    d.g_side_box.setCurrentIndex(d.g_side_box.findData("upper"))  # more loss fails
+    assert [r.verdict for r in d.check_golden()] == ["PASS", "FAIL"]
+    spec = d.golden_spec()
+    assert spec["curves"][0]["tolerance"]["upper"] == pytest.approx(0.1)
+
+
+def test_only_figures_can_be_checked_and_a_wrong_tolerance_is_said(golden_dialog):
+    d = golden_dialog
+    d.g_curve_box.setChecked(False)
+    d.g_figures.item(figure_row(d, "max_loss_db"), 1).setText("0,05")  # a decimal comma too
+    assert d.golden_spec() == {"min_overlap": 0.9, "summary": {"max_loss_db": 0.05}}
+    assert [r.verdict for r in d.check_golden()] == ["PASS", "FAIL"]
+    d.g_figures.item(figure_row(d, "max_loss_db"), 1).setText("a lot")
+    assert d.check_golden() == [] and "a lot" in d.g_result.toPlainText()
+    d.g_figures.item(figure_row(d, "max_loss_db"), 1).setText("")
+    assert d.check_golden() == [] and "at least one" in d.g_result.toPlainText()
+
+
+def test_one_run_alone_cannot_be_checked(app, registry, tmp_path):
+    d = CompareDialog([str(cable_run(registry, tmp_path, "Alone"))])
+    assert d.check_golden() == [] and d.g_result.toPlainText() == d._t("cmp_g_need_two")
+    assert not d.g_save_btn.isEnabled() and not d.g_open_btn.isEnabled()  # no project
+    d.close()
+
+
+def test_the_reference_is_kept_as_golden_sample_and_opened_again(golden_dialog, monkeypatch, app):
+    d = golden_dialog
+    project = d.project_dir()
+    assert project.endswith("project") and d.g_save_btn.isEnabled()
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("RG58 1m", True)))
+    d.save_golden()
+    kept = os.path.join(project, "golden", "RG58_1m.jsonl")
+    assert os.path.isfile(kept) and kept in d.g_result.toPlainText()
+    # opened again: added and made the reference, with a name that says it is the golden one
+    other = CompareDialog([str(d.runs[2].path)], start_dir=d.start_dir)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (kept, "")))
+    other.open_golden()
+    assert other.runs[other.reference].path.name == "RG58_1m.jsonl"
+    assert other.runs[other.reference].label.endswith("RG58_1m")
+    other.g_curve_box.setChecked(False)
+    other.g_figures.item(figure_row(other, "max_loss_db"), 1).setText("0.05")
+    assert [r.verdict for r in other.check_golden()] == ["FAIL"]  # the worn cable
+    other.close()
+
+
+def test_the_tolerances_are_suggested_from_the_ticked_runs(app, registry, tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    paths = [
+        cable_run(registry, runs, name, length=2.0, loss=loss, stamp=stamp)
+        for name, loss, stamp in (("Golden", 0.60, "20261103_100000"),
+                                  ("Good 1", 0.62, "20261103_110000"),
+                                  ("Good 2", 0.58, "20261103_120000"))
+    ]  # fmt: skip
+    d = CompareDialog([str(p) for p in paths], start_dir=str(runs))
+    d.g_trace_box.setCurrentIndex(d.g_trace_box.findData("S21"))
+    d._fill_golden_views()
+    d.g_view_box.setCurrentIndex(d.g_view_box.findData("loss_db"))
+    spec = d.suggest_tolerances()
+    assert spec is not None and d.g_tolerance.value() > 0.05
+    assert d.g_figures.item(figure_row(d, "max_loss_db"), 1).text() != ""
+    assert "2" in d.g_result.toPlainText()
+    assert [r.verdict for r in d.check_golden()] == ["PASS", "PASS"]  # the units it came from
+    d.close()
+    alone = CompareDialog([str(paths[0])])
+    assert alone.suggest_tolerances() is None
+    alone.close()

@@ -896,8 +896,21 @@ nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
   sezioni (richiede start = multiplo del passo; sotto lo start la fase del primo punto continuata all'indietro, DC = parte reale),
   verdetto sulle riflessioni **prima della fine** (l'ultimo picco è l'aperto/corto/dispositivo). `SimVna(fault_at_m, fault_gamma)`.
   Guida `docs/tdr.md`, immagine 19. Da fare: togliere la perdita del cavo dall'ampiezza delle riflessioni lontane, echi multipli,
-  gating per misurare una sola riflessione. Restano delle estensioni con il VNA: confronto con un campione "buono" con verdetto,
-  andamento nel tempo della perdita di un cavo.
+  gating per misurare una sola riflessione. Le altre due estensioni con il VNA sono fatte (2026-11-07):
+  **confronto con un campione "buono"** (`ola/golden.py`, `scripts/golden_check.py`, `docs/golden.md`: tolleranza sulle curve come numero,
+  retta della frequenza o asimmetrica, tolleranza assoluta/relativa sulle cifre del riepilogo, copertura minima dello sweep, verdetto con
+  le ragioni, campione salvato in `<progetto>/golden/`) e **andamento nel tempo della perdita di un cavo** (`ola/trend.py`,
+  `scripts/cable_trend.py`, `docs/trend.md`: retta ai minimi quadrati, variazione reale solo se la pendenza supera due volte la sua
+  incertezza, verdetto PASS/WARNING/FAIL/NOT ENOUGH DATA con la data in cui si raggiunge il limite). Poi (2026-11-08): la scheda **Campione di
+  riferimento** nella finestra di confronto (il riferimento ★ è il campione, tolleranza sulla curva con il lato, tolleranze sulle cifre,
+  salva/apri in `golden/`), il **passo della misura del cavo** (`golden.name` + `tolerances`, risolto dal progetto in `golden.run`, tabella
+  `golden` e `golden_verdict` nel riepilogo, campi nell'editor) e la finestra **Andamento...** dalla storia del cavo (`TrendDialog`: grafico
+  con misure, retta e limite, verdetto, CSV). Poi: il passo del campione in tutte le misure VNA (filtro,
+  amplificatore, attenuatore, return loss, antenna) con `GoldenRecorder` (una riga in `run`), e le **tolleranze ricavate da più pezzi
+  buoni** (`derive_tolerances`: scarto massimo × fattore, minimo un pavimento, retta a tratti piatti che non è mai più stretta dei pezzi
+  usati; pulsante *Proponi dai risultati spuntati* e `golden_check.py --derive`). Poi il passo anche in Bode, TDR e nelle misure con
+  una tabella di righe (ripple, regolazione, rendimento, parametri S): `rows` = righe abbinate per colonne (`match`) e tolleranza per
+  colonna, verdetto nella tabella `golden_result` (`summary_row=False` + `finish(ctx)`). Anche `derive_tolerances` per `rows` (da Python).
 - ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
   ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
   modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in

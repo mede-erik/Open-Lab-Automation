@@ -38,6 +38,7 @@ output power there. If it is not reached the log says to raise ``stop_dbm``.
 
 from typing import Any, Dict, List, Optional
 
+from ola.golden import check_golden_param, recording
 from ola import rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
@@ -139,6 +140,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         out += _check_compression(comp, start, stop, attenuation, limit)
     check_asset(params, "device", out)
     check_common(params, out, start, stop)
+    check_golden_param(params, out)
     return out
 
 
@@ -292,6 +294,7 @@ class AmplifierResponse(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, read the four S-parameters, optionally the compression, report."""
+        ctx = recording(ctx, "amplifier", self.params)  # with a golden sample: checked at the end
         p = self.params
         handle = ctx.instrument("vna")
         if p.get("compression") and not can_set_power(handle):

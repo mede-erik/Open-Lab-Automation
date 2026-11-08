@@ -39,6 +39,7 @@ periods of the ripple, or the sample rate is close to twice the ripple frequency
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from ola.golden import check_golden_param, finish, recording
 from ola import spectrum
 from ola.efficiency_spec import Problem
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
@@ -180,6 +181,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     for key in ("spectrum", "confirm_setup"):
         if key in params and not isinstance(params[key], bool):
             out.append(Problem(key, "must be true or false"))
+    check_golden_param(params, out)
     return out
 
 
@@ -313,6 +315,8 @@ class RippleNoise(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, configure the scope, capture (for every load current), report."""
+        # with a golden sample: the rows (one for each load current) are checked at the end
+        ctx = recording(ctx, "ripple", self.params, summary_row=False)
         p = self.params
         scope = ctx.instrument("oscilloscope")
         currents = (p.get("conditions") or {}).get("currents_a")
@@ -326,6 +330,7 @@ class RippleNoise(Measurement):
         self._configure(ctx, scope)
         if load is None:
             self._measure(ctx, scope, None, 0, 1)
+            finish(ctx)
             return
         load.call("set_mode", mode="CC")
         total = len(currents)
@@ -337,6 +342,7 @@ class RippleNoise(Measurement):
                 self._load_on = True
             ctx.sleep(float((p.get("conditions") or {}).get("settle_s", 0)))
             self._measure(ctx, scope, float(current), number, total)
+        finish(ctx)
 
     def teardown(self, ctx: MeasurementContext) -> None:
         """Switch the load off, whatever happened."""

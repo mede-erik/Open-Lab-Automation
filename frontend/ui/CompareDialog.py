@@ -10,7 +10,11 @@ Pick two or more run files (``runs/*.jsonl``) and see them together. A thin laye
 * **Summary**: the figures of the summary rows side by side, each with its change from the
   reference;
 * **Tables**: for runs with many points (an efficiency measurement) any column against another,
-  one line per run (and per value of a third column).
+  one line per run (and per value of a third column);
+* **Golden sample**: the reference run is the good unit and every other ticked run is checked
+  against it (``ola.golden``): a tolerance on a curve and on figures of the summary, a verdict for
+  each run with the reasons. The reference can be kept in the ``golden/`` folder of the project,
+  and a golden sample kept there can be opened as the reference.
 
 The first run is the reference until another is chosen. Runs can be renamed (the default name is
 the cable / filter / device name and the date). The overlay can be saved as CSV and the plot as an
@@ -19,7 +23,8 @@ the run window).
 """
 
 import sys
-from typing import Any, List, Optional, Sequence
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -27,6 +32,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDoubleSpinBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -35,7 +41,9 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
+    QSpinBox,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -46,12 +54,14 @@ from PyQt6.QtWidgets import (
 
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.trace_plot import SmithChart, TracePlot
-from ola import compare
+from ola import compare, golden
 from ola.compare import CompareError, RunData
 from ola.run_view import VIEW_SMITH, format_si, trace_views, trace_xy
 
 NO_GROUP = ""
 REFERENCE_MARK = "★ "
+SIDES = ("both", "upper", "lower")  # which side of the golden curve the tolerance limits
+WIDE = 1e9  # the tolerance of the side that is not limited
 
 
 def figure(value: Any, key: str = "") -> str:
@@ -129,6 +139,7 @@ class CompareDialog(QDialog):
         self.summary.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabs.addTab(self.summary, self._t("cmp_tab_summary"))
         self.tabs.addTab(self._build_tables_tab(), self._t("cmp_tab_tables"))
+        self.tabs.addTab(self._build_golden_tab(), self._t("cmp_tab_golden"))
         root.addWidget(self.tabs, 1)
 
     def _build_curves_tab(self) -> QWidget:
@@ -185,6 +196,72 @@ class CompareDialog(QDialog):
         layout.addLayout(row)
         self.table_plot = TracePlot()
         layout.addWidget(self.table_plot, 1)
+        return page
+
+    def _build_golden_tab(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        intro = QLabel(self._t("cmp_g_intro"))
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+        row = QHBoxLayout()
+        self.g_trace_box, self.g_view_box, self.g_side_box = QComboBox(), QComboBox(), QComboBox()
+        self.g_trace_box.activated.connect(lambda _i: self._fill_golden_views())
+        for side in SIDES:
+            self.g_side_box.addItem(self._t(f"cmp_g_side_{side}"), side)
+        self.g_tolerance = QDoubleSpinBox()
+        self.g_tolerance.setRange(0.0, 1e6)
+        self.g_tolerance.setDecimals(3)
+        self.g_tolerance.setValue(0.5)
+        self.g_curve_box = QCheckBox(self._t("cmp_g_check_curve"))
+        self.g_curve_box.setChecked(True)
+        row.addWidget(self.g_curve_box)
+        for label, widget in (
+            ("cmp_trace", self.g_trace_box),
+            ("cmp_view", self.g_view_box),
+            ("cmp_g_tolerance", self.g_tolerance),
+            ("cmp_g_side", self.g_side_box),
+        ):
+            row.addWidget(QLabel(self._t(label)))
+            row.addWidget(widget, 1)
+        layout.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel(self._t("cmp_g_overlap")))
+        self.g_overlap = QSpinBox()
+        self.g_overlap.setRange(1, 100)
+        self.g_overlap.setValue(round(golden.DEFAULT_OVERLAP * 100))
+        self.g_overlap.setSuffix(" %")
+        row.addWidget(self.g_overlap)
+        row.addStretch(1)
+        layout.addLayout(row)
+        layout.addWidget(QLabel(self._t("cmp_g_figures")))
+        self.g_figures = QTableWidget(0, 2)
+        self.g_figures.setHorizontalHeaderLabels(
+            [self._t("cmp_key"), self._t("cmp_g_figure_tolerance")]
+        )
+        self.g_figures.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.g_figures, 1)
+        self.g_result = QPlainTextEdit()
+        self.g_result.setReadOnly(True)
+        layout.addWidget(self.g_result, 1)
+        buttons = QHBoxLayout()
+        self.g_open_btn = QPushButton(self._t("cmp_g_open"))
+        self.g_open_btn.clicked.connect(self.open_golden)
+        self.g_save_btn = QPushButton(self._t("cmp_g_save"))
+        self.g_save_btn.clicked.connect(self.save_golden)
+        self.g_suggest_btn = QPushButton(self._t("cmp_g_suggest"))
+        self.g_suggest_btn.setToolTip(self._t("cmp_g_suggest_tip"))
+        self.g_suggest_btn.clicked.connect(self.suggest_tolerances)
+        self.g_check_btn = QPushButton(self._t("cmp_g_check"))
+        self.g_check_btn.clicked.connect(self.check_golden)
+        for button in (self.g_open_btn, self.g_save_btn):
+            button.setEnabled(bool(self.project_dir()))
+        buttons.addWidget(self.g_open_btn)
+        buttons.addWidget(self.g_save_btn)
+        buttons.addStretch(1)
+        buttons.addWidget(self.g_suggest_btn)
+        buttons.addWidget(self.g_check_btn)
+        layout.addLayout(buttons)
         return page
 
     # ================================================================ the runs
@@ -296,6 +373,7 @@ class CompareDialog(QDialog):
         self._fill_summary(runs)
         self._fill_table_boxes(runs)
         self._draw_tables()
+        self._fill_golden_boxes(runs)
 
     def _fill_trace_box(self, runs: Sequence[RunData]) -> None:
         keep = self.trace_box.currentData()
@@ -468,6 +546,182 @@ class CompareDialog(QDialog):
         )
         if path:
             self._do(lambda: widget.grab().save(path) or True, path)
+
+    # ================================================================ the golden sample
+    def project_dir(self) -> str:
+        """The folder of the open project: the parent of its ``runs`` folder ('' if none)."""
+        if not self.start_dir:
+            return ""
+        start = Path(self.start_dir)
+        return str(start.parent if start.name == "runs" else start)
+
+    def _fill_golden_boxes(self, runs: Sequence[RunData]) -> None:
+        keep = self.g_trace_box.currentData()
+        self.g_trace_box.clear()
+        for name, _count in compare.trace_names(runs):
+            self.g_trace_box.addItem(name, name)
+        self.g_trace_box.setCurrentIndex(max(self.g_trace_box.findData(keep), 0))
+        self._fill_golden_views()
+        reference = self._reference_run(runs)
+        kept: Dict[str, str] = {}
+        for row in range(self.g_figures.rowCount()):
+            key, tol = self.g_figures.item(row, 0), self.g_figures.item(row, 1)
+            if key is not None and tol is not None and tol.text().strip():
+                kept[key.text()] = tol.text()
+        keys = [k for k, v in (reference.summary if reference else {}).items()
+                if compare._is_number(v)]  # fmt: skip
+        self.g_figures.setRowCount(len(keys))
+        for row, key in enumerate(keys):
+            item = QTableWidgetItem(key)
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.g_figures.setItem(row, 0, item)
+            self.g_figures.setItem(row, 1, QTableWidgetItem(kept.get(key, "")))
+
+    def _fill_golden_views(self) -> None:
+        name = self.g_trace_box.currentData()
+        runs = self.checked_runs()
+        views = trace_views(self._kind_of(runs, name)) if name else []
+        views = [v for v in views if v != VIEW_SMITH]
+        keep = self.g_view_box.currentData()
+        self.g_view_box.clear()
+        for view in views:
+            self.g_view_box.addItem(self.views_tr.t(f"run_view_{view}"), view)
+        default = "loss_db" if "loss_db" in views else keep
+        self.g_view_box.setCurrentIndex(max(self.g_view_box.findData(keep or default), 0))
+
+    def golden_spec(self) -> Dict[str, Any]:
+        """The tolerances written in the tab, as the spec of ``ola.golden``. A figure tolerance is a
+        number (absolute) or ``5%`` (relative); ``ValueError`` for anything else."""
+        spec: Dict[str, Any] = {"min_overlap": self.g_overlap.value() / 100.0}
+        name = self.g_trace_box.currentData()
+        if self.g_curve_box.isChecked() and name:
+            value = self.g_tolerance.value()
+            side = self.g_side_box.currentData()
+            tolerance: Any = (
+                value
+                if side == "both"
+                else (
+                    {"upper": value, "lower": WIDE}
+                    if side == "upper"
+                    else {"upper": WIDE, "lower": value}
+                )
+            )
+            spec["curves"] = [
+                {"trace": name, "view": self.g_view_box.currentData() or "value",
+                 "tolerance": tolerance}
+            ]  # fmt: skip
+        figures: Dict[str, Any] = {}
+        for row in range(self.g_figures.rowCount()):
+            key, tol = self.g_figures.item(row, 0), self.g_figures.item(row, 1)
+            text = tol.text().strip().replace(",", ".") if tol is not None else ""
+            if not text or key is None:
+                continue
+            try:
+                figures[key.text()] = (
+                    {"rel": float(text[:-1]) / 100.0} if text.endswith("%") else float(text)
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    self._t("cmp_g_bad_tolerance", figure=key.text(), text=text)
+                ) from exc
+        if figures:
+            spec["summary"] = figures
+        return spec
+
+    def check_golden(self) -> List[golden.GoldenResult]:
+        """Check every ticked run but the reference against the reference; show the results."""
+        runs = self.checked_runs()
+        reference = self._reference_run(runs)
+        others = [r for r in runs if r is not reference]
+        if reference is None or not others:
+            self.g_result.setPlainText(self._t("cmp_g_need_two"))
+            return []
+        try:
+            spec = self.golden_spec()
+            results = [golden.check_against_golden(run, reference, spec) for run in others]
+        except (ValueError, golden.GoldenError) as exc:
+            self.g_result.setPlainText(self._t("cmp_g_error", error=exc))
+            return []
+        passed = sum(r.passed for r in results)
+        head = self._t("cmp_g_header", ref=reference.label, passed=passed, n=len(results))
+        self.g_result.setPlainText(
+            head + "\n\n" + "\n\n".join(golden.format_result(r) for r in results)
+        )
+        return results
+
+    def suggest_tolerances(self) -> Optional[Dict[str, Any]]:
+        """Treat every ticked run but the reference as a good unit and fill in the tolerances from
+        how far they are from the reference (``ola.golden.derive_tolerances``): the largest
+        tolerance of the curve, and one for every figure of the summary."""
+        runs = self.checked_runs()
+        reference = self._reference_run(runs)
+        good = [r for r in runs if r is not reference]
+        if reference is None or not good:
+            self.g_result.setPlainText(self._t("cmp_g_need_two"))
+            return None
+        name = self.g_trace_box.currentData()
+        curves = (
+            [(name, self.g_view_box.currentData() or "value")]
+            if self.g_curve_box.isChecked() and name
+            else []
+        )
+        keys = [self.g_figures.item(r, 0).text() for r in range(self.g_figures.rowCount())]
+        try:
+            spec = golden.derive_tolerances(reference, good, curves, keys)
+        except golden.GoldenError as exc:
+            self.g_result.setPlainText(self._t("cmp_g_error", error=exc))
+            return None
+        if spec.get("curves"):
+            self.g_tolerance.setValue(max(t for _x, t in spec["curves"][0]["tolerance"]))
+            self.g_side_box.setCurrentIndex(self.g_side_box.findData("both"))
+        figures = spec.get("summary", {})
+        for row, key in enumerate(keys):
+            value = figures.get(key)
+            self.g_figures.item(row, 1).setText(f"{value:.3g}" if value is not None else "")
+        self.g_result.setPlainText(
+            self._t("cmp_g_suggested", n=len(good), factor=f"{golden.DEFAULT_FACTOR:g}")
+        )
+        return spec
+
+    def save_golden(self) -> None:
+        """Keep the reference run in the ``golden/`` folder of the project under a name."""
+        runs = self.checked_runs()
+        reference = self._reference_run(runs)
+        project = self.project_dir()
+        if reference is None or not project:
+            return
+        name, ok = QInputDialog.getText(
+            self, self._t("cmp_g_save"), self._t("cmp_g_name_prompt"),
+            text=reference.name or reference.measurement,
+        )  # fmt: skip
+        if not ok or not name.strip():
+            return
+        try:
+            path = golden.set_golden(project, name, reference.path)
+        except (golden.GoldenError, CompareError, OSError) as exc:
+            self.g_result.setPlainText(self._t("cmp_g_error", error=exc))
+            return
+        self.g_result.setPlainText(self._t("cmp_g_saved", path=path))
+
+    def open_golden(self) -> None:
+        """Add a golden sample of the project and make it the reference."""
+        folder = Path(self.project_dir()) / golden.GOLDEN_DIR
+        path, _ = QFileDialog.getOpenFileName(
+            self, self._t("cmp_g_open"), str(folder), "Run files (*.jsonl)"
+        )
+        if path:
+            self.use_as_golden(path)
+
+    def use_as_golden(self, path: str) -> None:
+        """Add a run file (if it is not there) and make it the reference."""
+        self.add_files([path])
+        for n, run in enumerate(self.runs):
+            if str(run.path) == str(path):
+                self.reference = n
+                if Path(path).parent.name == golden.GOLDEN_DIR:
+                    run.label = f"{self._t('cmp_g_golden')} {Path(path).stem}"
+                self._fill_list()
+                return
 
     def _do(self, action, path: str) -> None:
         try:

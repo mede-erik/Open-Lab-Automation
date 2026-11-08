@@ -293,7 +293,7 @@ class ProjectSession:
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
         handles = self.bind(measurement_file, row.info, cancel)
         measurement = self.registry.create(
-            ref.type, self.resolve_correction(measurement_file.params)
+            ref.type, self.resolve_golden(self.resolve_correction(measurement_file.params))
         )
         runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -317,6 +317,31 @@ class ProjectSession:
         )
         runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
+
+    def resolve_golden(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """The parameters with the golden sample found: ``golden.name`` becomes the file of that
+        name in the ``golden/`` folder of the project (``golden.run``), saved in the header of the
+        run. ``MeasurementError`` if there is no such golden sample. Parameters without one, or
+        with the file already named, are returned unchanged."""
+        from .golden import GoldenError, golden_path, list_golden
+
+        spec = params.get("golden")
+        if not isinstance(spec, dict) or spec.get("run") or not spec.get("name"):
+            return params
+        try:
+            path = golden_path(self.project.directory, str(spec["name"]))
+        except GoldenError as exc:
+            raise MeasurementError(str(exc)) from exc
+        if not path.is_file():
+            known = list_golden(self.project.directory)
+            raise MeasurementError(
+                f"no golden sample called {spec['name']!r} in the project"
+                + (f" (there are: {', '.join(known)})" if known else "")
+                + ": keep one from the comparison window (Golden sample tab) first"
+            )
+        resolved = json.loads(json.dumps(params))
+        resolved["golden"]["run"] = str(path)
+        return resolved
 
     def resolve_correction(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """The parameters with the cables of a ``correction`` found: a cable (``correction.cable``

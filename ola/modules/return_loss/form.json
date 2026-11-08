@@ -302,6 +302,42 @@
           }
         },
         {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good unit of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un pezzo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (une bonne pièce du même type, gardée depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (una pieza buena del mismo tipo, guardada desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Teil derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"curves\": [{\"trace\": \"return_loss_db\", \"view\": \"value\", \"tolerance\": 0.5}]} = the return loss within 0.5 dB of the golden one at every frequency. Figures of the summary too: \"summary\": {\"figure\": 0.3} or {\"rel\": 0.05}. {\"upper\": 0.5, \"lower\": 5} limits one side only.",
+            "it": "{\"curves\": [{\"trace\": \"return_loss_db\", \"view\": \"value\", \"tolerance\": 0.5}]} = il return loss entro 0,5 dB da quello del campione a ogni frequenza. Anche i valori del riepilogo: \"summary\": {\"valore\": 0.3} oppure {\"rel\": 0.05}. {\"upper\": 0.5, \"lower\": 5} limita un solo lato.",
+            "fr": "{\"curves\": [{\"trace\": \"return_loss_db\", \"view\": \"value\", \"tolerance\": 0.5}]} = à 0,5 dB près de l'échantillon à chaque fréquence. Aussi les valeurs du résumé : \"summary\": {\"valeur\": 0.3} ou {\"rel\": 0.05}. {\"upper\": 0.5, \"lower\": 5} ne limite qu'un côté.",
+            "es": "{\"curves\": [{\"trace\": \"return_loss_db\", \"view\": \"value\", \"tolerance\": 0.5}]} = a menos de 0,5 dB de la muestra en cada frecuencia. También los valores del resumen: \"summary\": {\"valor\": 0.3} o {\"rel\": 0.05}. {\"upper\": 0.5, \"lower\": 5} limita un solo lado.",
+            "de": "{\"curves\": [{\"trace\": \"return_loss_db\", \"view\": \"value\", \"tolerance\": 0.5}]} = innerhalb 0,5 dB vom Referenzmuster bei jeder Frequenz. Auch Werte der Zusammenfassung: \"summary\": {\"Wert\": 0.3} oder {\"rel\": 0.05}. {\"upper\": 0.5, \"lower\": 5} begrenzt nur eine Seite."
+          }
+        },
+        {
           "path": "averages",
           "kind": "int",
           "label": {

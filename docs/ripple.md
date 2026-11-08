@@ -54,6 +54,7 @@ From the volts at the probe tip:
 | `spectrum`, `peaks` | compute the spectrum (the frequency of the ripple and the noise need it) and how many peaks to report (5 by default) |
 | `limits` | `max_pp_v` and `max_rms_v`, in volts |
 | `confirm_setup` | `false` skips the question |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 The measurement asks once to connect the probe: **across the output capacitor, with the ground spring and not a long
 ground lead**. A long lead picks up the switching spikes and shows them as ripple, which is the most common mistake.

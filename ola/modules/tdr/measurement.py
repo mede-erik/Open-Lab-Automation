@@ -42,6 +42,7 @@ at least ``min_reflection``."""
 
 from typing import Any, Dict, List
 
+from ola.golden import check_golden_param, recording
 from ola import tdr
 from ola.efficiency_spec import Problem
 from ola.measurement import Measurement, MeasurementContext
@@ -121,6 +122,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
                     out.append(Problem("limits", f"unknown limit {key!r}: use {LIMIT_KEYS[0]}"))
                 elif not is_number(value) or not 0 < value < 1:
                     out.append(Problem("limits", f"{key} must be a number between 0 and 1"))
+    check_golden_param(params, out)
     return out
 
 
@@ -137,6 +139,7 @@ class Tdr(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, read S11, find the reflections, report."""
+        ctx = recording(ctx, "tdr", self.params)  # with a golden sample: checked at the end
         p = self.params
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):

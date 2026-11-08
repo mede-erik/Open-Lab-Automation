@@ -41,6 +41,7 @@ S11, from which:
 | `limits` | pass / fail on the **return loss in dB**, normally a minimum: `{"min": 10}`, or per band as above ([`ola/limits.py`](../ola/limits.py)) |
 | `averages` | number of sweeps averaged |
 | `confirm_setup` | `false` skips the question (for scripts) |
+| `golden` | optional: check the result against a **golden sample** of the project (a good unit of the same kind): `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 The editor (*Edit* in the project window) comes from the module's `form.json`: every problem is shown at its field and
 numbers can be typed as `868M` or `2.4 GHz`.

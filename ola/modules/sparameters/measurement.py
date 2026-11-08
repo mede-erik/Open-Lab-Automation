@@ -22,6 +22,7 @@ say whether they are calibrated.
 import math
 import time
 
+from ola.golden import check_golden_param, finish, recording
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 
 PARAMETERS = ("S11", "S21", "S12", "S22")
@@ -76,6 +77,9 @@ class SParameters(Measurement):
             problems.append("power_dbm must be a number")
         if "require_calibration" in p and not isinstance(p["require_calibration"], bool):
             problems.append("require_calibration must be true or false")
+        golden_problems: list = []
+        check_golden_param(p, golden_problems)
+        problems += [str(x) for x in golden_problems if x.severity == "error"]
         return problems
 
     def setup(self, ctx: MeasurementContext) -> None:
@@ -96,6 +100,8 @@ class SParameters(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Run the sweeps: one complex trace per S-parameter and one summary point per sweep."""
+        # with a golden sample: the rows (one for each sweep) and the curves of the last sweep
+        ctx = recording(ctx, "sparameters", self.params, summary_row=False)
         names = list(self.params.get("sparameters", ["S11"]))
         sweeps = int(self.params.get("sweeps", 1))
         interval = float(self.params.get("interval_s", 0))
@@ -131,3 +137,4 @@ class SParameters(Measurement):
             ctx.progress(index + 1, sweeps)
             if index + 1 < sweeps:
                 ctx.sleep(max(0.0, t0 + (index + 1) * interval - time.monotonic()))
+        finish(ctx)

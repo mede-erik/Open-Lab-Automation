@@ -503,6 +503,42 @@
           }
         },
         {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good unit of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un pezzo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (une bonne pièce du même type, gardée depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (una pieza buena del mismo tipo, guardada desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Teil derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"rows\": {\"match\": [\"test\", \"vin\", \"i\"], \"columns\": {\"vout\": 0.01}}} = for every point, the output within 10 mV of the golden one. See docs/golden.md.",
+            "it": "{\"rows\": {\"match\": [\"test\", \"vin\", \"i\"], \"columns\": {\"vout\": 0.01}}} = per ogni punto, l'uscita entro 10 mV da quella del campione. Vedi docs/golden.md.",
+            "fr": "{\"rows\": {\"match\": [\"test\", \"vin\", \"i\"], \"columns\": {\"vout\": 0.01}}} : voir docs/golden.md.",
+            "es": "{\"rows\": {\"match\": [\"test\", \"vin\", \"i\"], \"columns\": {\"vout\": 0.01}}}: vea docs/golden.md.",
+            "de": "{\"rows\": {\"match\": [\"test\", \"vin\", \"i\"], \"columns\": {\"vout\": 0.01}}}: siehe docs/golden.md."
+          }
+        },
+        {
           "path": "confirm_setup",
           "kind": "bool",
           "label": {

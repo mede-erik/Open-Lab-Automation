@@ -55,7 +55,7 @@ all of it (180 for a loop measured with an inverting injection).
 | `source.channel`, `source.amplitude_vpp`, `source.offset_v` | the generator: its output, the peak-to-peak amplitude (the same at every frequency) and a DC offset. Small enough not to saturate the circuit, large enough to read |
 | `scope.input_channel`, `scope.output_channel` | the scope channels on the input and on the output of the circuit (different) |
 | `scope.probe_attenuation` | the same on both channels (10 = 10:1) |
-| `scope.coupling` | `AC` (the default in the editor) or `DC`. **AC coupling adds phase lead below about 20 Hz**: a sweep that starts lower is warned about and should use `DC` |
+| `scope.coupling` | `DC` (the default) or `AC`. A scope that has no AC coupling (the Analog Discovery) refuses `AC`: the run stops before anything is switched on, with a message that says to use `DC`. **AC coupling adds phase lead below about 20 Hz**: a sweep that starts lower is warned about and should use `DC` |
 | `scope.cycles` | the periods shown at every frequency (5 by default) |
 | `scope.memory_depth` | optional, in points; most oscilloscopes accept only some values (`10000`, `100000`, `1000000`...). At the highest frequency it must give at least 8 samples a cycle (a warning says when not) |
 | `scope.bandwidth_limit_hz` | optional; a limit lowers the noise but also changes the phase near it |
@@ -66,6 +66,7 @@ all of it (180 for a loop measured with an inverting injection).
 | `phase_offset_deg`, `phase_start_deg` | see above |
 | `limits` | `min_phase_margin_deg`, `min_gain_margin_db`, `min_bandwidth_hz`, `max_peaking_db`. The margins need `loop` |
 | `safety` | `max_amplitude_vpp`: a larger amplitude is refused before anything is switched on |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 | `confirm_setup` | `false` skips the question |
 
 ## What you get
@@ -98,6 +99,13 @@ all this before the measurement starts.
 The generator output is **off** while the circuit is set up (the scope is configured and the amplitude is set before the output is
 switched on), is switched on at the first frequency, and is **switched off at the end, also after an error or a stop**.
 `safety.max_amplitude_vpp` refuses a larger amplitude before anything is switched on.
+
+**A generator with no output switch** (some models, such as the Agilent 33120A, have no command to switch the output on and off;
+`set_output_state` is optional in the library) cannot be kept off while the circuit is set up. The measurement then **always asks
+first**, whatever `confirm_setup` says, and the question says that the output is on as soon as the amplitude is set and stays on at
+the end: answer *continue*, or *abort* (nothing has been set yet). The log has a warning at the start and a reminder at the end
+to switch the generator off by hand. A run can be stopped at any time as usual. How such models should be handled is still being
+looked into.
 
 ## What the instruments must provide
 

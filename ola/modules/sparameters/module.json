@@ -11,6 +11,8 @@
      "description": "The network analyzer (calibrate it first for the sweep you use)"}
   ],
   "params_schema": {
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {rows: {match: [columns that pair the rows], columns: {column: tolerance}}, curves, min_overlap}"},
     "start_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
     "stop_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
     "points": {"type": "integer", "min": 2, "required": true},

@@ -33,6 +33,7 @@ VSWR with the loss alone). The measurement as it came is kept as ``S11_raw`` and
 import math
 from typing import Any, Dict, List, Optional
 
+from ola.golden import check_golden_param, recording
 from ola import rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
@@ -82,6 +83,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     check_asset(params, "device", out)
     check_correction(params, out, Problem)
     check_common(params, out, start, stop)
+    check_golden_param(params, out)
     return out
 
 
@@ -171,6 +173,7 @@ class AntennaImpedance(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, sweep, read S11, compute, report."""
+        ctx = recording(ctx, "antenna", self.params)  # with a golden sample: checked at the end
         p = self.params
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):

@@ -46,6 +46,7 @@ An attenuator that keeps its value is also a handy check of the VNA itself: meas
 | `limits` | a **mask on the attenuation in dB** ([`ola/limits.py`](../ola/limits.py)); replaces the check on `nominal_db` and `tolerance_db`: `{"bands": [{"from": 0, "to": 6e9, "min": 9, "max": 11}]}` |
 | `also_return_loss` | also read S11 and S22 (true by default) |
 | `averages`, `confirm_setup` | sweeps averaged; `false` skips the question |
+| `golden` | optional: check the result against a **golden sample** of the project (a good unit of the same kind): `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 For a step attenuator measure each setting you care about as its own run, with the same code: the card of the attenuator
 is the same and the results are told apart by `setting`.

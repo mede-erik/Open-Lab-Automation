@@ -37,6 +37,7 @@ without non-volatile memory alive).
 import statistics
 import time
 
+from ola.golden import finish, recording
 from ola.efficiency_spec import SpecError, parse_params, validate_params
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.sweep import iter_points
@@ -89,6 +90,8 @@ class Efficiency(Measurement):
     # ----- the measurement ------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
         """Walk the sweep: set, settle, sample, average, publish; rest between the sweeps."""
+        # with a golden sample: the averaged points (with the derived columns) at the end
+        ctx = recording(ctx, "efficiency", self.params, summary_row=False, derive=self.derived)
         spec = self._spec
         setters = [v for v in spec.variables.values() if v.set is not None]
         total = spec.point_count()
@@ -135,6 +138,7 @@ class Efficiency(Measurement):
                 row["verify_skipped"] = ",".join(sorted(skipped))
             ctx.emit_point(row)
             ctx.progress(index + 1, total, f"point {index + 1} of {total}")
+        finish(ctx)
 
     def teardown(self, ctx: MeasurementContext) -> None:
         """Make the ``shutdown`` calls, then switch the outputs off in reverse order.

@@ -29,6 +29,8 @@
                     "description": "frequency_hz, start_dbm, stop_dbm, step_db, compression_db (1): a power sweep at one frequency to find the compression point"},
     "limits": {"type": "object", "required": false,
                "description": "pass / fail mask on the gain in dB: {\"min\": 18} or bands"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
     "confirm_setup": {"type": "boolean", "required": false,

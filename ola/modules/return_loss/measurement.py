@@ -34,6 +34,7 @@ return loss is drawn together with the corrected one.
 
 from typing import Any, Dict, List, Optional
 
+from ola.golden import check_golden_param, recording
 from ola import rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
@@ -87,6 +88,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     check_asset(params, "device", out)
     check_correction(params, out, Problem)
     check_common(params, out, start, stop)
+    check_golden_param(params, out)
     return out
 
 
@@ -138,6 +140,7 @@ class ReturnLoss(Measurement):
 
     def run(self, ctx: MeasurementContext) -> None:
         """Ask for the set-up, sweep, read S11, compute, report."""
+        ctx = recording(ctx, "return_loss", self.params)  # with a golden sample: checked at the end
         p = self.params
         sweep = p["sweep"]
         handle = ctx.instrument("vna")

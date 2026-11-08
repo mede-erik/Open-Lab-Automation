@@ -53,6 +53,7 @@ At least one of the two tests is needed; both can be in one run (the line test f
 | `timing` | `settle_s` (wait after a change, 1 s by default), `samples` (readings averaged, 3) and `interval_s` (between them, 0.1 s) |
 | `safety` | `max_vin_v` and `max_load_a`: a test that goes above them is an error and **nothing is switched on** |
 | `limits` | `max_line_pct`, `max_load_pct` (the regulation, in absolute value), `vout_min_v`, `vout_max_v` (the output must stay inside) |
+| `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 ### The voltmeter: multimeter or datalogger
 
