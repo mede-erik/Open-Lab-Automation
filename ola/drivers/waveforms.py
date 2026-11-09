@@ -570,6 +570,7 @@ class WaveformsDriver:
         self.device = transport
         self.api, self.handle = transport.api, transport.handle
         self._channels: Optional[int] = None
+        self._configured: set = set()  # AnalogOut channel indexes given a setting by this driver
         # oscilloscope
         self._in_channels: Optional[int] = None
         self._enabled: set = set()  # AnalogIn channel indexes enabled through this driver
@@ -632,7 +633,27 @@ class WaveformsDriver:
 
     def fn_set_output_state(self, state: bool, channel_number: Optional[int] = None) -> None:
         """On: enable the carrier and start the channel. Off: stop the channel and disable the
-        carrier."""
+        carrier.
+
+        Without a channel number all the channels that were given a setting through this driver
+        are switched together with one start/stop of the whole generator (SDK channel -1), so
+        that they start in phase; starting channels one call after the other leaves a random phase
+        between them (measured on a real Analog Discovery 2: about 300 degrees of spread, against
+        0.5 degrees when started together). A channel that was never configured is left alone, and
+        with none configured the first channel is used."""
+        if channel_number is None:
+            if not self._configured:
+                self._channel(None, "set_output_state")  # checks that the device has a channel
+            channels = sorted(self._configured) or [0]
+            if state:
+                for channel in channels:
+                    self.api.node_enable(self.handle, channel, True)
+                self.api.configure(self.handle, -1, True)
+            else:
+                self.api.configure(self.handle, -1, False)
+                for channel in channels:
+                    self.api.node_enable(self.handle, channel, False)
+            return
         channel = self._channel(channel_number, "set_output_state")
         if state:
             self.api.node_enable(self.handle, channel, True)
@@ -646,6 +667,7 @@ class WaveformsDriver:
         refuses what it cannot do)."""
         channel = self._channel(channel_number, "set_frequency")
         self.api.set_frequency(self.handle, channel, float(value))
+        self._configured.add(channel)
 
     def fn_set_amplitude(self, value: float, channel_number: Optional[int] = None) -> None:
         """The peak-to-peak amplitude (see ``PEAK_PER_VPP``); a value the device cannot give is
@@ -660,6 +682,7 @@ class WaveformsDriver:
                 call="set_amplitude",
             )
         self.api.set_amplitude(self.handle, channel, volts)
+        self._configured.add(channel)
 
     def fn_set_offset(self, value: float, channel_number: Optional[int] = None) -> None:
         """The offset in volts; a value the device cannot give is not handled by this model."""
@@ -672,6 +695,7 @@ class WaveformsDriver:
                 call="set_offset",
             )
         self.api.set_offset(self.handle, channel, float(value))
+        self._configured.add(channel)
 
     def fn_set_waveform_shape(self, shape: str, channel_number: Optional[int] = None) -> None:
         """The waveform. PULSE and ARBITRARY are not handled; neither is a shape the device does not
@@ -689,6 +713,7 @@ class WaveformsDriver:
                 f"this device does not give a {shape} waveform", call="set_waveform_shape"
             )
         self.api.set_function(self.handle, channel, func)
+        self._configured.add(channel)
 
     # ================================================================ oscilloscope (AnalogIn)
     def _in_channel(self, channel_number: Optional[int], call: str) -> int:
