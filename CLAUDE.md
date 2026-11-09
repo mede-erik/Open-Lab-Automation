@@ -8,79 +8,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Task | Command | Notes |
 |------|---------|-------|
-| **Install Python dependencies** | `pip install -r requirements.txt` | Installs runtime and optional dev packages (pytest, black, flake8, sphinx). |
-| **Get the instrument library** | `git submodule update --init` | `Instruments_LIB` is a git submodule; without it no instrument is available. |
-| **Compile the C backend** | `bash backend/build.sh` | Builds the shared library (`backend/libbackend.so`, `backend/backend.dll` on Windows) loaded by `frontend/core/c_backend.py`. |
+| **Get the instrument library** | `git submodule update --init` | `Instruments_LIB` is a git submodule (a separate repository); without it no instrument is available and the library tests fail. |
+| **Install Python dependencies** | `pip install -r requirements.txt` | Runtime packages plus `pytest`, `pytest-qt`, `black` and `flake8`. |
 | **Run the application** | `python frontend/launcher.py` | Launches the PyQt6 GUI with the correct `PYTHONPATH`. |
 | **Run the GUI module directly** | `python -m frontend.main` | Useful for debugging import paths. |
-| **Run the full test suite** | `pytest` | Discovers the tests under `tests/` and the top‑level `test_*.py` files. |
-| **Run a single test file** | `pytest path/to/test_file.py` | Replace `path/to/test_file.py` with the file you need. |
-| **Run a single test function** | `pytest path/to/test_file.py::test_name` | Use the `::` syntax to target a specific test. |
-| **Lint the code** | `flake8 .` | Checks PEP‑8 compliance across the repository. |
-| **Auto‑format the code** | `black .` | Reformats all Python files in place. |
-| **Generate documentation** | `sphinx-build -b html docs docs/_build/html` | Assumes a `docs/` directory with a `conf.py`. |
-| **Clean build artefacts** | `git clean -fdx` | Removes compiled Python files, `__pycache__`, and the compiled C binary. |
-| **Quick launch (dev shortcut)** | `! python frontend/launcher.py` | Use the `!` prefix in Claude Code to run the command directly from the chat. |
+| **Run the full test suite** | `QT_QPA_PLATFORM=offscreen pytest` | Discovers `tests/` and the top-level `test_*.py` files. The Qt windows are built offscreen. |
+| **Run the tests without Qt** | `pytest -m "not gui"` | Skips the tests that build widgets. |
+| **Run a single test** | `pytest path/to/test_file.py::test_name` | |
+| **Check the translations** | `python scripts/check_translations.py` | The five locale files must have the same keys, and every key used in the code must exist. |
+| **Lint the new code** | `flake8 ola tests scripts` | Must be clean. |
+| **Lint for real errors** | `flake8 --select=E9,F63,F7,F82 .` | Syntax errors and undefined names, whole repository. |
+| **Check the copyright headers** | `python scripts/add_copyright_headers.py --check` | Without `--check` it adds the header to the files that lack it. |
+| **Compile the legacy C backend** | `bash backend/build.sh` | Only needed by `tests/test_c_backend.py`; the GUI does not use it. |
+| **Native transport (optional)** | `cd native && maturin build --release` | Rust transport; without it `ola` falls back to an equivalent pure-Python one. |
+| **Try an instrument without the GUI** | `python scripts/instrument_shell.py --sim` | `scripts/dry_run_call.py` shows the commands of a call without hardware. |
 
-> **Tip** – Most CI pipelines run the commands above in this order: install → compile → lint → test.
+> **Tip** – The CI runs, in this order: translations → lint → tests (see `docs/CI.md`). Run the same before pushing.
 
 ---
 
-## High‑Level Architecture
+## High-Level Architecture
 
 ```
-+-------------------+        +-------------------+        +-------------------+
-|   Frontend (Python)  | <---> |   Core Library (Python) | <---> |   Backend (C)   |
-+-------------------+        +-------------------+        +-------------------+
+GUI (frontend/ui, PyQt6)
+        |
+        v
+Core (frontend/core) ──────────────►  Engine (ola/, native/) ──►  Instruments
+  validation, errors, i18n, DB         Qt-free: planner, steps, runner,      (VISA, TCP, serial,
+                                       transport, measurement modules         GPIB adapters, drivers)
+                                                  ▲
+                                       Instruments_LIB (submodule): models, call schemas
 ```
 
-* **Frontend** (`frontend/`) – PyQt6 GUI. Entry points are `frontend/launcher.py` and `frontend/main.py`. UI code lives under `frontend/ui/`; each dialog/window occupies its own file and contains only layout and signal wiring.
-* **Core Library** (`frontend/core/`) – Business logic, validation, error handling, and utilities. Key modules:
-  * `DatabaseManager.py / ProjectDatabaseManager.py` – Handles project JSON, `.inst`, `.eff`, `.was` files.
-  * `LoadInstruments.py` – Reads `Instruments_LIB/instruments_lib.json` and provides lookup helpers.
+* **Frontend** (`frontend/`) – PyQt6 GUI. Entry points are `frontend/launcher.py` and `frontend/main.py`. UI code lives under `frontend/ui/`; each dialog/window occupies its own file and contains only layout and signal wiring. The main window has the *Remote control* tab and the *Measurements* tab (`ProjectWindow`).
+* **Core Library** (`frontend/core/`) – Validation, error handling, translations, logging, PostgreSQL storage. Key modules:
+  * `LoadInstruments.py` – Reads `Instruments_LIB/instruments_lib.json` for the GUI (`get_library_path()` gives its location).
   * `validator.py` – Central validation functions; raises `ValidationError` on failure.
-  * `errorhandler.py` – Standardised `[RESOURCE‑XXX]` error‑code system and UI presentation.
-  * `tools.py` – Stateless helpers (file I/O, CSV export, date formatting, etc.).
-  * `Translator.py` – Internationalisation; translation files live in `frontend/lang/`.
-  * `logger.py` – Structured JSON logging used throughout the app.
-* **Backend** (`backend/*.c`) – Legacy C shared library (raw TCP for LXI instruments), loaded through the `ctypes` wrapper `frontend/core/c_backend.py`. It is not used by the GUI and will be retired: do not extend it.
-* **Engine** (`ola/`, `native/`) – Qt-free transport, step executor, call planner, measurement runner and instrument library loader, with tests in `tests/`. See the section *Engine (`ola/` and `native/`)* of `README.md`; do not duplicate that description here.
+  * `errorhandler.py` – Standardised `[RESOURCE-XXX]` error-code system and UI presentation.
+  * `tools.py` – Stateless helpers (file I/O, CSV export, network diagnostics).
+  * `Translator.py` – Internationalisation: `translator.t(key)`; translation files live in `frontend/lang/`.
+  * `ProjectDatabaseManager.py`, `database_config.py` – PostgreSQL storage of the results; the connection settings are saved with an encrypted password.
+  * `logger.py` – Structured logging used throughout the app.
+* **Engine** (`ola/`, `native/`) – Qt-free: instrument library and call planner, step executor, transport (Rust or pure Python, pyvisa for USB-TMC/GPIB/VXI-11, serial, Prologix GPIB adapters), drivers (Analog Discovery, LiteVNA), measurement runner and the measurement modules in `ola/modules/`. Tests are in `tests/`. The description is in the section *Engine (`ola/` and `native/`)* of `README.md` and in `docs/engine.md`; do not duplicate it here.
+* **Instrument library** (`Instruments_LIB/`) – A separate repository used as a git submodule: models, call schemas (`schema/`), test guide (`TESTING.md`). Changes to it are made in that repository, then a pull request here moves the submodule pointer.
+* **Legacy C backend** (`backend/*.c`, `frontend/core/c_backend.py`) – Not used by the GUI and to be retired: **do not extend it**.
 
 ### Data Flow (simplified)
 
 1. **User interacts** with a dialog → emits a Qt signal.
-2. **UI layer** calls a validation routine from `core/validator.py`.
-3. On success, **core/tools.py** writes configuration files or triggers a measurement.
-4. For real‑time actions the core calls the **C backend**, which sends SCPI commands to the instrument.
-5. Responses are logged via **core/logger.py** and shown in the UI.
+2. **UI layer** validates the input with `core/validator.py`.
+3. **Remote control panel / measurements** call an instrument by a *logical call* (`handle.call("set_voltage", value=5)`): `ola/call_planner.py` turns it into a plan of steps using the model's entry in the library, `ola/instrument.py` runs the steps under one lock per instrument through the transport, or hands the call to a driver. The software never builds SCPI strings itself.
+4. **Measurements** (*Measurements* tab): `ProjectWindow` → `ProjectSession` → `Runner` (a thread: setup, run, always teardown) → the measurement module; instruments come from `ola/connection.py`; results are written while the run is going (`runs/` in the project folder, JSON Lines).
+5. Errors carry a `[RESOURCE-XXX]` code, are logged with the stack trace and shown through `core/errorhandler.py`.
 
-### Error‑Handling Strategy
+### Error-Handling Strategy
 
-All exceptions are wrapped in custom types defined in `core/errorhandler.py`. Each error includes a standardized code (`[RESOURCE‑XXX]`) that is displayed to the user and recorded in the log with a full stack trace. UI modules should call `errorhandler.handle_error(exc, user_message)` instead of ad‑hoc try/except blocks.
+Exceptions carry a standardized code (`[RESOURCE-XXX]`) that is displayed to the user and recorded in the log with the stack trace. UI modules call `errorhandler.handle_error(exc, user_message)` instead of ad-hoc try/except plus a message box. Engine errors have their own codes: `TRN-xxx` (transport) and `CALL-xxx` (calls).
 
 ### Internationalisation
 
-Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via `Translator.translate(key)`. When adding a new key, ensure it exists in every locale file.
+Strings are stored in `frontend/lang/<locale>.json` (`it`, `en`, `fr`, `es`, `de`) and, for the windows of the measurement modules, in `frontend/lang/modules/<area>/<locale>.json`. UI code retrieves them via `Translator.t(key)`. When adding a key, add it to **every** locale file and run `python scripts/check_translations.py`.
 
 ---
 
-## Project‑Specific Guidance
+## Project-Specific Guidance
 
-* **Instrument library** – The JSON file `Instruments_LIB/instruments_lib.json` drives the three‑level selector (type → series → model). Adding support for a new instrument means extending this JSON and, if necessary, providing a C‑level command implementation.
-* **Project files** – `.inst` (instrument config), `.eff` (efficiency sweep), `.was` (oscilloscope settings), and generic `.json` metadata are all managed by the `ProjectDatabaseManager`. Keep their schemas in sync with the UI editors.
-* **Pulse Generator Tool** – Located in `frontend/ui/PulseGeneratorDialog.py`. It validates user parameters against the instrument’s capabilities and visualises the waveform with matplotlib. No manual SCPI commands should be constructed here; rely on the library‑defined commands.
-* **Error‑Code Reference** – See `ERROR_CODES.md` for the complete list of `[RESOURCE‑XXX]` codes. When adding new error types, follow the same prefix convention.
-* **Copilot / Claude Code Style Rules** – The file `.github/copilot-instructions.md` encodes the same separation‑of‑concerns rules already reflected in this CLAUDE.md. Claude Code should respect those guidelines when generating new code.
+* **Instrument library** – `Instruments_LIB/instruments_lib.json` drives the selector (type → series → model); `Instruments_LIB/schema/*.json` define the logical calls of each category. Adding an instrument means adding its entry to the library (see `Instruments_LIB/TESTING.md`), not writing code here, unless it needs a driver (`ola/drivers/`).
+* **Project files** – A project (`ola/project.py`, `"format_version": 2`) lists its measurements; each measurement is a file whose extension identifies its type (`.eff` efficiency, `.cbl` cable, `.flt` filter, ...). `.inst` holds the instruments and `.was` the oscilloscope settings. Keep their schemas in sync with the editors and with `docs/`.
+* **Measurement modules** – Each is a folder in `ola/modules/` (`module.json`, `measurement.py`, `form.json`, `wiring.json`) with a guide in `docs/`; see `docs/measurement-modules.md`.
+* **Pulse Generator Tool** – `frontend/ui/PulseGeneratorDialog.py`. It validates the parameters against the instrument's limits and uses only the commands defined in the library: no SCPI is built by hand.
+* **Error-Code Reference** – See `ERROR_CODES.md` for the complete list of `[RESOURCE-XXX]` codes. When adding a new error type, follow the same prefix convention (a test checks that every code used in the source is documented).
+* **Copilot / Claude Code Style Rules** – `.github/copilot-instructions.md` encodes the same separation-of-concerns rules as this file; respect them when generating new code.
+
+### Rules for new code
+
+* **English only** for documentation and code comments. The UI languages are the locale files.
+* **Copyright header** on every new source file (`.py`, `.c`, `.h`, `.rs`, `.sh`, `.bat`, `.qss`): run `python scripts/add_copyright_headers.py FILE...`. `tests/test_copyright_headers.py` fails otherwise.
+* **Tests** for new code; the docs are kept in sync by tests (`tests/test_docs.py`): public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, relative links must work.
+* **Pull requests** go to `main`. Do not stack a pull request on the branch of another one: when the first is merged the second ends up in the old branch and not in `main`.
 
 ---
 
 ## Frequently Used Shortcuts for Claude Code
 
-* **Run tests** – `! pytest` or `! pytest path/to/test_file.py`.
-* **Lint** – `! flake8 .`.
-* **Build backend** – `! bash backend/build.sh`.
+* **Run tests** – `! QT_QPA_PLATFORM=offscreen pytest` or `! pytest path/to/test_file.py`.
+* **Lint** – `! flake8 ola tests scripts`.
+* **Translations** – `! python scripts/check_translations.py`.
 * **Launch app** – `! python frontend/launcher.py`.
-* **Open a file in VS Code** – `! code path/to/file.py` (if VS Code is installed).
 
 ---
 

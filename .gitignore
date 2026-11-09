@@ -234,3 +234,6 @@ check_*.py
 *.backup
 *.bak
 
+# Editor settings (VS Code): personal, not part of the project
+.vscode/
+*.code-workspace

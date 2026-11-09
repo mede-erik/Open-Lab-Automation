@@ -60,7 +60,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 
 ## Engine (`ola/` and `native/`)
 
-The engine is everything that talks to instruments and runs measurements. It has **no Qt dependency**, so it can be used from the GUI, from scripts and from tests (`import frontend.core` needs PyQt6, `import ola` does not). It is not wired into the GUI yet.
+The engine is everything that talks to instruments and runs measurements. It has **no Qt dependency**, so it can be used from the GUI, from scripts and from tests (`import frontend.core` needs PyQt6, `import ola` does not). The *Measurements* tab of the GUI runs the measurements through it, and the remote control panel uses its logical calls; the legacy C backend is not used by the GUI.
 
 ```
 measurement module (Python)         what to measure: setup / run / teardown
@@ -205,7 +205,6 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `ERROR_CODES.md` — Complete reference of standardized error codes
 - `PLAN.md` — Design decisions and development status
 - `CLAUDE.md`, `AGENTS.md` — Guidance for code assistants (commands, architecture, rules)
-- `Open-Lab-Automation.code-workspace` — VS Code workspace settings
 - `Instruments_LIB/docs/` — Instrument manuals and documentation
 - `examples/` — Example projects and configuration files
 
