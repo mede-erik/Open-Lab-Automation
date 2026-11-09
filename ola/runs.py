@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Run storage: results are written while the measurement runs (a crash loses nothing).
 
 A run file is JSON Lines, one object per line::

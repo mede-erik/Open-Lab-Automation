@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Write a placeholder for every connection picture listed in docs/wiring-images.md.
 
 A placeholder is an SVG with the name of the picture, where it is shown and what to draw, so that
@@ -30,13 +34,18 @@ WIDTH, HEIGHT = 1600, 800
 EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
 FIELDS = {
     "File": "file",
+    "Folder": "folder",
+    "When it is seen": "when",
+    "What to draw": "draw",
+    "Details": "details",
+    # the Italian labels of the first version of the list are still accepted
     "Cartella": "folder",
     "Quando si vede": "when",
     "Cosa disegnare": "draw",
     "Dettagli": "details",
 }
 _SECTION = re.compile(r"^## (\d+)\. (.+)$", re.M)
-_FIELD = re.compile(r"^\* \*\*(File|Cartella|Quando si vede|Cosa disegnare|Dettagli)\*\*: (.*)$")
+_FIELD = re.compile(r"^\* \*\*(" + "|".join(map(re.escape, FIELDS)) + r")\*\*: (.*)$")
 
 
 def parse_work_list(text: str) -> List[Dict[str, str]]:
@@ -83,7 +92,7 @@ def render_placeholder(entry: Dict[str, str]) -> str:
     body: List[str] = []
     body.append(
         '<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">'
-        "SEGNAPOSTO: sostituiscimi con il tuo disegno</text>"
+        "PLACEHOLDER: replace me with your drawing</text>"
     )
     body.append(
         f'<text x="80" y="190" font-size="64" font-weight="bold">{escape(entry["file"])}</text>'
@@ -92,15 +101,15 @@ def render_placeholder(entry: Dict[str, str]) -> str:
         f'<text x="80" y="245" font-size="30" fill="#555">{escape(entry["folder"])}'
         f' - {escape(plain(entry["title"]))}</text>'
     )
-    y = _lines("Quando si vede: ", entry.get("when", ""), 30, 330, 95, 42, body)
-    y = _lines("Da disegnare: ", entry.get("draw", ""), 30, y + 25, 95, 42, body)
+    y = _lines("When it is seen: ", entry.get("when", ""), 30, 330, 95, 42, body)
+    y = _lines("What to draw: ", entry.get("draw", ""), 30, y + 25, 95, 42, body)
     if entry.get("details"):
-        y = _lines("Dettagli: ", entry["details"], 30, y + 25, 95, 42, body)
+        y = _lines("Details: ", entry["details"], 30, y + 25, 95, 42, body)
     height = max(HEIGHT, y + 130)
     body.append(
-        f'<text x="80" y="{height - 60}" font-size="26" fill="#555">Salva il tuo disegno con '
-        "questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo "
-        "schema.</text>"
+        f'<text x="80" y="{height - 60}" font-size="26" fill="#555">Save your drawing with '
+        "this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own "
+        "diagram.</text>"
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{height}" '

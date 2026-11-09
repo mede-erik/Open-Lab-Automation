@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The placeholders of the connection pictures: one per picture of the work list, ignored by the
 program until they are replaced."""
 
@@ -41,7 +45,7 @@ def test_the_work_list_is_read_with_all_its_fields(registry):
     assert [e["number"] for e in entries] == [str(n) for n in range(1, 20)]
     first = entries[0]
     assert first["file"] == "cable_transmission" and first["folder"] == "ola/modules/cable/"
-    assert "trasmissione" in first["when"] and "VNA" in first["draw"] and first["details"]
+    assert "transmission" in first["when"] and "VNA" in first["draw"] and first["details"]
     assert "\n" not in first["draw"] and "  " not in first["draw"]  # wrapped lines are joined
 
 
@@ -59,7 +63,7 @@ def test_every_picture_has_its_placeholder_in_the_folder_of_its_module(registry)
         root = ET.parse(path).getroot()  # a well-formed SVG
         assert root.tag.endswith("svg") and float(root.get("width")) == 1600
         text = path.read_text(encoding="utf-8")
-        assert name in text and "SEGNAPOSTO" in text and wiring.PLACEHOLDER_MARK in text
+        assert name in text and "PLACEHOLDER" in text and wiring.PLACEHOLDER_MARK in text
 
 
 def test_the_placeholders_say_what_the_work_list_says():
@@ -159,6 +163,6 @@ def test_an_empty_list_is_reported(tmp_path, monkeypatch, capsys):
 def test_the_docs_describe_the_placeholders():
     text = (ROOT / "docs" / "wiring-images.md").read_text("utf-8")
     assert "OLA-PLACEHOLDER" in text and "scripts/make_picture_placeholders.py" in text
-    assert "segnaposto" in text.lower()
+    assert "placeholder" in text.lower()
     assert "placeholder" in (ROOT / "docs" / "wiring.md").read_text("utf-8")
     json.loads((ROOT / "ola" / "modules" / "filter" / "wiring.json").read_text("utf-8"))

@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Small widgets and helpers used by the efficiency editor dialog.
 
 * ``CallEdit``: one line to describe a call of an instrument (instrument, call name, arguments).

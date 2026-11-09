@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Translations for the dialogs of a measurement module.
 
 The application's own catalogs (``frontend/lang/<lang>.json``) are shared with other parts of the

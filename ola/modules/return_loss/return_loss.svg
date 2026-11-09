@@ -1,16 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="804" viewBox="0 0 1600 804" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" font-family="Helvetica, Arial, sans-serif">
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
-<rect width="1600" height="804" fill="#f1f1f1"/>
-<rect x="20" y="20" width="1560" height="764" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<rect width="1600" height="800" fill="#f1f1f1"/>
+<rect x="20" y="20" width="1560" height="760" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">return_loss</text>
 <text x="80" y="245" font-size="30" fill="#555">ola/modules/return_loss/ - Return loss</text>
-<text x="80" y="330" font-size="30">Quando si vede: misura di return loss / VSWR di un dispositivo (un ingresso, un adattatore, un</text>
-<text x="80" y="372" font-size="30">connettore).</text>
-<text x="80" y="439" font-size="30">Da disegnare: il VNA con P1 collegata, tramite un cavetto di test, al connettore del</text>
-<text x="80" y="481" font-size="30">dispositivo in prova. Il dispositivo è un riquadro generico (il DUT) con un solo connettore.</text>
-<text x="80" y="548" font-size="30">Dettagli: P2 non usata; indica il piano di calibrazione (la fine del cavetto di test) con un</text>
-<text x="80" y="590" font-size="30">tratto verticale tratteggiato o un segno, perché la calibrazione si fa lì (open / short /</text>
-<text x="80" y="632" font-size="30">load).</text>
-<text x="80" y="744" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="330" font-size="30">When it is seen: return loss / VSWR measurement of a device (an input, an adapter, a</text>
+<text x="80" y="372" font-size="30">connector).</text>
+<text x="80" y="439" font-size="30">What to draw: the VNA with P1 connected, through a test lead, to the connector of the device</text>
+<text x="80" y="481" font-size="30">under test. The device is a generic box (the DUT) with a single connector.</text>
+<text x="80" y="548" font-size="30">Details: P2 not used; mark the calibration plane (the end of the test lead) with a dashed</text>
+<text x="80" y="590" font-size="30">vertical line or a mark, because the calibration is done there (open / short / load).</text>
+<text x="80" y="740" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

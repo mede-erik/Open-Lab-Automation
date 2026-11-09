@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Sweeps: the values an axis takes and the nested walk over several axes.
 
 An axis is described by a dict, in one of three forms::

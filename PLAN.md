@@ -1,390 +1,385 @@
-# PLAN – Open Lab Automation come piattaforma di misura generica
+# PLAN – Open Lab Automation as a generic measurement platform
 
-Stato: **bozza** (2026-11-02). I punti marcati ❓ sono ancora da decidere.
+Status: **draft** (2026-11-02). Items marked ❓ are still to be decided.
 
-## 1. Obiettivo
+## 1. Goal
 
-Passare da "strumenti da remoto + una misura di efficienza" a un software
-generico in cui:
+Move from "remote instruments + one efficiency measurement" to a generic
+software in which:
 
-- un **progetto** contiene **più misure** di tipo diverso (es. progetto "Pippo":
-  efficienza + risposta al transitorio + ripple);
-- ogni misura ha **un proprio file** con estensione dipendente dal tipo;
-- le misure sono **moduli**: alcuni integrati, altri scritti dall'utente;
-- l'efficienza resta la misura di riferimento (il progetto nasce per quella),
-  ma oggi **non è ancora validata su hardware** → va provata, non solo portata.
+- a **project** contains **several measurements** of different types (e.g. project "Pippo":
+  efficiency + transient response + ripple);
+- each measurement has **its own file**, with an extension that depends on the type;
+- measurements are **modules**: some built in, others written by the user;
+- efficiency remains the reference measurement (the project was born for it), but today it is
+  **not yet validated on hardware** → it must be tried, not only ported.
 
-Decisioni già prese:
+Decisions already taken:
 
-- **Nessuna retrocompatibilità** con i vecchi `.eff` / `.was` / progetti esistenti
-  (il software non è ancora in uso). Si può cambiare formato liberamente.
-- Architettura modulare: moduli base integrati + moduli utente.
-- **Un'estensione file per ogni tipo di misura** (facile da riconoscere, copiare, eliminare).
-- **Latenza minima**: valutata con un benchmark (vedi §4); orchestrazione in Python,
-  strato nativo (Rust) per il trasporto.
-- **I moduli non parlano mai SCPI**: chiedono azioni a uno strumento generico
-  ("alimentatore → 20 V, ON") e il software le traduce nei comandi corretti,
-  con controllo dei limiti (§5).
+- **No backward compatibility** with the old `.eff` / `.was` / existing projects
+  (the software is not in use yet). The format can be changed freely.
+- Modular architecture: built-in base modules + user modules.
+- **One file extension for each measurement type** (easy to recognise, copy, delete).
+- **Minimum latency**: evaluated with a benchmark (see §4); orchestration in Python,
+  native layer (Rust) for the transport.
+- **Modules never speak SCPI**: they ask a generic instrument for actions
+  ("supply → 20 V, ON") and the software translates them into the correct commands,
+  with limit checks (§5).
 
-## 2. Vocabolario
+## 2. Vocabulary
 
 ```
-Progetto ─┬─ Strumenti (.inst)             ← condivisi da tutte le misure
-          ├─ Misura "Efficienza"   (.eff)  ┐
-          ├─ Misura "Transitorio"  (.ltr)  ├─ ognuna = istanza di un Tipo di misura (modulo)
-          └─ Misura "Ripple"       (.rpl)  ┘
-                 └─ Run (esecuzione) ─ Punti / Forme d'onda / Tracce
+Project ─┬─ Instruments (.inst)             ← shared by all measurements
+         ├─ Measurement "Efficiency" (.eff)  ┐
+         ├─ Measurement "Transient" (.ltr)   ├─ each = instance of a measurement Type (module)
+         └─ Measurement "Ripple" (.rpl)      ┘
+                └─ Run (execution) ─ Points / Waveforms / Traces
 ```
 
-- **Tipo di misura** = un modulo (codice + schema parametri + editor).
-- **Misura** = istanza configurata di un tipo, salvata in un suo file.
-- **Run** = una singola esecuzione di una misura, con i dati prodotti.
+- **Measurement type** = a module (code + parameter schema + editor).
+- **Measurement** = configured instance of a type, saved in its own file.
+- **Run** = a single execution of a measurement, with the data it produces.
 
-## 3. Formato progetto (nuovo)
+## 3. Project format (new)
 
-> **Implementato** in `ola/project.py` (descrizione: `docs/engine.md`). Differenze rispetto
-> a questo schema iniziale: il file di progetto ha anche `"format_version": 2`; il vecchio
-> formato (`eff_files`/`was_files`) viene rifiutato con un errore chiaro; i nomi dei file
-> devono essere nomi semplici (niente percorsi, `..` rifiutato).
+> **Implemented** in `ola/project.py` (description: `docs/engine.md`). Differences from this
+> initial schema: the project file also has `"format_version": 2`; the old format
+> (`eff_files`/`was_files`) is rejected with a clear error; file names
+> must be simple names (no paths, `..` is rejected).
 
-Il JSON di progetto sostituisce le liste `eff_files`/`was_files` con:
+The project JSON replaces the `eff_files`/`was_files` lists with:
 
 ```json
 {
   "project_name": "Pippo",
   "inst_file": "pippo.inst",
   "measurements": [
-    {"id": "m1", "type": "efficiency",     "name": "Efficienza",  "file": "efficienza.eff"},
-    {"id": "m2", "type": "load_transient", "name": "Transitorio", "file": "transitorio.ltr"}
+    {"id": "m1", "type": "efficiency",     "name": "Efficiency",  "file": "efficiency.eff"},
+    {"id": "m2", "type": "load_transient", "name": "Transient",   "file": "transient.ltr"}
   ]
 }
 ```
 
-Ogni file di misura ha un'intestazione comune
-(`type`, `module_version`, `api_version`, `role_bindings`) e un corpo `params`
-definito dal modulo. Le `control_variables`/`measure_variables` globali di oggi
-passano a essere responsabilità della singola misura.
+Each measurement file has a common header
+(`type`, `module_version`, `api_version`, `role_bindings`) and a `params` body
+defined by the module. Today's global `control_variables`/`measure_variables`
+become the responsibility of each individual measurement.
 
-## 4. Latenza e architettura a livelli
+## 4. Latency and layered architecture
 
-### 4.1 Misura sul codice attuale (loopback, finto strumento SCPI, 300 query)
+### 4.1 Measurement on the current code (loopback, fake SCPI instrument, 300 queries)
 
-| Implementazione | Mediana | Max |
+| Implementation | Median | Max |
 |---|---|---|
-| Backend C attuale (`send` comando + `send` "\n", senza `TCP_NODELAY`) | **44 000 µs** | 67 ms |
-| Python puro, stesso schema (2 `send`, senza `TCP_NODELAY`) | **44 000 µs** | 72 ms |
-| Python puro, 1 `send` + `TCP_NODELAY` | **32 µs** | 0,7 ms |
+| Current C backend (`send` command + `send` "\n", without `TCP_NODELAY`) | **44 000 µs** | 67 ms |
+| Pure Python, same scheme (2 `send`, without `TCP_NODELAY`) | **44 000 µs** | 72 ms |
+| Pure Python, 1 `send` + `TCP_NODELAY` | **32 µs** | 0.7 ms |
 
-Conclusioni:
+Conclusions:
 
-1. Il collo di bottiglia **non è il linguaggio**: C e Python danno lo stesso risultato.
-   Il costo è la combinazione Nagle + ACK ritardato, che aggiunge ~44 ms a ogni
-   query. È un bug del backend attuale (`instrument_send` fa due `send` e manca
-   `TCP_NODELAY`): correggendolo si guadagna un fattore ~1000.
-2. Con il trasporto corretto l'overhead di Python è di decine di µs. Su uno strumento
-   reale una query costa 1–50 ms (rete + tempo di misura/NPLC): il linguaggio dell'host
-   incide per meno dell'1 %.
-3. Dove il linguaggio conta davvero: **jitter** (GIL, thread della GUI, GC) quando due
-   azioni devono avvenire a distanza temporale controllata, e **throughput** nello
-   streaming/logging veloce. Per queste serve codice nativo con thread proprio,
-   senza GIL. Per la sincronizzazione vera la soluzione migliore resta comunque
-   **delegare allo strumento** (trigger hardware, buffer, list mode), non all'host.
-4. Il backend C attuale fa solo TCP raw: USB, GPIB e seriale (citati nel README) non
-   esistono nel backend, e i comandi SCPI del sweep sono hardcoded invece di venire
-   dalla libreria. Lo stato è globale e non thread-safe.
+1. The bottleneck is **not the language**: C and Python give the same result.
+   The cost is the combination of Nagle + delayed ACK, which adds ~44 ms to every
+   query. It is a bug of the current backend (`instrument_send` makes two `send` calls and lacks
+   `TCP_NODELAY`): fixing it gains a factor of ~1000.
+2. With the correct transport, Python's overhead is tens of µs. On a real
+   instrument a query costs 1–50 ms (network + measurement time / NPLC): the host language
+   accounts for less than 1 % of it.
+3. Where the language really matters: **jitter** (GIL, GUI thread, GC) when two
+   actions must happen at a controlled time distance, and **throughput** in
+   fast streaming/logging. For these, native code with its own thread, without the
+   GIL, is needed. For true synchronisation, however, the best solution remains
+   **delegating to the instrument** (hardware trigger, buffer, list mode), not to the host.
+4. The current C backend only does raw TCP: USB, GPIB and serial (mentioned in the README) do not
+   exist in the backend, and the SCPI commands of the sweep are hardcoded instead of coming from the
+   library. The state is global and not thread-safe.
 
-### 4.2 Scelta: ibrido Python + Rust (✅ deciso)
+### 4.2 Choice: hybrid Python + Rust (✅ decided)
 
-| Livello | Linguaggio | Compito |
+| Layer | Language | Task |
 |---|---|---|
-| Moduli di misura, runner, UI | Python | Logica della misura, nessun vincolo di tempo stretto |
-| Strumento generico + limiti; traduttore SCPI **o** driver (§7.1) | Python (prima versione) | Guidato dalla libreria, facile da estendere |
-| Trasporto (TCP/LXI, poi USB, seriale, GPIB/VISA) | **Rust** | `TCP_NODELAY`, un solo write, letture bufferizzate, timeout, thread-safe |
-| Esecutore di sequenze | **Rust**, *non previsto* (vedi §4.3) | Sequenza compilata eseguita in un thread nativo senza GIL; da riconsiderare solo se emerge un caso reale |
+| Measurement modules, runner, UI | Python | Measurement logic, no tight timing constraints |
+| Generic instrument + limits; SCPI translator **or** driver (§7.1) | Python (first version) | Driven by the library, easy to extend |
+| Transport (TCP/LXI, then USB, serial, GPIB/VISA) | **Rust** | `TCP_NODELAY`, a single write, buffered reads, timeouts, thread-safe |
+| Sequence executor | **Rust**, *not planned* (see §4.3) | Compiled sequence run in a native thread without the GIL; to be reconsidered only if a real case emerges |
 
-Perché Rust invece di C: il codice C esistente è poco (≈430 righe) e va comunque
-riscritto; Rust dà sicurezza di memoria e thread, crate pronte per seriale/USB, e
-wheel precompilate (maturin/PyO3) che evitano all'utente di installare un compilatore
-(oggi serve `gcc`). Costo: i contributori devono saper leggere Rust.
-Il backend C esistente verrà sostituito dal trasporto Rust (`backend/` rimosso a
-migrazione finita); fino ad allora resta in uso.
+Why Rust instead of C: the existing C code is small (≈430 lines) and must be rewritten anyway;
+Rust gives memory and thread safety, ready-made crates for serial/USB, and precompiled
+wheels (maturin/PyO3) that spare the user from installing a compiler
+(today `gcc` is needed). Cost: contributors must be able to read Rust.
+The existing C backend will be replaced by the Rust transport (`backend/` removed once the
+migration is complete); until then it stays in use.
 
-Fino a quando il livello nativo non c'è, il trasporto può essere Python (`socket`
-con `TCP_NODELAY`, o `pyvisa` per USB/GPIB). L'interfaccia `Transport` è unica, quindi
-la sostituzione è trasparente per i moduli.
+Until the native layer exists, the transport can be Python (`socket`
+with `TCP_NODELAY`, or `pyvisa` for USB/GPIB). The `Transport` interface is unique, so the
+replacement is transparent for the modules.
 
-### 4.3 Caso critico: test a impulsi di carico
+### 4.3 Critical case: load impulse tests
 
-L'unico caso con timing stretto, per ora, è il test di impulsi/step di carico
-(modulo transitorio, `.ltr`, e Pulse Generator). Ragionamento:
+The only case with tight timing, for now, is the load impulse/step test
+(transient module, `.ltr`, and the Pulse Generator). Reasoning:
 
-- L'impulso **non lo genera l'host**: il carico elettronico lo produce internamente
-  (modo dinamico: livelli, frequenza, duty, rise/fall). L'host non deve commutare
-  nulla a tempo, quindi il jitter di Python non incide sulla forma dell'impulso.
-- Il timing che conta è tra **carico e scope**. Si ottiene con il trigger
-  dell'oscilloscopio sul fronte (tensione di uscita, sonda di corrente o uscita di
-  trigger del carico), non con la sincronizzazione software.
-- All'host resta solo l'**ordine delle operazioni**, che tollera latenze di ms:
-  configura carico (dinamico, ancora spento) → configura e arma lo scope →
-  attendi "armato" → abilita il carico → attendi l'acquisizione → leggi la forma
-  d'onda.
-- Per un singolo step (non periodico) il metodo è lo stesso: scope in
-  single-shot armato, poi step. Se il carico non ha un modo step/dinamico adatto,
-  è un limite dello strumento, da dichiarare nella libreria come capability mancante
-  (e il modulo rifiuta la misura con un errore chiaro).
+- The impulse **is not generated by the host**: the electronic load produces it internally
+  (dynamic mode: levels, frequency, duty, rise/fall). The host does not have to switch
+  anything at a given time, so Python's jitter does not affect the shape of the impulse.
+- The timing that matters is between **load and scope**. It is obtained with the
+  oscilloscope trigger on the edge (output voltage, current probe or the load's trigger
+  output), not with software synchronisation.
+- The host is left only with the **order of operations**, which tolerates latencies of ms:
+  configure the load (dynamic, still off) → configure and arm the scope →
+  wait for "armed" → enable the load → wait for the acquisition → read the waveform.
+- For a single step (not periodic) the method is the same: scope in
+  single-shot, armed, then step. If the load has no suitable step/dynamic mode,
+  it is a limit of the instrument, to be declared in the library as a missing capability
+  (and the module rejects the measurement with a clear error).
 
-Conclusione: **non serve un esecutore di sequenze nativo**. Il Rust si limita al
-trasporto (bassa latenza per query/waveform, thread-safe). Si riconsidera solo se
-un modulo futuro richiede davvero azioni software a tempo controllato.
+Conclusion: **no native sequence executor is needed**. Rust is limited to
+transport (low latency for queries/waveforms, thread-safe). It will be reconsidered only if a
+future module really requires software actions at a controlled time.
 
-**Regola di sviluppo:** si ottimizza con i numeri. Si aggiunge un benchmark di
-latenza e jitter al repo (come quello sopra, più uno strumento simulato) e si porta
-in nativo solo ciò che il benchmark mostra come insufficiente.
+**Development rule:** optimise with numbers. A benchmark of latency and jitter is added to the repository (like the one above, plus a simulated instrument), and only what the benchmark shows to be insufficient is moved to native code.
 
-## 5. Sistema a moduli
+## 5. Module system
 
-> **Implementato** in `ola/measurement.py`, `ola/runner.py`, `ola/registry.py`; guida per chi
-> scrive un modulo: `docs/measurement-modules.md`. Differenze rispetto al design iniziale
-> qui sotto: `validate(self)` non riceve argomenti (usa `self.params`); i ruoli sono oggetti
-> `Role(name, category, required, multiple)` letti dal `module.json`, non una mappa di
-> `Capability`; l'arresto si controlla con `ctx.checkpoint()` / `ctx.sleep()` (non
-> `should_stop()` / `pause_point()`); il manifest ha `entry` (`file.py:Classe`); la cartella dei
-> moduli integrati è `ola/modules/` (non `frontend/measurements/builtin/`); `schema.json` e
-> `editor.py` non esistono ancora (`params_schema` sta nel manifest e non è applicato).
+> **Implemented** in `ola/measurement.py`, `ola/runner.py`, `ola/registry.py`; guide for
+> those who write a module: `docs/measurement-modules.md`. Differences from the initial design
+> below: `validate(self)` takes no arguments (it uses `self.params`); the roles are objects
+> `Role(name, category, required, multiple)` read from `module.json`, not a map of
+> `Capability`; stopping is checked with `ctx.checkpoint()` / `ctx.sleep()` (not
+> `should_stop()` / `pause_point()`); the manifest has `entry` (`file.py:Class`); the folder of the
+> built-in modules is `ola/modules/` (not `frontend/measurements/builtin/`); `schema.json` and
+> `editor.py` do not exist yet (`params_schema` is in the manifest and is not applied).
 
-### 5.1 Struttura di un modulo
+### 5.1 Structure of a module
 
 ```
 mymodule/
-  module.json     # manifest: id, nome, versione, api_version, estensione file (UNICA),
-                  #           ruoli strumento richiesti, dipendenze Python
-  measurement.py  # classe che implementa l'interfaccia Measurement
-  schema.json     # schema dei parametri → editor generato automaticamente
-  editor.py       # (opzionale) editor Qt custom
+  module.json     # manifest: id, name, version, api_version, file extension (UNIQUE),
+                  #           required instrument roles, Python dependencies
+  measurement.py  # class implementing the Measurement interface
+  schema.json     # parameter schema → editor generated automatically
+  editor.py       # (optional) custom Qt editor
 ```
 
-**Estensioni:** ogni tipo di misura ha la sua (`.eff` efficienza; proposte: `.bode`,
-`.rpl` ripple, `.ltr` transitorio, `.tlg` logging, `.spc` spectrum, `.vna`). Il
-registro rifiuta due moduli con la stessa estensione; i moduli utente devono
-dichiararne una propria.
+**Extensions:** each measurement type has its own (`.eff` efficiency; proposals: `.bode`,
+`.rpl` ripple, `.ltr` transient, `.tlg` logging, `.spc` spectrum, `.vna`). The
+registry rejects two modules with the same extension; user modules must
+declare their own.
 
-Posizioni di ricerca:
+Search locations:
 
-1. `frontend/measurements/builtin/` – moduli integrati;
-2. cartella utente (es. `~/.open_lab_automation/modules/`);
-3. `modules/` dentro il progetto (moduli specifici di quel progetto).
+1. `frontend/measurements/builtin/` – built-in modules;
+2. user folder (e.g. `~/.open_lab_automation/modules/`);
+3. `modules/` inside the project (modules specific to that project).
 
-### 5.2 Interfaccia `Measurement`
+### 5.2 `Measurement` interface
 
 ```python
 class Measurement:
-    required_roles: dict[str, Capability]   # es. {"generator": "awg", "scope": "scope"}
+    required_roles: dict[str, Capability]   # e.g. {"generator": "awg", "scope": "scope"}
     def validate(self, params, bound_instruments) -> list[ValidationError]
-    def setup(self, ctx)            # configura strumenti, stato sicuro iniziale
-    def run(self, ctx)              # loop della misura; usa ctx.emit_point / ctx.emit_trace,
-                                    # controlla ctx.should_stop() / ctx.pause_point()
-    def teardown(self, ctx)         # SEMPRE chiamato: riporta gli strumenti in stato sicuro
-    def derived(self, data)         # grandezze calcolate (efficienza, ecc.)
+    def setup(self, ctx)            # configure instruments, safe initial state
+    def run(self, ctx)              # measurement loop; uses ctx.emit_point / ctx.emit_trace,
+                                    # checks ctx.should_stop() / ctx.pause_point()
+    def teardown(self, ctx)         # ALWAYS called: puts the instruments back in a safe state
+    def derived(self, data)         # computed quantities (efficiency, etc.)
 ```
 
-Il `ctx` (contesto) è fornito dal framework: accesso agli strumenti, emissione
-dati, progresso, log, cancellazione. Il modulo **non** apre finestre né scrive
-file direttamente.
+The `ctx` (context) is provided by the framework: access to instruments, data output,
+progress, log, cancellation. The module does **not** open windows nor write
+files directly.
 
-### 5.3 Strumento generico, ruoli e capability (il punto chiave)
+### 5.3 Generic instrument, roles and capabilities (the key point)
 
-**Il modulo non conosce SCPI né il modello.** Python (modulo) → API generica →
-OpenLab traduce in SCPI dalla libreria **oppure passa la chiamata a un driver**
-(§7.1) → trasporto:
+**The module knows neither SCPI nor the model.** Python (module) → generic API →
+OpenLab translates into SCPI from the library **or** passes the call to a driver
+(§7.1) → transport:
 
 ```python
-psu = ctx.instrument("psu")        # ruolo → strumento reale del .inst
-psu.set_voltage(20.0)              # OpenLab: controlla limiti, traduce, invia
+psu = ctx.instrument("psu")        # role → real instrument from the .inst
+psu.set_voltage(20.0)              # OpenLab: checks limits, translates, sends
 psu.output(True)
 v = dmm.measure_voltage()
 ```
 
-Se il valore supera i limiti dello strumento (es. 20 V su un alimentatore da 15 V)
-OpenLab **non invia nulla** e solleva un errore con codice standard
-(`[INST-xxx]`, da aggiungere a `ERROR_CODES.md`) che il runner mostra e che manda
-la misura in `teardown()`. Il modulo non può aggirare i limiti.
+If the value exceeds the instrument's limits (e.g. 20 V on a 15 V supply)
+OpenLab **sends nothing** and raises an error with a standard code
+(`[INST-xxx]`, to be added to `ERROR_CODES.md`), which the runner shows and which sends
+the measurement to `teardown()`. The module cannot bypass the limits.
 
-Una misura non dice "usa il Keysight 34972A": dice "mi serve un *generatore
-di funzioni*, un *oscilloscopio*". L'utente associa i ruoli agli strumenti del
-`.inst`. Gli strumenti dichiarano le **capability** nella libreria (es.
-`awg`, `scope`, `dmm`, `psu`, `eload`, `spectrum`, `vna`, `power_meter`), con
-i comandi SCPI definiti dalla libreria (come oggi) oppure, per gli strumenti
-proprietari, con un driver (§7.1).
-Così lo stesso modulo funziona con strumenti diversi e un nuovo strumento si
-aggiunge solo estendendo la libreria.
+A measurement does not say "use the Keysight 34972A": it says "I need a *function
+generator*, an *oscilloscope*". The user assigns the roles to the instruments of the
+`.inst`. Instruments declare their **capabilities** in the library (e.g.
+`awg`, `scope`, `dmm`, `psu`, `eload`, `spectrum`, `vna`, `power_meter`), with
+the SCPI commands defined by the library (as today) or, for proprietary
+instruments, with a driver (§7.1).
+In this way the same module works with different instruments, and a new instrument
+is added only by extending the library.
 
-### 5.4 Sicurezza dei moduli utente
+### 5.4 Safety of user modules
 
-Un modulo utente è codice Python arbitrario che pilota hardware: va
-dichiarato esplicitamente (avviso al primo caricamento, elenco in
-Impostazioni, possibilità di disabilitarli). Il framework garantisce
-`teardown()` anche in caso di errore/stop, e i limiti di sicurezza degli
-strumenti (max V/I/P dalla libreria) sono applicati nel livello strumenti,
-non lasciati al modulo.
+A user module is arbitrary Python code that drives hardware: it must be
+declared explicitly (warning on first load, list in
+Settings, option to disable them). The framework guarantees
+`teardown()` even in case of error/stop, and the safety limits of the
+instruments (max V/I/P from the library) are applied in the instrument layer,
+not left to the module.
 
 ### 5.5 UI
 
-- Dialog "Aggiungi misura" che elenca i tipi disponibili.
-- Editor generico generato dallo `schema.json` (campi, range, unità, validazione).
-- Pannello **Run** unico per tutti i tipi: avvio/stop/pausa, progresso,
-  grafico live, tabella dati, export.
+- "Add measurement" dialog that lists the available types.
+- Generic editor generated from `schema.json` (fields, ranges, units, validation).
+- A single **Run** panel for all types: start/stop/pause, progress,
+  live chart, data table, export.
 
-## 6. Misure previste
+## 6. Planned measurements
 
-| # | Misura | Strumenti (ruoli) | Note |
-|---|--------|-------------------|------|
-| 1 | **Efficienza** (integrata) | PSU/sorgente, eload, DMM/datalogger (o power meter) | Sweep annidato come oggi. **Da validare su hardware.** |
-| 2 | **Diagramma di Bode** | AWG + scope, oppure VNA | Sweep di frequenza, guadagno/fase. Con iniezione per loop gain; modalità VNA diretta. |
-| 3 | **Ripple e rumore** | Scope (opz. spectrum analyzer) | Banda limitata 20 MHz, p-p, RMS, spettro del ripple. |
-| 4 | **Logging nel tempo** | Datalogger/DMM/termocoppie | Più canali, intervallo configurabile, scrittura incrementale, grafico live. |
-| 5 | **Risposta al transitorio di carico** | Eload (dinamico) + scope | Riusa la logica del Pulse Generator; misura overshoot/undershoot e tempo di assestamento. |
-| 6 | Spettro / emissioni | Spectrum analyzer | Tracce, marker, peak search. |
-| 7 | Analisi di rete (S-param) | VNA | S11/S21, export Touchstone. |
+| # | Measurement | Instruments (roles) | Notes |
+|---|-------------|---------------------|-------|
+| 1 | **Efficiency** (built in) | PSU/source, eload, DMM/datalogger (or power meter) | Nested sweep as today. **To be validated on hardware.** |
+| 2 | **Bode plot** | AWG + scope, or VNA | Frequency sweep, gain/phase. With injection for loop gain; direct VNA mode. |
+| 3 | **Ripple and noise** | Scope (opt. spectrum analyzer) | Bandwidth limited to 20 MHz, p-p, RMS, ripple spectrum. |
+| 4 | **Logging over time** | Datalogger/DMM/thermocouples | Several channels, configurable interval, incremental writing, live chart. |
+| 5 | **Load transient response** | Eload (dynamic) + scope | Reuses the logic of the Pulse Generator; measures overshoot/undershoot and settling time. |
+| 6 | Spectrum / emissions | Spectrum analyzer | Traces, markers, peak search. |
+| 7 | Network analysis (S-param) | VNA | S11/S21, Touchstone export. |
 
-Candidate successive (a basso costo, riusano gli stessi mattoni): regolazione
-di linea e di carico, PSRR, impedenza di uscita, curva I-V, sequenza di
-accensione/spegnimento.
+Next candidates (low cost, reusing the same building blocks): line and load regulation,
+PSRR, output impedance, I-V curve, power-on/power-off sequence.
 
-## 6b. Misure RF e roadmap
+## 6b. RF measurements and roadmap
 
-Decisioni del 2026-11-03 (discussione con l'utente):
+Decisions of 2026-11-03 (discussion with the user):
 
-- **Un modulo vero per ogni misura**, separati e aggiornabili separatamente (nessun modulo "tuttofare"
-  con modalità). Le funzioni comuni stanno in librerie condivise senza Qt (`ola/rf.py`...), non nei moduli.
-- **Misure con il VNA** (il VNA arriva calibrato dall'utente, che fa la calibrazione sullo strumento; il
-  modulo mostra solo un promemoria "il VNA è calibrato?" con Continua/Annulla). Si ragiona in generale,
-  non sui limiti del singolo VNA: 1. **caratterizzazione del cavo** (S21 modalità principale, S11 con
-  aperto/corto come seconda: perdita in dB, valori a frequenze scelte, dB/m, ritardo di gruppo e fattore
-  di velocità, controllo su limite); 2. **return loss / VSWR**; 3. **filtro** (banda passante, taglio a
-  -3 dB, ripple, attenuazione fuori banda, Q); 4. **impedenza di un'antenna** (Z = R + jX, grafico di
-  Smith, risonanza, banda a VSWR < 2).
-- **Pezzi comuni da fare per primi**: misure che producono curve (tracce) nella finestra di esecuzione;
-  grafico di tracce (asse X logaritmico, ampiezza/fase/Re/Im, più curve, marker, linee limite,
-  **grafico di Smith**); esportazione **CSV delle tracce e Touchstone** (`.s1p`/`.s2p`); funzioni di
-  calcolo RF (dB, VSWR, impedenza, ritardo di gruppo); verdetto promosso/non promosso con limiti per
-  frequenza o banda; un editor per ogni tipo di misura (oggi solo l'efficienza).
-- **Ordine**: 1. pezzi comuni; 2. cavo; 3. return loss, filtro, antenna; 4. (modelli di misura:
-  regolazione di linea/carico, curva I-V); 5. ripple, Bode, transitorio; poi spettro, scarica batteria.
-- **Report**: per ora solo **CSV** (e Touchstone). Un **report HTML salvabile in PDF, con modello
-  personalizzabile**, è rimandato a quando le misure funzionano e il software è in beta (voce nella
-  sezione "Future features" del README).
-- **Confronto di risultati** (es. due cavi): non dentro la misura, ma come **strumento nel menu Tools**
-  (come il convertitore Hex/Dec): si scelgono due risultati e si sovrappongono.
-- **Etichetta del cavo** (strumento nel menu Tools): generare un modello di etichetta da stampare con i
-  dati che identificano il cavo, per legare ogni misura al suo cavo. Da progettare **dopo** le misure
-  della sezione 3 (return loss, filtro, antenna).
-- **Modelli di misura** (file precompilati scelti da "Nuova misura"): regolazione di linea/carico e curva
-  I-V sono il modulo efficienza con altre formule; la scarica di batteria richiede una condizione di
-  arresto (tensione minima) che il modulo oggi non ha.
+- **A real module for each measurement**, separate and updatable separately (no "does-everything" module
+  with modes). The common functions live in shared libraries without Qt (`ola/rf.py`...), not in the modules.
+- **Measurements with the VNA** (the VNA arrives calibrated from the user, who calibrates on the instrument;
+  the module only shows a reminder "is the VNA calibrated?" with Continue/Cancel). The reasoning is general,
+  not about the limits of a single VNA: 1. **cable characterisation** (S21 as the main mode, S11 with
+  open/short as the second: loss in dB, values at chosen frequencies, dB/m, group delay and velocity
+  factor, check against a limit); 2. **return loss / VSWR**; 3. **filter** (passband, -3 dB cut-off,
+  ripple, out-of-band attenuation, Q); 4. **antenna impedance** (Z = R + jX, Smith chart,
+  resonance, band at VSWR < 2).
+- **Common pieces to do first**: measurements that produce curves (traces) in the run window;
+  trace chart (logarithmic X axis, amplitude/phase/Re/Im, several curves, markers, limit lines,
+  **Smith chart**); **CSV export of the traces and Touchstone** (`.s1p`/`.s2p`); RF calculation
+  functions (dB, VSWR, impedance, group delay); pass/fail verdict with limits per
+  frequency or band; one editor for each measurement type (today only efficiency).
+- **Order**: 1. common pieces; 2. cable; 3. return loss, filter, antenna; 4. (measurement models:
+  line/load regulation, I-V curve); 5. ripple, Bode, transient; then spectrum, battery discharge.
+- **Report**: for now only **CSV** (and Touchstone). An **HTML report saveable as PDF, with a
+  customisable template**, is postponed until the measurements work and the software is in beta (entry
+  in the "Future features" section of the README).
+- **Comparison of results** (e.g. two cables): not inside the measurement, but as a **tool in the Tools menu**
+  (like the Hex/Dec converter): two results are chosen and overlaid.
+- **Cable label** (tool in the Tools menu): generate a label template to print with the data that
+  identify the cable, to link each measurement to its cable. To be designed **after** the measurements
+  of section 3 (return loss, filter, antenna).
+- **Measurement models** (pre-filled files chosen from "New measurement"): line/load regulation and I-V
+  curve are the efficiency module with other formulas; battery discharge requires a stop condition
+  (minimum voltage) which the module does not have today.
 
-Cosa manca di strumenti: categoria `vna` nella libreria (dati del LiteVNA67 in attesa; si parte con un
-VNA simulato), categorie generatore di funzioni e analizzatore di spettro, driver per Analog Discovery,
-prova su hardware reale di qualunque misura.
+Instruments still missing: `vna` category in the library (LiteVNA67 data pending; starting with a
+simulated VNA), function generator and spectrum analyser categories, drivers for Analog Discovery,
+testing any measurement on real hardware.
 
-## 7. Nuovi strumenti da aggiungere alla libreria
+## 7. New instruments to add to the library
 
-Priorità alta (servono alle misure 2–7):
+High priority (needed for measurements 2–7):
 
-- **Generatore di funzioni / AWG** – indispensabile per Bode e transitori.
-- **Spectrum analyzer** (richiesto).
-- **VNA** (richiesto).
+- **Function generator / AWG** – essential for Bode and transients.
+- **Spectrum analyzer** (required).
+- **VNA** (required).
 
-Priorità media:
+Medium priority:
 
-- **Multimetro da banco (DMM)** a sé stante, oltre al datalogger.
-- **Power meter / power analyzer** (Yokogawa WT, ecc.): misura di potenza vera
-  per un'efficienza più accurata, soprattutto lato AC/forme d'onda distorte.
-- **Source-Measure Unit (SMU)**: curve I-V, caratterizzazione.
+- **Standalone bench multimeter (DMM)**, in addition to the datalogger.
+- **Power meter / power analyzer** (Yokogawa WT, etc.): true power measurement
+  for a more accurate efficiency measurement, especially on AC / distorted waveforms.
+- **Source-Measure Unit (SMU)**: I-V curves, characterisation.
 
-Priorità bassa / futuro:
+Low priority / future:
 
-- **LCR meter / impedance analyzer** (caratterizzazione di condensatori e induttori).
-- **Sorgente AC programmabile**.
-- **Frequenzimetro / contatore**.
-- **Matrice di relè / multiplexer** (più punti di misura con un solo strumento).
+- **LCR meter / impedance analyzer** (characterisation of capacitors and inductors).
+- **Programmable AC source**.
+- **Frequency counter**.
+- **Relay matrix / multiplexer** (several measurement points with a single instrument).
 
-### Categorie da aggiungere alla libreria (✅ elenco approvato)
+### Categories to add to the library (✅ approved list)
 
-Oggi la libreria ha: `power_supplies`, `dataloggers` (+ `datalogger_modules`), `switch_units`,
-`multimeters`, `oscilloscopes`, `electronic_loads` (chiavi `*_series`). Proposta di nuove
-categorie, ciascuna con il proprio **insieme di azioni generiche** (i "verbi" che
-i moduli useranno, mappati a SCPI nella libreria) e i propri **limiti** dichiarati:
+Today the library has: `power_supplies`, `dataloggers` (+ `datalogger_modules`), `switch_units`,
+`multimeters`, `oscilloscopes`, `electronic_loads` (keys `*_series`). Proposal of new
+categories, each with its own **set of generic actions** (the "verbs" that
+the modules will use, mapped to SCPI in the library) and its own declared **limits**:
 
-| Categoria | Azioni generiche (esempi) | Limiti dichiarati |
+| Category | Generic actions (examples) | Declared limits |
 |---|---|---|
-| `function_generator` | forma d'onda, frequenza, ampiezza, offset, uscita on/off, carico 50 Ω/HiZ, sweep, burst | Vpp max, f max |
-| `spectrum_analyzer` | centro/span, RBW/VBW, reference level, trace, marker, peak search | range f, livello max ingresso |
-| `vna` | f start/stop, punti, IFBW, potenza, parametro S, calibrazione, trace complessa | range f, potenza max |
-| `multimeter` | funzione (V/I/R…), range, NPLC, trigger, lettura | range per funzione |
-| `power_analyzer` | V/I/P/PF, integrazione, range, filtro | V/I max |
-| `smu` | forza V/I, compliance, misura V/I, sweep | V/I/P max |
+| `function_generator` | waveform, frequency, amplitude, offset, output on/off, 50 Ω/HiZ load, sweep, burst | max Vpp, max f |
+| `spectrum_analyzer` | centre/span, RBW/VBW, reference level, trace, marker, peak search | f range, max input level |
+| `vna` | f start/stop, points, IFBW, power, S parameter, calibration, complex trace | f range, max power |
+| `multimeter` | function (V/I/R…), range, NPLC, trigger, reading | range per function |
+| `power_analyzer` | V/I/P/PF, integration, range, filter | max V/I |
+| `smu` | force V/I, compliance, measure V/I, sweep | max V/I/P |
 
-A priorità più bassa, ma da creare comunque come categorie: `lcr_meter`,
-`ac_source`, `frequency_counter`. (`multimeter` e `switch_matrix` esistono già nella
-libreria come `multimeters_series` e `switch_units_series`.)
+Lower priority, but to be created as categories anyway: `lcr_meter`,
+`ac_source`, `frequency_counter`. (`multimeter` and `switch_matrix` already exist in the
+library as `multimeters_series` and `switch_units_series`.)
 
-**Per ora solo categorie, nessuno strumento nella libreria:** le categorie nascono
-vuote. Eccezioni, come banco di prova (§7.1): il **LiteVNA67** (categoria `vna`) e,
-in seguito, l'**Analog Discovery 2** (dispositivo composito).
+**For now only categories, no instrument in the library:** the categories are created
+empty. Exceptions, as a test bench (§7.1): the **LiteVNA67** (category `vna`) and,
+later, the **Analog Discovery 2** (composite device).
 
-### 7.1 Strumenti non SCPI: LiteVNA67 (comandi su seriale) e Analog Discovery 2/3 (driver)
+### 7.1 Non-SCPI instruments: LiteVNA67 (commands over serial) and Analog Discovery 2/3 (driver)
 
-Molti strumenti da hobbista non sono SCPI. Sono un target primario del progetto e
-si dividono in due casi diversi:
+Many hobbyist instruments are not SCPI. They are a primary target of the project and
+fall into two different cases:
 
-1. **LiteVNA67** (stesso protocollo del LiteVNA64): si comanda con **stringhe su
-   seriale**. È compatibile con la struttura attuale della libreria (come il
-   datalogger HP con interfaccia seriale): per ogni azione la libreria contiene la
-   stringa da inviare. Non serve un driver.
-2. **Analog Discovery 2 e 3** (Digilent): si pilotano solo con l'**SDK WaveForms**
-   (runtime installato sul PC), non con comandi testuali. Per questi serve un
-   **driver**. Stessa famiglia di driver per AD2 e AD3.
+1. **LiteVNA67** (same protocol as the LiteVNA64): it is controlled with **strings over
+   serial**. It is compatible with the current structure of the library (like the
+   HP datalogger with serial interface): for each action the library contains the
+   string to send. No driver is needed.
+2. **Analog Discovery 2 and 3** (Digilent): they are driven only with the **WaveForms SDK**
+   (runtime installed on the PC), not with text commands. For these a
+   **driver** is needed. The same driver family for AD2 and AD3.
 
-> Da verificare sul campo: protocollo reale del LiteVNA67 (testuale e/o binario;
-> l'autore invierà VID/PID e informazioni) e funzioni dell'SDK WaveForms.
+> To be verified in the field: the real protocol of the LiteVNA67 (text and/or binary; the
+> author will send VID/PID and information) and the functions of the WaveForms SDK.
 
-#### Due modalità di accesso
+#### Two access modes
 
-(Vocabolario concordato con la sessione libreria/planner: `access` = `scpi` | `driver`. `scpi` significa "piano a passi di testo eseguito dall'esecutore generico" e vale anche per protocolli testuali non-SCPI come il LiteVNA.)
+(Vocabulary agreed with the library/planner session: `access` = `scpi` | `driver`. `scpi` means "text step plan run by the generic executor" and also covers non-SCPI text protocols such as the LiteVNA.)
 
-| `access` | Chi sa parlare con lo strumento | Cosa descrive la libreria | Esempi |
+| `access` | Who speaks to the instrument | What the library describes | Examples |
 |---|---|---|---|
-| `scpi` | Traduttore generico di OpenLab | Tabella verbo → stringa da inviare (SCPI o no), trasporto (LAN, seriale, …), come interpretare le risposte, limiti | Strumenti SCPI, datalogger HP seriale, **LiteVNA67** |
-| `driver` | **Un driver** (codice, uno per famiglia) | Identità, capability, limiti, rilevamento, **nome del driver** | **Analog Discovery 2/3** (famiglia WaveForms) |
+| `scpi` | OpenLab's generic translator | Table verb → string to send (SCPI or not), transport (LAN, serial, …), how to interpret the answers, limits | SCPI instruments, HP serial datalogger, **LiteVNA67** |
+| `driver` | **A driver** (code, one per family) | Identity, capabilities, limits, detection, **driver name** | **Analog Discovery 2/3** (WaveForms family) |
 
-Il punto chiave: **in entrambi i casi il modulo di misura vede la stessa interfaccia**.
-Il traduttore a comandi e i driver implementano gli stessi contratti per categoria
+The key point: **in both cases the measurement module sees the same interface**.
+The command translator and the drivers implement the same contracts per category
 (`PowerSupply`, `Scope`, `FunctionGenerator`, `Vna`, …):
 
 ```python
-class Vna(Protocol):                       # contratto della categoria "vna"
+class Vna(Protocol):                       # contract of the "vna" category
     def set_sweep(self, f_start, f_stop, points, ifbw=None, power_dbm=None): ...
     def read_sparam(self, name: str) -> ComplexTrace: ...   # "S11", "S21", ...
 ```
 
-Il traduttore a comandi genera stringhe (SCPI per un oscilloscopio, comandi del
-LiteVNA per il VNA); il driver dell'AD2 chiama l'SDK. Il modulo scrive
-`vna.read_sparam("S21")` e basta.
+The command translator generates strings (SCPI for an oscilloscope, the commands of the
+LiteVNA for the VNA); the AD2 driver calls the SDK. The module writes
+`vna.read_sparam("S21")` and that is all.
 
-#### Dove vive cosa
+#### Where things live
 
-- **Libreria (JSON, solo dati, nessun codice):** identità, categorie/capability,
-  limiti dichiarati, regole di rilevamento (VID/PID USB, nome porta) e, per `driver`,
-  l'**id del driver**. Per `scpi`: le stringhe e le regole di interpretazione delle risposte. Un repo di dati non deve poter eseguire codice sul PC
-  dell'utente.
-- **Driver (codice Python), solo per gli strumenti che li richiedono:** in questo repo (`frontend/drivers/`, integrati) o in
-  una cartella utente. Usano lo **stesso meccanismo dei moduli di misura**
-  (manifest, `api_version`, registro, avviso per codice di terzi): il sistema ha due
-  tipi di modulo, *measurement* e *driver*.
-- Se la libreria cita un driver non installato, lo strumento compare come **non
-  supportato** con un messaggio chiaro, non come errore a runtime.
+- **Library (JSON, data only, no code):** identity, categories/capabilities,
+  declared limits, detection rules (USB VID/PID, port name) and, for `driver`,
+  the **driver id**. For `scpi`: the strings and the rules for interpreting the answers. A data repository must not be able to run code on the user's PC.
+- **Drivers (Python code), only for the instruments that need them:** in this repo (`frontend/drivers/`, built in) or in
+  a user folder. They use **the same mechanism as the measurement modules**
+  (manifest, `api_version`, registry, warning for third-party code): the system has two
+  kinds of module, *measurement* and *driver*.
+- If the library cites a driver that is not installed, the instrument appears as **not
+  supported** with a clear message, not as a runtime error.
 
-Esempio di voce `scpi` (LiteVNA67 su seriale, schema indicativo):
+Example of an `scpi` entry (LiteVNA67 over serial, indicative schema):
 
 ```json
 {
@@ -395,13 +390,13 @@ Esempio di voce `scpi` (LiteVNA67 su seriale, schema indicativo):
     "vna": {"f_min_hz": "TODO", "f_max_hz": "TODO", "points_max": "TODO"}
   },
   "commands": {
-    "vna.set_sweep": "TODO  (comando con segnaposto {f_start} {f_stop} {points})",
+    "vna.set_sweep": "TODO  (command with placeholders {f_start} {f_stop} {points})",
     "vna.read_sparam": {"send": "TODO", "parse": "complex_lines"}
   }
 }
 ```
 
-Esempio di voce `driver` (Analog Discovery, schema indicativo):
+Example of a `driver` entry (Analog Discovery, indicative schema):
 
 ```json
 {
@@ -409,540 +404,516 @@ Esempio di voce `driver` (Analog Discovery, schema indicativo):
   "driver": "digilent_waveforms",
   "requires": ["WaveForms runtime"],
   "capabilities": {
-    "scope": {"channels": 2, "...": "da datasheet"},
-    "function_generator": {"channels": 2, "...": "da datasheet"}
+    "scope": {"channels": 2, "...": "from datasheet"},
+    "function_generator": {"channels": 2, "...": "from datasheet"}
   }
 }
 ```
 
-Limite del modello `scpi`: se le risposte del LiteVNA sono **binarie** o richiedono
-un parsing non descrivibile con le regole standard (float, lista di float, righe di
-numeri complessi, blocco binario con header), serve un'estensione del formato di
-risposta, o in ultima istanza un piccolo driver. Si decide quando si vedono le risposte
-reali del dispositivo.
+Limit of the `scpi` model: if the LiteVNA answers are **binary** or require
+parsing that cannot be described with the standard rules (float, list of floats, lines of
+complex numbers, binary block with header), an extension of the answer format is needed,
+or, as a last resort, a small driver. This is decided when the real answers of the device are seen.
 
-I valori reali (VID/PID, range, punti) vanno presi dal dispositivo e dal manuale;
-qui sono segnaposto.
+The real values (VID/PID, ranges, points) must be taken from the device and the manual;
+here they are placeholders.
 
-#### Strumenti compositi: un dispositivo, più strumenti logici
+#### Composite instruments: one device, several logical instruments
 
-L'AD2 è oscilloscopio a 2 canali, generatore di forme d'onda a 2 canali,
-alimentazioni ±, voltmetro, I/O digitali, analizzatore logico, analizzatore di
-impedenza… in **un solo dispositivo USB**. La libreria oggi ha "un tipo per modello":
-va esteso a **più capability per modello**. Nel `.inst` il dispositivo si inserisce
-una volta e **espone strumenti logici** (`ad2.scope`, `ad2.awg`, `ad2.psu`, …) a cui si
-associano i ruoli delle misure. Ne seguono due regole:
+The AD2 is a 2-channel oscilloscope, a 2-channel waveform generator, ± power supplies, a voltmeter, digital I/O, a logic analyser, an
+impedance analyser… in **a single USB device**. The library today has "one type per model":
+it must be extended to **several capabilities per model**. In the `.inst` the device is inserted
+once and **exposes logical instruments** (`ad2.scope`, `ad2.awg`, `ad2.psu`, …) to which the
+roles of the measurements are assigned. Two rules follow:
 
-- **Sessione condivisa:** il dispositivo si apre una volta sola e tutti gli strumenti
-  logici la condividono, con un lock (un dispositivo = un handle, una sola misura
-  alla volta lo usa).
-- **Sincronizzazione hardware:** l'AD2 può avviare scope e generatore insieme
-  (trigger incrociati). Le capability espongono opzioni come
-  `scope.trigger_source = "awg"`, usate da moduli come Bode e transitorio; per
-  strumenti separati si usa il trigger esterno. Questo risolve in hardware il
-  problema di timing dei test a impulsi (§4.3).
+- **Shared session:** the device is opened only once and all the logical instruments
+  share it, with a lock (one device = one handle, used by only one measurement
+  at a time).
+- **Hardware synchronisation:** the AD2 can start scope and generator together
+  (cross triggers). The capabilities expose options such as
+  `scope.trigger_source = "awg"`, used by modules such as Bode and transient; for
+  separate instruments the external trigger is used. This solves in hardware the
+  timing problem of the impulse tests (§4.3).
 
-#### Cosa resta uguale (e viene garantito sopra il driver)
+#### What stays the same (and is guaranteed above the driver)
 
-- **Limiti:** il controllo (es. tensione > massimo dichiarato) sta nello **strato
-  strumento generico, sopra** i driver. Un driver non può saltarlo, quindi la
-  sicurezza è identica per SCPI e per driver.
-- **Errori:** i driver sollevano gli errori standard `[INST-xxx]`; dipendenza
-  mancante (es. WaveForms non installato, porta seriale occupata) = errore
-  esplicito con istruzioni.
-- **Rilevamento automatico:** per i dispositivi USB l'`Add instrument` può elencare
-  quelli collegati (VID/PID, WaveForms `enumerate`) invece di far scrivere un indirizzo.
-- **Simulazione:** ogni contratto ha un'implementazione simulata per sviluppare e
-  testare senza hardware (già prevista in Fase 0).
+- **Limits:** the check (e.g. voltage > declared maximum) sits in the **generic
+  instrument layer, above** the drivers. A driver cannot bypass it, so safety is
+  identical for SCPI and for drivers.
+- **Errors:** drivers raise the standard `[INST-xxx]` errors; a missing dependency (e.g. WaveForms not
+  installed, serial port busy) = explicit error with instructions.
+- **Automatic detection:** for USB devices `Add instrument` can list the
+  connected ones (VID/PID, WaveForms `enumerate`) instead of asking for an address to be typed.
+- **Simulation:** every contract has a simulated implementation to develop and
+  test without hardware (already planned in Phase 0).
 
-#### Impatto sul Rust
+#### Impact on Rust
 
-- Il trasporto Rust serve tutti gli strumenti `scpi` (seriale del LiteVNA,
-  TCP/LXI, seriale del datalogger HP): seriale e letture binarie sono nel perimetro
-  dall'inizio.
-- I driver **che usano un SDK di terzi** (AD2/AD3, WaveForms) lo chiamano
-  direttamente (ctypes/binding Python) e non passano dal trasporto Rust: non c'è un
-  flusso di byte da gestire.
+- The Rust transport serves all the `scpi` instruments (LiteVNA serial, HP datalogger
+  TCP/LXI and serial): serial and binary reads are in scope from the start.
+- The `driver`s that **use a third-party SDK** (AD2/AD3, WaveForms) call it
+  directly (ctypes/Python binding) and do not go through the Rust transport: there is no
+  byte stream to handle.
 
-#### Banco di prova
+#### Test bench
 
-Il piano usa i due strumenti reali dell'autore come validazione dell'architettura:
+The plan uses the author's two real instruments as validation of the architecture:
 
-1. **LiteVNA67** → primo strumento `vna` in modalità `scpi` su seriale (valida
-   il formato delle risposte e il trasporto seriale).
-2. **Analog Discovery 2** (poi 3) → primo `driver`: strumento composito: `scope` + `function_generator`
-   (+ `psu`/voltmetro) → permette di provare **Bode**, **ripple** e **transitorio**
-   senza altro hardware.
+1. **LiteVNA67** → first `vna` instrument in `scpi` mode over serial (validates
+   the format of the answers and the serial transport).
+2. **Analog Discovery 2** (then 3) → first `driver`: composite instrument: `scope` + `function_generator`
+   (+ `psu`/voltmeter) → allows trying **Bode**, **ripple** and **transient**
+   without other hardware.
 
-### 7.2 La libreria esistente definisce già i "verbi" (branch `claude/charming-bell-768j4j`)
+### 7.2 The existing library already defines the "verbs" (branch `claude/charming-bell-768j4j`)
 
-Lettura del lavoro in corso su `instruments_lib` (un altro agente + l'autore; **non
-modifico quel repo finché il lavoro non è unito**). Cosa implica per questo piano:
+Reading of the work in progress on `instruments_lib` (another agent + the author; **I do not modify
+that repo until the work is merged**). What it implies for this plan:
 
-- **I verbi generici sono i nomi di chiamata della libreria** (`COMMAND_NAMES.md`):
+- **The generic verbs are the call names of the library** (`COMMAND_NAMES.md`):
   `set_voltage`, `read_voltage`, `output_on`, `set_mode`, `set_trigger_level`,
-  `query_waveform_data`… con chiamate *obbligatorie* e *opzionali* per categoria.
-  Non serve inventare un secondo vocabolario: i contratti Python delle categorie
-  (`PowerSupply`, `Scope`, …) sono uno strato sottile sopra questi nomi, e per i
-  `driver` (AD2/AD3) dovranno implementare gli stessi nomi.
-- **Regola della libreria, da rispettare nel codice:** il software non costruisce mai
-  stringhe SCPI; una chiamata assente significa "non supportata da questo strumento",
-  mai sostituita con una stringa ipotizzata. Si traduce in un errore esplicito
-  `[INST-xxx]` ("chiamata non supportata"), non in un tentativo.
-- **Struttura di una chiamata:** `set` / `query` con `syntax` (segnaposto `{nome}`),
-  `args`, `return_type` (`string|int|float|binary`) e `parameters` (`type`, `values`).
-  `return_type: binary` corrisponde a `read_block()` del trasporto.
-- **Override per modello** (`replace` / `null` = rimossa / `{"patch": …}` deep-merge):
-  la risoluzione è in `LoadInstruments.resolve_model_commands()`. Lo strato strumento
-  deve usare quella risoluzione, non duplicarla. Oggi sta in `frontend/core`, che
-  importa PyQt6: va estratta in un modulo senza Qt (es. `ola/library.py`) con
-  `LoadInstruments` come wrapper sottile.
-- **Limiti** letti da `capabilities` (es. `voltage_output.min/max` per canale, per gli
-  alimentatori; `max_voltage_v`, `max_current_a`, `max_power_w` per i carichi): base
-  del controllo "20 V su un alimentatore da 15 V".
-- **Chiamate con più comandi** (in corso nell'altro branch: alcuni strumenti ne
-  richiedono due per una stessa azione): l'esecutore deve trattare una chiamata come
-  una **sequenza di passi**, non come una stringa. Punti da definire con l'altro
-  agente: (a) schema esatto (lista di passi? passi con `query`?); (b) i passi vanno
-  inviati **in modo atomico** (es. `INST:NSEL 2` poi `VOLT 5`: un altro thread non
-  deve poter cambiare canale nel mezzo → lock per strumento nello strato generico,
-  non solo per singola query); (c) se la libreria può indicare che i passi si
-  possono unire in un solo messaggio (separatore `;`) per ridurre la latenza, o se
-  vanno sempre inviati separatamente (default sicuro: separati).
-  Nota: `backend/sweep.c` oggi fa già questo a mano (`INST:NSEL` + `VOLT`).
-- **Tipi di connessione** della libreria: `LXI`, `USB-TMC`, `SERIAL`, `GPIB`, con
-  indirizzi in stile VISA. Il trasporto Rust copre oggi **TCP raw (porta 5025) e
-  seriale**. Lacune da chiudere: **USB-TMC** e **GPIB** (via `pyvisa` come
-  implementazione alternativa di `Transport`, o `rusb` per USB-TMC), e il fatto che
-  `TCPIP0::ip::inst0::INSTR` è **VXI-11**, non socket raw: non tutti gli strumenti
-  LXI accettano il socket 5025 (alcuni solo VXI-11/HiSLIP). La libreria dovrebbe
-  indicare quale modalità/porta usare per ogni modello.
+  `query_waveform_data`… with *mandatory* and *optional* calls per category.
+  There is no need to invent a second vocabulary: the Python contracts of the categories
+  (`PowerSupply`, `Scope`, …) are a thin layer on top of these names, and for the
+  `driver`s (AD2/AD3) they must implement the same names.
+- **Rule of the library, to respect in the code:** the software never builds SCPI
+  strings; a missing call means "not supported by this instrument", never replaced by a guessed
+  string. It is translated into an explicit error `[INST-xxx]` ("call not supported"), not into an attempt.
+- **Structure of a call:** `set` / `query` with `syntax` (placeholders `{name}`),
+  `args`, `return_type` (`string|int|float|binary`) and `parameters` (`type`, `values`).
+  `return_type: binary` corresponds to `read_block()` of the transport.
+- **Per-model override** (`replace` / `null` = removed / `{"patch": …}` deep-merge):
+  the resolution is in `LoadInstruments.resolve_model_commands()`. The instrument layer
+  must use that resolution, not duplicate it. Today it sits in `frontend/core`, which
+  imports PyQt6: it must be extracted into a module without Qt (e.g. `ola/library.py`) with
+  `LoadInstruments` as a thin wrapper.
+- **Limits** read from `capabilities` (e.g. `voltage_output.min/max` per channel, for power supplies; `max_voltage_v`, `max_current_a`, `max_power_w` for loads): the basis of the
+  "20 V on a 15 V supply" check.
+- **Calls with several commands** (in progress in the other branch: some instruments need two for the
+  same action): the executor must treat a call as a **sequence of steps**, not as a string. Points to define with the other
+  agent: (a) exact schema (list of steps? steps with `query`?); (b) the steps must be sent
+  **atomically** (e.g. `INST:NSEL 2` then `VOLT 5`: another thread must not be able to change channel in the middle → a lock per instrument in the generic layer,
+  not only per single query); (c) whether the library can indicate that the steps can be joined in a single message (separator `;`) to reduce latency, or whether
+  they must always be sent separately (safe default: separate).
+  Note: `backend/sweep.c` already does this by hand today (`INST:NSEL` + `VOLT`).
+- **Connection types** of the library: `LXI`, `USB-TMC`, `SERIAL`, `GPIB`, with
+  VISA-style addresses. The Rust transport covers today **raw TCP (port 5025) and
+  serial**. Gaps to close: **USB-TMC** and **GPIB** (via `pyvisa` as an alternative
+  implementation of `Transport`, or `rusb` for USB-TMC), and the fact that
+  `TCPIP0::ip::inst0::INSTR` is **VXI-11**, not a raw socket: not all LXI instruments
+  accept socket 5025 (some only VXI-11/HiSLIP). The library should
+  indicate which mode/port to use for each model.
 
-Per le categorie esistenti va fatto lo stesso lavoro: elencare i verbi generici che
-oggi sono sparsi in `RemoteControlTab` e in `sweep.c`.
+The same work must be done for the existing categories: list the generic verbs that
+today are scattered across `RemoteControlTab` and `sweep.c`.
 
-Ogni strumento nuovo richiede: tipo + capability nella libreria, comandi SCPI
-nel JSON, dialog di configurazione e (se serve) estensione dell'editor `.inst`.
+Every new instrument requires: type + capabilities in the library, SCPI commands
+in the JSON, a configuration dialog and (if needed) an extension of the `.inst` editor.
 
-## 8. Dati
+## 8. Data
 
-- Modello `Run` generico (rinomina di `SweepSession`), con:
-  `run_id`, `measurement_id`, `started_at`, parametri usati (snapshot),
-  strumenti usati.
-- Tre tipi di dato oltre ai punti scalari: **serie temporali**, **forme
-  d'onda/tracce** (scope, spectrum), **dati complessi** (VNA, Bode).
-- Salvataggio incrementale durante la run (un crash non perde tutto).
-- Export CSV in ogni caso; altri formati (Touchstone, xlsx) per modulo.
-- Grandezze derivate come formule tra variabili (es. `eta = Pout/Pin`).
+- Generic `Run` model (renaming of `SweepSession`), with:
+  `run_id`, `measurement_id`, `started_at`, parameters used (snapshot),
+  instruments used.
+- Three kinds of data besides scalar points: **time series**, **waveforms/traces**
+  (scope, spectrum), **complex data** (VNA, Bode).
+- Incremental saving during the run (a crash does not lose everything).
+- CSV export in every case; other formats (Touchstone, xlsx) per module.
+- Derived quantities as formulas between variables (e.g. `eta = Pout/Pin`).
 
-## 9. Fasi di sviluppo
+## 9. Development phases
 
-**Fase 0 – Base** *(fatta, tranne la regressione sull'efficienza)*
-- **Fix immediato del trasporto C** *(sostituito dal nuovo trasporto; il C non è stato toccato)*: `TCP_NODELAY` + un solo `send` per comando
-  (da ~44 ms a ~30 µs per query), con test.
-- Benchmark di latenza/jitter nel repo e strumento simulato (mock) per sviluppare
-  e testare senza hardware.
-- Test di regressione sull'attuale pipeline dell'efficienza *(non fatto: l'efficienza verrà riscritta)*.
+**Phase 0 – Base** *(done, except the efficiency regression)*
+- **Immediate fix of the C transport** *(replaced by the new transport; the C code was not touched)*: `TCP_NODELAY` + a single `send` per command
+  (from ~44 ms to ~30 µs per query), with tests.
+- Latency/jitter benchmark in the repository and a simulated instrument (mock) to develop
+  and test without hardware.
+- Regression test on the current efficiency pipeline *(not done: efficiency will be rewritten)*.
 
-**Fase 1 – Core** *(fatta, per la parte in `ola/`)*
-- Interfaccia `Transport` (implementazione Python) e strato strumento generico
-  (verbi → SCPI dalla libreria, controllo limiti, errori `[INST-xxx]`).
-- Nuovo formato progetto (`measurements[]`), nuovo `ProjectDatabaseManager`.
-- Interfaccia `Measurement`, `Capability`, contesto di esecuzione, runner in thread.
-- Modello `Run` generico.
+**Phase 1 – Core** *(done, for the part in `ola/`)*
+- `Transport` interface (Python implementation) and generic instrument layer
+  (verbs → SCPI from the library, limit checks, `[INST-xxx]` errors).
+- New project format (`measurements[]`), new `ProjectDatabaseManager`.
+- `Measurement` interface, `Capability`, execution context, runner in a thread.
+- Generic `Run` model.
 
-**Fase 2 – Moduli** *(registro fatto; editor generico, efficienza e pannello Run da fare)*
-- Registro/loader dei moduli (integrati + utente + progetto) con manifest.
-- Editor generico da `schema.json`.
-- Efficienza riscritta come primo modulo integrato.
-- Pannello Run unico (live, stop/pausa, export).
+**Phase 2 – Modules** *(registry done; generic editor, efficiency and Run panel still to do)*
+- Module registry/loader (built-in + user + project) with manifest.
+- Generic editor from `schema.json`.
+- Efficiency rewritten as the first built-in module.
+- Single Run panel (live, stop/pause, export).
 
-**Fase 3 – Prime nuove misure** *(solo il logging nel tempo è fatto)*
-- Logging nel tempo (la più semplice: valida il runner e i dati temporali).
-- Ripple e rumore.
-- Strumento AWG nella libreria → Bode (con scope).
-- Transitorio di carico.
+**Phase 3 – First new measurements** *(only logging over time is done)*
+- Logging over time (the simplest: validates the runner and the time data).
+- Ripple and noise.
+- AWG instrument in the library → Bode (with scope).
+- Load transient.
 
-**Fase 3b – Livello nativo (Rust)** *(fatta: TCP e seriale; USB-TMC/GPIB passano da pyvisa)*
-- Trasporto in Rust (TCP, poi seriale/USB), esposto a Python via PyO3/maturin.
-- Nessun esecutore di sequenze nativo (§4.3).
+**Phase 3b – Native layer (Rust)** *(done: TCP and serial; USB-TMC/GPIB go through pyvisa)*
+- Rust transport (TCP, then serial/USB), exposed to Python via PyO3/maturin.
+- No native sequence executor (§4.3).
 
-**Fase 4 – Strumenti avanzati**
-- Spectrum analyzer, VNA, relative misure (6, 7).
+**Phase 4 – Advanced instruments**
+- Spectrum analyzer, VNA, RF measurements (6, 7).
 - Bode via VNA.
 
-**Fase 5 – Rifinitura**
-- Documentazione per scrivere un modulo (con modulo di esempio) *(fatta: `docs/measurement-modules.md`, esempio verificato da un test)*.
-- Confronto tra run, report, formule derivate.
-- Validazione dell'efficienza su hardware reale.
+**Phase 5 – Refinement**
+- Documentation to write a module (with an example module) *(done: `docs/measurement-modules.md`, example verified by a test)*.
+- Comparison between runs, reports, derived formulas.
+- Validation of efficiency on real hardware.
 
-## 9b. Stato di avanzamento
+## 9b. Progress status
 
-- ✅ **Trasporto Rust** (`native/`): TCP (`TCP_NODELAY`), seriale, blocchi IEEE 488.2,
-  timeout con deadline, GIL rilasciato, errori `TRN-xxx`. 13 test Rust; documentazione `///` completa
-  (`#![warn(missing_docs)]`, nessun avviso).
-- ✅ **Livello Python** (`ola/`): `ola.transport` usa il modulo nativo o, se assente,
-  un'implementazione Python equivalente (stessa suite di test su entrambe).
-- ✅ **Benchmark** (`benchmarks/bench_transport.py`), mediana su loopback: backend C
-  attuale 44 ms; Python 55 µs; Rust 34 µs (p99 101 µs); trasferimento di 1 MB: Python
+- ✅ **Rust transport** (`native/`): TCP (`TCP_NODELAY`), serial, IEEE 488.2 blocks,
+  timeouts with deadline, GIL released, `TRN-xxx` errors. 13 Rust tests; complete `///` documentation
+  (`#![warn(missing_docs)]`, no warnings).
+- ✅ **Python layer** (`ola/`): `ola.transport` uses the native module or, if absent,
+  an equivalent Python implementation (same test suite on both).
+- ✅ **Benchmark** (`benchmarks/bench_transport.py`), median on loopback: current C backend
+  44 ms; Python 55 µs; Rust 34 µs (p99 101 µs); transfer of 1 MB: Python
   552 MB/s, Rust 2124 MB/s.
-- ✅ **Esecutore dei passi** (`ola/instrument.py`, `ola/steps.py`): una chiamata è una
-  lista di passi `write`/`query`/`delay` (+ `timeout_ms`, `returns` float|int|string|binary)
-  eseguita sotto **un lock per strumento** per tutta la chiamata; stop al primo errore
-  → `CALL-004` con indice del passo; dopo un errore l'input pendente viene scartato;
-  annullamento (`cancel`) anche durante un `delay`; dispatcher per i piani `driver`
-  (AD2/AD3). Le mappe e l'interpretazione delle risposte restano nel planner
-  (altra sessione). Strumento simulato: `ola/sim.py`.
-- ✅ **Adattatore pyvisa** (`ola/_visa.py`): stessa interfaccia del trasporto, per
-  USB-TMC, GPIB e VXI-11. Testato con `pyvisa-py` su socket; **non** testato con una
-  libreria VISA reale né su hardware.
-- ✅ **Accordo con la sessione "libreria/planner"** (branch `claude/charming-bell-768j4j`):
-  planner e risoluzione della libreria vivono in `ola/` (senza Qt); un solo trasporto;
-  formato dei passi e del piano concordati; item 14 (export del piano) rimandato.
-  L'ordine di merge dei due branch lo decide l'autore.
-- ✅ **Nucleo delle misure** (Fase 1, solo file nuovi in `ola/`, senza Qt):
-  `measurement.py` (classe `Measurement`, `MeasurementContext`, ruoli, eventi),
-  `runner.py` (thread: setup → run → teardown **sempre**; stop, pausa, errori con codice e
-  traceback; derivate; listener), `registry.py` (moduli da `module.json`: la scoperta **non
-  esegue codice**, il codice dei moduli non integrati si carica solo con permesso esplicito;
-  id ed estensione file unici), `project.py` (progetto con `measurements[]`, un file per
-  misura, nomi file sicuri), `runs.py` (risultati scritti durante la run, JSON Lines,
-  leggibili anche dopo un crash; export CSV), primo modulo `ola/modules/time_log`
-  (`.tlg`, campionamento senza deriva). Interfaccia verso gli strumenti: `handle.call(nome,
-  **argomenti)`, da collegare a libreria + planner + esecutore (lavoro dell'altra sessione).
-- 📌 **Decisioni dell'utente (2026-11-03):** nessuna retrocompatibilità con il vecchio
-  `.eff` (verrà riscritto e ripensato: nessun lettore né convertitore) e con il vecchio
-  formato di progetto; il pulsante "Avvia misura" nella GUI si farà quando saranno
-  definiti i tipi di misura.
-- 📌 **`backend/` (C): non estendere, da ritirare.** `backend/sweep.c` usa SCPI fissi
-  (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) contro la regola "solo comandi della libreria", e
-  `frontend/core/c_backend.py` non è chiamato dalla GUI. Si ritira insieme a `c_backend.py`
-  dopo il collegamento di `ola.transport` all'app.
-- ✅ **Documentazione** (2026-11-03): sezione "Engine" nel `README.md`; guide in `docs/`
-  (`engine.md`, `measurement-modules.md`, `instrument-calls.md`); docstring su tutti gli
-  elementi pubblici di `ola/`; contratto `Transport` (`ola/transport.py`) verificato su
-  tutte le implementazioni. **Documentazione tenuta allineata da test**
-  (`tests/test_docs.py`, `tests/test_transport_contract.py`): falliscono se manca una docstring,
-  se un file di `ola/` non è nel README, se un codice `TRN-xxx` non è in `ERROR_CODES.md`, se
-  un link relativo è rotto o se l'esempio di `docs/measurement-modules.md` non funziona.
-  Totale: 201 test Python (con trasporto nativo e con `OLA_TRANSPORT=python`).
-- ✅ **Misura di efficienza** (`.eff` nuovo; `ola/modules/efficiency/`, `ola/efficiency_spec.py`,
-  `ola/formula.py`, `ola/sweep.py`; guida `docs/efficiency.md`). Decisioni dell'utente (2026-11-03):
-  parametri con nomi scelti dall'utente, ciascuno con *impostazione* e/o *letture* (anche più
-  letture dello stesso parametro, per esempio dall'alimentatore e dal datalogger); nelle formule
-  `vin` è il valore impostato e `vin@daq` la lettura con quell'etichetta (la scelta della lettura
-  è esplicita); **elenco ordinato** di parametri riordinabile: il primo cambia per primo ed è
-  lo sweep più interno; per ogni punto: attesa, N letture a intervallo scelto, **media delle
-  letture** e formule sulle medie; se la lettura indipendente si discosta dall'impostazione oltre la
-  tolleranza la misura **si ferma e chiede** (Riprova / Annulla / Salta); la validazione avviene
-  **mentre si compila il dialog** (`validate_params`, errori con il percorso del campo).
-  Nel nucleo: più tabelle di righe (`points`, `samples`), `ctx.ask` / `runner.answer`, stato
-  `waiting`. Provata solo su strumenti simulati.
-  **Uscite, cooldown e ordine di accensione** (2026-11-03): ogni parametro impostato può avere un
-  blocco `output` (chiamate `on`, `off` e, facoltativa, `state`; e `mode`): `keep_on` (predefinito),
-  `off_during_cooldown` e `always_on` ("sempre attivo"). Il **cooldown** (`timing.cooldown_s`) è un
-  riposo del convertitore **tra uno sweep e l'altro, non tra i punti**: quando lo sweep più interno ha
-  finito il suo giro e un parametro esterno avanza, le uscite `off_during_cooldown` si spengono, si
-  attende, poi i parametri vengono reimpostati e le uscite riaccese; non c'è cooldown dopo l'ultimo
-  sweep. L'**ordine di accensione** è una lista a parte (`power_order`, riordinabile; spegnimento in
-  ordine inverso; predefinito = ordine dei parametri) che **esclude** le uscite sempre attive: queste si
-  accendono prima di tutto il resto. Se l'uscita ha una chiamata `state` il programma chiede se è già
-  accesa: se lo è la lascia com'è, se è spenta la accende; un'uscita sempre attiva non viene **mai**
-  spenta (né nel cooldown né alla fine, dopo un errore, uno stop o un annullamento). Un `shutdown`
-  che la spegne è un errore di validazione. Un'uscita gestita dal programma (da spegnere a fine misura) che
-  è già accesa all'avvio viene comunque spenta a fine misura (decisione dell'utente), ma **prima di toccare
-  qualsiasi strumento** compare un pop-up che la elenca e chiede Continua / Annulla (per modificare il
-  file); Annulla termina la misura come "fermata" senza cambiare né spegnere nulla. Serve la chiamata
-  `state`; senza, la validazione avvisa che il controllo non è possibile.
-  **GUI, editor dell'efficienza** (2026-11-03): modello senza Qt `ola/efficiency_editor.py` (29 test) +
-  finestra PyQt6 sottile `frontend/ui/EfficiencyEditorDialog.py` (test offscreen con pytest-qt). Ogni
-  campo è legato a un percorso dei parametri; errori in rosso/avvisi in ambra sul campo, elenco dei
-  problemi con doppio clic per andare al campo, riga di riepilogo (punti, sweep, raffreddamenti, tempo).
-  Schede: Parametri (lista ordinabile con Su/Giù), Tempi, Formule, Ordine di accensione (+ chiamate
-  extra), Anteprima del file. Stringhe in `frontend/lang/modules/efficiency/{en,it,fr,es,de}.json`
-  (test: stesse chiavi in tutte le lingue). Salvataggio con errori solo dopo conferma.
-  **GUI, finestra di esecuzione** (2026-11-03): modello senza Qt `ola/run_view.py` (`RunModel`: stato,
-  avanzamento e tempo residuo senza contare le attese dell'utente, tabella, log, domande aperte, serie
-  per i grafici) + finestra sottile `frontend/ui/RunWindow.py` (Avvia/Pausa/Riprendi/Ferma, tabella dal
-  vivo, grafico QPainter senza librerie esterne con una linea per ogni valore di un parametro, log,
-  esportazione CSV) e **pop-up per le domande della misura** (un pulsante per scelta, quella sicura è
-  predefinita e in grassetto, non si chiude senza risposta, si chiude da sola se la misura viene fermata).
-  Stringhe in `frontend/lang/modules/run/{en,it,fr,es,de}.json`. Demo con strumenti simulati
+- ✅ **Step executor** (`ola/instrument.py`, `ola/steps.py`): a call is a
+  list of steps `write`/`query`/`delay` (+ `timeout_ms`, `returns` float|int|string|binary)
+  run under **one lock per instrument** for the whole call; stop at the first error
+  → `CALL-004` with the step index; after an error the pending input is discarded;
+  cancellation (`cancel`) also during a `delay`; dispatcher for the `driver` plans
+  (AD2/AD3). The maps and the interpretation of the answers stay in the planner
+  (other session). Simulated instrument: `ola/sim.py`.
+- ✅ **pyvisa adapter** (`ola/_visa.py`): same interface as the transport, for
+  USB-TMC, GPIB and VXI-11. Tested with `pyvisa-py` on sockets; **not** tested with a real VISA
+  library nor on hardware.
+- ✅ **Agreement with the "library/planner" session** (branch `claude/charming-bell-768j4j`):
+  planner and library resolution live in `ola/` (without Qt); a single transport;
+  format of the steps and of the plan agreed; item 14 (export of the plan) postponed.
+  The merge order of the two branches is decided by the author.
+- ✅ **Measurement core** (Phase 1, only new files in `ola/`, without Qt):
+  `measurement.py` (class `Measurement`, `MeasurementContext`, roles, events),
+  `runner.py` (thread: setup → run → teardown **always**; stop, pause, errors with code and
+  traceback; derived values; listeners), `registry.py` (modules from `module.json`: discovery
+  **runs no code**, the code of non-built-in modules is loaded only with explicit permission;
+  unique id and file extension), `project.py` (project with `measurements[]`, one file per
+  measurement, safe file names), `runs.py` (results written during the run, JSON Lines,
+  readable even after a crash; CSV export), first module `ola/modules/time_log`
+  (`.tlg`, drift-free sampling). Interface to the instruments: `handle.call(name,
+  **arguments)`, to be connected to library + planner + executor (work of the other session).
+- 📌 **User decisions (2026-11-03):** no backward compatibility with the old
+  `.eff` (it will be rewritten and rethought: no reader nor converter) and with the old
+  project format; the "Start measurement" button in the GUI will be made when the measurement types
+  are defined.
+- 📌 **`backend/` (C): do not extend, to be retired.** `backend/sweep.c` uses fixed SCPI
+  (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) against the rule "only library commands", and
+  `frontend/core/c_backend.py` is not called by the GUI. It is retired together with `c_backend.py`
+  after `ola.transport` is connected to the app.
+- ✅ **Documentation** (2026-11-03): "Engine" section in `README.md`; guides in `docs/`
+  (`engine.md`, `measurement-modules.md`, `instrument-calls.md`); docstrings on all public
+  elements of `ola/`; `Transport` contract (`ola/transport.py`) verified on
+  all implementations. **Documentation kept aligned by tests**
+  (`tests/test_docs.py`, `tests/test_transport_contract.py`): they fail if a docstring is missing,
+  if a file of `ola/` is not in the README, if a `TRN-xxx` code is not in `ERROR_CODES.md`, if
+  a relative link is broken or if the example of `docs/measurement-modules.md` does not work.
+  Total: 201 Python tests (with the native transport and with `OLA_TRANSPORT=python`).
+- ✅ **Efficiency measurement** (new `.eff`; `ola/modules/efficiency/`, `ola/efficiency_spec.py`,
+  `ola/formula.py`, `ola/sweep.py`; guide `docs/efficiency.md`). User decisions (2026-11-03):
+  parameters with names chosen by the user, each with a *setting* and/or *readings* (also several
+  readings of the same parameter, for example from the power supply and from the datalogger); in the formulas
+  `vin` is the set value and `vin@daq` the reading with that label (the choice of the reading
+  is explicit); **ordered list** of parameters that can be reordered: the first one changes first and is
+  the innermost sweep; for each point: wait, N readings at a chosen interval, **average of the
+  readings** and formulas on the averages; if the independent reading deviates from the setting beyond the
+  tolerance the measurement **stops and asks** (Retry / Cancel / Skip); validation happens
+  **while the dialog is being filled in** (`validate_params`, errors with the path of the field).
+  In the core: several tables of rows (`points`, `samples`), `ctx.ask` / `runner.answer`, state
+  `waiting`. Tried only on simulated instruments.
+  **Outputs, cooldown and power-on order** (2026-11-03): each set parameter can have an
+  `output` block (calls `on`, `off` and, optionally, `state`; and `mode`): `keep_on` (default),
+  `off_during_cooldown` and `always_on` ("always active"). The **cooldown** (`timing.cooldown_s`) is a
+  rest of the converter **between one sweep and the next, not between points**: when the innermost sweep
+  has finished its round and an outer parameter advances, the `off_during_cooldown` outputs switch off,
+  it waits, then the parameters are set again and the outputs switched back on; there is no cooldown after the last
+  sweep. The **power-on order** is a separate list (`power_order`, reorderable; switch-off in
+  reverse order; default = order of the parameters) that **excludes** the always-active outputs: these switch on
+  before everything else. If the output has a `state` call the program asks whether it is already
+  on: if it is, it leaves it as is; if it is off, it switches it on; an always-active output is **never**
+  switched off (neither in the cooldown nor at the end, after an error, a stop or a cancellation). A `shutdown`
+  that switches it off is a validation error. An output managed by the program (to be switched off at the end of the measurement) that
+  is already on at start is still switched off at the end of the measurement (user decision), but **before touching
+  any instrument** a pop-up appears listing it and asks Continue / Cancel (to modify the
+  file); Cancel ends the measurement as "stopped" without changing or switching off anything. The `state`
+  call is needed; without it, validation warns that the check is not possible.
+  **GUI, efficiency editor** (2026-11-03): Qt-free model `ola/efficiency_editor.py` (29 tests) +
+  thin PyQt6 window `frontend/ui/EfficiencyEditorDialog.py` (offscreen tests with pytest-qt). Each
+  field is linked to a path of the parameters; errors in red/warnings in amber on the field, list of
+  problems with double click to go to the field, summary line (points, sweeps, cooldowns, time).
+  Tabs: Parameters (list sortable with Up/Down), Times, Formulas, Power-on order (+ extra calls),
+  File preview. Strings in `frontend/lang/modules/efficiency/{en,it,fr,es,de}.json`
+  (test: same keys in all languages). Saving with errors only after confirmation.
+  **GUI, run window** (2026-11-03): Qt-free model `ola/run_view.py` (`RunModel`: state,
+  progress and remaining time without counting the user's waits, table, log, open questions, series
+  for the charts) + thin window `frontend/ui/RunWindow.py` (Start/Pause/Resume/Stop, live table, QPainter chart without external libraries with one line for each value of a parameter, log,
+  CSV export) and **pop-up for the measurement's questions** (one button per choice, the safe one is
+  the default and in bold, it cannot be closed without an answer, it closes by itself if the measurement is stopped).
+  Strings in `frontend/lang/modules/run/{en,it,fr,es,de}.json`. Demo with simulated instruments
   (`ola/demo_lab.py`): `python -m frontend.ui.RunWindow [--fault]`.
-  **GUI, collegamento con il progetto** (2026-11-03): `ola/project_session.py` (`ProjectSession`, senza
-  Qt, testata) + `frontend/ui/ProjectWindow.py`: elenco delle misure del progetto (formato 2) con il
-  motivo se una non è utilizzabile, Nuova (tipo scelto tra i moduli), Modifica (editor dell'efficienza
-  per `.eff`, editor JSON validato per gli altri tipi), **Avvia misura** (apre la finestra di
-  esecuzione; risultati in `runs/` nella cartella del progetto), Rinomina, Rimuovi (file tenuto o
-  eliminato su richiesta), elenco delle esecuzioni con esportazione CSV. Gli strumenti arrivano
-  dall'applicazione tramite `connect(nome) -> handle`; senza, "Avvia" spiega che non sono collegati.
-  **Integrazione in `main_window.py`** (2026-11-03): il segnaposto "Avvia Efficienza - in arrivo" è
-  sostituito dalla scheda **Misure** (`ProjectWindow`; non tocca le parti modificate dal ramo
-  `wonderful-mccarthy`). Il flusso vecchio (`eff_files`, lista a sinistra) resta com'è.
-  **`connect` reale** (2026-11-03): `ola/connection.py` (`ProjectConnector`, senza Qt) legge il `.inst`
-  e restituisce l'handle: strumento manuale (pop-up `ManualPrompter`: Fatto/Annulla, Annulla ferma la
-  misura come "fermata", Ferma chiude il pop-up) oppure strumento della libreria aperto al suo
-  `visa_address` (modalità remota `set_remote` per le seriali); connessioni tenute aperte tra le
-  esecuzioni, handle nuovo a ogni esecuzione con l'evento di stop; errori in una frase che dice cosa
-  controllare. `frontend/ui/connector_setup.py` lo costruisce per l'app dalla libreria; se la libreria
-  o il motore mancano dà una funzione che spiega il motivo. **Provato** con il codice reale del ramo
-  `charming-bell` unito in una worktree locale (45 test + prova completa: progetto → `.inst` → libreria
-  → strumento simulato → esecuzione terminata con i dati); sul ramo i test di `connection.py` sono
-  saltati finché `ola.library`/`instrument_handle` non sono uniti. **Non provato su strumenti reali.**
-  Stato dei rami (2026-11-03, verificato): `main` contiene le PR #3 e #4; la PR #5 (`charming-bell`, con
-  libreria, handle e strumenti manuali usati da `ola/connection.py`) è aperta. Il conflitto tra
-  `charming-bell` e `wonderful-mccarthy` (`ci.yml`, `check_translations.py`) è risolto. Questo ramo si unisce
-  a `main` senza conflitti: conviene aprire la PR **dopo** la PR #5, così i test di `connection.py` non
-  vengono saltati.
-  **Aggiornamento**: la PR #5 è unita in `main` e `main` è unito in questo ramo (senza conflitti): i test di
-  `connection.py` ora girano (717 test passano con il sottomodulo `Instruments_LIB` inizializzato; senza,
-  falliscono i test della libreria). Righe del README aggiunte per i file della sessione libreria.
-  **Pezzi comuni per le misure RF** (2026-11-03, 1ª parte della roadmap §6b): `ola/rf.py` (dB, perdita
-  di inserzione e di ritorno, VSWR, impedenza, ritardo di gruppo, fattore di velocità, valore a una
-  frequenza, incroci di livello, Touchstone `.s1p/.s2p` in lettura e scrittura), `ola/limits.py`
-  (limiti pass/fail: costante, retta, bande; `Verdict`), esportazione CSV delle tracce e Touchstone da un
-  file di esecuzione (`ola/runs.py`), tracce nel `RunModel`, **scheda "Curve"** nella finestra di
-  esecuzione (elenco con caselle, viste modulo/perdita/fase/Re/Im/**Smith**, asse X logaritmico, linee
-  limite dai `meta` della traccia, lettura sotto il mouse, esportazione) con `frontend/ui/trace_plot.py`
-  (`TracePlot`, `SmithChart`, senza librerie esterne). **Resta dei pezzi comuni**: un editor per ogni tipo
-  di misura (oggi solo l'efficienza; gli altri usano JSON) e lo strumento di confronto nel menu Tools.
-  **Misura del cavo + editor a moduli** (2026-11-03, punto 2 della roadmap §6b): modulo `cable` (`.cbl`):
-  perdita di un cavo RF con un VNA (calibrato prima dall'utente) in trasmissione (S21) o riflessione
-  (S11 con aperto/corto, perdita = metà), in dB e dB/m, a frequenze scelte, ritardo di gruppo e fattore
-  di velocità, return loss/VSWR, verdetto PASS/FAIL su limite (un limite fallito è un **risultato**, non
-  un errore). Domanda iniziale su calibrazione e collegamento (pop-up con riepilogo dello sweep).
-  Avviso se lo sweep è troppo rado per la lunghezza del cavo (la fase si avvolge: ritardo e fattore di
-  velocità non calcolabili, la perdita sì; il modulo non inventa il numero). Chiamate logiche richieste al
-  VNA: `set_sweep` e `read_sparameter` (contratto della categoria `vna`, da scrivere nella libreria).
-  `ola/sim_vna.py` = VNA simulato con cavo. **Editor senza codice**: `form.json` accanto al `module.json`
-  + `ola/form_model.py` + `frontend/ui/FormEditorDialog.py` (campi con prefissi SI, problemi del modulo a
-  fianco di ogni campo, ruolo obbligatorio senza strumento = errore, campi condizionati, 5 lingue): gli
-  altri moduli RF lo riusano. Le tracce con `meta.hidden` partono deselezionate nella scheda Curve.
-  **Provato solo con il VNA simulato**; mancano la categoria `vna` nella libreria e il LiteVNA67.
-  **Return loss / VSWR** (2026-11-03, punto 3 della roadmap §6b): modulo `return_loss` (`.rtl`): S11 di un
-  dispositivo (antenna, adattatore...) con VNA calibrato alla porta: return loss, VSWR (limitato a 100),
-  impedenza, miglior e peggior adattamento, **bande utilizzabili** dove il VSWR resta sotto una soglia
-  (la banda di un'antenna), verdetto PASS/FAIL sul return loss (limite minimo). Editor da `form.json`.
-  Le parti comuni ai moduli con VNA sono in `ola/vna_common.py` (controllo di sweep e parametri comuni,
-  domanda su calibrazione e collegamento, `set_sweep`, lettura e media di `read_sparameter`,
-  normalizzazione dei dati); il modulo del cavo è stato rifatto su di esse. `rf.bands_where`; `SimVna`
-  ha ora anche un'antenna risonante. **Contratto della categoria `vna` per la libreria**:
-  `docs/vna-calls.md` (le due chiamate `set_sweep` e `read_sparameter`, forma della risposta, bozza di
-  `schema/vna.json`), con un test che lo tiene allineato a `SimVna`. Restano: filtro, impedenza
-  dell'antenna (grafico di Smith) e la categoria `vna` nella libreria (la sta per iniziare l'altra sessione).
-  **Filtro** (2026-11-03, punto 3 della roadmap §6b): modulo `filter` (`.flt`): risposta di un filtro
-  passa-basso/alto/banda/elimina-banda con VNA (S21): perdita di inserzione, frequenza di taglio o bordi a
-  -3 dB **rispetto al picco** (o al massimo della banda passante data), larghezza di banda, centro, Q,
-  profondità del notch, ripple in banda, guadagno a frequenze scelte, ritardo di gruppo, return loss
-  (S11 facoltativo) e **maschera pass/fail sul guadagno in dB** (minimo in banda, massimo fuori banda;
-  disegnata sulla vista in dB). Un bordo fuori dallo sweep viene dichiarato nel log e omesso, non
-  inventato. `rf.level_crossings` (crossing con direzione); `SimVna` ha ora un filtro Butterworth
-  (passa-basso/alto/banda/elimina-banda): le cifre trovate sono confrontate con le formule del filtro.
-  Finestra di esecuzione: la scheda Curve si apre da sola quando il risultato è una curva (≤ 1 riga in
-  tabella) e le colonne `*_hz` mostrano l'unità (868 MHz). Restano: roll-off, fattore di forma e
-  **impedenza dell'antenna** (grafico di Smith), poi lo strumento di confronto e l'etichetta del cavo.
-  **Impedenza dell'antenna** (2026-11-03, punto 3 della roadmap §6b): modulo `antenna` (`.ant`): S11 letto
-  come impedenza: `R + jX` in funzione della frequenza, **grafico di Smith** come vista di apertura (la
-  traccia chiede `default_view: "smith"`), risonanze serie (X da negativa a positiva: dove l'antenna è
-  adattata) e antirisonanze, miglior adattamento, banda utilizzabile e banda frazionaria, e alle frequenze
-  scelte l'impedenza e il **componente in serie che annulla la reattanza** (condensatore se X > 0,
-  induttore se X < 0). Non fa il progetto di una rete di adattamento né l'estensione di porta.
-  **Amplificatore RF** (2026-11-03, richiesta dell'utente): modulo `amplifier` (`.amp`) con VNA a due porte:
-  guadagno (picco, planarità, banda a -3 dB), return loss d'ingresso e d'uscita, isolamento inverso,
-  **stabilità** (K, |Δ|, μ: `rf.two_port_stability`; non incondizionatamente stabile = avviso con le bande)
-  e, se richiesto, **punto di compressione a 1 dB** da uno sweep di potenza a una frequenza. **Protezioni**:
-  `sweep.power_dbm` bassa (avviso se manca), `input_attenuation_db`, `max_input_dbm` (una potenza che lo
-  supera è un errore e non parte nulla), domanda iniziale con il promemoria sui limiti dell'uscita, e la
-  potenza della sorgente viene **ripristinata** dopo il test di compressione anche se fallisce o si ferma.
-  Servono S11, S21, S12, S22 (contratto `vna` aggiornato) e molte chiamate `set_sweep` con `power`.
-  `SimAmplifier` (compressione nota) per i test. Non misurati: noise figure, IP3, armoniche.
-  **Strumento di confronto** (2026-11-03, richiesto dall'utente come strumento del menu Tools, non dentro
-  la misura): `ola/compare.py` (senza Qt) + `frontend/ui/CompareDialog.py`. Si scelgono due o più file di
-  esecuzione; ogni esecuzione ha il nome salvato con essa (cavo/filtro/dispositivo) e la data. **Curve**:
-  sovrapposte in qualunque vista (dB, perdita, fase, Smith) oppure **differenza dal riferimento** (altro −
-  riferimento, solo dove entrambe hanno dati) con massimo, media e RMS; **Riepilogo**: le cifre affiancate con
-  la variazione dal riferimento; **Tabelle**: per le esecuzioni con molti punti (efficienza) una colonna
-  contro un'altra. Esporta CSV e PNG. Voce nel menu Tools e pulsante *Confronta...* nella finestra del progetto.
-  Verificato su esecuzioni vere di cavi simulati (le differenze tornano con la lunghezza del cavo).
-  Rimane: confronto con un campione di riferimento salvato nel progetto, e l'etichetta del cavo.
-  **Etichetta del cavo e registro di cavi e dispositivi** (2026-11-04, discussa e decisa con l'utente:
-  "come raccomandi, usa segno e fai la versione generale"): `ola/assets.py` (registro JSON unico per tutti i
-  progetti, `~/.open_lab_automation/assets.json` o `OLA_ASSETS_FILE`; codici `CBL-0042` per tipo, **mai
-  riutilizzati**; scrittura atomica con `.bak`; file danneggiato segnalato e non sovrascritto; ricerca da
-  scanner `OLA:cbl-2`), `ola/labels.py` (layout in mm: singola, **bandierina** per cavi sottili, **fogli** con i
-  posti già usati saltati; QR normale con `segno`, mai Micro QR; righe che non entrano scartate dalla fine **e
-  segnalate**; SVG), `frontend/ui/label_paint.py` (anteprima, PNG, PDF alla misura reale; un test controlla **ogni
-  modulo del QR** nell'immagine) e le finestre `AssetsDialog` (Tools > Cavi e dispositivi: schede, scansione,
-  ritira/elimina, storia con Confronta, etichette), `AssetEditDialog`, `LabelDialog`. Le misure RF hanno il campo
-  "dal registro" (scelta/scrittura/scansione; il nome si riempie da solo; codice sconosciuto = avviso) e ogni
-  esecuzione salva **la scheda di quel giorno** nell'intestazione; il confronto riconosce i cavi dal codice.
-  Scelte: la perdita non è un dato fisso sull'etichetta ma una riga facoltativa "ultima misura" da ristampare;
-  niente stampa diretta (PDF a 100 %); registro generale (cavo, antenna, filtro, amplificatore, adattatore,
-  altro). Difetto trovato dallo screenshot e corretto: la stima della larghezza del testo era troppo
-  ottimistica per le maiuscole (ora per carattere, confrontata nei test con la larghezza reale di Qt).
-  Rimane: modelli di etichetta modificabili (con il sistema del report HTML), andamento della perdita di un cavo
-  nel tempo, lettura del QR con la fotocamera.
-  **Attenuatore** (2026-11-04, richiesta dell'utente): modulo `attenuator` (`.att`): attenuazione (positiva) di un attenuatore
-  in funzione della frequenza con il VNA, media/minimo/massimo, piattezza, pendenza, scostamento dal valore nominale,
-  return loss delle due porte, verdetto su nominale ± tolleranza o su una maschera (fuori tolleranza = risultato, non
-  errore); un gradino per misura (`setting`). Nel registro il nuovo tipo **ATT** (valore nominale, tolleranza, potenza e
-  frequenza massime, connettori) e la riga di etichetta "dati principali" (`10 dB, 6 GHz, 2 W`; anche `20 dB gain` per gli
-  amplificatori). `SimVna(attenuator_db=, attenuator_slope_db_per_ghz=)`. Guida: `docs/attenuator.md`.
-  **Da discutere/da fare: de-embedding** (togliere dal risultato un cavo o attenuatore già misurato): primo passo
-  previsto = sottrazione in dB sul solo S21 con avviso "corretto solo in modulo" (approssimazione: riflessi non tolti);
-  poi eventualmente la versione complessa con file Touchstone (S-parametri completi). I valori misurati restano salvati
-  e la correzione si applica sopra, indicando il codice dell'oggetto tolto.
-  **Ripple e rumore** (2026-11-04, prima delle misure "da fare" scelta dall'utente): modulo `ripple` (`.rpl`) con
-  oscilloscopio (e carico elettronico facoltativo): picco-picco, rms della parte AC (accoppiamento AC e limite
-  20 MHz di default), frequenza del ripple e armoniche dallo spettro (finestra di Hann), rumore = rms di ciò che resta
-  tolti i picchi, il peggiore tra più acquisizioni, verdetto su `max_pp_v`/`max_rms_v` (fuori limite = risultato),
-  e **ripple in funzione della corrente di carico** (il carico viene spento in teardown anche dopo errore).
-  Avvisi: segnale che tocca il bordo dello schermo, pochi livelli del convertitore (scala troppo grossa), meno di 5
-  periodi nel record, campionamento sotto 5× la frequenza. Nuovi pezzi comuni: `ola/spectrum.py` (FFT, picchi, rumore;
-  riusabile per lo spettro) e `ola/sim_scope.py`. Il test contro la libreria vera ha mostrato che la profondità di
-  memoria accetta solo valori discreti per modello (10k, 100k, 1M...): documentato, l'errore del planner è chiaro.
-  Guida: `docs/ripple.md`. Non provato su hardware. Da aggiungere: ripple al variare della tensione d'ingresso, picchi
-  di commutazione come cifre a sé.
-  **Schema di collegamento** (2026-11-04, richiesta dell'utente: "quando si inizializza la misura venga mostrato uno
-  schema di collegamento dei dispositivi"): `ola/wiring.py` (senza Qt) legge un `wiring.json` che ogni modulo porta con
-  sé (si aggiorna con il modulo): nodi (strumenti e dispositivo in prova) su una griglia, porte, collegamenti con
-  l'etichetta del cavo, note; i testi nelle 5 lingue con `{parametro|predefinito}` e condizioni `when` (l'amplificatore
-  mostra l'attenuatore solo se c'è, il cavo la porta 2 oppure l'estremo aperto/in corto, il ripple il carico solo con
-  `conditions`); sotto ogni strumento i nomi legati al ruolo. Disegno in mm con le stesse primitive delle etichette
-  (anche SVG). `frontend/ui/WiringDialog.py`: prima dell'avvio una domanda Avvia/Annulla con la spunta "mostra prima di
-  ogni misura" (ricordata in QSettings), il pulsante "Collegamenti..." nella finestra del progetto, Salva SVG.
-  Disponibile per le misure RF, ripple ed efficienza (qui uno schema **tipico**); il time log non lo ha. Guida:
-  `docs/wiring.md`. Da fare: i pin dentro il dispositivo, i canali del datalogger e lo shunt nello schema
-  dell'efficienza, una versione stampabile nel report.
-  **Schema di collegamento, seconda versione** (2026-11-04, richiesta dell'utente: disegni migliori, immagini sue, e la
-  lista scritta "collega X a Y"): `wiring.json` ha ora `steps` (frasi numerate, anche con `foreach` sui parametri del file:
-  per l'efficienza "Collega il canale 101 di daq1 a «vin» del convertitore", per ogni parametro impostato e per ogni
-  lettura con un canale; per il time log idem) e `images` (disegni dell'utente accanto a `wiring.json`, scelti in base ai
-  parametri, senza estensione = .svg/.png/.jpg/.webp, `{lang}` per la lingua, `optional` per non avvisare se mancano:
-  i moduli elencano già i nomi attesi, vedi `docs/wiring.md`). Senza immagine resta il disegno del programma. La finestra
-  mostra immagine, lista numerata e note; `python -m frontend.ui.WiringDialog <modulo> [file] [lingua]` per provare.
-  Da fare: un testo libero per parametro nell'editor dell'efficienza ("ingresso del convertitore, pin +") perché le frasi
-  dicano dove va il cavo invece del solo nome del parametro.
-  **Regolazione di linea e di carico** (2026-11-04, scelta dell'utente: "procediamo con la 3, al posto del multimetro si
-  può anche usare un datalogger"): modulo vero `regulation` (`.reg`), non un modello dell'efficienza. Alimentatore +
-  carico elettronico + voltmetro (ruolo `meter`: qualunque strumento che risponde a `measure_dc_voltage`, quindi
-  **datalogger o multimetro**, con `args` propri: il datalogger vuole `range`, `resolution` e `channels`, il multimetro
-  numeri e niente canali). Prova di linea (Vin variabile a corrente fissa: scarto in mV, % e mV/V) e di carico (corrente
-  variabile a Vin fissa: % "a vuoto → pieno carico" e resistenza d'uscita in mΩ), ingresso letto **al convertitore** su
-  richiesta (mostra la caduta nei cavi), verdetto su limiti. Sicurezza: carico a 0 A prima di accendere
-  l'alimentatore, `safety` (Vin/corrente massime) rifiuta prima di accendere qualunque cosa, carico e alimentatore
-  spenti in teardown anche dopo errore. Il test sulla libreria vera ha trovato che `measure_dc_voltage` richiede
-  `range` e `resolution` (e il 34401A numeri, non `AUTO`/`DEF`; l'HP 3478A non ha la chiamata): documentato nel form e
-  nella guida. `ola/sim_bench.py` (banco simulato). Guida: `docs/regulation.md`. Non provato su hardware. Da fare:
-  regolazione incrociata (più uscite), in temperatura, transitorio di carico (misura a parte).
-  **VSWR corretto per la perdita del cavo** (2026-11-05, scelta dell'utente tra le varianti del VSWR: "VSWR corretto per la
-  perdita del cavo"; è il primo passo del de-embedding discusso): `ola/deembed.py` (senza Qt). Un'antenna misurata in
-  fondo a un cavo sembra meglio adattata di quanto sia (il cavo attenua due volte la riflessione); con il cavo già
-  misurato si toglie: `Γ = S11 misurato / T²`. Il cavo si indica con il **codice del registro** (il progetto prende l'ultima
-  misura finita di quel cavo e salva nell'intestazione quale file ha usato; se non c'è, la misura non parte), con un file di
-  misura del cavo o con un file Touchstone (.s2p in trasmissione, .s1p con aperto/corto). Due modi: **complesso** (con la
-  fase: corregge anche impedenza e Smith) e **solo modulo** (solo la perdita: basta per VSWR e return loss; l'antenna lo
-  rifiuta perché l'impedenza vuole la fase). Usato da `return_loss` e `antenna` con `correction`; le curve grezze restano
-  accanto a quelle corrette. Ipotesi dichiarata: cavo ben adattato (le sue riflessioni non entrano). Se la riflessione
-  corretta supera 1 viene limitata e segnalata. `SimVna(termination="antenna_via_cable")`. Schema di collegamento e
-  immagini 14-15. Resta da fare lo stesso per i parametri S21 (filtro, attenuatore) e la versione con matrici di
-  trasferimento (cavo non ben adattato).
-  **De-embedding a due porte** (2026-11-06, "procedi con idee deembedding"): `ola/fixtures.py`. Un dispositivo misurato
-  attraverso cavi, adattatori o attenuatori su porta 1, porta 2 o entrambe; l'accessorio già misurato si toglie (per
-  **codice del registro**: cavo o attenuatore, l'ultima misura finita del progetto, salvata nell'intestazione; oppure un
-  file di misura o un `.s2p` scritto "visto dal VNA", la porta 2 viene girata dal programma). Due modelli:
-  **adattato** (`S21/(T1·T2)`, riflessioni divise per il giro di andata e ritorno: giusto per un cavo) e **completo**
-  (matrici di trasferimento `T = T1·Tdut·T2`: esatto per qualunque accessorio, anche non adattato; legge tutti e quattro i
-  parametri S e vuole accessori con riflessioni: .s2p o misura di attenuatore); due modi: **complesso** e **solo modulo**
-  (se si conosce solo la perdita). Usato da `filter` e `attenuator` con `correction`; curve grezze accanto alle corrette
-  (`S21_raw`, `attenuation_raw_db`); avvisi se la riflessione corretta supera 1 o l'S21 supera 0 dB. I test confrontano
-  entrambi i modelli con reti sintetiche esatte (il completo ritrova il dispositivo a 1e-6 con accessori disallineati su
-  entrambe le porte). `SimVna(fixture1_m, fixture2_m)`. Guida unica `docs/deembedding.md` (anche per il caso a una porta).
-  Immagini 16-17. Da fare: amplificatore e cavo con accessori; catene di adattatori misurate a pezzi.
-  **Segnaposto per le immagini dei collegamenti** (2026-11-06): `docs/wiring-images.md` aggiornato (17 immagini, sezione
-  sui segnaposto) e un file `.svg` segnaposto per ognuna nella cartella del modulo, scritto da
-  `scripts/make_picture_placeholders.py` a partire dall'elenco (non sovrascrive mai un disegno vero; `--check` dice a che
-  punto si è). Il programma **ignora** un segnaposto (contiene `OLA-PLACEHOLDER`) e mostra il proprio schema finché
-  l'utente non lo sostituisce con il suo disegno (stesso nome, o un `.png` accanto).
-  **Misure RF e libreria VNA reale** (2026-11-06): la categoria della libreria in `main` è `network_analyzers_series` con
-  `set_frequency_sweep`, `run_sweep`, `read_sparameters(sparameters=[...])` (e opzionali `set_if_bandwidth`, `set_source_power`; sweep lineare), mentre le
-  mie sei misure parlavano `set_sweep`/`read_sparameter` (scala, banda IF, potenza): con un LiteVNA vero sarebbero fallite.
-  Adattatore in `ola/vna_common.py` (`uses_library_calls`: guarda `set_frequency_sweep` e `read_sparameters`): se lo strumento
-  ha le chiamate della libreria si usano quelle (un solo sweep per tutti i parametri, la lista va con la lettura,
-  `calibrated: false` avvisa; `set_if_bandwidth`, `set_source_power` e `set_sweep_type` se lo strumento li ha), altrimenti le
-  semplici (simulazione). Ciò che lo strumento non sa fare (il LiteVNA non ha le tre opzionali) viene segnalato nel log e
-  lasciato com'è; la **prova di compressione** dell'amplificatore, che varia la potenza, funziona con `set_source_power` ed è
-  altrimenti rifiutata prima di accendere qualcosa. Corretto dopo la verifica sullo schema reale in `main` della libreria
-  (la bozza aveva `select_sparameters`, tolta). `SimVna(library_calls=True)`; un test
-  controlla che le sei misure diano gli stessi numeri con i due contratti e che le chiamate esistano per i LiteVNA 62/64/67.
-  `docs/vna-calls.md` riscritto (categoria corretta). Lo sweep logaritmico (`set_sweep_type`) lo aggiunge la sessione della libreria.
-  **Bode plot** (2026-11-07, scelta dell'utente: "procedi con il bode plot poi con vna"): modulo `bode` (`.bod`) con
-  generatore di funzioni e oscilloscopio. A ogni frequenza: generatore, base dei tempi per mostrare N periodi, **un'acquisizione,
-  due canali** (`read_waveform_full` con `stop=False` per il secondo) e **fit di una sinusoide alla frequenza nota** su ciascuno
-  (`ola.spectrum.fit_sine`, minimi quadrati: guadagno = rapporto delle ampiezze, fase = differenza delle fasi; regge anche
-  rumore 5 volte il segnale); **scale verticali automatiche** (ricattura se satura o riempie poco, tenendo conto anche del
-  rumore). Fase continua lungo lo sweep. Risultati: curva complessa `H` (Bode), banda a -3 dB, picco e, con `loop`,
-  frequenza di attraversamento, **margine di fase** e **margine di guadagno**, verdetto sui limiti (un valore non trovato non si
-  inventa: il limite fallisce con il motivo). Sicurezza: generatore spento mentre si prepara, ampiezza massima rifiutata prima di
-  accendere, spento in teardown. Mancano nella libreria la categoria **function_generator**: chiamate proposte in
-  `docs/bode.md` (`set_output_state`, `set_frequency`, `set_amplitude`, opz. `set_waveform_shape`, `set_offset`) da passare alla
-  sessione della libreria. `ola/sim_bode.py` (banco simulato). Immagine 18. Da fare: ampiezza diversa a frequenze diverse,
-  impedenza d'uscita (iniezione di corrente), AWG interno dell'oscilloscopio come sorgente.
-  **Time domain (TDR) con il VNA** (2026-11-07, "poi con vna": la prima delle estensioni): modulo `tdr` (`.tdr`) e `ola/tdr.py`
-  (senza Qt). Da S11 su uno sweep lineare, risposta all'impulso con finestra (Hann di default) e zero padding: ogni riflessione è un
-  picco a `d = c·vf·t/2`; per ogni picco la riflessione complessa sommando i dati al ritardo esatto (modulo, **segno**: impedenza
-  più alta = aperto, più bassa = corto) e l'impedenza; **risoluzione** `c·vf/(2B)` e **portata** `c·vf/(2·df)` dichiarate; lunghezza
-  attesa → errore di lunghezza e **fattore di velocità** che torna; risposta al gradino e profilo di impedenza per un cavo a
-  sezioni (richiede start = multiplo del passo; sotto lo start la fase del primo punto continuata all'indietro, DC = parte reale),
-  verdetto sulle riflessioni **prima della fine** (l'ultimo picco è l'aperto/corto/dispositivo). `SimVna(fault_at_m, fault_gamma)`.
-  Guida `docs/tdr.md`, immagine 19. Da fare: togliere la perdita del cavo dall'ampiezza delle riflessioni lontane, echi multipli,
-  gating per misurare una sola riflessione. Le altre due estensioni con il VNA sono fatte (2026-11-07):
-  **confronto con un campione "buono"** (`ola/golden.py`, `scripts/golden_check.py`, `docs/golden.md`: tolleranza sulle curve come numero,
-  retta della frequenza o asimmetrica, tolleranza assoluta/relativa sulle cifre del riepilogo, copertura minima dello sweep, verdetto con
-  le ragioni, campione salvato in `<progetto>/golden/`) e **andamento nel tempo della perdita di un cavo** (`ola/trend.py`,
-  `scripts/cable_trend.py`, `docs/trend.md`: retta ai minimi quadrati, variazione reale solo se la pendenza supera due volte la sua
-  incertezza, verdetto PASS/WARNING/FAIL/NOT ENOUGH DATA con la data in cui si raggiunge il limite). Poi (2026-11-08): la scheda **Campione di
-  riferimento** nella finestra di confronto (il riferimento ★ è il campione, tolleranza sulla curva con il lato, tolleranze sulle cifre,
-  salva/apri in `golden/`), il **passo della misura del cavo** (`golden.name` + `tolerances`, risolto dal progetto in `golden.run`, tabella
-  `golden` e `golden_verdict` nel riepilogo, campi nell'editor) e la finestra **Andamento...** dalla storia del cavo (`TrendDialog`: grafico
-  con misure, retta e limite, verdetto, CSV). Poi: il passo del campione in tutte le misure VNA (filtro,
-  amplificatore, attenuatore, return loss, antenna) con `GoldenRecorder` (una riga in `run`), e le **tolleranze ricavate da più pezzi
-  buoni** (`derive_tolerances`: scarto massimo × fattore, minimo un pavimento, retta a tratti piatti che non è mai più stretta dei pezzi
-  usati; pulsante *Proponi dai risultati spuntati* e `golden_check.py --derive`). Poi il passo anche in Bode, TDR e nelle misure con
-  una tabella di righe (ripple, regolazione, rendimento, parametri S): `rows` = righe abbinate per colonne (`match`) e tolleranza per
-  colonna, verdetto nella tabella `golden_result` (`summary_row=False` + `finish(ctx)`). Anche `derive_tolerances` per `rows` (da Python).
-- ⏳ Non ancora fatto: collegare `ola.transport` all'app (il backend C e `c_backend.py` sono
-  ancora nel repo e non sono stati toccati), provare su strumenti reali il `connect` (serve il ramo di libreria/handle unito),
-  modulo e campi per la seriale testuale del LiteVNA67 (`until`/`lines`/`size`/`flush`, in
-  attesa dei dati del dispositivo), sistema driver per AD2/AD3, pipeline wheel e CI.
+  **GUI, connection with the project** (2026-11-03): `ola/project_session.py` (`ProjectSession`, without
+  Qt, tested) + `frontend/ui/ProjectWindow.py`: list of the project's measurements (format 2) with the
+  reason if one cannot be used, New (type chosen among the modules), Edit (efficiency editor for
+  `.eff`, validated JSON editor for the other types), **Start measurement** (opens the run window; results in
+  `runs/` in the project folder), Rename, Remove (file kept or deleted on request), list of the runs
+  with CSV export. The instruments come from the application through `connect(name) -> handle`; without it, "Start" explains that they are not connected.
+  **Integration in `main_window.py`** (2026-11-03): the placeholder "Avvia Efficienza - in arrivo" is
+  replaced by the **Measurements** tab (`ProjectWindow`; it does not touch the parts modified by the
+  `wonderful-mccarthy` branch). The old flow (`eff_files`, list on the left) stays as it is.
+  **Real `connect`** (2026-11-03): `ola/connection.py` (`ProjectConnector`, without Qt) reads the `.inst`
+  and returns the handle: manual instrument (pop-up `ManualPrompter`: Done/Cancel, Cancel stops the
+  measurement as "stopped", Stop closes the pop-up) or library instrument opened at its
+  `visa_address` (remote mode `set_remote` for serial ones); connections kept open between the
+  runs, new handle at each run with the stop event; errors in one sentence that says what to
+  check. `frontend/ui/connector_setup.py` builds it for the application from the library; if the library
+  or the engine is missing it gives a function that explains why. **Tried** with the real code of the
+  `charming-bell` branch merged in a local worktree (45 tests + full test: project → `.inst` → library
+  → simulated instrument → run finished with the data); on the branch the tests of `connection.py` are
+  skipped until `ola.library`/`instrument_handle` are merged. **Not tried on real instruments.**
+  Status of the branches (2026-11-03, verified): `main` contains PRs #3 and #4; PR #5 (`charming-bell`, with
+  library, handle and manual instruments used by `ola/connection.py`) is open. The conflict between
+  `charming-bell` and `wonderful-mccarthy` (`ci.yml`, `check_translations.py`) is resolved. This branch merges
+  into `main` without conflicts: it is best to open the PR **after** PR #5, so that the tests of `connection.py` are
+  not skipped.
+  **Update**: PR #5 is merged into `main` and `main` is merged into this branch (without conflicts): the tests of
+  `connection.py` now run (717 tests pass with the `Instruments_LIB` submodule initialised; without it,
+  the library tests fail). README rows added for the files of the library session.
+  **Common pieces for the RF measurements** (2026-11-03, 1st part of the roadmap §6b): `ola/rf.py` (dB, insertion and
+  return loss, VSWR, impedance, group delay, velocity factor, value at a frequency, level crossings, Touchstone `.s1p/.s2p` read and write),
+  `ola/limits.py` (pass/fail limits: constant, line, bands; `Verdict`), CSV export of the traces and Touchstone from a
+  run file (`ola/runs.py`), traces in the `RunModel`, **"Curves" tab** in the run window
+  (list with checkboxes, views module/loss/phase/Re/Im/**Smith**, logarithmic X axis, limit lines
+  from the trace `meta`, reading under the mouse, export) with `frontend/ui/trace_plot.py`
+  (`TracePlot`, `SmithChart`, without external libraries). **Still missing among the common pieces**: an editor for each measurement type
+  (today only efficiency; the others use JSON) and the comparison tool in the Tools menu.
+  **Cable measurement + module-based editor** (2026-11-03, point 2 of the roadmap §6b): module `cable` (`.cbl`):
+  loss of an RF cable with a VNA (calibrated beforehand by the user) in transmission (S21) or reflection
+  (S11 with open/short, loss = half), in dB and dB/m, at chosen frequencies, group delay and velocity
+  factor, return loss/VSWR, PASS/FAIL verdict against a limit (a failed limit is a **result**, not
+  an error). Initial question about calibration and connection (pop-up with a summary of the sweep).
+  Warning if the sweep is too coarse for the cable length (the phase wraps: delay and velocity factor
+  cannot be computed, the loss can; the module does not invent the number). Logical calls required from the
+  VNA: `set_sweep` and `read_sparameter` (contract of the `vna` category, to be written in the library).
+  `ola/sim_vna.py` = simulated VNA with a cable. **Editor without code**: `form.json` next to the `module.json`
+  + `ola/form_model.py` + `frontend/ui/FormEditorDialog.py` (fields with SI prefixes, module problems
+  beside each field, required role without an instrument = error, conditional fields, 5 languages): the
+  other RF modules reuse it. Traces with `meta.hidden` start unselected in the Curves tab.
+  **Tried only with the simulated VNA**; the `vna` category in the library and the LiteVNA67 are missing.
+  **Return loss / VSWR** (2026-11-03, point 3 of the roadmap §6b): module `return_loss` (`.rtl`): S11 of a
+  device (antenna, adapter...) with a VNA calibrated at the port: return loss, VSWR (capped at 100),
+  impedance, best and worst match, **usable bands** where the VSWR stays below a threshold
+  (the band of an antenna), PASS/FAIL verdict on the return loss (minimum limit). Editor from `form.json`.
+  The parts common to the modules with a VNA are in `ola/vna_common.py` (check of sweep and common parameters,
+  question about calibration and connection, `set_sweep`, reading and averaging of `read_sparameter`,
+  normalisation of the data); the cable module was rebuilt on them. `rf.bands_where`; `SimVna`
+  now also has a resonant antenna. **Contract of the `vna` category for the library**:
+  `docs/vna-calls.md` (the two calls `set_sweep` and `read_sparameter`, shape of the answer, draft of
+  `schema/vna.json`), with a test that keeps it aligned with `SimVna`. Still to do: filter, antenna
+  impedance (Smith chart) and the `vna` category in the library (the other session is about to start it).
+  **Filter** (2026-11-03, point 3 of the roadmap §6b): module `filter` (`.flt`): response of a
+  low-pass/high-pass/band-pass/band-stop filter with a VNA (S21): insertion loss, cut-off frequency or -3 dB edges
+  **relative to the peak** (or to the maximum of the given passband), bandwidth, centre, Q,
+  notch depth, in-band ripple, gain at chosen frequencies, group delay, return loss
+  (S11 optional) and a **pass/fail mask on the gain in dB** (minimum in band, maximum out of band;
+  drawn on the dB view). An edge outside the sweep is declared in the log and omitted, not
+  invented. `rf.level_crossings` (crossings with direction); `SimVna` now has a Butterworth filter
+  (low-pass/high-pass/band-pass/band-stop): the figures found are compared with the filter formulas.
+  Run window: the Curves tab opens by itself when the result is a curve (≤ 1 row in the
+  table) and the `*_hz` columns show the unit (868 MHz). Still to do: roll-off, shape factor and
+  **antenna impedance** (Smith chart), then the comparison tool and the cable label.
+  **Antenna impedance** (2026-11-03, point 3 of the roadmap §6b): module `antenna` (`.ant`): S11 read
+  as impedance: `R + jX` as a function of frequency, **Smith chart** as the opening view (the trace asks for
+  `default_view: "smith"`), series resonances (X from negative to positive: where the antenna is
+  matched) and anti-resonances, best match, usable band and fractional band, and at the chosen frequencies
+  the impedance and the **series component that cancels the reactance** (capacitor if X > 0,
+  inductor if X < 0). It does not design a matching network nor do port extension.
+  **RF amplifier** (2026-11-03, user request): module `amplifier` (`.amp`) with a two-port VNA:
+  gain (peak, flatness, -3 dB band), input and output return loss, reverse isolation,
+  **stability** (K, |Δ|, μ: `rf.two_port_stability`; not unconditionally stable = warning with the bands)
+  and, if requested, **1 dB compression point** from a power sweep at one frequency. **Protections**:
+  low `sweep.power_dbm` (warning if missing), `input_attenuation_db`, `max_input_dbm` (a power that exceeds it is an error and nothing starts),
+  initial question with the reminder about the output limits, and the source power is **restored** after the
+  compression test even if it fails or is stopped. It needs S11, S21, S12, S22 (updated `vna` contract) and many `set_sweep` calls with `power`.
+  `SimAmplifier` (known compression) for the tests. Not measured: noise figure, IP3, harmonics.
+  **Comparison tool** (2026-11-03, requested by the user as a tool in the Tools menu, not inside
+  the measurement): `ola/compare.py` (without Qt) + `frontend/ui/CompareDialog.py`. Two or more run files are chosen; each run has the name saved with it (cable/filter/device) and the date. **Curves**:
+  overlaid in any view (dB, loss, phase, Smith) or **difference from the reference** (other −
+  reference, only where both have data) with maximum, mean and RMS; **Summary**: the figures side by side with
+  the change from the reference; **Tables**: for runs with many points (efficiency) one column
+  against another. Exports CSV and PNG. Entry in the Tools menu and a *Compare...* button in the project window.
+  Verified on real runs of simulated cables (the differences follow the cable length).
+  Still to do: comparison with a reference sample saved in the project, and the cable label.
+  **Cable label and register of cables and devices** (2026-11-04, discussed and decided with the user:
+  "as you recommend, use a sign and make the general version"): `ola/assets.py` (single JSON register for all
+  projects, `~/.open_lab_automation/assets.json` or `OLA_ASSETS_FILE`; codes `CBL-0042` per type, **never
+  reused**; atomic writing with `.bak`; damaged file reported and not overwritten; lookup from a
+  scanner `OLA:cbl-2`), `ola/labels.py` (layout in mm: single, **flag** for thin cables, **sheets** with the
+  positions already used skipped; normal QR with `segno`, never Micro QR; rows that do not fit are dropped from the end **and
+  reported**; SVG), `frontend/ui/label_paint.py` (preview, PNG, PDF at real size; a test checks **every
+  module of the QR** in the image) and the windows `AssetsDialog` (Tools > Cables and devices: cards, scanning,
+  retire/delete, history with Compare, labels), `AssetEditDialog`, `LabelDialog`. The RF measurements have the
+  "from the register" field (choose/write/scan; the name fills in by itself; unknown code = warning) and each
+  run saves **that day's card** in the header; the comparison recognises the cables from the code.
+  Choices: the loss is not a fixed datum on the label but an optional "last measurement" line to reprint; no
+  direct printing (PDF at 100 %); general register (cable, antenna, filter, amplifier, adapter,
+  other). Defect found from the screenshot and fixed: the estimate of the text width was too
+  optimistic for capitals (now per character, checked in the tests against the real Qt width).
+  Still to do: editable label templates (with the HTML report system), the trend of a cable's loss
+  over time, reading the QR with the camera.
+  **Attenuator** (2026-11-04, user request): module `attenuator` (`.att`): attenuation (positive) of an attenuator
+  as a function of frequency with the VNA, mean/minimum/maximum, flatness, slope, deviation from the nominal value,
+  return loss of the two ports, verdict on nominal ± tolerance or on a mask (out of tolerance = result, not
+  error); one setting per measurement (`setting`). In the register the new type **ATT** (nominal value, tolerance, maximum power and
+  frequency, connectors) and the label line "main data" (`10 dB, 6 GHz, 2 W`; also `20 dB gain` for the
+  amplifiers). `SimVna(attenuator_db=, attenuator_slope_db_per_ghz=)`. Guide: `docs/attenuator.md`.
+  **To discuss/to do: de-embedding** (removing from the result a cable or attenuator already measured): planned first step =
+  subtraction in dB on S21 only, with the warning "corrected in magnitude only" (approximation: reflections not removed);
+  then possibly the complex version with Touchstone files (full S-parameters). The measured values stay saved
+  and the correction is applied on top, indicating the code of the object removed.
+  **Ripple and noise** (2026-11-04, before the measurements "to do" chosen by the user): module `ripple` (`.rpl`) with an
+  oscilloscope (and an optional electronic load): peak-to-peak, RMS of the AC part (AC coupling and 20 MHz limit by default),
+  ripple frequency and harmonics from the spectrum (Hann window), noise = RMS of what remains after removing the peaks,
+  the worst among several acquisitions, verdict on `max_pp_v`/`max_rms_v` (out of limit = result),
+  and **ripple as a function of the load current** (the load is switched off in teardown even after an error).
+  Warnings: signal touching the edge of the screen, few converter levels (scale too coarse), fewer than 5 periods in the record, sampling below 5× the frequency. New common pieces: `ola/spectrum.py` (FFT, peaks, noise; reusable for the spectrum) and `ola/sim_scope.py`. The test against the real library showed that the memory depth accepts only discrete values per model (10k, 100k, 1M...): documented, the planner error is clear.
+  Guide: `docs/ripple.md`. Not tried on hardware. To add: ripple as the input voltage varies, switching peaks as figures of their own.
+  **Wiring diagram** (2026-11-04, user request: "when the measurement is initialised, a wiring diagram of the devices is shown"): `ola/wiring.py` (without Qt) reads a `wiring.json` that each module carries
+  with it (it is updated together with the module): nodes (instruments and the device under test) on a grid, ports, connections with
+  the cable label, notes; the texts in the 5 languages with `{parameter|default}` and `when` conditions (the amplifier
+  shows the attenuator only if there is one, the cable port 2 or the open/short end, the ripple the load only with
+  `conditions`); under each instrument the names linked to the role. Drawing in mm with the same primitives as the labels
+  (also SVG). `frontend/ui/WiringDialog.py`: before the start a Start/Cancel question with the tick "show before
+  each measurement" (remembered in QSettings), the "Connections..." button in the project window, Save SVG.
+  Available for the RF, ripple and efficiency measurements (here a **typical** diagram); the time log does not have one. Guide:
+  `docs/wiring.md`. To do: the pins inside the device, the datalogger channels and the shunt in the
+  efficiency diagram, a printable version in the report.
+  **Wiring diagram, second version** (2026-11-04, user request: better drawings, his own images, and the written list "connect X to Y"):
+  `wiring.json` now has `steps` (numbered sentences, also with `foreach` over the parameters of the file:
+  for efficiency "Connect channel 101 of daq1 to «vin» of the converter", for each set parameter and for each
+  reading with a channel; likewise for the time log) and `images` (drawings of the user next to `wiring.json`, chosen according to the
+  parameters, without extension = .svg/.png/.jpg/.webp, `{lang}` for the language, `optional` to avoid a warning if missing:
+  the modules already list the expected names, see `docs/wiring.md`). Without an image the program's drawing remains. The window
+  shows the image, the numbered list and the notes; `python -m frontend.ui.WiringDialog <module> [file] [language]` to try it.
+  To do: a free text per parameter in the efficiency editor ("converter input, pin +") so that the sentences
+  say where the cable goes instead of only the name of the parameter.
+  **Line and load regulation** (2026-11-04, user choice: "let's go with 3, a datalogger can also be used instead of the multimeter"):
+  a real module `regulation` (`.reg`), not a model of the efficiency measurement. Power supply + electronic load +
+  voltmeter (role `meter`: any instrument that answers `measure_dc_voltage`, so
+  **datalogger or multimeter**, with its own `args`: the datalogger wants `range`, `resolution` and `channels`, the multimeter
+  numbers and no channels). Line test (variable Vin at fixed current: deviation in mV, % and mV/V) and load test
+  (variable current at fixed Vin: % "no load → full load" and output resistance in mΩ), input read **at the converter**
+  on request (it shows the drop in the cables), verdict on limits. Safety: load at 0 A before switching on
+  the power supply, `safety` (maximum Vin/current) refuses before switching on anything, load and power supply
+  switched off in teardown even after an error. The test on the real library found that `measure_dc_voltage` requires
+  `range` and `resolution` (and the 34401A numbers, not `AUTO`/`DEF`; the HP 3478A does not have the call): documented in the form and
+  in the guide. `ola/sim_bench.py` (simulated bench). Guide: `docs/regulation.md`. Not tried on hardware. To do: cross
+  regulation (several outputs), over temperature, load transient (separate measurement).
+  **VSWR corrected for the cable loss** (2026-11-05, user choice among the VSWR variants: "VSWR corrected for the
+  cable loss"; it is the first step of the de-embedding discussed): `ola/deembed.py` (without Qt). An antenna measured at the
+  end of a cable looks better matched than it is (the cable attenuates the reflection twice); with the cable already
+  measured it is removed: `Γ = S11 measured / T²`. The cable is indicated with the **register code** (the project takes the last
+  finished measurement of that cable and saves in the header which file it used; if there is none, the measurement does not start),
+  with a cable measurement file or with a Touchstone file (.s2p in transmission, .s1p with open/short). Two modes: **complex** (with the
+  phase: also corrects impedance and Smith) and **magnitude only** (only the loss: enough for VSWR and return loss; the antenna
+  rejects it because the impedance needs the phase). Used by `return_loss` and `antenna` with `correction`; the raw curves stay
+  next to the corrected ones. Declared assumption: well-matched cable (its reflections do not enter). If the corrected
+  reflection exceeds 1 it is limited and reported. `SimVna(termination="antenna_via_cable")`. Wiring diagram and
+  images 14-15. Still to do the same for the S21 parameters (filter, attenuator) and the version with transfer matrices
+  (cable not well matched).
+  **Two-port de-embedding** (2026-11-06, "go ahead with deembedding ideas"): `ola/fixtures.py`. A device measured
+  through cables, adapters or attenuators on port 1, port 2 or both; the accessory already measured is removed (by
+  **register code**: cable or attenuator, the last finished measurement of the project, saved in the header; or a
+  measurement file or a `.s2p` written "as seen by the VNA", port 2 is flipped by the program). Two models:
+  **matched** (`S21/(T1·T2)`, reflections divided by the round trip: right for a cable only) and **full**
+  (transfer matrices `T = T1·Tdut·T2`: exact for any accessory, even unmatched; it reads all four S parameters and wants accessories with reflections: .s2p or an attenuator measurement); two modes: **complex** and **magnitude only**
+  (if only the loss is known). Used by `filter` and `attenuator` with `correction`; raw curves next to the corrected ones
+  (`S21_raw`, `attenuation_raw_db`); warnings if the corrected reflection exceeds 1 or the S21 exceeds 0 dB. The tests compare
+  both models with exact synthetic networks (the full one recovers the device to 1e-6 with accessories misaligned on
+  both ports). `SimVna(fixture1_m, fixture2_m)`. Single guide `docs/deembedding.md` (also for the one-port case).
+  Images 16-17. To do: amplifier and cable with accessories; chains of adapters measured in pieces.
+  **Placeholders for the wiring images** (2026-11-06): `docs/wiring-images.md` updated (17 images, section
+  on the placeholders) and a placeholder `.svg` file for each one in the module folder, written by
+  `scripts/make_picture_placeholders.py` from the list (it never overwrites a real drawing; `--check` says how far it has gone). The program **ignores** a placeholder (it contains `OLA-PLACEHOLDER`) and shows its own
+  diagram until the user replaces it with their drawing (same name, or a `.png` next to it).
+  **RF measurements and the real VNA library** (2026-11-06): the library category in `main` is `network_analyzers_series` with
+  `set_frequency_sweep`, `run_sweep`, `read_sparameters(sparameters=[...])` (and optional `set_if_bandwidth`, `set_source_power`; linear sweep), while my six measurements used `set_sweep`/`read_sparameter` (scale, IF bandwidth, power): with a real LiteVNA they would have failed.
+  Adapter in `ola/vna_common.py` (`uses_library_calls`: checks `set_frequency_sweep` and `read_sparameters`): if the instrument
+  has the library calls they are used (one sweep for all the parameters, the list goes with the reading,
+  `calibrated: false` warns; `set_if_bandwidth`, `set_source_power` and `set_sweep_type` if the instrument has them), otherwise the
+  simple ones (simulation). What the instrument cannot do (the LiteVNA does not have the three optional ones) is reported in the log and
+  left as it is; the amplifier's **compression test**, which varies the power, works with `set_source_power` and is otherwise
+  rejected before switching anything on. Corrected after checking against the real schema in the library's `main` (the draft had
+  `select_sparameters`, removed). `SimVna(library_calls=True)`; a test checks
+  that the six measurements give the same numbers with the two contracts and that the calls exist for the LiteVNA 62/64/67.
+  `docs/vna-calls.md` rewritten (correct category). The logarithmic sweep (`set_sweep_type`) is added by the library session.
+  **Bode plot** (2026-11-07, user choice: "go ahead with the Bode plot, then with the VNA"): module `bode` (`.bod`) with a
+  function generator and an oscilloscope. At each frequency: generator, timebase to show N periods, **one acquisition,
+  two channels** (`read_waveform_full` with `stop=False` for the second) and **fit of a sine at the known frequency** on each
+  (`ola.spectrum.fit_sine`, least squares: gain = ratio of the amplitudes, phase = difference of the phases; it also copes with
+  noise 5 times the signal); **automatic vertical scales** (recapture if it saturates or fills too little, also taking the
+  noise into account). Phase continuous along the sweep. Results: complex curve `H` (Bode), -3 dB band, peak and, with `loop`,
+  crossover frequency, **phase margin** and **gain margin**, verdict on the limits (a value that is not found is not
+  invented: the limit fails with the reason). Safety: generator off while preparing, maximum amplitude refused before
+  switching on, switched off in teardown. The library lacks the **function_generator** category: calls proposed in
+  `docs/bode.md` (`set_output_state`, `set_frequency`, `set_amplitude`, opt. `set_waveform_shape`, `set_offset`) to be passed to the
+  library session. `ola/sim_bode.py` (simulated bench). Image 18. To do: different amplitude at different frequencies,
+  output impedance (current injection), the oscilloscope's internal AWG as the source.
+  **Time domain (TDR) with the VNA** (2026-11-07, "then with the VNA": the first of the extensions): module `tdr` (`.tdr`) and `ola/tdr.py`
+  (without Qt). From S11 on a linear sweep, impulse response with a window (Hann by default) and zero padding: each reflection is a
+  peak at `d = c·vf·t/2`; for each peak the complex reflection by summing the data at the exact delay (magnitude, **sign**: higher
+  impedance = open, lower = short) and the impedance; **resolution** `c·vf/(2B)` and **range** `c·vf/(2·df)` declared; expected
+  length → length error and **velocity factor** that fits; step response and impedance profile for a cable in
+  sections (requires start = multiple of the step; below the start the phase of the first point continued backwards, DC = real part),
+  verdict on the reflections **before the end** (the last peak is the open/short/device). `SimVna(fault_at_m, fault_gamma)`.
+  Guide `docs/tdr.md`, image 19. To do: removing the cable loss from the amplitude of the far reflections, multiple echoes,
+  gating to measure a single reflection. The other two VNA extensions are done (2026-11-07):
+  **comparison with a "good" sample** (`ola/golden.py`, `scripts/golden_check.py`, `docs/golden.md`: tolerance on the curves as a number,
+  a line over frequency or asymmetric, absolute/relative tolerance on the summary figures, minimum coverage of the sweep, verdict with
+  the reasons, sample saved in `<project>/golden/`) and **trend over time of a cable's loss** (`ola/trend.py`,
+  `scripts/cable_trend.py`, `docs/trend.md`: least-squares line, a real change only if the slope exceeds twice its
+  uncertainty, verdict PASS/WARNING/FAIL/NOT ENOUGH DATA with the date on which the limit is reached). Then (2026-11-08): the **Reference
+  sample** tab in the comparison window (the ★ reference is the sample, tolerance on the curve with the side, tolerances on the figures,
+  save/open in `golden/`), the **golden-sample step of the cable measurement** (`golden.name` + `tolerances`, resolved from the project into `golden.run`, table
+  `golden` and `golden_verdict` in the summary, fields in the editor) and the **Trend...** window from the cable's history (`TrendDialog`: chart
+  with measurements, line and limit, verdict, CSV). Then: the sample step in all the VNA measurements (filter,
+  amplifier, attenuator, return loss, antenna) with `GoldenRecorder` (one line in `run`), and the **tolerances derived from several good
+  pieces** (`derive_tolerances`: maximum deviation × factor, a minimum floor, piecewise-flat line that is never narrower than the pieces
+  used; button *Propose from the ticked results* and `golden_check.py --derive`). Then the step also in Bode, TDR and in the measurements with
+  a table of rows (ripple, regulation, efficiency, S-parameters): `rows` = rows matched by columns (`match`) and tolerance per
+  column, verdict in the `golden_result` table (`summary_row=False` + `finish(ctx)`). Also `derive_tolerances` for `rows` (from Python).
+- ⏳ Not done yet: connecting `ola.transport` to the app (the C backend and `c_backend.py` are still in the
+  repo and have not been touched), trying the `connect` on real instruments (requires the library/handle branch to be merged),
+  module and fields for the LiteVNA67 text serial (`until`/`lines`/`size`/`flush`, awaiting the device data), driver system for AD2/AD3, wheel pipeline and CI.
 
-## 10. Punti aperti
+## 10. Open points
 
-- ✅ Rust per lo strato nativo (trasporto).
-- ✅ Elenco categorie approvato; solo categorie, nessuno strumento tranne il VNA.
-- ✅ Test a impulsi: gestito dal modo dinamico del carico + trigger dello scope (§4.3).
-- ✅ `thermal_chamber` tolta dalle categorie.
-- ✅ LiteVNA67: modalità `scpi` su seriale, come gli strumenti attuali (§7.1).
-- ✅ AD2/AD3: categoria `driver` con runtime WaveForms obbligatorio.
-- ❓ **Progetto del sistema driver** (interfaccia, ciclo di vita della sessione,
-  rilevamento, installazione del runtime): da discutere.
-- ❓ **Dove vivono i driver**: proposta = codice nel repo OpenLab / cartella utente,
-  libreria JSON solo dati. Da confermare.
-- ❓ **LiteVNA67**: l'autore invierà VID/PID, protocollo e specifiche (in arrivo).
-- ❓ **Modello dei dispositivi compositi** nel `.inst` e nella libreria (§7.1).
-- ✅ Verbi generici = nomi di chiamata della libreria (§7.2); restano da definire
-  solo quelli delle categorie nuove, nel repo della libreria.
-- ✅ **Chiamate a più comandi** (§7.2): passi `write`/`query`/`read`/`delay` sotto un lock per
-  strumento; l'unione con `;` resta fuori dalla v1.
-- ✅ **Connessioni**: USB-TMC/GPIB/VXI-11 via pyvisa (`ola/_visa.py`, provato solo con `pyvisa-py`);
-  la modalità per ogni modello (socket raw / VXI-11 / seriale) la dichiara la libreria nel blocco
-  `interface` (lavoro dell'altra sessione). Aperto: `rusb` per USB-TMC nativo (non necessario ora).
-- ✅ **Estrazione** di `resolve_model_commands()` in un modulo senza Qt: fatta nel branch dell'altra
-  sessione (`ola/library.py`), non ancora in `main`.
-- ❓ **Libreria strumenti**: `Instruments_LIB` è un repo separato (`instruments_lib`):
-  le nuove categorie vanno create lì in coordinamento con questo repo.
-- ✅ **Moduli utente**: solo Python; caricare un modulo non integrato richiede un permesso esplicito
-  (`allow_user_code`), scoprirlo no. Documentato in `docs/measurement-modules.md`.
-- ❓ **Congelare `api_version` 1** (interfaccia `Measurement` / `ctx`): da fare prima di promettere
-  compatibilità ai moduli scritti da altri.
-- ❓ **Lingue**: ogni modulo porta un proprio `lang/` opzionale (proposta).
+- ✅ Rust for the native layer (transport).
+- ✅ Category list approved; only categories, no instrument except the VNA.
+- ✅ Impulse tests: handled by the dynamic mode of the load + scope trigger (§4.3).
+- ✅ `thermal_chamber` removed from the categories.
+- ✅ LiteVNA67: `scpi` mode over serial, like the current instruments (§7.1).
+- ✅ AD2/AD3: `driver` category with mandatory WaveForms runtime.
+- ❓ **Design of the driver system** (interface, session lifecycle,
+  detection, runtime installation): to be discussed.
+- ❓ **Where the drivers live**: proposal = code in the OpenLab repo / user folder,
+  JSON library data only. To be confirmed.
+- ❓ **LiteVNA67**: the author will send VID/PID, protocol and specifications (pending).
+- ❓ **Model of composite devices** in the `.inst` and in the library (§7.1).
+- ✅ Generic verbs = library call names (§7.2); only those of the new categories remain to be defined,
+  in the library repository.
+- ✅ **Calls with several commands** (§7.2): `write`/`query`/`read`/`delay` steps under a lock per
+  instrument; joining with `;` is left out of v1.
+- ✅ **Connections**: USB-TMC/GPIB/VXI-11 via pyvisa (`ola/_visa.py`, tried only with `pyvisa-py`);
+  the mode for each model (raw socket / VXI-11 / serial) is declared by the library in the `interface` block
+  (work of the other session). Open: `rusb` for native USB-TMC (not necessary now).
+- ✅ **Extraction** of `resolve_model_commands()` into a module without Qt: done in the other session's branch
+  (`ola/library.py`), not yet in `main`.
+- ❓ **Instrument library**: `Instruments_LIB` is a separate repo (`instruments_lib`):
+  the new categories must be created there in coordination with this repo.
+- ✅ **User modules**: Python only; loading a non-built-in module requires explicit permission
+  (`allow_user_code`), discovering it does not. Documented in `docs/measurement-modules.md`.
+- ❓ **Freeze `api_version` 1** (`Measurement` / `ctx` interface): to be done before promising compatibility to modules written by others.
+- ❓ **Languages**: each module carries its own optional `lang/` (proposal).

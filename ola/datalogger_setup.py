@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Datalogger channels of a project ``.inst`` file -> logical calls.
 
 A datalogger entry of the ``.inst`` file lists its enabled channels (``slot_number``,

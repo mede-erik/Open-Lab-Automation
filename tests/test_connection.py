@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """ProjectConnector: the handle of every instrument of a project's .inst file.
 
 Needs the instrument library and the handles (``ola.library``, ``ola.instrument_handle``,

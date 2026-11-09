@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Qt-free access to the instrument library and to the call schemas.
 
 The library (``instruments_lib.json``) says, for every instrument, how each logical call is

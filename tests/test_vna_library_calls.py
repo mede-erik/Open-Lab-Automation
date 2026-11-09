@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The measurements on a VNA that speaks the library's category (set_frequency_sweep,
 run_sweep, read_sparameters) or the simple calls: the same results."""
 

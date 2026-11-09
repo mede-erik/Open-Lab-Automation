@@ -1,302 +1,299 @@
-# Immagini degli schemi di collegamento: cosa disegnare
+# Wiring diagram images: what to draw
 
-Elenco delle immagini che i moduli cercano. Sono **19**. Ogni immagine è facoltativa: finché manca, la finestra dei
-collegamenti mostra lo schema disegnato dal programma; appena metti il file con il nome giusto, compare il tuo disegno.
-Puoi farle una alla volta, in qualsiasi ordine.
+List of the images that the modules look for. There are **19**. Each image is optional: while it is missing, the wiring
+window shows the diagram drawn by the program; as soon as you put the file with the right name, your drawing appears.
+You can make them one at a time, in any order.
 
-Come funziona è spiegato in [`wiring.md`](wiring.md). Qui c'è solo la lista di lavoro.
+How it works is explained in [`wiring.md`](wiring.md). Here there is only the work list.
 
-## I segnaposto
+## The placeholders
 
-In ogni cartella di modulo c'è **già un file segnaposto** per ogni immagine (17 file `.svg` grigi, a tratteggio, con
-scritto il nome, quando si vede e cosa disegnare). Servono a sapere **quale file sostituire** e dove stanno.
+In every module folder there is **already a placeholder file** for each image (17 grey, dashed `.svg` files, with
+the name written on them, when it is seen and what to draw). They serve to know **which file to replace** and where it is.
 
-* Il programma **ignora i segnaposto**: finché non li sostituisci, la finestra dei collegamenti continua a mostrare lo
-  schema disegnato dal programma. Un segnaposto si riconosce perché contiene la sigla `OLA-PLACEHOLDER`.
-* **Per sostituirne uno**: salva il tuo disegno **con lo stesso nome** sopra il file (`filter.svg`), oppure mettilo accanto
-  con un'altra estensione (`filter.png`: il segnaposto `.svg` viene saltato).
-* Per rifare i segnaposto mancanti (per esempio dopo aver aggiunto un'immagine a questa lista) e vedere a che punto sei:
+* The program **ignores the placeholders**: until you replace them, the wiring window keeps showing
+  the diagram drawn by the program. A placeholder is recognised because it contains the tag `OLA-PLACEHOLDER`.
+* **To replace one**: save your drawing **with the same name** over the file (`filter.svg`), or put it next to it
+  with another extension (`filter.png`: the `.svg` placeholder is skipped).
+* To recreate the missing placeholders (for example after adding an image to this list) and to see where you are:
 
 ```bash
 python scripts/make_picture_placeholders.py --check
 python scripts/make_picture_placeholders.py
 ```
 
-Il primo dice, per ognuna delle immagini, se è un disegno tuo (`drawn`), un segnaposto (`placeholder`) o se manca; il
-secondo scrive i segnaposto che mancano e **non sovrascrive mai un disegno vero**. L'elenco viene letto da questo file.
+The first says, for each image, whether it is your drawing (`drawn`), a placeholder (`placeholder`) or missing; the
+second writes the missing placeholders and **never overwrites a real drawing**. The list is read from this file.
 
-## Dove mettere i file e come si chiamano
+## Where to put the files and what they are called
 
-* **Cartella**: quella del modulo, accanto a `wiring.json` (`ola/modules/<modulo>/`). Ogni immagine qui sotto dice la
-  sua cartella.
-* **Nome**: esattamente quello indicato, in minuscolo, **senza spazi**. L'estensione può essere `.svg` (consigliato),
-  `.png`, `.jpg` o `.webp`. Esempio: `ola/modules/filter/filter.svg`.
-* **Lingue**: se nel disegno **non ci sono parole**, basta un file. Se ci sono parole, fai un file per lingua con il
-  suffisso dopo il nome: `filter_it.svg`, `filter_en.svg`, `filter_fr.svg`, `filter_es.svg`, `filter_de.svg`. Il
-  programma usa il file della lingua dell'app e, se manca, quello inglese (`_en`). Se fai solo i disegni con le parole
-  in una lingua, chiamali con il suffisso giusto e il resto resta con il disegno del programma.
-  **Consiglio**: disegni senza parole (solo simboli, colori e frecce), perché la lista numerata sotto l'immagine dice già
-  le cose a parole e nella lingua giusta. Al massimo etichette cortissime e uguali in tutte le lingue (`P1`, `P2`,
+* **Folder**: the module's folder, next to `wiring.json` (`ola/modules/<module>/`). Each image below says
+  its folder.
+* **Name**: exactly the one indicated, in lowercase, **without spaces**. The extension can be `.svg` (recommended),
+  `.png`, `.jpg` or `.webp`. Example: `ola/modules/filter/filter.svg`.
+* **Languages**: if the drawing has **no words**, one file is enough. If it has words, make one file per language with the
+  suffix after the name: `filter_it.svg`, `filter_en.svg`, `filter_fr.svg`, `filter_es.svg`, `filter_de.svg`. The
+  program uses the file of the application's language and, if it is missing, the English one (`_en`). If you only make the drawings with words
+  in one language, name them with the right suffix and the rest keeps the program's drawing.
+  **Advice**: drawings without words (only symbols, colours and arrows), because the numbered list under the image already
+  says things in words and in the right language. At most very short labels, the same in all languages (`P1`, `P2`,
   `CH1`, `+`, `-`, `GND`).
 
-## Regole comuni (valgono per tutte)
+## Common rules (valid for all)
 
-| Cosa | Indicazione |
+| What | Indication |
 |---|---|
-| Formato | **SVG** (resta nitido a qualsiasi dimensione). Se PNG: almeno **1500 px di larghezza** |
-| Proporzioni | **Orizzontale**, circa 2:1 o 16:9 (per esempio 1600 x 800). Non più alto che largo |
-| Sfondo | Bianco oppure trasparente. La finestra la mostra su bianco anche con il tema scuro |
-| Margini | Un po' di bianco attorno (circa 5 %): niente cose attaccate al bordo |
-| Stile | Sempre lo stesso in tutte le immagini: stessi simboli per gli strumenti, stesso modo di disegnare i connettori |
-| Spessore | Linee abbastanza spesse da leggersi quando la finestra è stretta (immagina l'immagine larga 600 px) |
-| Colori | Pochi. Proposta: **nero** = segnale / cavo coassiale, **rosso** = positivo / alimentazione, **blu** = negativo / massa, **verde** = il dispositivo in prova (DUT) evidenziato. Se usi colori, non basarti solo su quelli: il DUT va anche **disegnato diverso** (cornice doppia o tratteggiata) |
-| Strumenti | Disegnali come li riconosci: il VNA come uno strumento con le porte sul lato, l'oscilloscopio con lo schermo, ecc. Un riquadro con un'icona va bene |
-| Connettori | Le **porte numerate** dei VNA (P1, P2) e i **canali** dell'oscilloscopio (CH1) visibili, con il numero |
-| DUT | Sempre ben distinguibile dagli strumenti (colore, cornice doppia o ombra) |
-| Cavi | Il cavo di test è un tratto spesso con i connettori alle estremità. Se è un cavo che si misura, disegnalo diverso (più lungo, a onda) per non confonderlo con i cavi di test |
+| Format | **SVG** (stays sharp at any size). If PNG: at least **1500 px wide** |
+| Proportions | **Landscape**, about 2:1 or 16:9 (for example 1600 x 800). Not taller than wide |
+| Background | White or transparent. The window shows it on white even with the dark theme |
+| Margins | Some white around (about 5 %): nothing touching the edge |
+| Style | Always the same in all images: same symbols for the instruments, same way of drawing the connectors |
+| Line weight | Lines thick enough to be read when the window is narrow (imagine the image 600 px wide) |
+| Colours | Few. Proposal: **black** = signal / coaxial cable, **red** = positive / power supply, **blue** = negative / ground, **green** = the device under test (DUT) highlighted. If you use colours, do not rely only on them: the DUT must also be **drawn differently** (double or dashed frame) |
+| Instruments | Draw them as you recognise them: the VNA as an instrument with the ports on the side, the oscilloscope with its screen, etc. A box with an icon is fine |
+| Connectors | The **numbered ports** of the VNAs (P1, P2) and the **channels** of the oscilloscope (CH1) visible, with the number |
+| DUT | Always clearly distinguishable from the instruments (colour, double frame or shadow) |
+| Cables | The test cable is a thick stroke with the connectors at the ends. If it is a cable being measured, draw it differently (longer, wavy) so it is not confused with the test leads |
 
-Ogni immagine deve far capire **a colpo d'occhio** da dove a dove va ogni filo, senza leggere la lista.
+Each image must show **at a glance** where each wire goes from and to, without reading the list.
 
-## Prima di cominciare: come provarla
+## Before you start: how to try it
 
-Dopo aver messo il file nella cartella del modulo, per vederla senza avviare nessuna misura:
+After putting the file in the module's folder, to see it without starting any measurement:
 
 ```bash
 python -m frontend.ui.WiringDialog filter
 ```
 
-(al posto di `filter` il nome del modulo). Per la misura con parametri diversi (es. l'amplificatore **con** attenuatore),
-dai anche un file di misura e la lingua: `python -m frontend.ui.WiringDialog amplifier la_mia_misura.amp it`.
+(replace `filter` with the module name). For the measurement with different parameters (e.g. the amplifier **with** an attenuator),
+also give a measurement file and the language: `python -m frontend.ui.WiringDialog amplifier my_measurement.amp it`.
 
 ---
 
-# Le 19 immagini
+# The 19 images
 
-Ogni scheda dice: **file**, **cartella**, **quando viene mostrata**, **cosa disegnare** e i **dettagli che devono
-esserci**.
+Each card says: **file**, **folder**, **when it is shown**, **what to draw** and the **details that must be there**.
 
-## 1. Cavo, trasmissione
+## 1. Cable, transmission
 
 * **File**: `cable_transmission`
-* **Cartella**: `ola/modules/cable/`
-* **Quando si vede**: misura del cavo in trasmissione (il caso normale, perdita tra le due porte).
-* **Cosa disegnare**: il **VNA** a sinistra con **P1 e P2** sul lato destro (o ai lati). Il **cavo in prova** al centro,
-  disegnato ben visibile e **ripiegato o ondulato** per far capire che è lui il dispositivo in prova (DUT).
-  Un'estremità del cavo va a **P1**, l'altra a **P2**, ognuna con un **cavetto di test corto** (i cavetti di test sono
-  quelli usati per la calibrazione).
-* **Dettagli**: i due cavetti di test **uguali** e corti; le due estremità del cavo etichettate **A** e **B** (A su P1,
-  B su P2); un piccolo segno che indichi i **piani di calibrazione** (le due estremità dei cavetti di test, dove si
-  attacca il cavo in prova).
+* **Folder**: `ola/modules/cable/`
+* **When it is seen**: cable measurement in transmission (the normal case, loss between the two ports).
+* **What to draw**: the **VNA** on the left with **P1 and P2** on the right side (or on the sides). The **cable under test** in the middle,
+  drawn clearly visible and **folded or wavy** to show that it is the device under test (DUT).
+  One end of the cable goes to **P1**, the other to **P2**, each with a **short test lead** (the test leads are
+  those used for the calibration).
+* **Details**: the two test leads **identical** and short; the two ends of the cable labelled **A** and **B** (A on P1,
+  B on P2); a small mark showing the **calibration planes** (the two ends of the test leads, where the cable under test
+  is attached).
 
-## 2. Cavo, riflessione con estremo aperto
+## 2. Cable, reflection with open end
 
 * **File**: `cable_reflection_open`
-* **Cartella**: `ola/modules/cable/`
-* **Quando si vede**: misura in riflessione, con il capo lontano **aperto** (il caso predefinito della riflessione).
-* **Cosa disegnare**: il VNA con la sola **P1** collegata. Il cavo in prova parte da P1 (tramite il cavetto di test) e
-  **finisce nel vuoto**: il connettore all'altra estremità è **lasciato libero**, con un **simbolo di circuito aperto**
-  (tratto interrotto) o la sigla **OPEN**.
-* **Dettagli**: **P2 vuota** (non collegata, magari con un tappino o semplicemente senza filo); il capo lontano ben
-  visibile, perché è lì che l'utente deve fare attenzione a non collegare niente.
+* **Folder**: `ola/modules/cable/`
+* **When it is seen**: measurement in reflection, with the far end **open** (the default case of reflection).
+* **What to draw**: the VNA with only **P1** connected. The cable under test starts from P1 (through the test lead) and
+  **ends in the air**: the connector at the other end is **left free**, with a **open-circuit symbol**
+  (broken line) or the word **OPEN**.
+* **Details**: **P2 empty** (not connected, perhaps with a cap or simply without a wire); the far end clearly
+  visible, because that is where the user must take care not to connect anything.
 
-## 3. Cavo, riflessione con estremo in corto
+## 3. Cable, reflection with short-circuited end
 
 * **File**: `cable_reflection_short`
-* **Cartella**: `ola/modules/cable/`
-* **Quando si vede**: misura in riflessione con il capo lontano in **cortocircuito**.
-* **Cosa disegnare**: come l'immagine 2, ma il connettore lontano ha un **cortocircuito** (un tappo short, oppure il
-  simbolo del corto: i due contatti uniti), con la sigla **SHORT**.
-* **Dettagli**: **fai le immagini 2 e 3 con la stessa impostazione**, così si vede che cambia solo il capo lontano.
+* **Folder**: `ola/modules/cable/`
+* **When it is seen**: measurement in reflection with the far end **short-circuited**.
+* **What to draw**: like image 2, but the far connector has a **short circuit** (a short cap, or the
+  short symbol: the two contacts joined), with the word **SHORT**.
+* **Details**: **make images 2 and 3 with the same setup**, so that it is seen that only the far end changes.
 
 ## 4. Return loss
 
 * **File**: `return_loss`
-* **Cartella**: `ola/modules/return_loss/`
-* **Quando si vede**: misura di return loss / VSWR di un dispositivo (un ingresso, un adattatore, un connettore).
-* **Cosa disegnare**: il VNA con **P1** collegata, tramite un **cavetto di test**, al **connettore del dispositivo in
-  prova**. Il dispositivo è un riquadro generico (il DUT) con un solo connettore.
-* **Dettagli**: **P2 non usata**; indica il **piano di calibrazione** (la fine del cavetto di test) con un tratto
-  verticale tratteggiato o un segno, perché la calibrazione si fa lì (open / short / load).
+* **Folder**: `ola/modules/return_loss/`
+* **When it is seen**: return loss / VSWR measurement of a device (an input, an adapter, a connector).
+* **What to draw**: the VNA with **P1** connected, through a **test lead**, to the **connector of the device under
+  test**. The device is a generic box (the DUT) with a single connector.
+* **Details**: **P2 not used**; mark the **calibration plane** (the end of the test lead) with a
+  dashed vertical line or a mark, because the calibration is done there (open / short / load).
 
 ## 5. Antenna
 
 * **File**: `antenna`
-* **Cartella**: `ola/modules/antenna/`
-* **Quando si vede**: misura dell'impedenza e del return loss di un'antenna.
-* **Cosa disegnare**: il VNA con **P1** collegata, con un cavetto di test, al **connettore dell'antenna** (disegna
-  un'antenna riconoscibile: stilo, patch o pannello).
-* **Dettagli**: l'antenna **lontana da oggetti metallici e da persone**: puoi disegnare un'area libera intorno
-  all'antenna, con un piccolo **segno di divieto sul metallo** o semplicemente con spazio vuoto e una freccia che indica
-  la distanza. L'antenna deve stare nella **posizione di uso** (se va montata su un tetto, nell'immagine è su un
-  supporto, non appoggiata sul tavolo).
+* **Folder**: `ola/modules/antenna/`
+* **When it is seen**: measurement of the impedance and return loss of an antenna.
+* **What to draw**: the VNA with **P1** connected, with a test lead, to the **antenna connector** (draw
+  a recognisable antenna: whip, patch or panel).
+* **Details**: the antenna **far from metal objects and people**: you can draw a free area around
+  the antenna, with a small **no-entry sign on the metal** or simply empty space and an arrow showing
+  the distance. The antenna must be in its **position of use** (if it is to be mounted on a roof, in the image it is on
+  a support, not resting on the table).
 
-## 6. Filtro
+## 6. Filter
 
 * **File**: `filter`
-* **Cartella**: `ola/modules/filter/`
-* **Quando si vede**: misura della risposta di un filtro (passa-basso, passa-alto, passa-banda, elimina-banda).
-* **Cosa disegnare**: il VNA con **P1 e P2**; il **filtro** in mezzo, con l'**ingresso** collegato a **P1** e l'**uscita**
-  collegata a **P2**, ciascuno con un cavetto di test.
-* **Dettagli**: **ingresso (IN)** e **uscita (OUT)** del filtro indicati chiaramente (il filtro è un dispositivo
-  direzionale: l'utente deve sapere quale lato va su P1). Il simbolo del filtro può essere il classico riquadro con la
-  curva (non scegliere il tipo: vale per tutti e quattro).
+* **Folder**: `ola/modules/filter/`
+* **When it is seen**: measurement of the response of a filter (low-pass, high-pass, band-pass, band-stop).
+* **What to draw**: the VNA with **P1 and P2**; the **filter** in the middle, with the **input** connected to **P1** and the **output**
+  connected to **P2**, each with a test lead.
+* **Details**: the filter's **input (IN)** and **output (OUT)** clearly indicated (the filter is a directional device:
+  the user must know which side goes to P1). The filter symbol can be the classic box with the curve
+  (do not choose the type: it applies to all four).
 
-## 7. Attenuatore
+## 7. Attenuator
 
 * **File**: `attenuator`
-* **Cartella**: `ola/modules/attenuator/`
-* **Quando si vede**: misura di un attenuatore (fisso o un gradino di uno a gradini).
-* **Cosa disegnare**: come il filtro, ma con il **simbolo di un attenuatore** (il riquadro con la barra diagonale o la
-  resistenza "a T/pi greco"): **P1** all'ingresso, **P2** all'uscita, con i cavetti di test.
-* **Dettagli**: **non esagerare con i colori**: è una cosa semplice, due fili e il dispositivo. Se fai l'immagine del
-  filtro prima, questa viene quasi uguale: va bene (cambia solo il simbolo).
+* **Folder**: `ola/modules/attenuator/`
+* **When it is seen**: measurement of an attenuator (fixed, or a step of a stepped one).
+* **What to draw**: like the filter, but with the **symbol of an attenuator** (the box with the diagonal bar or the
+  resistor "T / pi" network): **P1** at the input, **P2** at the output, with the test leads.
+* **Details**: **do not overdo the colours**: it is a simple thing, two wires and the device. If you make the filter
+  image first, this one will be almost the same: that is fine (only the symbol changes).
 
-## 8. Amplificatore, collegamento diretto
+## 8. Amplifier, direct connection
 
 * **File**: `amplifier`
-* **Cartella**: `ola/modules/amplifier/`
-* **Quando si vede**: misura dell'amplificatore **senza** attenuatore in ingresso.
-* **Cosa disegnare**: il VNA con **P1 e P2**; l'**amplificatore** al centro con **IN** collegato a **P1** e **OUT**
-  collegato a **P2**; in più l'**alimentazione dell'amplificatore** (un alimentatore o una batteria disegnata a parte,
-  con **+ in rosso** e **− in blu**) che va ai suoi **piedini di alimentazione**.
-* **Dettagli**: l'**alimentazione ben evidente**, perché l'amplificatore **non funziona** senza; un **simbolo di
-  attenzione** (triangolo) o un'etichetta **MAX IN** sull'ingresso del VNA collegato all'uscita dell'amplificatore, per
-  ricordare di controllare la potenza massima.
+* **Folder**: `ola/modules/amplifier/`
+* **When it is seen**: measurement of the amplifier **without** an input attenuator.
+* **What to draw**: the VNA with **P1 and P2**; the **amplifier** in the middle with **IN** connected to **P1** and **OUT**
+  connected to **P2**; in addition the **power supply of the amplifier** (a power supply or a battery drawn separately,
+  with **+ in red** and **− in blue**) going to its **supply pins**.
+* **Details**: the **power supply clearly visible**, because the amplifier **does not work** without it; a **warning
+  symbol** (triangle) or a **MAX IN** label on the VNA input connected to the amplifier output, to
+  remind the user to check the maximum power.
 
-## 9. Amplificatore con attenuatore in ingresso
+## 9. Amplifier with an input attenuator
 
 * **File**: `amplifier_with_attenuator`
-* **Cartella**: `ola/modules/amplifier/`
-* **Quando si vede**: quando il file di misura ha `input_attenuation_db` (un attenuatore davanti all'amplificatore).
-* **Cosa disegnare**: come l'immagine 8, ma tra **P1** e l'ingresso dell'amplificatore c'è l'**attenuatore**:
-  P1 → attenuatore → IN dell'amplificatore. L'uscita dell'amplificatore va, come prima, a **P2**.
-* **Dettagli**: l'attenuatore con il **simbolo dell'immagine 7**; scrivi **"dB"** (senza numero: il valore dipende dal
-  file) o lascia vuoto. L'attenuatore deve essere **incluso nella calibrazione** (un cenno: il piano di calibrazione
-  è dopo di lui, o una riga che lo contiene).
+* **Folder**: `ola/modules/amplifier/`
+* **When it is seen**: when the measurement file has `input_attenuation_db` (an attenuator in front of the amplifier).
+* **What to draw**: like image 8, but between **P1** and the amplifier input there is the **attenuator**:
+  P1 → attenuator → IN of the amplifier. The output of the amplifier goes, as before, to **P2**.
+* **Details**: the attenuator with the **symbol of image 7**; write **"dB"** (without a number: the value depends on the
+  file) or leave it empty. The attenuator must be **included in the calibration** (a hint: the calibration plane
+  is after it, or a line that contains it).
 
-## 10. Ripple e rumore, solo sonda
+## 10. Ripple and noise, probe only
 
 * **File**: `ripple`
-* **Cartella**: `ola/modules/ripple/`
-* **Quando si vede**: misura del ripple **senza** carico elettronico (l'alimentatore ha già il suo carico).
-* **Cosa disegnare**: l'**alimentatore (o la scheda) in prova** con la sua **uscita** (+ e −) e il **condensatore di
-  uscita** disegnato. Una **sonda** dell'oscilloscopio con la **punta sul +** e la **molla di massa sul −**, **entrambe
-  vicinissime al condensatore**; la sonda va a **CH1** dell'oscilloscopio.
-* **Dettagli**: **la molla di massa deve essere visibile**, accanto alla punta (è il dettaglio più importante di
-  questa misura: un puntale di massa lungo mostra falsi picchi). Meglio un **ingrandimento** (un cerchio con zoom) sul
-  punto della sonda sul condensatore. Aggiungi la scritta **20 MHz** (limite di banda) vicino all'oscilloscopio.
+* **Folder**: `ola/modules/ripple/`
+* **When it is seen**: ripple measurement **without** an electronic load (the power supply already has its load).
+* **What to draw**: the **power supply (or the board) under test** with its **output** (+ and −) and the **output capacitor**
+  drawn. An **oscilloscope probe** with the **tip on +** and the **ground spring on −**, **both very close
+  to the capacitor**; the probe goes to **CH1** of the oscilloscope.
+* **Details**: **the ground spring must be visible**, next to the tip (it is the most important detail of
+  this measurement: a long ground lead shows false peaks). Better an **enlargement** (a circle with zoom) on the
+  probe point on the capacitor. Add the words **20 MHz** (bandwidth limit) near the oscilloscope.
 
-## 11. Ripple e rumore, con carico
+## 11. Ripple and noise, with load
 
 * **File**: `ripple_with_load`
-* **Cartella**: `ola/modules/ripple/`
-* **Quando si vede**: quando il file di misura ha le **correnti di carico** (`conditions`): il programma accende il
-  carico elettronico.
-* **Cosa disegnare**: come l'immagine 10, ma con in più il **carico elettronico**, collegato all'uscita dell'alimentatore
-  (**+ con +**, **− con −**) con **cavi corti e grossi**.
-* **Dettagli**: i **cavi del carico** disegnati **spessi** e diversi dalla sonda, per non confonderli; **la sonda resta
-  sul condensatore**, non sul carico.
+* **Folder**: `ola/modules/ripple/`
+* **When it is seen**: when the measurement file has the **load currents** (`conditions`): the program switches on the
+  electronic load.
+* **What to draw**: like image 10, but with in addition the **electronic load**, connected to the output of the power supply
+  (**+ to +**, **− to −**) with **short, thick cables**.
+* **Details**: the **load cables** drawn **thick** and different from the probe, so that they are not confused; **the probe stays
+  on the capacitor**, not on the load.
 
-## 12. Efficienza
+## 12. Efficiency
 
 * **File**: `efficiency`
-* **Cartella**: `ola/modules/efficiency/`
-* **Quando si vede**: misura dell'efficienza (ingresso, uscita, carico, datalogger). Una sola immagine per tutti i casi,
-  quindi **generica**.
-* **Cosa disegnare**: da sinistra a destra: l'**alimentatore d'ingresso**, il **convertitore in prova**, il **carico
-  elettronico**. Tra l'alimentatore e il convertitore uno **shunt** in serie sul positivo (per misurare la corrente
-  d'ingresso). Il **datalogger** sotto, con tre fili che vanno a: **la tensione d'ingresso** (a monte dello shunt,
-  vicino all'ingresso del convertitore), **i capi dello shunt** (corrente d'ingresso) e **la tensione d'uscita** (ai
-  capi del carico o all'uscita del convertitore).
-* **Dettagli**: etichette corte e uguali in tutte le lingue: **VIN**, **IIN**, **VOUT**, **GND**; **non scrivere i
-  numeri dei canali** del datalogger: cambiano da un file all'altro (li dice la lista numerata, scritta dal file).
-  Un **alimentatore ausiliario** (per il controllo del convertitore) disegnato **tratteggiato**, perché non c'è
-  sempre.
+* **Folder**: `ola/modules/efficiency/`
+* **When it is seen**: efficiency measurement (input, output, load, datalogger). One image for all cases,
+  therefore **generic**.
+* **What to draw**: from left to right: the **input power supply**, the **converter under test**, the **electronic load**. Between the power supply and the converter a **shunt** in series on the positive (to measure the input
+  current). The **datalogger** below, with three wires going to: **the input voltage** (upstream of the shunt,
+  near the converter input), **the shunt ends** (input current) and **the output voltage** (at the load terminals or at the converter output).
+* **Details**: short labels, the same in all languages: **VIN**, **IIN**, **VOUT**, **GND**; **do not write
+  the datalogger channel numbers**: they change from one file to another (the numbered list, written from the file, gives them).
+  An **auxiliary power supply** (for the control of the converter) drawn **dashed**, because it is not
+  always there.
 
-## 13. Regolazione di linea e di carico
+## 13. Line and load regulation
 
 * **File**: `regulation`
-* **Cartella**: `ola/modules/regulation/`
-* **Quando si vede**: misura della regolazione di linea e di carico di un convertitore (una sola immagine per tutti i casi).
-* **Cosa disegnare**: da sinistra a destra: l'**alimentatore** (con **+ in rosso** e **− in blu**) che va all'**ingresso**
-  del **convertitore in prova**; l'**uscita** del convertitore va al **carico elettronico** (cavi **corti e spessi**) e,
-  con fili **sottili**, al **voltmetro** (o a un canale del **datalogger**).
-* **Dettagli**: i fili sottili del voltmetro **attaccati ai morsetti d'uscita del convertitore**, non in fondo ai cavi del
-  carico (la caduta nei cavi non è regolazione); se vuoi, un **secondo filo sottile** dal voltmetro ai **morsetti
-  d'ingresso** (tratteggiato: serve solo se si legge anche l'ingresso). Etichette corte: **VIN**, **VOUT**, **GND**.
+* **Folder**: `ola/modules/regulation/`
+* **When it is seen**: line and load regulation measurement of a converter (one image for all cases).
+* **What to draw**: from left to right: the **power supply** (with **+ in red** and **− in blue**) going to the **input**
+  of the **converter under test**; the **output** of the converter goes to the **electronic load** (**short and thick** cables) and,
+  with **thin** wires, to the **voltmeter** (or to a channel of the **datalogger**).
+* **Details**: the thin voltmeter wires **attached to the output terminals of the converter**, not at the end of the load
+  cables (the drop in the cables is not regulation); if you wish, a **second thin wire** from the voltmeter to the
+  **input terminals** (dashed: needed only if the input is also read). Short labels: **VIN**, **VOUT**, **GND**.
 
-## 14. Return loss, dispositivo dietro un cavo misurato
+## 14. Return loss, device behind a measured cable
 
 * **File**: `return_loss_with_cable`
-* **Cartella**: `ola/modules/return_loss/`
-* **Quando si vede**: quando il file di misura ha la correzione per un cavo (`correction`): il dispositivo non è sul
-  VNA ma in fondo a un cavo di cui hai già le misure.
-* **Cosa disegnare**: come l'immagine 4, ma tra il **cavetto di test** e il dispositivo c'è il **cavo misurato**,
-  disegnato **lungo e ondulato** per distinguerlo dai cavetti di test. **P1** va al cavetto di test, il cavetto al
-  **capo A** del cavo, il **capo B** al dispositivo.
-* **Dettagli**: il **piano di calibrazione** disegnato alla **fine del cavetto di test, PRIMA del cavo** (un tratto
-  verticale tratteggiato con la scritta CAL): è il punto che cambia rispetto all'immagine 4. Il cavo **non** è nella
-  calibrazione.
+* **Folder**: `ola/modules/return_loss/`
+* **When it is seen**: when the measurement file has the correction for a cable (`correction`): the device is not on the
+  VNA but at the end of a cable of which you already have the measurements.
+* **What to draw**: like image 4, but between the **test lead** and the device there is the **measured cable**,
+  drawn **long and wavy** to distinguish it from the test leads. **P1** goes to the test lead, the lead to the
+  **end A of the cable**, the **end B** to the device.
+* **Details**: the **calibration plane** drawn at the **end of the test lead, BEFORE the cable** (a
+  dashed vertical line with the word CAL): it is the point that changes compared with image 4. The cable is **not** in
+  the calibration.
 
-## 15. Antenna dietro un cavo misurato
+## 15. Antenna behind a measured cable
 
 * **File**: `antenna_with_cable`
-* **Cartella**: `ola/modules/antenna/`
-* **Quando si vede**: come la 14, ma per la misura dell'antenna.
-* **Cosa disegnare**: come l'immagine 5 (antenna riconoscibile, lontana da metalli e persone), con in mezzo il **cavo
-  misurato** (lungo e ondulato) e il **piano di calibrazione prima del cavo**, come nella 14.
-* **Dettagli**: stessa impostazione della 14, così si vede che cambia solo il dispositivo.
+* **Folder**: `ola/modules/antenna/`
+* **When it is seen**: like 14, but for the antenna measurement.
+* **What to draw**: like image 5 (recognisable antenna, far from metal and people), with in between the **measured cable**
+  (long and wavy) and the **calibration plane before the cable**, as in 14.
+* **Details**: same setup as 14, so that it is seen that only the device changes.
 
-## 16. Filtro con accessori (cavi o attenuatori) su una o due porte
+## 16. Filter with accessories (cables or attenuators) on one or two ports
 
 * **File**: `filter_with_fixtures`
-* **Cartella**: `ola/modules/filter/`
-* **Quando si vede**: quando il file di misura ha la correzione (`correction`): il filtro non è collegato direttamente al
-  VNA ma attraverso cavi, adattatori o attenuatori già misurati, su una porta o su entrambe.
-* **Cosa disegnare**: come l'immagine 6, ma tra ogni porta del VNA e il filtro c'è un **accessorio** (un tratto di cavo
-  **ondulato** o il simbolo di un attenuatore), su **P1**, su **P2** o su entrambe: disegna entrambe, con la **P2 in
-  tratteggio** per dire che non c'è sempre.
-* **Dettagli**: il **piano di calibrazione** alla **fine dei cavetti di test, PRIMA degli accessori** (tratto verticale
-  tratteggiato con la scritta CAL); gli accessori sono **fuori** dalla calibrazione. IN e OUT del filtro ben visibili.
+* **Folder**: `ola/modules/filter/`
+* **When it is seen**: when the measurement file has the correction (`correction`): the filter is not connected directly to the
+  VNA but through cables, adapters or attenuators already measured, on one port or on both.
+* **What to draw**: like image 6, but between each VNA port and the filter there is an **accessory** (a stretch of **wavy**
+  cable or the symbol of an attenuator), on **P1**, on **P2** or on both: draw both, with **P2 dashed** to
+  show that it is not always there.
+* **Details**: the **calibration plane** at the **end of the test leads, BEFORE the accessories** (dashed vertical line
+  with the word CAL); the accessories are **outside** the calibration. IN and OUT of the filter clearly visible.
 
-## 17. Attenuatore con accessori su una o due porte
+## 17. Attenuator with accessories on one or two ports
 
 * **File**: `attenuator_with_fixtures`
-* **Cartella**: `ola/modules/attenuator/`
-* **Quando si vede**: come la 16, per la misura dell'attenuatore.
-* **Cosa disegnare**: come l'immagine 7 (VNA, attenuatore al centro) con gli **accessori** su P1 e su P2 (P2 tratteggiato)
-  e il piano di calibrazione prima degli accessori, come nella 16.
-* **Dettagli**: stessa impostazione della 16, così si vede che cambia solo il dispositivo.
+* **Folder**: `ola/modules/attenuator/`
+* **When it is seen**: like 16, for the attenuator measurement.
+* **What to draw**: like image 7 (VNA, attenuator in the middle) with the **accessories** on P1 and on P2 (P2 dashed)
+  and the calibration plane before the accessories, as in 16.
+* **Details**: same setup as 16, so that it is seen that only the device changes.
 
 ## 18. Bode plot
 
 * **File**: `bode`
-* **Cartella**: `ola/modules/bode/`
-* **Quando si vede**: misura di un diagramma di Bode (guadagno e fase di un circuito) con generatore di funzioni e oscilloscopio.
-* **Cosa disegnare**: da sinistra a destra: il **generatore di funzioni** (con un'onda sinusoidale sul display), il **circuito in
-  prova** (riquadro con ingresso a sinistra e uscita a destra) e l'**oscilloscopio**. L'uscita del generatore va all'**ingresso del
-  circuito** e, con un filo a parte, al **canale di riferimento** dell'oscilloscopio (**CH1**); l'**uscita del circuito** va al
-  secondo canale (**CH2**).
-* **Dettagli**: le **due sonde uguali**, con la molla di massa corta; il **punto di prelievo dell'ingresso vicino al circuito** (non
-  all'uscita del generatore). Se vuoi, un riquadro più piccolo che mostri il caso del **guadagno d'anello** (generatore in serie con
-  l'anello tramite una resistenza o un trasformatore di iniezione, tratteggiato perché non c'è sempre).
+* **Folder**: `ola/modules/bode/`
+* **When it is seen**: Bode plot measurement (gain and phase of a circuit) with a function generator and an oscilloscope.
+* **What to draw**: from left to right: the **function generator** (with a sine wave on its display), the **circuit under
+  test** (a box with the input on the left and the output on the right) and the **oscilloscope**. The generator output goes to the **circuit
+  input** and, with a separate wire, to the **reference channel** of the oscilloscope (**CH1**); the **circuit output** goes to the
+  second channel (**CH2**).
+* **Details**: the **two probes identical**, with a short ground spring; the **input pick-up point close to the circuit** (not
+  at the generator output). If you wish, a smaller box showing the **loop gain** case (generator in series with
+  the loop through a resistor or an injection transformer, dashed because it is not always there).
 
-## 19. Time domain (TDR): dove sta un guasto lungo un cavo
+## 19. Time domain (TDR): where a fault is along a cable
 
 * **File**: `tdr`
-* **Cartella**: `ola/modules/tdr/`
-* **Quando si vede**: misura nel dominio del tempo di una linea (cavo) con il VNA.
-* **Cosa disegnare**: il VNA con **P1** collegata, con un cavetto di test, al **capo vicino** di un **cavo lungo** (disegnalo ondulato o
-  arrotolato, ben diverso dal cavetto di test). All'altro capo tre possibilità, disegnate come **tre uscite alternative** (o un capo con
-  tre simboli affiancati): **aperto** (connettore libero), **corto** (tappo short), **dispositivo** (un riquadro, per esempio un'antenna).
-* **Dettagli**: sul cavo un **punto di guasto** (uno schiacciamento, un connettore) con una freccia e la scritta **d**, e una **quota** che
-  va dal piano di calibrazione (la fine del cavetto di test, tratteggio con CAL) fino a quel punto: la distanza si misura da lì.
+* **Folder**: `ola/modules/tdr/`
+* **When it is seen**: time-domain measurement of a line (cable) with the VNA.
+* **What to draw**: the VNA with **P1** connected, with a test lead, to the **near end** of a **long cable** (draw it wavy or
+  coiled, clearly different from the test lead). At the other end three possibilities, drawn as **three alternative endings** (or one end with
+  three symbols side by side): **open** (free connector), **short** (short cap), **device** (a box, for example an antenna).
+* **Details**: on the cable a **fault point** (a crush, a connector) with an arrow and the letter **d**, and a **dimension line** that
+  goes from the calibration plane (the end of the test lead, dashed with CAL) to that point: the distance is measured from there.
 
 ---
 
-# Foglio di controllo
+# Checklist
 
-Spunta man mano. Il file va nella cartella indicata.
+Tick off as you go. The file goes in the indicated folder.
 
 - [ ] 1. `cable_transmission` — `ola/modules/cable/`
 - [ ] 2. `cable_reflection_open` — `ola/modules/cable/`
@@ -318,14 +315,14 @@ Spunta man mano. Il file va nella cartella indicata.
 - [ ] 18. `bode` — `ola/modules/bode/`
 - [ ] 19. `tdr` — `ola/modules/tdr/`
 
-## Un'idea per fare meno lavoro
+## An idea to do less work
 
-Fai prima **una sola immagine di base per il VNA** (le due porte, i cavetti di test, la linea del piano di calibrazione):
-si riusa nelle immagini 1-9. Cambia solo il dispositivo in mezzo.
+Make **first one basic image for the VNA** (the two ports, the test leads, the calibration-plane line):
+it is reused in images 1-9. Only the device in the middle changes.
 
-Il **time log** non ha immagine: i suoi collegamenti dipendono dal file (la lista numerata dice cosa collegare).
+The **time log** has no image: its connections depend on the file (the numbered list says what to connect).
 
-## Quando una nuova misura ha bisogno di un'immagine
+## When a new measurement needs an image
 
-Ogni misura che si aggiunge in futuro elenca le sue immagini nel proprio `wiring.json`, e questo file va aggiornato
-con la sua scheda (nome, quando si vede, cosa disegnare).
+Every measurement added in the future lists its images in its own `wiring.json`, and this file must be updated
+with its card (name, when it is seen, what to draw).

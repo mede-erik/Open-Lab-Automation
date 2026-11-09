@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Paints a label ``Drawing`` (``ola.labels``) on a screen widget, a PDF or an image.
 
 The drawing is in millimetres; ``paint_drawing`` scales it to pixels. A PDF is written at its real

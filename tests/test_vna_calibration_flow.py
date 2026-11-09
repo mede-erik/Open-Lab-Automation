@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Guided VNA calibration: the steps, the session on a real driver (simulated LiteVNA) and on an
 SCPI VNA (simulated transport), the saved record and the terminal tool."""
 

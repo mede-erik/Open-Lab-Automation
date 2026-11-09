@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """A small simulated laboratory to try the measurement windows without any instrument.
 
 ``DemoLab`` is a power supply, an electronic load and a data logger around a converter of 90 %

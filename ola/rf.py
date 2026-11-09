@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Radio-frequency calculations shared by the RF measurements (no Qt, no extra libraries).
 
 Everything works on plain Python lists. A *trace* is a list of values at the frequencies of a list

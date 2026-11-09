@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The connection diagram of a measurement: which instrument goes where.
 
 ``WiringDialog`` shows the picture (a hand-drawn image of the module if it has one for these

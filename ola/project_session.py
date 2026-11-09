@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """A project at work: what the project window does, without any screen.
 
 ``ProjectSession`` ties together a ``Project`` (its measurements and files), the module registry

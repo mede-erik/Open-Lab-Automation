@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Erik Medeossi
+// This file is part of Open Lab Automation.
+// Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 #include "platform.h"
 
 static void _set_nonblocking(be_socket_t sock, bool nonblock) {

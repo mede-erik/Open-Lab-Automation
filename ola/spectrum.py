@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Amplitude spectrum of a sampled signal, and the peaks in it. No Qt, no I/O.
 
 ``amplitude_spectrum`` windows the samples (Hann), takes the Fourier transform and returns the

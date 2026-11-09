@@ -2,15 +2,15 @@
 <!-- OLA-PLACEHOLDER: not a drawing, the program ignores this file -->
 <rect width="1600" height="804" fill="#f1f1f1"/>
 <rect x="20" y="20" width="1560" height="764" fill="none" stroke="#999" stroke-width="4" stroke-dasharray="24 14"/>
-<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">SEGNAPOSTO: sostituiscimi con il tuo disegno</text>
+<text x="80" y="110" font-size="44" font-weight="bold" fill="#b00020">PLACEHOLDER: replace me with your drawing</text>
 <text x="80" y="190" font-size="64" font-weight="bold">antenna</text>
 <text x="80" y="245" font-size="30" fill="#555">ola/modules/antenna/ - Antenna</text>
-<text x="80" y="330" font-size="30">Quando si vede: misura dell'impedenza e del return loss di un'antenna.</text>
-<text x="80" y="397" font-size="30">Da disegnare: il VNA con P1 collegata, con un cavetto di test, al connettore dell'antenna</text>
-<text x="80" y="439" font-size="30">(disegna un'antenna riconoscibile: stilo, patch o pannello).</text>
-<text x="80" y="506" font-size="30">Dettagli: l'antenna lontana da oggetti metallici e da persone: puoi disegnare un'area libera</text>
-<text x="80" y="548" font-size="30">intorno all'antenna, con un piccolo segno di divieto sul metallo o semplicemente con spazio</text>
-<text x="80" y="590" font-size="30">vuoto e una freccia che indica la distanza. L'antenna deve stare nella posizione di uso (se va</text>
-<text x="80" y="632" font-size="30">montata su un tetto, nell'immagine è su un supporto, non appoggiata sul tavolo).</text>
-<text x="80" y="744" font-size="26" fill="#555">Salva il tuo disegno con questo nome (.svg, .png, .jpg o .webp). Finché questo file c'è, il programma usa il suo schema.</text>
+<text x="80" y="330" font-size="30">When it is seen: measurement of the impedance and return loss of an antenna.</text>
+<text x="80" y="397" font-size="30">What to draw: the VNA with P1 connected, with a test lead, to the antenna connector (draw a</text>
+<text x="80" y="439" font-size="30">recognisable antenna: whip, patch or panel).</text>
+<text x="80" y="506" font-size="30">Details: the antenna far from metal objects and people: you can draw a free area around the</text>
+<text x="80" y="548" font-size="30">antenna, with a small no-entry sign on the metal or simply empty space and an arrow showing the</text>
+<text x="80" y="590" font-size="30">distance. The antenna must be in its position of use (if it is to be mounted on a roof, in the</text>
+<text x="80" y="632" font-size="30">image it is on a support, not resting on the table).</text>
+<text x="80" y="744" font-size="26" fill="#555">Save your drawing with this name (.svg, .png, .jpg or .webp). While this file is here, the program uses its own diagram.</text>
 </svg>

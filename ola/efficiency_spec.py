@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """The efficiency measurement: description of the parameters, and their validation.
 
 This module has two jobs and no I/O, no Qt:

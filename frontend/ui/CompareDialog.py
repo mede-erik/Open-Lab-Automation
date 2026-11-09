@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Tool to compare saved results (menu *Tools* > *Compare results*).
 
 Pick two or more run files (``runs/*.jsonl``) and see them together. A thin layer over

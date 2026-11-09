@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Call planner: logical call + logical arguments + model -> a validated plan.
 
 Pure function of the library data: no I/O. The plan is what the step executor

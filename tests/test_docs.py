@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Keeps the documentation honest: it fails when the code and the docs drift apart.
 
 * every public module / class / function of ``ola/`` has a docstring;

@@ -1,3 +1,7 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
 """Runs a measurement in its own thread: setup -> run -> teardown (always), with stop/pause.
 
     cancel = threading.Event()                    # one per run, shared with the handles
