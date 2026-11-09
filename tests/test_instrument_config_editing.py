@@ -396,14 +396,6 @@ def test_deleting_asks_first_and_only_yes_deletes(app, tmp_path, library, monkey
     assert dialog.list_widget.count() == 1 and dialog.list_widget.item(0).text() == "LOAD"
 
 
-@pytest.mark.xfail(
-    strict=False,  # not strict: when the fix is merged this passes (XPASS) without turning main red
-    reason="BUG, fixed in the PR from branch claude/fix-delete-instrument: deleting the first of "
-    "two instruments leaves the editor on 'There are no instruments in the file' "
-    "(current_instrument is None) while the list selects the second. Qt reports the new current "
-    "row (1) while the entry is already removed from the list, and setCurrentRow(0) does not "
-    "report it again. Remove this marker once that fix is on main.",
-)
 def test_after_deleting_the_first_instrument_the_next_one_is_shown(
     app, tmp_path, library, monkeypatch
 ):
