@@ -219,7 +219,9 @@ class FakeDll:
         return 1
 
     def FDwfAnalogInChannelRangeSet(self, handle, channel, volts):
-        self._init_in()["range"][channel.value] = volts.value
+        # like the device: the first range that is not smaller; the real top one is 1.2 x the one
+        # RangeInfo reports (60.36 against 50 V on an Analog Discovery 2)
+        self._init_in()["range"][channel.value] = min(volts.value, self.ain_range[1] * 1.2)
         return self._ok("in_range", channel, volts)
 
     def FDwfAnalogInChannelRangeGet(self, handle, channel, volts):
@@ -330,6 +332,32 @@ def test_the_first_channel_is_used_when_none_is_given():
     drv, dll = driver()
     drv.call("set_frequency", {"value": 1000.0})
     assert dll.sent("frequency") == [(0, 0, 1000.0)]
+
+
+def test_without_a_channel_the_configured_channels_start_together():
+    """Started one call after the other, two channels have a random phase between them."""
+    drv, dll = driver()
+    drv.call("set_frequency", {"channel_number": 1, "value": 1000.0})
+    drv.call("set_frequency", {"channel_number": 2, "value": 1000.0})
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1), (1, 0, 1)]
+    assert dll.sent("configure") == [(-1, 1)]  # one start for the whole generator
+    drv.call("set_output_state", {"state": False})
+    assert dll.sent("configure") == [(-1, 1), (-1, 0)]
+    assert dll.sent("enable")[2:] == [(0, 0, 0), (1, 0, 0)]
+
+
+def test_a_channel_that_was_not_configured_is_not_started_by_the_group_call():
+    drv, dll = driver()
+    drv.call("set_frequency", {"channel_number": 1, "value": 1000.0})
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1)]  # W2 keeps the default signal off
+
+
+def test_without_a_channel_and_nothing_configured_the_first_channel_is_used():
+    drv, dll = driver()
+    drv.call("set_output_state", {"state": True})
+    assert dll.sent("enable") == [(0, 0, 1)] and dll.sent("configure") == [(-1, 1)]
 
 
 def test_a_channel_the_device_does_not_have_is_an_invalid_argument():
@@ -514,7 +542,8 @@ def test_a_range_offset_or_depth_the_device_cannot_give_is_not_handled():
         drv.call("set_channel_offset", {"channel_number": 1, "value": 30.0})
     with pytest.raises(ValueNotHandledError, match="16 to 8192 points"):
         drv.call("set_acquisition_depth", {"depth": 100000})
-    assert dll.sent("in_range") == [] and dll.sent("in_buffer") == []
+    # the range was tried and put back as it was; nothing was set for the depth
+    assert dll.sent("in_range")[-1] == (0, 5.0) and dll.sent("in_buffer") == []
     drv.call("set_acquisition_depth", {"depth": 4096})
     assert dll.sent("in_buffer") == [(4096,)]
     with pytest.raises(InvalidArgumentError, match="2 oscilloscope channel"):
@@ -763,3 +792,32 @@ def test_the_mandatory_calls_the_device_has_no_equivalent_for_say_so(call):
     drv, _ = scope()
     with pytest.raises(CallNotSupportedError, match=f"call '{call}' has no equivalent"):
         drv.call(f"unsupported_{call}", {})
+
+
+def test_the_scale_limits_follow_the_probe_attenuation():
+    """Measured on a real Analog Discovery 2: with a x10 probe the library gives at least ten
+    times the minimum range, and a smaller request was rounded up silently."""
+    drv, dll = scope()  # the fake device gives 0.2 to 50 V of range, 0.02 to 5 V/div
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 10.0})
+    with pytest.raises(ValueNotHandledError, match=r"with a x10 probe \(at least 0.2 V/div\)"):
+        drv.call("set_channel_scale", {"channel_number": 1, "value": 0.1})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.5})  # 5 V range at the tip
+    assert dll.sent("in_range") == [(0, 5.0)]
+    drv.call("set_channel_scale", {"channel_number": 2, "value": 0.05})  # channel 2 has no probe
+    # the real top range is above what RangeInfo says (60 against 50 V): 6 V/div is served,
+    # 7 V/div is not, and the range is put back as it was
+    drv.call("set_channel_scale", {"channel_number": 2, "value": 6.0})
+    with pytest.raises(ValueNotHandledError, match=r"at most 6 V/div"):
+        drv.call("set_channel_scale", {"channel_number": 2, "value": 7.0})
+    assert dll.sent("in_range")[-1] == (1, 60.0)
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 1.0})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.1})  # fine without the probe
+    with pytest.raises(ValueNotHandledError):
+        drv.call("set_channel_scale", {"channel_number": 1, "value": 0.01})
+
+
+def test_a_scope_reset_forgets_the_probe_attenuation():
+    drv, _ = scope()
+    drv.call("set_probe_attenuation", {"channel_number": 1, "value": 10.0})
+    drv.call("scope_reset", {})
+    drv.call("set_channel_scale", {"channel_number": 1, "value": 0.05})  # allowed without a probe

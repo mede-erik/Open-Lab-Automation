@@ -570,9 +570,11 @@ class WaveformsDriver:
         self.device = transport
         self.api, self.handle = transport.api, transport.handle
         self._channels: Optional[int] = None
+        self._configured: set = set()  # AnalogOut channel indexes given a setting by this driver
         # oscilloscope
         self._in_channels: Optional[int] = None
         self._enabled: set = set()  # AnalogIn channel indexes enabled through this driver
+        self._attenuation: Dict[int, float] = {}  # probe factor per AnalogIn channel (default 1)
         self._timebase: Optional[float] = None  # seconds per division
         self._depth: Optional[int] = None  # points
         self._state = "idle"  # idle | running | done
@@ -632,7 +634,27 @@ class WaveformsDriver:
 
     def fn_set_output_state(self, state: bool, channel_number: Optional[int] = None) -> None:
         """On: enable the carrier and start the channel. Off: stop the channel and disable the
-        carrier."""
+        carrier.
+
+        Without a channel number all the channels that were given a setting through this driver
+        are switched together with one start/stop of the whole generator (SDK channel -1), so
+        that they start in phase; starting channels one call after the other leaves a random phase
+        between them (measured on a real Analog Discovery 2: about 300 degrees of spread, against
+        0.5 degrees when started together). A channel that was never configured is left alone, and
+        with none configured the first channel is used."""
+        if channel_number is None:
+            if not self._configured:
+                self._channel(None, "set_output_state")  # checks that the device has a channel
+            channels = sorted(self._configured) or [0]
+            if state:
+                for channel in channels:
+                    self.api.node_enable(self.handle, channel, True)
+                self.api.configure(self.handle, -1, True)
+            else:
+                self.api.configure(self.handle, -1, False)
+                for channel in channels:
+                    self.api.node_enable(self.handle, channel, False)
+            return
         channel = self._channel(channel_number, "set_output_state")
         if state:
             self.api.node_enable(self.handle, channel, True)
@@ -646,6 +668,7 @@ class WaveformsDriver:
         refuses what it cannot do)."""
         channel = self._channel(channel_number, "set_frequency")
         self.api.set_frequency(self.handle, channel, float(value))
+        self._configured.add(channel)
 
     def fn_set_amplitude(self, value: float, channel_number: Optional[int] = None) -> None:
         """The peak-to-peak amplitude (see ``PEAK_PER_VPP``); a value the device cannot give is
@@ -660,6 +683,7 @@ class WaveformsDriver:
                 call="set_amplitude",
             )
         self.api.set_amplitude(self.handle, channel, volts)
+        self._configured.add(channel)
 
     def fn_set_offset(self, value: float, channel_number: Optional[int] = None) -> None:
         """The offset in volts; a value the device cannot give is not handled by this model."""
@@ -672,6 +696,7 @@ class WaveformsDriver:
                 call="set_offset",
             )
         self.api.set_offset(self.handle, channel, float(value))
+        self._configured.add(channel)
 
     def fn_set_waveform_shape(self, shape: str, channel_number: Optional[int] = None) -> None:
         """The waveform. PULSE and ARBITRARY are not handled; neither is a shape the device does not
@@ -689,6 +714,7 @@ class WaveformsDriver:
                 f"this device does not give a {shape} waveform", call="set_waveform_shape"
             )
         self.api.set_function(self.handle, channel, func)
+        self._configured.add(channel)
 
     # ================================================================ oscilloscope (AnalogIn)
     def _in_channel(self, channel_number: Optional[int], call: str) -> int:
@@ -708,6 +734,7 @@ class WaveformsDriver:
         """Default parameters of the oscilloscope (the generator is not touched)."""
         self.api.ain_reset(self.handle)
         self._enabled.clear()
+        self._attenuation.clear()  # the device goes back to no probe
         self._timebase = self._depth = None
         self._state, self._capture = "idle", {}
         self._trigger_timeout = 0.0
@@ -719,18 +746,39 @@ class WaveformsDriver:
         (self._enabled.add if state else self._enabled.discard)(channel)
 
     def fn_set_channel_scale(self, value: float, channel_number: Optional[int] = None) -> None:
-        """Volts per division: the range is ``VERTICAL_DIVISIONS`` times that; a range the device
-        does not have is not handled by this model."""
+        """Volts per division at the probe tip: the range is ``VERTICAL_DIVISIONS`` times that; a
+        range the device does not have is not handled by this model.
+
+        The range the library reports (``RangeInfo``) is the one at the device input and is only
+        a guide: measured on an Analog Discovery 2 it says 5 to 50 V but the two real ranges are
+        5.49 and 60.36 V, and every request goes to the first range that is not smaller. With a
+        probe attenuation set the library applies it to the range (a x10 probe gave 54.9 V for
+        every request between 0.5 and 10 V, ten times the minimum), so the lower limit is
+        multiplied by the attenuation and a request below it is refused instead of being rounded
+        up silently. The upper limit is the one the device really gives: the range is set, read
+        back, and put back as it was if the device could not cover the request."""
         channel = self._in_channel(channel_number, "set_channel_scale")
         volts = float(value) * VERTICAL_DIVISIONS
-        low, high = self.api.ain_range_info(self.handle)
-        if not low <= volts <= high:
+        attenuation = self._attenuation.get(channel, 1.0)
+        low, _ = self.api.ain_range_info(self.handle)
+        low *= attenuation
+        if volts < low:
+            probe = f" with a x{attenuation:g} probe" if attenuation != 1.0 else ""
             raise ValueNotHandledError(
-                f"{value:g} V/div is outside what this device gives "
-                f"({low / VERTICAL_DIVISIONS:g} to {high / VERTICAL_DIVISIONS:g} V/div)",
+                f"{value:g} V/div is outside what this device gives{probe} "
+                f"(at least {low / VERTICAL_DIVISIONS:g} V/div)",
                 call="set_channel_scale",
             )
+        before = self.api.ain_range_get(self.handle, channel)
         self.api.ain_range_set(self.handle, channel, volts)
+        real = self.api.ain_range_get(self.handle, channel)
+        if real < volts * 0.999:  # the device has no range that large
+            self.api.ain_range_set(self.handle, channel, before)
+            raise ValueNotHandledError(
+                f"{value:g} V/div is outside what this device gives "
+                f"(at most {real / VERTICAL_DIVISIONS:g} V/div)",
+                call="set_channel_scale",
+            )
 
     def fn_query_channel_scale(self, channel_number: Optional[int] = None) -> float:
         """Volts per division the device really uses."""
@@ -768,6 +816,7 @@ class WaveformsDriver:
         """Tell the library about the attenuation applied outside the device."""
         channel = self._in_channel(channel_number, "set_probe_attenuation")
         self.api.ain_attenuation_set(self.handle, channel, float(value))
+        self._attenuation[channel] = float(value)
 
     def fn_set_timebase_scale(self, value: float) -> None:
         """Time per division (``HORIZONTAL_DIVISIONS`` divisions); the sample frequency is set
