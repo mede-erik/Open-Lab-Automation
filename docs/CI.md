@@ -31,6 +31,7 @@ conformance, generated docs, and this application's test suite run against the l
 | Legacy C backend through ctypes against a fake LXI instrument (query, timeout, sweep) | `tests/test_c_backend.py` |
 | GUI smoke tests: every window/dialog is built and shown offscreen with the example project, without error boxes; the main window opens a project | `tests/test_gui_smoke.py` |
 | PostgreSQL measurement storage | `tests/test_project_database.py` |
+| Documentation stays true to the code: docstrings on public `ola/` items, every `ola/` module in the README engine table, TRN/CALL codes in `ERROR_CODES.md`, relative links of README and `docs/` resolve, the example of `docs/measurement-modules.md` runs | `tests/test_docs.py` |
 
 Some checks keep an explicit list of **known gaps** (for example a model used by an example
 project that is not in the library yet). The test fails both when a new gap appears and when a

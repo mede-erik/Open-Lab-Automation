@@ -175,6 +175,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
   - `AddressEditorDialog.py` — Guided VISA address composition
+  - `GpibAdapterDialog.py`, `GpibDevicePickerDialog.py` — GPIB adapter profiles and the instrument picker on the GPIB bus (guide: [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `DataloggerSlotConfigDialog.py` — Slot-based module configuration for modular dataloggers
   - `PulseGeneratorDialog.py` — Electronic load pulse generator with waveform preview
   - `HexDecConverterDialog.py` — Hex/Dec/Bin converter
@@ -195,6 +196,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `LoadInstruments.py` — Instrument library interface used by the GUI
   - `errorhandler.py` — Centralized error handling with standardized error codes ([RESOURCE-XXX] format)
   - `validator.py` — Input validation functions
+  - `gpib_settings.py` — Saved GPIB adapter settings (see [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `tools.py` — Reusable utility functions
   - `Translator.py` — Multi-language translation system
 
