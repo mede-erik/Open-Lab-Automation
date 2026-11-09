@@ -49,14 +49,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Data Flow (simplified)
 
 1. **User interacts** with a dialog → emits a Qt signal.
-2. **UI layer** calls a validation routine from `core/validator.py`.
-3. On success, **core/tools.py** writes configuration files or triggers a measurement.
+2. **UI layer** calls a validation routine from `frontend/core/validator.py`.
+3. On success, **frontend/core/tools.py** writes configuration files or triggers a measurement.
 4. For real‑time actions the core calls the **C backend**, which sends SCPI commands to the instrument.
-5. Responses are logged via **core/logger.py** and shown in the UI.
+5. Responses are logged via **frontend/core/logger.py** and shown in the UI.
 
 ### Error‑Handling Strategy
 
-All exceptions are wrapped in custom types defined in `core/errorhandler.py`. Each error includes a standardized code (`[RESOURCE‑XXX]`) that is displayed to the user and recorded in the log with a full stack trace. UI modules should call `errorhandler.handle_error(exc, user_message)` instead of ad‑hoc try/except blocks.
+All exceptions are wrapped in custom types defined in `frontend/core/errorhandler.py`. Each error includes a standardized code (`[RESOURCE‑XXX]`) that is displayed to the user and recorded in the log with a full stack trace. UI modules should call `errorhandler.handle_error(exc, user_message)` instead of ad‑hoc try/except blocks.
 
 ### Internationalisation
 

@@ -8,7 +8,7 @@ How it works is explained in [`wiring.md`](wiring.md). Here there is only the wo
 
 ## The placeholders
 
-In every module folder there is **already a placeholder file** for each image (17 grey, dashed `.svg` files, with
+In every module folder there is **already a placeholder file** for each image (19 grey, dashed `.svg` files, with
 the name written on them, when it is seen and what to draw). They serve to know **which file to replace** and where it is.
 
 * The program **ignores the placeholders**: until you replace them, the wiring window keeps showing

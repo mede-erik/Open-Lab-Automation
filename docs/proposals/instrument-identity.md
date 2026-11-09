@@ -1,7 +1,8 @@
 # Instrument identity, saved measurements and compatibility (proposal)
 
-Status: proposal, decisions taken in the discussion with the project owner are marked **Decided**.
-Nothing here is implemented yet.
+Status: the proposal has been largely implemented (`ola/identity.py`, `ola/compat.py`, `ola/role_mapping.py`,
+`ola/project_rename.py`, `ola/vna_calibration_flow.py`; see the README). This file is kept as the design record:
+the decisions taken in the discussion with the project owner are marked **Decided**.
 
 ## Goal
 
