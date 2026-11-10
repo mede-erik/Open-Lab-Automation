@@ -93,6 +93,29 @@ GUI smoke and error-code tests are meant to catch exactly those changes.
 
 ---
 
+## Packaging and releases
+
+Packages are built by `.github/workflows/package.yml` and published as GitHub releases: the
+pre-release `nightly` at every commit on `main`, a fixed release for every tag `vX.Y.Z`. The
+recipes are in `packaging/` (read `packaging/README.md` first), the steps in
+`scripts/build_package.py`. Windows: installer + zip; Linux: `.deb`, `.rpm`, tar.gz; Arch:
+`packaging/arch/PKGBUILD`.
+
+- **Placeholder icon.** `frontend/assets/icons/icona.png` is a copy of `oscilloscope.png` and is the
+  single place for the program icon (Windows exe, Linux menu entry). Replace that file when the
+  real icon exists; see `packaging/README.md` for the sizes.
+- **Version in three places:** `pyproject.toml`, `frontend/appinfo.json` and `pkgver` in
+  `packaging/arch/PKGBUILD` (`tests/test_packaging.py` checks they agree).
+- **After a release, bump the version** in those three places to the next one: otherwise the nightly
+  builds (`X.Y.Z-nightly...`) sort older than the release `X.Y.Z`.
+- A data folder the program reads at run time (next to `frontend/`, `ola/`, `Instruments_LIB/`) must
+  also be listed in `packaging/pyinstaller/ola.spec`, at the same relative path.
+- The repository URL (`frontend/appinfo.json`, `packaging/`) is `mede-erik/Open-Lab-Automation`;
+  update it if the repository moves to the Open Lab Instruments organization.
+- Open points: the Windows installer is not signed and is English only.
+
+---
+
 ## Recent fixes (July 2026)
 
 - `requirements.txt`: PyQt5 → PyQt6

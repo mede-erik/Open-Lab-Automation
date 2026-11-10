@@ -4,7 +4,10 @@
 
 name: CI
 
-# Runs on every push (any branch) and on every pull request.
+# Runs on every push (any branch except main and the version tags) and on every pull request.
+# On main and on the tags vX.Y.Z the workflow "Package" calls this one first (workflow_call) and
+# builds the packages only if everything passes; running it here too would test the same commit
+# twice. See docs/CI.md.
 #
 # Runner: GitHub-hosted by default. To move the jobs to a self-hosted runner set the repository
 # variable CI_RUNS_ON (Settings > Secrets and variables > Actions > Variables) to a JSON
@@ -13,8 +16,11 @@ name: CI
 
 on:
   push:
+    branches-ignore: [main]
+    tags-ignore: ["v*"]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}

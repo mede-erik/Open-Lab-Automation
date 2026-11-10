@@ -1,7 +1,9 @@
 # Continuous integration and automatic tests
 
-The workflow `.github/workflows/ci.yml` runs on **every push (any branch)**, on **every pull
-request** and by hand (*Actions → CI → Run workflow*). It needs no instrument: the hardware is
+The workflow `.github/workflows/ci.yml` runs on **every push to a branch other than `main`**, on
+**every pull request** and by hand (*Actions → CI → Run workflow*). On `main` and on the version
+tags (`vX.Y.Z`) the workflow *Package* runs these same jobs first and builds the packages only if
+they pass (see [Packages](#packages) below). It needs no instrument: the hardware is
 replaced by simulated transports, fake TCP instruments on `localhost` and pseudo-terminals.
 
 ## Jobs
@@ -17,6 +19,23 @@ replaced by simulated transports, fake TCP instruments on `localhost` and pseudo
 The library repository (`Instruments_LIB`) has its own workflow: library data checks,
 conformance, generated docs, and this application's test suite run against the library change.
 
+## Packages
+
+The workflow `.github/workflows/package.yml` builds the installable packages (Windows: installer
+and zip; Linux: `.deb`, `.rpm` and tar.gz) and publishes them as GitHub releases:
+
+- every commit on `main` updates the pre-release **`nightly`**;
+- a tag `vX.Y.Z` creates the fixed release `vX.Y.Z`;
+- a manual run only leaves the packages as artifacts of the run.
+
+The package for Arch Linux is a `PKGBUILD` in `packaging/arch/`, checked by the workflow in an Arch
+container and built by the user. Everything about the recipes, the checks done on the packages and
+how to make a release is in [`packaging/README.md`](../packaging/README.md).
+
+The build jobs can move to self-hosted runners with the repository variables
+`PACKAGE_RUNS_ON_LINUX` and `PACKAGE_RUNS_ON_WINDOWS` (JSON, like `CI_RUNS_ON`). The Linux job
+tests the `.deb`/`.rpm` in Docker containers; the Windows job needs Inno Setup 6.3 or newer.
+
 ## What the test suite covers
 
 | Area | Files |
@@ -28,6 +47,7 @@ conformance, generated docs, and this application's test suite run against the l
 | Error codes: every code used in the source is documented in `ERROR_CODES.md` | `tests/test_core_errorhandler.py` |
 | Translation keys used by the code exist in every locale | `tests/test_core_i18n_logging.py` |
 | Command-line tools (`check_translations`, `dry_run_call`, `instrument_shell --sim`) run as subprocesses | `tests/test_scripts_cli.py` |
+| Packaging files: versions agree (`pyproject.toml`, `appinfo.json`, `PKGBUILD`), the build recipes name files that exist, the version of a release comes from the tag | `tests/test_packaging.py` |
 | GUI smoke tests: every window/dialog is built and shown offscreen with the example project, without error boxes; the main window opens a project | `tests/test_gui_smoke.py` |
 | PostgreSQL measurement storage | `tests/test_project_database.py` |
 

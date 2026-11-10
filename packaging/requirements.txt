@@ -1,0 +1,4 @@
+# Tools to build the packages (not needed to run the program). Pinned: a package must be
+# reproducible. Update them on purpose, and look at the self-test of the bundle when you do.
+pyinstaller==6.22.3
+maturin>=1.5,<2

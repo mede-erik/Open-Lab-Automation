@@ -1,0 +1,92 @@
+# Maintainer: Erik Medeossi
+#
+# Package builder for Arch Linux: builds the release  v$pkgver  from the sources.
+#
+#   cd packaging/arch && makepkg -si
+#
+# Unlike the .deb/.rpm (a self-contained bundle in /opt) this installs the program as a normal
+# Python application that uses the system packages of the distribution: sources in
+# /usr/lib/open-lab-automation, started by /usr/bin/open-lab-automation.
+#
+# * The sources come from git, not from the GitHub tarball: the tarball has no submodules, and
+#   the program needs Instruments_LIB. The library is cloned as a second source and the
+#   submodule of the release is checked out from it, so it is the exact commit the release pins.
+# * To build another revision (CI, testing a branch) set OLA_FRAGMENT, for example
+#       OLA_FRAGMENT=commit=<sha> makepkg
+#   The default is the tag of the release.
+# * Bump pkgver together with pyproject.toml and frontend/appinfo.json.
+
+pkgname=open-lab-automation
+pkgver=0.0.2
+pkgrel=1
+pkgdesc='Open-source suite for automated electrical measurements with bench instruments'
+arch=('x86_64')
+url='https://github.com/mede-erik/Open-Lab-Automation'
+license=('GPL-3.0-only')
+depends=(
+    'python'
+    'python-pyqt6'
+    'python-pyvisa'
+    'python-pyvisa-py'
+    'python-pyserial'
+    'python-numpy'
+    'python-matplotlib'
+    'python-psycopg2'
+    'python-cryptography'
+    'python-segno'
+)
+makedepends=('git' 'cargo' 'python-maturin')
+optdepends=(
+    'postgresql: store the measurements in a PostgreSQL server'
+)
+_fragment="${OLA_FRAGMENT:-tag=v${pkgver}}"
+source=(
+    "${pkgname}::git+${url}.git#${_fragment}"
+    "Instruments_LIB::git+https://github.com/mede-erik/Instruments_LIB.git"
+)
+sha256sums=('SKIP' 'SKIP')
+
+prepare() {
+    cd "${srcdir}/${pkgname}"
+    # The submodule comes from the local clone (no network in the build, and the commit is the
+    # one the release pins)
+    git submodule init
+    git config submodule.Instruments_LIB.url "${srcdir}/Instruments_LIB"
+    git -c protocol.file.allow=always submodule update
+    # Rust crates are fetched here, the build is offline
+    cd native
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    # The fast transport (ola_native). Without it the program falls back to the Python one.
+    cd "${srcdir}/${pkgname}/native"
+    maturin build --release --locked --offline --out "${srcdir}/wheels"
+}
+
+package() {
+    cd "${srcdir}/${pkgname}"
+    local lib="${pkgdir}/usr/lib/${pkgname}"
+
+    # The program finds its data (Instruments_LIB, frontend/lang, ola/modules) next to the
+    # packages, so the tree keeps the layout of the repository
+    install -d "${lib}"
+    cp -r frontend ola examples "${lib}/"
+    install -Dm644 Instruments_LIB/instruments_lib.json "${lib}/Instruments_LIB/instruments_lib.json"
+    cp -r Instruments_LIB/schema "${lib}/Instruments_LIB/schema"
+    install -Dm644 Instruments_LIB/README.md "${lib}/Instruments_LIB/README.md"
+    find "${lib}" -name __pycache__ -type d -prune -exec rm -rf {} +
+
+    # Rust transport, next to the packages (the wheel is a zip: ola_native/…)
+    python -m zipfile -e "${srcdir}"/wheels/ola_native-*.whl "${lib}"
+    rm -rf "${lib}"/ola_native-*.dist-info
+
+    python -m compileall -q -d "/usr/lib/${pkgname}" "${lib}"
+
+    install -Dm755 packaging/arch/open-lab-automation.sh "${pkgdir}/usr/bin/${pkgname}"
+    install -Dm644 packaging/linux/open-lab-automation.desktop \
+        "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+    install -Dm644 frontend/assets/icons/icona.png \
+        "${pkgdir}/usr/share/icons/hicolor/64x64/apps/${pkgname}.png"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
