@@ -69,9 +69,10 @@ prepare() {
     git submodule init
     git config submodule.Instruments_LIB.url "${srcdir}/Instruments_LIB"
     git -c protocol.file.allow=always submodule update
-    # Rust crates are fetched here, the build is offline
+    # Rust crates are fetched here, the build is offline. All platforms, not just this one:
+    # maturin runs `cargo metadata`, which needs the whole dependency tree (core-foundation...)
     cd native
-    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+    cargo fetch --locked
 }
 
 build() {
