@@ -23,7 +23,9 @@ name: Package
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY: the branch of PR #42, to try the workflow before it exists on main.
+    # Remove "ccr-2baf6a78-90058t" before merging.
+    branches: [main, ccr-2baf6a78-90058t]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -261,7 +263,8 @@ jobs:
   publish:
     name: Publish (${{ needs.meta.outputs.kind }})
     needs: [meta, windows, linux]
-    if: github.event_name == 'push'
+    # Only main (nightly) and the tags (release) are published; a build of any other branch is not
+    if: github.event_name == 'push' && needs.meta.outputs.kind != 'dev'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
