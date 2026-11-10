@@ -27,7 +27,8 @@ cd /home/builder/src/packaging/arch
 sudo -u builder env OLA_FRAGMENT="commit=${commit}" makepkg --syncdeps --noconfirm --cleanbuild
 
 pacman -U --noconfirm ./*.pkg.tar.zst
-pacman -Ql open-lab-automation | head -20
+# sed, not head: with pipefail, head closing the pipe early would make pacman fail with SIGPIPE
+pacman -Ql open-lab-automation | sed -n '1,20p'
 
 # The program must start (offscreen) and keep running until the timeout kills it (exit code 124)
 set +e
