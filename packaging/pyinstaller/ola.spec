@@ -23,6 +23,7 @@ special case for the frozen state. Keep it so: do not move data to other folders
 """
 
 import os
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -119,7 +120,9 @@ excludes = [
     "IPython",
 ]
 
-icon = ROOT / "packaging" / "windows" / "app.ico"
+# icona.png is the one place for the icon of the program (a copy of the oscilloscope for now);
+# PyInstaller converts the PNG to the Windows icon (needs Pillow, which matplotlib brings)
+icon = ROOT / "frontend" / "assets" / "icons" / "icona.png"
 
 gui = Analysis(  # noqa: F821
     [str(ROOT / "frontend" / "main.py")],
@@ -149,7 +152,7 @@ gui_exe = EXE(  # noqa: F821
     exclude_binaries=True,
     name="OpenLabAutomation",
     console=False,
-    icon=str(icon) if icon.is_file() else None,
+    icon=str(icon) if sys.platform == "win32" and icon.is_file() else None,
     upx=False,
 )
 selftest_exe = EXE(  # noqa: F821

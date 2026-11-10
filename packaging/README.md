@@ -103,9 +103,11 @@ on distributions with an older glibc.
 - **Not signed.** Windows SmartScreen will warn about the installer, and some antivirus programs
   are suspicious of PyInstaller programs. Signing needs a certificate (a decision for the
   maintainer); the build has one place to add it, after the `installer` step.
-- **No icon of its own yet.** The menu entry uses `frontend/assets/icons/oscilloscope.png` and the
-  Windows program has the default icon. To add one: put `app.ico` in `packaging/windows/` (the recipe
-  uses it if present), and replace the PNG in `nfpm.yaml`/`PKGBUILD` with a larger one.
+- **The icon is a placeholder.** `frontend/assets/icons/icona.png` is a copy of the oscilloscope
+  icon; it is the single place where the real icon goes. The Windows program (PyInstaller converts
+  the PNG), the Linux menu entry (`nfpm.yaml`, `PKGBUILD`) and the installer all use it. When the
+  real one exists, replace that file with a larger PNG (256x256 is a good size; the Linux icon path
+  in `nfpm.yaml`/`PKGBUILD` says `64x64` and should then say `256x256`).
 - **Installer language:** English only for now.
 - **The `arch` job of the workflow is not blocking** (`continue-on-error`) until it has been seen
   green once. Remove that line from `package.yml` after the first green run.

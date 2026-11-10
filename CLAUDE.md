@@ -72,6 +72,24 @@ Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via 
 
 ---
 
+## Packaging and releases
+
+Installable packages (Windows installer + zip; Linux `.deb`, `.rpm`, tar.gz; Arch `PKGBUILD`) are
+built by `.github/workflows/package.yml`: the pre-release `nightly` at every commit on `main`, a
+fixed release for every tag `vX.Y.Z`. Recipes in `packaging/` (start from `packaging/README.md`),
+steps in `scripts/build_package.py`.
+
+* **Placeholder icon** – `frontend/assets/icons/icona.png` is a copy of `oscilloscope.png`; it is the
+  single place for the real icon, used by the Windows exe and the Linux menu entry.
+* **After a release, bump the version** in `pyproject.toml`, `frontend/appinfo.json` and `pkgver` in
+  `packaging/arch/PKGBUILD` (all three must agree); otherwise nightly builds sort older than the release.
+* A new data folder read at run time must also be added to `packaging/pyinstaller/ola.spec`, at the same
+  relative path it has in the repository.
+* Repository URL is `mede-erik/Open-Lab-Automation` for now (it may move to the Open Lab Instruments
+  organization). The Windows installer is English only and not signed yet.
+
+---
+
 ## Frequently Used Shortcuts for Claude Code
 
 * **Run tests** – `! pytest` or `! pytest path/to/test_file.py`.
