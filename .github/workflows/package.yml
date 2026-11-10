@@ -13,13 +13,17 @@ name: Package
 #   manual run        -> the same packages as artifacts of the run, nothing is published
 #
 # The tests of ci.yml run first (workflow_call): no package is built from a red commit.
+# They follow the runner rules of ci.yml (CI_RUNS_ON and CI_TRUSTED_ACTORS): on the self-hosted
+# runner only for the trusted authors.
 #
 # Windows : zip + installer (Inno Setup)
 # Linux   : tar.gz + .deb + .rpm (nfpm); the PKGBUILD for Arch Linux lives in packaging/arch/
 #           and is only checked here, Arch users build it themselves
 #
-# See packaging/README.md. Runners: repository variables PACKAGE_RUNS_ON_LINUX and
-# PACKAGE_RUNS_ON_WINDOWS (JSON, like CI_RUNS_ON) move the build jobs to self-hosted runners.
+# See packaging/README.md. Runners: the build jobs use GitHub-hosted runners (the Linux bundle
+# must be built on the oldest image, for the glibc). Repository variables PACKAGE_RUNS_ON_LINUX
+# and PACKAGE_RUNS_ON_WINDOWS (JSON, like CI_RUNS_ON) move them to self-hosted runners; leave
+# them unset unless the runner has the same OS image, sudo and Docker.
 
 on:
   push:
