@@ -113,8 +113,8 @@ on distributions with an older glibc.
   real one exists, replace that file with a larger PNG (256x256 is a good size; the Linux icon path
   in `nfpm.yaml`/`PKGBUILD` says `64x64` and should then say `256x256`).
 - **Installer language:** English only for now.
-- **The `arch` job of the workflow is not blocking** (`continue-on-error`) until it has been seen
-  green once. Remove that line from `package.yml` after the first green run.
+- **The `arch` job of the workflow is blocking**: it became green on the first complete run, so a
+  broken PKGBUILD now fails the *Package* workflow.
 - **Files the program writes** go to the user's home or the project folder (logs in the project,
   settings in `%APPDATA%` / `~/.config`), never to the installation folder, so installing in
   `Program Files` or `/opt` (read-only for the user) is fine.
