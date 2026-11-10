@@ -28,7 +28,10 @@ Files of a release (the version is `X.Y.Z`, or `X.Y.Z-nightly.YYYYMMDD.<commit>`
 
 **Arch Linux** has no binary file: `packaging/arch/PKGBUILD` is the package builder.
 `cd packaging/arch && makepkg -si` builds the release `v<pkgver>` from the sources and installs it
-with the system Python packages. (GitHub's automatic "Source code" archives of a release lack the
+with the system Python packages. PyVISA, PyVISA-py and segno are not in the official Arch
+repositories, so the PKGBUILD downloads their (pure Python) wheels from PyPI, with checksums, and
+installs them in the program's own folder; update their versions and checksums in the PKGBUILD when
+`requirements.txt` asks for newer ones. (GitHub's automatic "Source code" archives of a release lack the
 `Instruments_LIB` submodule, which is why the PKGBUILD clones with git and checks the library out.)
 
 The Windows and Linux packages are **self-contained**: Python, Qt, numpy, matplotlib and the Rust
