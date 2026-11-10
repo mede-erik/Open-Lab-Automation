@@ -9,7 +9,7 @@ replaced by simulated transports, fake TCP instruments on `localhost` and pseudo
 | Job | What it checks | Fails the build |
 |---|---|---|
 | **Lint and translations** | `scripts/check_translations.py`; `flake8` on `ola/ tests/ scripts/`; syntax errors and undefined names everywhere; style report of the legacy code | yes (the legacy report does not) |
-| **Tests (Python 3.12 / 3.13)** | builds the C backend, then `pytest` on the whole suite with coverage; JUnit and coverage XML are uploaded as artifacts | yes |
+| **Tests (Python 3.12 / 3.13)** | `pytest` on the whole suite with coverage; JUnit and coverage XML are uploaded as artifacts | yes |
 | **Native transport (Rust)** | `cargo test`; builds the `ola_native` wheel with maturin and runs `pytest tests` with the native transport (serial/pty tests included); `rustfmt`/`clippy` are reported only | yes (fmt/clippy no) |
 | **Project database (PostgreSQL)** | `tests/test_project_database.py` against a PostgreSQL 16 service container | yes |
 | **Against Instruments_LIB main** | the suite with the library moved from the pinned submodule commit to `Instruments_LIB` `main`: shows what the next submodule update will break | no (informational) |
@@ -28,7 +28,6 @@ conformance, generated docs, and this application's test suite run against the l
 | Error codes: every code used in the source is documented in `ERROR_CODES.md` | `tests/test_core_errorhandler.py` |
 | Translation keys used by the code exist in every locale | `tests/test_core_i18n_logging.py` |
 | Command-line tools (`check_translations`, `dry_run_call`, `instrument_shell --sim`) run as subprocesses | `tests/test_scripts_cli.py` |
-| Legacy C backend through ctypes against a fake LXI instrument (query, timeout, sweep) | `tests/test_c_backend.py` |
 | GUI smoke tests: every window/dialog is built and shown offscreen with the example project, without error boxes; the main window opens a project | `tests/test_gui_smoke.py` |
 | PostgreSQL measurement storage | `tests/test_project_database.py` |
 
@@ -41,7 +40,6 @@ listed gap is fixed, so the list is kept up to date.
 ```bash
 git submodule update --init
 pip install -r requirements.txt
-bash backend/build.sh                       # optional: enables tests/test_c_backend.py
 QT_QPA_PLATFORM=offscreen pytest            # whole suite
 pytest tests/test_library_integrity.py     # only the library checks
 pytest -m "not gui"                         # without the Qt widgets

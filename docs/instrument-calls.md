@@ -90,7 +90,7 @@ native Rust module when it is installed, and an identical pure-Python implementa
 
 A query is a single write of command + terminator with `TCP_NODELAY` on, answered through a buffered read
 with a deadline: about 35 us on loopback with Rust, 55 us in pure Python (`benchmarks/bench_transport.py`).
-The old C backend took 44 ms per query because it sent the command and the terminator separately without
+The former C backend (removed) took 44 ms per query because it sent the command and the terminator separately without
 `TCP_NODELAY`, which triggers the Nagle / delayed-ACK delay. Real instruments take 1-50 ms per query
 themselves, so the instrument dominates and the transport adds nothing visible.
 
