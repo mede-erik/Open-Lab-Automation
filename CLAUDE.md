@@ -10,7 +10,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|---------|-------|
 | **Install Python dependencies** | `pip install -r requirements.txt` | Installs runtime and optional dev packages (pytest, black, flake8, sphinx). |
 | **Get the instrument library** | `git submodule update --init` | `Instruments_LIB` is a git submodule; without it no instrument is available. |
-| **Compile the C backend** | `bash backend/build.sh` | Builds the shared library (`backend/libbackend.so`, `backend/backend.dll` on Windows) loaded by `frontend/core/c_backend.py`. |
 | **Run the application** | `python frontend/launcher.py` | Launches the PyQt6 GUI with the correct `PYTHONPATH`. |
 | **Run the GUI module directly** | `python -m frontend.main` | Useful for debugging import paths. |
 | **Run the full test suite** | `pytest` | Discovers the tests under `tests/` and the top‑level `test_*.py` files. |
@@ -19,19 +18,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **Lint the code** | `flake8 .` | Checks PEP‑8 compliance across the repository. |
 | **Auto‑format the code** | `black .` | Reformats all Python files in place. |
 | **Generate documentation** | `sphinx-build -b html docs docs/_build/html` | Assumes a `docs/` directory with a `conf.py`. |
-| **Clean build artefacts** | `git clean -fdx` | Removes compiled Python files, `__pycache__`, and the compiled C binary. |
+| **Clean build artefacts** | `git clean -fdx` | Removes compiled Python files, `__pycache__` and the build output of `native/`. |
 | **Quick launch (dev shortcut)** | `! python frontend/launcher.py` | Use the `!` prefix in Claude Code to run the command directly from the chat. |
 
-> **Tip** – Most CI pipelines run the commands above in this order: install → compile → lint → test.
+> **Tip** – Most CI pipelines run the commands above in this order: install → lint → test (the Rust module in `native/` has its own job).
 
 ---
 
 ## High‑Level Architecture
 
 ```
-+-------------------+        +-------------------+        +-------------------+
-|   Frontend (Python)  | <---> |   Core Library (Python) | <---> |   Backend (C)   |
-+-------------------+        +-------------------+        +-------------------+
++-------------------+        +-------------------+        +----------------------------+
+|   Frontend (Python)  | <---> |   Core Library (Python) | <---> |   Engine (ola/, native/)   |
++-------------------+        +-------------------+        +----------------------------+
 ```
 
 * **Frontend** (`frontend/`) – PyQt6 GUI. Entry points are `frontend/launcher.py` and `frontend/main.py`. UI code lives under `frontend/ui/`; each dialog/window occupies its own file and contains only layout and signal wiring.
@@ -43,7 +42,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   * `tools.py` – Stateless helpers (file I/O, CSV export, date formatting, etc.).
   * `Translator.py` – Internationalisation; translation files live in `frontend/lang/`.
   * `logger.py` – Structured JSON logging used throughout the app.
-* **Backend** (`backend/*.c`) – Legacy C shared library (raw TCP for LXI instruments), loaded through the `ctypes` wrapper `frontend/core/c_backend.py`. It is not used by the GUI and will be retired: do not extend it.
 * **Engine** (`ola/`, `native/`) – Qt-free transport, step executor, call planner, measurement runner and instrument library loader, with tests in `tests/`. See the section *Engine (`ola/` and `native/`)* of `README.md`; do not duplicate that description here.
 
 ### Data Flow (simplified)
@@ -51,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **User interacts** with a dialog → emits a Qt signal.
 2. **UI layer** calls a validation routine from `core/validator.py`.
 3. On success, **core/tools.py** writes configuration files or triggers a measurement.
-4. For real‑time actions the core calls the **C backend**, which sends SCPI commands to the instrument.
+4. For real‑time actions the code calls the **engine** (`ola/`: `ola.transport`, the step executor and the call planner), which sends the instrument's commands.
 5. Responses are logged via **core/logger.py** and shown in the UI.
 
 ### Error‑Handling Strategy
@@ -78,7 +76,6 @@ Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via 
 
 * **Run tests** – `! pytest` or `! pytest path/to/test_file.py`.
 * **Lint** – `! flake8 .`.
-* **Build backend** – `! bash backend/build.sh`.
 * **Launch app** – `! python frontend/launcher.py`.
 * **Open a file in VS Code** – `! code path/to/file.py` (if VS Code is installed).
 

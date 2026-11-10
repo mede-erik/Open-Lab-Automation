@@ -79,13 +79,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Build C backend
-        run: bash backend/build.sh
-
-      - name: Test C backend load
-        run: python -c "from frontend.core.c_backend import CBackend; CBackend.load(); print(CBackend.version()); CBackend.unload()"
-
-      # Engine, library integrity, frontend core, scripts, C backend and GUI smoke tests.
+      # Engine, library integrity, frontend core, scripts and GUI smoke tests.
       # --timeout stops a test that hangs (a modal dialog, a socket) instead of the runner.
       - name: Run test suite
         run: >

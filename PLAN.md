@@ -106,8 +106,8 @@ Why Rust instead of C: the existing C code is small (≈430 lines) and must be r
 Rust gives memory and thread safety, ready-made crates for serial/USB, and precompiled
 wheels (maturin/PyO3) that spare the user from installing a compiler
 (today `gcc` is needed). Cost: contributors must be able to read Rust.
-The existing C backend will be replaced by the Rust transport (`backend/` removed once the
-migration is complete); until then it stays in use.
+The former C backend was replaced by the Rust transport and removed (`backend/` and
+`frontend/core/c_backend.py`, 2026-11-10).
 
 Until the native layer exists, the transport can be Python (`socket`
 with `TCP_NODELAY`, or `pyvisa` for USB/GPIB). The `Transport` interface is unique, so the
@@ -495,7 +495,7 @@ that repo until the work is merged**). What it implies for this plan:
   **atomically** (e.g. `INST:NSEL 2` then `VOLT 5`: another thread must not be able to change channel in the middle → a lock per instrument in the generic layer,
   not only per single query); (c) whether the library can indicate that the steps can be joined in a single message (separator `;`) to reduce latency, or whether
   they must always be sent separately (safe default: separate).
-  Note: `backend/sweep.c` already does this by hand today (`INST:NSEL` + `VOLT`).
+  Note: the removed `backend/sweep.c` did this by hand (`INST:NSEL` + `VOLT`).
 - **Connection types** of the library: `LXI`, `USB-TMC`, `SERIAL`, `GPIB`, with
   VISA-style addresses. The Rust transport covers today **raw TCP (port 5025) and
   serial**. Gaps to close: **USB-TMC** and **GPIB** (via `pyvisa` as an alternative
@@ -505,7 +505,7 @@ that repo until the work is merged**). What it implies for this plan:
   indicate which mode/port to use for each model.
 
 The same work must be done for the existing categories: list the generic verbs that
-today are scattered across `RemoteControlTab` and `sweep.c`.
+were scattered across `RemoteControlTab` and the removed `sweep.c`.
 
 Every new instrument requires: type + capabilities in the library, SCPI commands
 in the JSON, a configuration dialog and (if needed) an extension of the `.inst` editor.
@@ -600,10 +600,10 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   `.eff` (it will be rewritten and rethought: no reader nor converter) and with the old
   project format; the "Start measurement" button in the GUI will be made when the measurement types
   are defined.
-- 📌 **`backend/` (C): do not extend, to be retired.** `backend/sweep.c` uses fixed SCPI
-  (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) against the rule "only library commands", and
-  `frontend/core/c_backend.py` is not called by the GUI. It is retired together with `c_backend.py`
-  after `ola.transport` is connected to the app.
+- ✅ **`backend/` (C) retired** (2026-11-10): the folder, `frontend/core/c_backend.py`, its test, the
+  build step of the CI and of `run.sh` were removed. `backend/sweep.c` used fixed SCPI
+  (`INST:NSEL`, `VOLT`, `MEAS:VOLT?`...) against the rule "only library commands", and nothing in
+  `frontend/` or `ola/` called it. The transport of `ola/` (`ola.transport`, Rust or Python) replaces it.
 - ✅ **Documentation** (2026-11-03): "Engine" section in `README.md`; guides in `docs/`
   (`engine.md`, `measurement-modules.md`, `instrument-calls.md`); docstrings on all public
   elements of `ola/`; `Transport` contract (`ola/transport.py`) verified on
@@ -884,8 +884,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   used; button *Propose from the ticked results* and `golden_check.py --derive`). Then the step also in Bode, TDR and in the measurements with
   a table of rows (ripple, regulation, efficiency, S-parameters): `rows` = rows matched by columns (`match`) and tolerance per
   column, verdict in the `golden_result` table (`summary_row=False` + `finish(ctx)`). Also `derive_tolerances` for `rows` (from Python).
-- ⏳ Not done yet: connecting `ola.transport` to the app (the C backend and `c_backend.py` are still in the
-  repo and have not been touched), trying the `connect` on real instruments (requires the library/handle branch to be merged),
+- ⏳ Not done yet: trying the `connect` on real instruments (requires the library/handle branch to be merged),
   module and fields for the LiteVNA67 text serial (`until`/`lines`/`size`/`flush`, awaiting the device data), driver system for AD2/AD3, wheel pipeline and CI.
 
 ## 10. Open points

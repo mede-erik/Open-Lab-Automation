@@ -12,8 +12,6 @@
 | Install deps | `pip install -r requirements.txt` | |
 | Run app | `python frontend/launcher.py` | Preferred — sets `PYTHONPATH`. |
 | Run directly | `python -m frontend.main` | Works from repo root. |
-| Compile C backend | `backend/build.sh` | Produces shared library (`.so`/`.dll`). |
-| Compile C (manual) | `gcc -shared -fPIC backend/*.c -Ibackend -o backend/libbackend.so -lm` | Linux. Add `-lws2_32` on Windows/MinGW. |
 | Lint | `flake8 .` | |
 | Format | `black .` | |
 | Test | `pytest` | See **Testing** section. |
@@ -37,7 +35,7 @@ Order when it matters: `black . && flake8 . && python scripts/check_translations
 ```
 Remote panel (PyQt6 UI + pyvisa) ──→ LXI/USB/GPIB instruments
                                           |
-Automatic sweep (Python core) ──→ C backend (TCP raw) ──→ LXI instruments (port 5025)
+Measurements (engine `ola/`) ──→ ola.transport (Rust or Python) / pyvisa ──→ LXI instruments (port 5025), serial, VISA
 ```
 
 | Layer | Location | Role |
@@ -46,8 +44,6 @@ Automatic sweep (Python core) ──→ C backend (TCP raw) ──→ LXI instru
 | UI dialogs | `frontend/ui/*.py` | One file per window/dialog. Layout & signal wiring only — **no business logic**. |
 | Core library | `frontend/core/*.py` | Validation, error handling, DB/project I/O, i18n, logging |
 | Engine | `ola/`, `native/` | Qt-free transport, steps, call planner, measurement runner. See the section *Engine (`ola/` and `native/`)* of `README.md`. |
-| C backend (legacy) | `backend/*.c`, `backend/*.h` | Shared library via ctypes, raw TCP for LXI instruments. Not used by the GUI; to be retired, do not extend. |
-| C Python wrapper | `frontend/core/c_backend.py` | ctypes wrapper: load, connect, send/receive SCPI, sweep_run |
 | Instrument lib | `Instruments_LIB/instruments_lib.json` | JSON-driven 3-level selector (type → series → model) |
 | Translations | `frontend/lang/*.json` | One file per locale. Accessed via `Translator.translate(key)`. |
 
@@ -56,9 +52,9 @@ Automatic sweep (Python core) ──→ C backend (TCP raw) ──→ LXI instru
 | Context | Stack |
 |---------|-------|
 | Remote control panel | Python → pyvisa → VISA backend → instrument |
-| Automatic sweep | Python worker thread → `CBackend` (ctypes) → C raw TCP → LXI instrument (port 5025) |
+| Measurements | Engine (`ola/`) in a worker thread → `ola.transport` (native Rust `ola_native`, or pure Python) for raw sockets and serial, pyvisa for VISA addresses → instrument |
 
-The C backend handles TCP directly for **LXI instruments only**. USB-TMC/GPIB instruments still use pyvisa via the remote panel.
+The former C backend (raw TCP, LXI only) was removed in November 2026: the transport of `ola/` replaces it and also covers serial and VISA.
 
 ### Rules
 
@@ -71,26 +67,9 @@ The C backend handles TCP directly for **LXI instruments only**. USB-TMC/GPIB in
 
 ---
 
-## C Backend API
-
-```
-be_init()           → init sockets (WSAStartup on Windows)
-be_connect(host,port,timeout_ms) → connect TCP → return handle
-be_send(handle, "SCPI command")
-be_receive(handle)  → read response
-be_receive_float()  → read response as double
-be_receive_int()    → read response as int
-be_sweep_run(cfg, voltages, currents, progress_cb) → blocking sweep loop
-be_cleanup()        → close all connections
-```
-
-See `backend/backend.h` for the full API and `frontend/core/c_backend.py` for the Python wrapper.
-
----
-
 ## Testing
 
-Tests live in `tests/` (engine, whole-library integrity, `frontend/core`, scripts, C backend,
+Tests live in `tests/` (engine, whole-library integrity, `frontend/core`, scripts,
 GUI smoke tests); `test_basic_import.py` and `test_instrument_library.py` at the repo root cover
 the core imports and the instrument library (`git submodule update --init` is needed for the
 library tests). What each file covers and how CI runs them: `docs/CI.md`.
@@ -110,8 +89,7 @@ GUI smoke and error-code tests are meant to catch exactly those changes.
 
 1. Add entry to `Instruments_LIB/instruments_lib.json`.
 2. If new SCPI commands are needed, add them to the instrument's `common_scpi_commands` or model-specific `scpi_commands`.
-3. If a new protocol is needed (e.g., serial), implement C-level interface in `backend/`.
-4. Rebuild: `cd backend && ./build.sh`.
+3. If a new protocol is needed, add a transport or a driver in `ola/` (see `docs/instrument-calls.md` and `docs/engine.md`).
 
 ---
 
@@ -124,10 +102,9 @@ GUI smoke and error-code tests are meant to catch exactly those changes.
 - Bare `except:` → specific exception types (RemoteControlTab, DataloggerSlotConfigDialog)
 - `time.sleep()` in GUI thread → `QTimer.singleShot()` (toggle_output)
 - `print()` → `logging.getLogger()` in core modules (errorhandler, LoadInstruments, ProjectDatabaseManager)
-- C backend: rewritten from stub (8-line `main()`) to shared library with TCP socket I/O
-- New: `frontend/core/c_backend.py` — ctypes wrapper for the C backend
+- C backend (`backend/`, `frontend/core/c_backend.py`): added in July 2026, removed in November 2026 (replaced by `ola/transport.py` and `native/`)
 - New: `scripts/check_translations.py` — validates all locale files against `en.json`
-- New: `.github/workflows/ci.yml` — lint → i18n → build C → test import → backend load
+- New: `.github/workflows/ci.yml` — lint → i18n → tests
 - New: `pyproject.toml` — project metadata, tool config
 - Deprecated: `models.py` — use `ProjectDatabaseManager` instead
 - Deprecated: `DatabaseManager.py` (capital) — use `ProjectDatabaseManager` instead
