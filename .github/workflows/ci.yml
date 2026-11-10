@@ -49,9 +49,9 @@ jobs:
     runs-on: ${{ contains(fromJSON(vars.CI_TRUSTED_ACTORS || '[]'), github.actor) && fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -82,7 +82,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-py${{ matrix.python-version }}
           path: test-results/
@@ -115,7 +115,7 @@ jobs:
     runs-on: ${{ contains(fromJSON(vars.CI_TRUSTED_ACTORS || '[]'), github.actor) && fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -179,7 +179,7 @@ jobs:
     env:
       OLA_TEST_POSTGRES: "host=127.0.0.1 port=5432 user=postgres password=postgres"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup-ola
         with:
@@ -196,7 +196,7 @@ jobs:
     timeout-minutes: 20
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
