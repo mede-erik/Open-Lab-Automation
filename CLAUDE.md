@@ -64,7 +64,7 @@ Strings are stored in `frontend/lang/<locale>.json`. UI code retrieves them via 
 
 ## Project‑Specific Guidance
 
-* **Instrument library** – The JSON file `Instruments_LIB/instruments_lib.json` drives the three‑level selector (type → series → model). Adding support for a new instrument means extending this JSON and, if necessary, providing a C‑level command implementation.
+* **Instrument library** – The JSON file `Instruments_LIB/instruments_lib.json` drives the three‑level selector (type → series → model). Adding support for a new instrument means extending this JSON; an instrument without text commands needs a driver in `ola/drivers/` (see `docs/instrument-calls.md`).
 * **Project files** – `.inst` (instrument config), `.eff` (efficiency sweep), `.was` (oscilloscope settings), and generic `.json` metadata are all managed by the `ProjectDatabaseManager`. Keep their schemas in sync with the UI editors.
 * **Pulse Generator Tool** – Located in `frontend/ui/PulseGeneratorDialog.py`. It validates user parameters against the instrument’s capabilities and visualises the waveform with matplotlib. No manual SCPI commands should be constructed here; rely on the library‑defined commands.
 * **Error‑Code Reference** – See `ERROR_CODES.md` for the complete list of `[RESOURCE‑XXX]` codes. When adding new error types, follow the same prefix convention.
