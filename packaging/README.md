@@ -28,7 +28,10 @@ Files of a release (the version is `X.Y.Z`, or `X.Y.Z-nightly.YYYYMMDD.<commit>`
 
 **Arch Linux** has no binary file: `packaging/arch/PKGBUILD` is the package builder.
 `cd packaging/arch && makepkg -si` builds the release `v<pkgver>` from the sources and installs it
-with the system Python packages. (GitHub's automatic "Source code" archives of a release lack the
+with the system Python packages. PyVISA, PyVISA-py and segno are not in the official Arch
+repositories, so the PKGBUILD downloads their (pure Python) wheels from PyPI, with checksums, and
+installs them in the program's own folder; update their versions and checksums in the PKGBUILD when
+`requirements.txt` asks for newer ones. (GitHub's automatic "Source code" archives of a release lack the
 `Instruments_LIB` submodule, which is why the PKGBUILD clones with git and checks the library out.)
 
 The Windows and Linux packages are **self-contained**: Python, Qt, numpy, matplotlib and the Rust
@@ -110,8 +113,8 @@ on distributions with an older glibc.
   real one exists, replace that file with a larger PNG (256x256 is a good size; the Linux icon path
   in `nfpm.yaml`/`PKGBUILD` says `64x64` and should then say `256x256`).
 - **Installer language:** English only for now.
-- **The `arch` job of the workflow is not blocking** (`continue-on-error`) until it has been seen
-  green once. Remove that line from `package.yml` after the first green run.
+- **The `arch` job of the workflow is blocking**: it became green on the first complete run, so a
+  broken PKGBUILD now fails the *Package* workflow.
 - **Files the program writes** go to the user's home or the project folder (logs in the project,
   settings in `%APPDATA%` / `~/.config`), never to the installation folder, so installing in
   `Program Files` or `/opt` (read-only for the user) is fine.
