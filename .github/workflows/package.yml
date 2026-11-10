@@ -63,7 +63,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Work out the version of the packages
         id: version
@@ -92,11 +92,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -145,7 +145,7 @@ jobs:
           Start-Process -FilePath C:\ola-test\unins000.exe -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
           if (Test-Path C:\ola-test\OpenLabAutomation.exe) { throw "the uninstaller left the program" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-windows
           path: dist-release/*
@@ -161,11 +161,11 @@ jobs:
     env:
       VERSION: ${{ needs.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -243,7 +243,7 @@ jobs:
             rpm -e open-lab-automation
             test ! -e /opt/open-lab-automation/OpenLabAutomation'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-linux
           path: dist-release/*
@@ -259,7 +259,7 @@ jobs:
     timeout-minutes: 45
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build and install the package in archlinux
         run: docker run --rm -v "$PWD:/work" archlinux:base-devel bash /work/packaging/arch/ci-check.sh "$GITHUB_SHA"
@@ -284,7 +284,7 @@ jobs:
       VERSION: ${{ needs.meta.outputs.version }}
       PRERELEASE: ${{ needs.meta.outputs.prerelease }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           path: release
