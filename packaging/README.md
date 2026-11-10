@@ -100,9 +100,10 @@ on distributions with an older glibc.
 
 ## Things to know
 
-- **Not signed.** Windows SmartScreen will warn about the installer, and some antivirus programs
-  are suspicious of PyInstaller programs. Signing needs a certificate (a decision for the
-  maintainer); the build has one place to add it, after the `installer` step.
+- **Not signed** (planned for after the repository moves to the Open Lab Instruments organization:
+  see `PLAN.md` section 11). Windows SmartScreen will warn about the installer, and some antivirus
+  programs are suspicious of PyInstaller programs. Signing needs a certificate and a signing service (a decision for the
+  maintainer); where to sign in the pipeline is in the same section of `PLAN.md`.
 - **The icon is a placeholder.** `frontend/assets/icons/icona.png` is a copy of the oscilloscope
   icon; it is the single place where the real icon goes. The Windows program (PyInstaller converts
   the PNG), the Linux menu entry (`nfpm.yaml`, `PKGBUILD`) and the installer all use it. When the

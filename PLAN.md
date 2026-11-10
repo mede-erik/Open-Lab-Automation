@@ -916,3 +916,54 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   (`allow_user_code`), discovering it does not. Documented in `docs/measurement-modules.md`.
 - ❓ **Freeze `api_version` 1** (`Measurement` / `ctx` interface): to be done before promising compatibility to modules written by others.
 - ❓ **Languages**: each module carries its own optional `lang/` (proposal).
+- ❓ **Package signing**: postponed until the repository moves to the Open Lab Instruments organization; the publisher identity and the CI set-up depend on it (§11).
+
+
+---
+
+## 11. Package signing (firma pacchetti)
+
+Status: ❓ **postponed until the repository moves to the Open Lab Instruments organization.** Today
+the Windows installer and executables are not signed (SmartScreen and some antivirus programs warn)
+and the Linux files have no signature; see `packaging/README.md` for how the packages are built.
+
+### Why wait for the move
+
+A signature ties the package to an *identity*. What is tied to what:
+
+| Part | Tied to | Consequence of moving the repository |
+|---|---|---|
+| Windows code-signing certificate (Authenticode) | the **validated publisher** (a person or a legal organization), shown by Windows as "Publisher" | **Not to the repository URL.** The same certificate keeps working after a move. But the name it shows is the publisher: if the project will be published by the organization, ask for the certificate **for the organization** from the start, or the name users see will change later. A GitHub organization alone may not be accepted as a legal entity: check what the certificate authority asks for. |
+| What lets the CI use the certificate: SignPath project / Azure Trusted Signing federated credential (OIDC subject `repo:<owner>/<name>`) / GitHub Environment secrets | the **repository** (owner and name) | Must be set up again after a move or a rename. |
+| GitHub build attestations (`actions/attest-build-provenance`) | the repository and the workflow that built the file | Files signed before the move keep the old repository in their attestation; users verify against that name. |
+| GPG key that signs `SHA256SUMS` | the **project** (a key identity), not the repository | Independent of the move; publish the public key on the project site. |
+
+So moving the repository does not by itself mean a new certificate, but the publisher decision and
+the CI set-up depend on where the project ends up. Doing it once, after the move, avoids packages
+signed under a name that changes and a configuration that has to be redone.
+
+### Options for Windows (conditions and prices change: check before choosing)
+
+| Option | Notes |
+|---|---|
+| **SignPath Foundation** | free for open-source projects; applied for; integrates with GitHub Actions; asks for an open-source license (GPL is fine) and builds made in CI, as ours are. First to try. |
+| **Azure Trusted Signing** (Microsoft) | no hardware token, a few euros a month; eligibility depends on country and on person/organization. |
+| **OV/EV certificate with cloud signing** (SSL.com eSigner, DigiCert KeyLocker, Sectigo...) | works anywhere, costs more. Since 2023 the private key must live on hardware or in a cloud HSM: a `.pfx` file in a CI secret is no longer possible. EV no longer skips SmartScreen: reputation is built with downloads. |
+
+Whatever is chosen: use an RFC 3161 **timestamp** (the signature stays valid after the certificate expires), and let only `main` and the tags reach the signing credentials (GitHub Environment with required reviewers; secrets are not available to forks).
+
+### Where to sign in the pipeline (`scripts/build_package.py`, `.github/workflows/package.yml`)
+
+1. `OpenLabAutomation.exe` and `ola-selftest.exe` (optionally the `.dll`/`.pyd` of the bundle) **before** the zip is made, so that the zip holds signed files: after `bundle`, before `archive`.
+2. The installer `-setup.exe` after `iscc`; with the `SignTool=` directive of Inno Setup the uninstaller is signed too.
+3. Linux: detached **GPG signature of `SHA256SUMS`** (`SHA256SUMS.asc`) in the publish job, and the build attestation of all the files. `.deb`/`.rpm` can be signed with nfpm, but that only matters with an apt/dnf repository that publishes the key. The Arch `PKGBUILD` needs nothing (git sources; signed tags can be checked with `validpgpkeys`).
+
+### To do after the move
+
+1. Move the repository and update every URL: `frontend/appinfo.json`, `packaging/` (`nfpm.yaml`, `installer.iss`, `PKGBUILD`, `README.md`), `.gitmodules` if `Instruments_LIB` moves too, the notes in `AGENTS.md` and `CLAUDE.md`, `.github/CODEOWNERS`.
+2. Decide the publisher (the organization, if it can be validated; otherwise a person) and write it in `AppPublisher` of `installer.iss`.
+3. Apply for SignPath Foundation (or choose another option above).
+4. Create the GitHub Environment and the credentials of the chosen service.
+5. Add the signing steps (above) to the workflow and to `build_package.py`; create the GPG key for `SHA256SUMS`.
+6. Try on a pre-release tag (`vX.Y.Z-rc1`) and check the result on a clean Windows machine (signature details of the file, SmartScreen).
+7. Say how to verify the packages in `packaging/README.md`, and remove the "not signed" notes from `AGENTS.md`, `CLAUDE.md` and `packaging/README.md`.
