@@ -20,10 +20,9 @@ runs:
   using: composite
   steps:
     - name: Set up Python ${{ inputs.python-version }}
-      uses: actions/setup-python@v5
+      uses: ./.github/actions/setup-python-any
       with:
         python-version: ${{ inputs.python-version }}
-        cache: pip
         cache-dependency-path: ${{ inputs.working-directory }}/requirements.txt
 
     - name: Install system packages (Qt offscreen, gcc for the Rust build)

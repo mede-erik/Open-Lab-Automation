@@ -1,0 +1,47 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
+name: Set up Python (GitHub-hosted or self-hosted)
+description: >
+  A Python of the requested version, on any runner. On GitHub-hosted runners it is
+  actions/setup-python. On a self-hosted runner that is not in the tool cache of
+  actions/setup-python (for example Debian 13, where no Python 3.12 is published for that
+  image), uv downloads the version and creates a virtual environment, which becomes the first
+  python and pip on the PATH of the later steps of the job.
+
+inputs:
+  python-version:
+    description: Python version, for example "3.12"
+    required: true
+  cache-dependency-path:
+    description: File whose hash keys the pip cache (GitHub-hosted runners only)
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Python ${{ inputs.python-version }} (GitHub-hosted runner)
+      if: runner.environment == 'github-hosted'
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: ${{ inputs.cache-dependency-path != '' && 'pip' || '' }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+    - name: Install uv (self-hosted runner)
+      if: runner.environment != 'github-hosted'
+      uses: astral-sh/setup-uv@v6
+
+    - name: Python ${{ inputs.python-version }} in a virtual environment (self-hosted runner)
+      if: runner.environment != 'github-hosted'
+      shell: bash
+      env:
+        PYVER: ${{ inputs.python-version }}
+      run: |
+        uv python install "$PYVER"
+        venv="$RUNNER_TEMP/ola-python-$PYVER"
+        uv venv --seed --python "$PYVER" "$venv"  # --seed: pip, which the later steps use
+        echo "$venv/bin" >> "$GITHUB_PATH"
+        echo "VIRTUAL_ENV=$venv" >> "$GITHUB_ENV"
+        "$venv/bin/python" --version
