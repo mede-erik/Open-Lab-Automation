@@ -352,6 +352,8 @@
   "project_open_failed": "Projekt konnte nicht geöffnet werden",
   "select_series": "Serie auswählen",
   "unsupported_file_type": "Nicht unterstützter Dateityp",
+  "file_exists": "Die Datei '{name}' existiert bereits",
+  "project_files": "Projektdateien",
   "volt_per_div": "Volt/Div",
   "inst_dialog_title": "Geräteverwaltung",
   "inst_add": "Gerät hinzufügen",

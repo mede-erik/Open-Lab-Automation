@@ -352,6 +352,8 @@
   "project_open_failed": "Impossible d'ouvrir le projet",
   "select_series": "Sélectionner la série",
   "unsupported_file_type": "Type de fichier non pris en charge",
+  "file_exists": "Le fichier '{name}' existe déjà",
+  "project_files": "Fichiers de projet",
   "volt_per_div": "Volts/div",
   "inst_dialog_title": "Configuration des instruments",
   "inst_add": "Ajouter un instrument",

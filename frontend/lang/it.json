@@ -353,6 +353,8 @@
   "project_open_failed": "Impossibile aprire il progetto",
   "select_series": "Seleziona serie",
   "unsupported_file_type": "Tipo di file non supportato",
+  "file_exists": "Il file '{name}' esiste già",
+  "project_files": "File di progetto",
   "volt_per_div": "Volt/div",
   "inst_dialog_title": "Configurazione strumenti",
   "inst_add": "Aggiungi strumento",

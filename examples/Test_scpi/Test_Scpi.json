@@ -11,5 +11,7 @@
   "control_variables": [
     "Vin"
   ],
-  "measure_variables": []
+  "measure_variables": [],
+  "format_version": 2,
+  "measurements": []
 }

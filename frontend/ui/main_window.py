@@ -40,6 +40,8 @@ from frontend.ui.GpibAdapterDialog import GpibAdapterDialog
 from frontend.ui.CompareDialog import CompareDialog
 from frontend.ui.AssetsDialog import AssetsDialog
 from ola.assets import AssetError, AssetRegistry
+from ola.measurement import MeasurementError
+from ola.project import Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
@@ -138,6 +140,7 @@ class MainWindow(QMainWindow):
             wiring_before_run=self._wiring_preference(),
             on_wiring_preference=self._save_wiring_preference,
         )
+        self.project_tab.project_changed.connect(self.refresh_project_files)
         self.tabs.addTab(self.project_tab, self.project_tab.tr_.t('prj_tab'))
 
         self.project_files_list = QListWidget()
@@ -187,11 +190,8 @@ class MainWindow(QMainWindow):
         if last_project_path and os.path.isfile(last_project_path):
             self.logger.debug(f"Found last project at: {last_project_path}")
             try:
-                project_data = read_json(last_project_path)
-                self.current_project_dir = os.path.dirname(last_project_path)
-                self.current_project_data = project_data
+                project_data = self._open_project_path(last_project_path)
                 self.logger.set_project_directory(self.current_project_dir)
-                self.refresh_project_files()
                 self.logger.info(f"Successfully loaded last project: {project_data.get('project_name')}")
             except Exception as e:
                 self.logger.error(f"Failed to load last project: {last_project_path} - {e}", exc_info=True)
@@ -340,6 +340,8 @@ class MainWindow(QMainWindow):
             
             # Create project data
             project_data = {
+                "format_version": 2,
+                "measurements": [],
                 "project_id": project_id,
                 "created_at": now,
                 "last_opened": now,
@@ -362,10 +364,8 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"Saving instruments file to: {inst_path}")
             save_json(inst_data, inst_path)
             
-            self.current_project_dir = dir_path
-            self.current_project_data = project_data
+            self._open_project_path(project_file)
             self.logger.set_project_directory(self.current_project_dir)
-            self.refresh_project_files()
             
             self.logger.debug(f"Project '{project_name}' created successfully in '{dir_path}'.")
             QMessageBox.information(self, self.translator.t('project'), 
@@ -538,6 +538,19 @@ class MainWindow(QMainWindow):
             self.error_handler.handle_error(e, "Failed to initialize database connection")
             self.db_manager = None
 
+    def _open_project_path(self, path):
+        """Open a project file in both views: the Project menu and file list (this window) and the
+        Measurements tab. A project of the first format is upgraded in place first (it keeps every
+        key and gains an empty list of measurements). Returns the data of the project."""
+        Project.upgrade_legacy(path)
+        self._loaded_inst_path = None
+        data = read_json(path)
+        self.current_project_dir = os.path.dirname(path)
+        self.current_project_data = data
+        self.project_tab.open_path(path)  # redraws the tab, which refreshes the file list
+        self.refresh_project_files()
+        return data
+
     # Placeholder methods - these need to be implemented based on the full original code
     def open_project(self):
         """Open an existing project: select .json file and load its data."""
@@ -546,10 +559,7 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '', 'Project Files (*.json)')
         if file_path:
             try:
-                project_data = read_json(file_path)
-                self.current_project_dir = os.path.dirname(file_path)
-                self.current_project_data = project_data
-                self.refresh_project_files()
+                self._open_project_path(file_path)
                 # Salva percorso ultimo progetto
                 settings = QSettings('LabAutomation', 'App')
                 settings.setValue('last_project_path', file_path)
@@ -567,8 +577,12 @@ class MainWindow(QMainWindow):
         inst_file = self.current_project_data.get('inst_file')
         if inst_file:
             files.append(inst_file)
-        files += self.current_project_data.get('eff_files', [])
-        files += self.current_project_data.get('was_files', [])
+        session = self.project_tab.session
+        if session is not None:  # the measurements of the project (every type)
+            files += [m.file for m in session.project.measurements]
+        for f in self.current_project_data.get('eff_files', []) + self.current_project_data.get('was_files', []):
+            if f not in files:  # files of the first format that are not measurements
+                files.append(f)
         for f in files:
             item = QListWidgetItem(f)
             self.project_files_list.addItem(item)
@@ -579,7 +593,10 @@ class MainWindow(QMainWindow):
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
         if hasattr(self, 'remote_tab') and inst_file:
             inst_path = os.path.join(self.current_project_dir, inst_file)
+            if getattr(self, '_loaded_inst_path', None) == inst_path:
+                return  # already shown (the list is redrawn at every change of the measurements)
             if os.path.exists(inst_path):
+                self._loaded_inst_path = inst_path
                 self.logger.info(f"Loading instruments in RemoteControlTab: {inst_path}")
                 self.remote_tab.load_instruments(inst_path)
             else:
@@ -675,92 +692,111 @@ class MainWindow(QMainWindow):
             self.logger.error(f"Error updating project variables: {e}", exc_info=True)
         
     def add_project_file(self):
-        """Add a new project file (.eff or .was) using the AddFileDialog."""
+        """Add a new file to the project: a measurement of any type, or oscilloscope settings."""
         from PyQt6.QtWidgets import QDialog
-        dlg = AddFileDialog(self, self.translator)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            file_type = dlg.type_combo.currentData()
-            file_name = dlg.name_edit.text().strip()
-            if not file_name:
-                return
-            if not file_name.endswith(file_type):
-                file_name += file_type
-            file_path = os.path.join(self.current_project_dir, file_name)
-            # Crea file vuoto
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write('')
-            # Aggiorna struttura dati progetto
-            if file_type == '.eff':
-                if file_name not in self.current_project_data['eff_files']:
-                    self.current_project_data['eff_files'].append(file_name)
-            elif file_type == '.was':
-                if file_name not in self.current_project_data['was_files']:
+        if not self.current_project_dir or not self.current_project_data:
+            QMessageBox.information(self, self.translator.t('add_file'), self.translator.t('no_project_open'))
+            return
+        session = self.project_tab.session
+        types = session.module_types() if session is not None else []
+        dlg = AddFileDialog(self, self.translator, measurement_types=types)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        kind = dlg.type_combo.currentData()
+        file_name = dlg.name_edit.text().strip()
+        if not file_name:
+            return
+        try:
+            if kind == '.was':  # oscilloscope settings: still a plain file listed in the project
+                if not file_name.endswith('.was'):
+                    file_name += '.was'
+                file_path = os.path.join(self.current_project_dir, file_name)
+                if os.path.exists(file_path):
+                    QMessageBox.warning(self, self.translator.t('add_file'), self.translator.t('file_exists').format(name=file_name))
+                    return
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write('')
+                if file_name not in self.current_project_data.setdefault('was_files', []):
                     self.current_project_data['was_files'].append(file_name)
-            # Salva json progetto
-            self.save_project_json()
-            self.refresh_project_files()
-        
+                self.save_project_json()
+                self.refresh_project_files()
+            else:  # a measurement of the chosen type (the tab redraws and refreshes the list)
+                ref = session.create(kind, file_name)
+                self.project_tab.show_measurement(ref.id)
+        except MeasurementError as e:
+            QMessageBox.warning(self, self.translator.t('add_file'), str(e))
+
     def add_existing_file(self):
-        """Add an existing file (.eff or .was) to the project from the file system."""
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        """Add an existing file (a measurement of any type, or oscilloscope settings) to the project."""
         if not self.current_project_dir or not self.current_project_data:
             return
-        file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('add_existing_file'), self.current_project_dir, 'Eff (*.eff);;Was (*.was)')
+        session = self.project_tab.session
+        extensions = sorted({t.extension for t in session.module_types()}) if session is not None else []
+        patterns = ' '.join(f'*{e}' for e in extensions + ['.was'])
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, self.translator.t('add_existing_file'), self.current_project_dir,
+            f'{self.translator.t("project_files")} ({patterns})')
         if not file_path:
             return
         fname = os.path.basename(file_path)
         dest_path = os.path.join(self.current_project_dir, fname)
-        # Copia file solo se non esiste già
-        if not os.path.exists(dest_path):
-            import shutil
-            shutil.copy2(file_path, dest_path)
-        if fname.endswith('.eff'):
-            if fname not in self.current_project_data['eff_files']:
-                self.current_project_data['eff_files'].append(fname)
-        elif fname.endswith('.was'):
-            if fname not in self.current_project_data['was_files']:
-                self.current_project_data['was_files'].append(fname)
-        else:
+        ext = os.path.splitext(fname)[1].lower()
+        if ext not in extensions and ext != '.was':
             QMessageBox.warning(self, self.translator.t('add_existing_file'), self.translator.t('unsupported_file_type'))
             return
-        self.save_project_json()
-        self.refresh_project_files()
-    
+        try:
+            if os.path.abspath(file_path) != os.path.abspath(dest_path) and not os.path.exists(dest_path):
+                import shutil
+                shutil.copy2(file_path, dest_path)
+            if ext == '.was':
+                if fname not in self.current_project_data.setdefault('was_files', []):
+                    self.current_project_data['was_files'].append(fname)
+                self.save_project_json()
+                self.refresh_project_files()
+            else:
+                ref = session.adopt(fname)
+                self.project_tab.show_measurement(ref.id)
+        except MeasurementError as e:
+            QMessageBox.warning(self, self.translator.t('add_existing_file'), str(e))
+
     def save_project_json(self):
         """
-        Save the current project data to the project JSON file.
+        Save the data of the Project menu (instrument file, oscilloscope files, variables) in the
+        project file. The file is also written by the Measurements tab, so this only overlays its own
+        keys on what is on disk: the list of measurements and the other keys are never touched.
         """
         if not self.current_project_dir or not self.current_project_data:
             self.logger.warning("Cannot save project JSON: project not loaded")
             return
-        
         try:
             from datetime import datetime
-            
-            # Aggiorna il timestamp di ultimo accesso
+            session = self.project_tab.session
+            path = str(session.project.path) if session is not None else os.path.join(
+                self.current_project_dir, f"{self.current_project_data.get('project_name', 'project')}.json")
+            try:
+                on_disk = read_json(path)
+            except Exception:
+                on_disk = {}
+            if not isinstance(on_disk, dict):
+                on_disk = {}
             self.current_project_data['last_opened'] = datetime.now().isoformat()
-            
-            # Percorso del file JSON del progetto
-            project_json_path = os.path.join(
-                self.current_project_dir,
-                f"{self.current_project_data.get('project_name', 'project')}.json"
-            )
-            
-            # Salva il file JSON
-            with open(project_json_path, 'w', encoding='utf-8') as f:
-                json.dump(self.current_project_data, f, indent=2, ensure_ascii=False)
-            
-            self.logger.info(f"Project JSON saved: {project_json_path}")
-            
+            for key in ('last_opened', 'inst_file', 'eff_files', 'was_files',
+                        'control_variables', 'measure_variables'):
+                if key in self.current_project_data:
+                    on_disk[key] = self.current_project_data[key]
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(on_disk, f, indent=2, ensure_ascii=False)
+            if session is not None:
+                session.project.inst_file = on_disk.get('inst_file')
+            self.logger.info(f"Project JSON saved: {path}")
         except Exception as e:
             self.logger.error(f"Error saving project JSON: {e}")
-            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(
                 self,
                 self.translator.t('error') if self.translator else 'Error',
                 f"Failed to save project: {str(e)}"
             )
-    
+
     def delete_file(self, item):
         """
         Delete a file from the project (removes from list and optionally from disk).
@@ -775,7 +811,11 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QMessageBox
         
         file_name = item.text()
-        
+
+        # A measurement of the project: the Measurements tab asks and removes it
+        if self.project_tab.remove_file(file_name):
+            return
+
         # Conferma eliminazione
         reply = QMessageBox.question(
             self,
@@ -893,6 +933,8 @@ class MainWindow(QMainWindow):
             return
         fname = item.text()
         file_path = os.path.join(self.current_project_dir, fname)
+        if self.project_tab.edit_file(fname):  # a measurement: the editor of its type
+            return
         if fname.endswith('.eff'):
             # Passa i dati del progetto corrente alla dialog per le variabili
             dlg = EffFileDialog(file_path, self.translator, self.current_project_data, self)
@@ -1053,10 +1095,10 @@ class MainWindow(QMainWindow):
 
 class AddFileDialog(QDialog):
     """
-    Dialog for adding a new file (.eff or .was) to the project.
+    Dialog for adding a new file (a measurement of any type, or .was) to the project.
     """
     
-    def __init__(self, parent=None, translator=None, naming_settings=None):
+    def __init__(self, parent=None, translator=None, naming_settings=None, measurement_types=()):
         """
         Initialize the add file dialog.
         
@@ -1064,6 +1106,7 @@ class AddFileDialog(QDialog):
             parent: Parent widget
             translator: Translator instance
             naming_settings: Naming settings for the project
+            measurement_types: the measurement modules (ModuleInfo) the project can hold
         """
         super().__init__(parent)
         self.translator = translator
@@ -1082,7 +1125,8 @@ class AddFileDialog(QDialog):
         layout = QVBoxLayout()
         
         self.type_combo = QComboBox()
-        self.type_combo.addItem(self.translator.t('efficiency_settings'), '.eff')
+        for info in measurement_types:  # one entry per measurement type, e.g. "Cable (.cbl)"
+            self.type_combo.addItem(f"{info.name} ({info.extension})", info.id)
         self.type_combo.addItem(self.translator.t('oscilloscope_settings'), '.was')
         
         self.name_edit = QLineEdit()

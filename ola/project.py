@@ -108,7 +108,16 @@ class MeasurementFile:
 
 # keys of the project file that are written directly, not through ``Project``: on a save the file
 # on disk is the newest
-DISK_KEYS = ("calibrations",)
+# Keys written straight to the file by other parts of the program (the calibration window, the
+# main window's file list): when the project is saved the file is the newest.
+DISK_KEYS = (
+    "calibrations",
+    "last_opened",
+    "eff_files",
+    "was_files",
+    "control_variables",
+    "measure_variables",
+)
 
 
 @dataclass
@@ -198,6 +207,24 @@ class Project:
         for key in DISK_KEYS:
             self.extra.pop(key, None)  # the file is the newest: ``keep`` has it
         return keep
+
+    @staticmethod
+    def upgrade_legacy(path: Union[str, Path]) -> bool:
+        """Turn a project file of the first format (``eff_files`` / ``was_files``) into a current
+        one, in place and without losing a key: it only gains ``format_version`` and an empty
+        ``measurements`` list. Returns True if the file was changed; a file that is already
+        current, or is not a project, is left alone."""
+        path = Path(path)
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        if not isinstance(raw, dict) or "format_version" in raw or "project_name" not in raw:
+            return False
+        raw["format_version"] = FORMAT_VERSION
+        raw.setdefault("measurements", [])
+        path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return True
 
     # ----- measurements ---------------------------------------------------------------------
     def get(self, measurement_id: str) -> MeasurementRef:
