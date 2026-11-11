@@ -35,8 +35,29 @@ runs:
         if [ "$(uname -s)" != "Linux" ]; then
           echo "Not Linux: system packages are not installed by this action"
         elif [ "$RUNNER_KIND" = "github-hosted" ] || sudo -n true 2>/dev/null; then
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends $PKGS
+          # The runner image may already have them: no network needed then
+          missing=""
+          for pkg in $PKGS; do dpkg -s "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"; done
+          if [ -z "$missing" ]; then
+            echo "All system packages are installed already"
+          else
+            # Short timeouts and retries: a mirror that does not answer fails in seconds, not minutes
+            apt_opts="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+            ok=0
+            for attempt in 1 2 3; do
+              if sudo apt-get $apt_opts update -qq && \
+                 sudo apt-get $apt_opts install -y -qq --no-install-recommends $PKGS; then
+                ok=1
+                break
+              fi
+              echo "::warning::apt failed (attempt $attempt of 3), trying again"
+              sleep $((attempt * 20))
+            done
+            if [ "$ok" != 1 ]; then
+              echo "::error::apt cannot install $PKGS from the runner's mirrors (network or DNS of the runner image)"
+              exit 1
+            fi
+          fi
         else
           echo "::warning::self-hosted runner without passwordless sudo: make sure these packages are installed: $PKGS"
         fi
