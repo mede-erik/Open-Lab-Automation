@@ -23,5 +23,7 @@
     "Temp_Q1",
     "Vd_Q1",
     "Vs_Q1"
-  ]
+  ],
+  "format_version": 2,
+  "measurements": []
 }

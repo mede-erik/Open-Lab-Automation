@@ -33,7 +33,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -188,6 +188,8 @@ class JsonParamsDialog(QDialog):
 
 class ProjectWindow(QMainWindow):
     """The window of a project (see the module docstring)."""
+
+    project_changed = pyqtSignal()  # the project or its list of measurements was (re)drawn
 
     def __init__(
         self,
@@ -395,6 +397,40 @@ class ProjectWindow(QMainWindow):
             return None
         return self.session.project.measurements[row]
 
+    def show_measurement(self, measurement_id: str) -> None:
+        """Redraw the list of measurements (after the project was changed from outside) and
+        select this one."""
+        self._refresh()
+        self._select(measurement_id)
+
+    def ref_for_file(self, file_name: str) -> Optional[MeasurementRef]:
+        """The measurement of the open project that lives in this file (None if there is none)."""
+        if self.session is None:
+            return None
+        for ref in self.session.project.measurements:
+            if ref.file == file_name:
+                return ref
+        return None
+
+    def edit_file(self, file_name: str) -> bool:
+        """Open the editor of the measurement in this file; False if no measurement uses it."""
+        ref = self.ref_for_file(file_name)
+        if ref is None:
+            return False
+        self._select(ref.id)
+        self.edit_measurement()
+        return True
+
+    def remove_file(self, file_name: str) -> bool:
+        """Take the measurement in this file out of the project (asks whether to delete the
+        file); False if no measurement uses it."""
+        ref = self.ref_for_file(file_name)
+        if ref is None:
+            return False
+        self._select(ref.id)
+        self.remove_measurement()
+        return True
+
     def _refresh(self) -> None:
         keep = self._selected().id if self._selected() else None
         self.table.setRowCount(0)
@@ -429,6 +465,7 @@ class ProjectWindow(QMainWindow):
             self.table.resizeColumnsToContents()
             self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self._selection_changed()
+        self.project_changed.emit()
 
     def _selection_changed(self) -> None:
         self._refresh_runs()

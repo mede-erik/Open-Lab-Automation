@@ -846,6 +846,11 @@ class InstrumentConfigDialog(QDialog):
         table.setHorizontalHeaderLabels([self.translator.t('inst_scan_col_address'), "IDN", self.translator.t('inst_scan_col_interface')])
         vbox.addWidget(table)
 
+        # What the "Set" button will do (or why it cannot): it is never silent
+        status = QLabel()
+        status.setWordWrap(True)
+        vbox.addWidget(status)
+
         btns = QDialogButtonBox()
         btn_copy = QPushButton(self.translator.t('inst_scan_copy'))
         btn_apply = QPushButton(self.translator.t('inst_scan_apply'))
@@ -940,18 +945,46 @@ class InstrumentConfigDialog(QDialog):
             if clipboard is not None:
                 clipboard.setText(addr)
 
-        def apply_selected():
+        def selected_address():
+            """The address of the selected row of the table, or None."""
             row = table.currentRow()
-            if row < 0:
+            addr_item = table.item(row, 0) if row >= 0 else None
+            return addr_item.text() if addr_item is not None else None
+
+        def apply_state():
+            """(can_apply, text): what the button does now, or the reason why it cannot."""
+            t = self.translator.t
+            entry = self.current_instrument
+            if not idn_cache:
+                return False, t('inst_scan_none')
+            if entry is None:
+                return False, t('inst_scan_no_instrument')
+            name = self._name_of(entry)
+            if entry.get('is_manual'):
+                return False, t('inst_scan_manual').format(name=name)
+            addr = selected_address()
+            if addr is None:
+                return False, t('inst_scan_pick').format(name=name)
+            return True, t('inst_scan_target').format(address=addr, name=name)
+
+        def refresh_state(*_args):
+            can_apply, text = apply_state()
+            btn_apply.setEnabled(can_apply)
+            status.setText(text)
+
+        def apply_selected():
+            can_apply, _text = apply_state()
+            if not can_apply:
+                refresh_state()
                 return
-            addr_item = table.item(row, 0)
-            if addr_item is None:
-                return
-            addr = addr_item.text()
-            if self.current_instrument is not None and not self.current_instrument.get('is_manual'):
-                self.current_instrument['visa_address'] = addr
-                self.save_instruments()
-                self.show_instrument_editor(self.current_instrument)  # serial settings follow
+            self.current_instrument['visa_address'] = selected_address()
+            self.save_instruments()
+            self.show_instrument_editor(self.current_instrument)  # serial settings follow
+            dlg.accept()  # the editor behind now shows the new address
+
+        table.currentCellChanged.connect(refresh_state)
+        usb_only_cb.stateChanged.connect(refresh_state)
+        refresh_state()
 
         btn_copy.clicked.connect(copy_selected)
         btn_apply.clicked.connect(apply_selected)
