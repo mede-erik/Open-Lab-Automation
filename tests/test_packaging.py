@@ -134,7 +134,7 @@ def test_workflows_name_existing_scripts():
     [
         ("nightly", "0.0.2-nightly.20260101.abc1234", "main"),
         ("dev", "0.0.2-dev.20260101.local", "main"),
-        ("release", "0.0.2-alpha.1", "main"),  # alpha: proposal, see packaging/README.md
+        ("release", "0.0.2-alpha.1", "release"),
         ("release", "0.0.2-beta.1", "release"),
         ("release", "0.0.2-rc1", "release"),
         ("release", "0.0.2", "release"),

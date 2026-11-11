@@ -100,8 +100,7 @@ kind of build (`library_source` in `scripts/build_package.py`):
 |---|---|---|
 | nightly (push on `main`) | the **newest commit of the library's `main`** | `main, 1e67e35 (newest commit)` |
 | development (manual run) | the newest commit of the library's `main` | as above |
-| alpha (`vX.Y.Z-alpha.N`) | the newest commit of the library's `main` **(proposal, to be decided)** | as above |
-| beta (`vX.Y.Z-beta.N`), release candidate (`-rcN`), final (`vX.Y.Z`) | the **latest published release** of the library (GitHub "latest": not a pre-release) | `v0.3, 80d6cec (latest release)` |
+| alpha (`vX.Y.Z-alpha.N`), beta (`vX.Y.Z-beta.N`), release candidate (`-rcN`), final (`vX.Y.Z`) | the **latest published release** of the library (GitHub "latest": not a pre-release) | `v0.3, 80d6cec (latest release)` |
 
 The label is written in the notes of every release and of the nightly, and the library commit is
 checked out by the package jobs (`checkout-library`). On Linux the library tests

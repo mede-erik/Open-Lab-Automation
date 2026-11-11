@@ -21,8 +21,8 @@ name: Package
 #           and is only checked here, Arch users build it themselves
 #
 # Instrument library (Instruments_LIB) in the packages:
-#   nightly, dev and alpha -> the newest commit of the library's main branch
-#   beta, rc, final        -> the latest published release of the library (not a pre-release)
+#   nightly and dev        -> the newest commit of the library's main branch
+#   alpha, beta, rc, final -> the latest published release of the library (not a pre-release)
 # The commit is resolved once, in the job "meta", and every package job puts it in place.
 #
 # See packaging/README.md. Runners: the build jobs use GitHub-hosted runners (the Linux bundle

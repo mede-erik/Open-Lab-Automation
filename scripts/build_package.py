@@ -128,12 +128,11 @@ LIBRARY_RELEASE = "release"  # the latest published release of the library (not 
 def library_source(kind: str, version: str) -> str:
     """Which instrument library a package takes.
 
-    nightly, dev and alpha builds take the newest commit of the library's main branch: they are for
-    testing the library work in progress. Beta, release candidates and final releases take the
-    latest published release of the library, so that they only get a library that has been
-    released. (The alpha rule is a proposal: see packaging/README.md.)
+    Release builds (alpha, beta, release candidates, final) take the latest published release of
+    the library, so that they only get a library that has been released. nightly and dev builds
+    take the newest commit of the library's main branch, for testing the library work in progress.
     """
-    if kind == "release" and "-alpha" not in version:
+    if kind == "release":
         return LIBRARY_RELEASE
     return LIBRARY_MAIN
 
