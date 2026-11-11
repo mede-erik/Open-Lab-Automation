@@ -50,7 +50,6 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 
 - **Frontend:** Python (PyQt6) — Modern graphical interface with comprehensive instrument management and advanced sweep configuration
 - **Engine (`ola/`, `native/`):** Python + Rust — Qt-free instrument transport, step executor and measurement core (see [Engine](#engine-ola-and-native) below)
-- **Legacy backend (`backend/`):** C — original communication layer, not used by the GUI any more (`frontend/core/c_backend.py` is not called from `frontend/`); it will be retired once the app uses `ola/`
 - **Instrument Library:** JSON (`Instruments_LIB/instruments_lib.json`) — Extensible database of supported instruments
 - **Configuration Files:**
   - `.inst` — Instrument configuration and channel setup
@@ -60,7 +59,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 
 ## Engine (`ola/` and `native/`)
 
-The engine is everything that talks to instruments and runs measurements. It has **no Qt dependency**, so it can be used from the GUI, from scripts and from tests (`import frontend.core` needs PyQt6, `import ola` does not). The *Measurements* tab of the GUI runs the measurements through it, and the remote control panel uses its logical calls; the legacy C backend is not used by the GUI.
+The engine is everything that talks to instruments and runs measurements. It has **no Qt dependency**, so it can be used from the GUI, from scripts and from tests (`import frontend.core` needs PyQt6, `import ola` does not). The *Measurements* tab of the GUI runs the measurements through it, and the remote control panel uses its logical calls.
 
 ```
 measurement module (Python)         what to measure: setup / run / teardown
@@ -128,7 +127,7 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 
 **Guides** (in `docs/`): [how a run works, events, files and guarantees](docs/engine.md) · [writing a measurement module](docs/measurement-modules.md) · [instrument calls, steps, transports and RS-232 notes](docs/instrument-calls.md).
 
-**Why a new transport.** The old C backend needed about 44 ms per SCPI query on loopback (Nagle + delayed ACK: no `TCP_NODELAY`, command and terminator sent separately). The new transport needs about 35 µs (Rust) or 55 µs (pure-Python fallback); see `benchmarks/bench_transport.py`. On real instruments a query costs 1-50 ms, so the instrument dominates; the engine's job is to add nothing on top.
+**Why a new transport.** The former C backend (removed) needed about 44 ms per SCPI query on loopback (Nagle + delayed ACK: no `TCP_NODELAY`, command and terminator sent separately). The new transport needs about 35 µs (Rust) or 55 µs (pure-Python fallback); see `benchmarks/bench_transport.py`. On real instruments a query costs 1-50 ms, so the instrument dominates; the engine's job is to add nothing on top.
 
 **Project format (v2).** `<project>.json` has `"format_version": 2` and a `measurements` list (`id`, `type`, `name`, `file`). Each measurement lives in its own file whose extension is defined by its module (`.tlg` for the built-in time log). The old `eff_files` / `was_files` project format is not read.
 
@@ -150,7 +149,6 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 
 - Python 3.10+
 - PyQt6
-- GCC (for backend compilation)
 - Git (the instrument library `Instruments_LIB` is a submodule)
 - Additional Python packages listed in `requirements.txt`
 
@@ -161,7 +159,6 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `frontend/main.py` — Application entry point (PyQt6)
 - `frontend/ui/main_window.py` — Main window, menus and project file list
 - `ola/` — Qt-free code shared by the GUI and the terminal tools: instrument library loader and call planner, instrument handles, manual instruments, transport, measurement core
-- `backend/` — Legacy C backend (raw TCP for LXI instruments): not used by the GUI any more and to be retired
 
 ### Instrument Library & Configuration
 - `Instruments_LIB/` — The instrument library (git submodule, [mede-erik/Instruments_LIB](https://github.com/mede-erik/Instruments_LIB))
@@ -227,17 +224,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
    pip install -r requirements.txt
    ```
 
-3. Compile the C backend (optional, for direct instrument communication):
-   ```bash
-   bash backend/build.sh
-   ```
-   This builds the shared library `backend/libbackend.so` (Linux/macOS) or `backend/backend.dll`
-   (Windows, MinGW/MSYS). Manual build on Linux:
-   ```bash
-   gcc -shared -fPIC backend/*.c -Ibackend -o backend/libbackend.so -lm
-   ```
-
-4. Launch the application:
+3. Launch the application:
    ```bash
    python frontend/launcher.py
    ```

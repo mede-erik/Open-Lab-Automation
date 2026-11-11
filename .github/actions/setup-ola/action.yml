@@ -4,7 +4,7 @@
 
 name: Set up Open Lab Automation
 description: >
-  Python, the system packages Qt needs to run offscreen (and a C compiler), and the Python
+  Python, the system packages Qt needs to run offscreen (and gcc, which the Rust build links with), and the Python
   dependencies of requirements.txt plus the CI test tools. Works on GitHub-hosted runners and
   on self-hosted Linux runners (see docs/CI.md for what a self-hosted runner must provide).
 
@@ -26,12 +26,12 @@ runs:
         cache: pip
         cache-dependency-path: ${{ inputs.working-directory }}/requirements.txt
 
-    - name: Install system packages (Qt offscreen, C compiler)
+    - name: Install system packages (Qt offscreen, gcc for the Rust build)
       shell: bash
       env:
         RUNNER_KIND: ${{ runner.environment }}
       run: |
-        PKGS="libxcb-cursor0 libgl1 libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1 gcc make"
+        PKGS="libxcb-cursor0 libgl1 libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1 gcc"
         if [ "$(uname -s)" != "Linux" ]; then
           echo "Not Linux: system packages are not installed by this action"
         elif [ "$RUNNER_KIND" = "github-hosted" ] || sudo -n true 2>/dev/null; then

@@ -19,7 +19,6 @@
 | Lint (real errors) | `flake8 --select=E9,F63,F7,F82 .` | Whole repository. |
 | Copyright header | `python scripts/add_copyright_headers.py [FILE...]` | `--check` only lists the files without it. |
 | Try an instrument | `python scripts/instrument_shell.py [--sim]` | `scripts/dry_run_call.py` shows the commands of a call without hardware. |
-| Legacy C backend | `backend/build.sh` | Only for `tests/test_c_backend.py`. |
 
 Order when it matters: `python scripts/check_translations.py && flake8 ola tests scripts && pytest`
 
@@ -32,6 +31,7 @@ Order when it matters: `python scripts/check_translations.py && flake8 ola tests
 - **`Instruments_LIB` is a git submodule.** Change the library in its own repository; here only the pointer moves, in a separate pull request.
 - **Stacked pull requests are a trap.** If a pull request is based on the branch of another one, merging it after the first lands it in that branch, not in `main`. Base every pull request on `main`.
 - **`models.py` and `DatabaseManager.py` (capital) are deprecated.** Use `ProjectDatabaseManager`.
+- **The former C backend was removed in November 2026**: `ola/transport.py` and `native/` replace it.
 - **Documentation and code comments are in English.** The UI strings are in the locale files.
 
 ---
@@ -55,7 +55,6 @@ GUI (frontend/ui) ──► Core (frontend/core) ──► Engine (ola/, native/
 | Measurement modules | `ola/modules/<id>/` | `module.json`, `measurement.py`, `form.json`, `wiring.json`; guide in `docs/`. |
 | Instrument library | `Instruments_LIB/instruments_lib.json`, `Instruments_LIB/schema/` | Models, interfaces, limits, and the logical calls of each category. |
 | Translations | `frontend/lang/*.json`, `frontend/lang/modules/*/` | One file per locale. Accessed via `Translator.t(key)`. |
-| Legacy C backend | `backend/*.c`, `frontend/core/c_backend.py` | Raw TCP for LXI instruments. Not used by the GUI; to be retired, **do not extend**. |
 
 ### Instrument I/O
 
@@ -76,7 +75,7 @@ Everything the GUI and the measurements ask of an instrument is a **logical call
 
 ## Testing
 
-Tests live in `tests/` (engine, measurement modules, whole-library integrity, `frontend/core`, scripts, C backend, GUI windows built offscreen); `test_basic_import.py` and `test_instrument_library.py` at the repo root cover the core imports and the instrument library (`git submodule update --init` is needed for the library tests). What each file covers and how CI runs them: `docs/CI.md`.
+Tests live in `tests/` (engine, measurement modules, whole-library integrity, `frontend/core`, scripts, GUI windows built offscreen); `test_basic_import.py` and `test_instrument_library.py` at the repo root cover the core imports and the instrument library (`git submodule update --init` is needed for the library tests). What each file covers and how CI runs them: `docs/CI.md`.
 
 ```bash
 QT_QPA_PLATFORM=offscreen pytest   # everything (tests/ + test_*.py at root)
@@ -87,6 +86,31 @@ OLA_TEST_POSTGRES="host=127.0.0.1 port=5432 user=postgres password=postgres" \
 ```
 
 Some tests keep the documentation in sync: public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, every `TRN-xxx` / `CALL-xxx` code must be in `ERROR_CODES.md`, relative links must not be broken. When you change the library usage, a dialog or an error code, run the suite: the integrity, window and error-code tests are meant to catch exactly those changes.
+
+---
+
+## Packaging and releases
+
+Packages are built by `.github/workflows/package.yml` and published as GitHub releases: the
+pre-release `nightly` at every commit on `main`, a fixed release for every tag `vX.Y.Z`. The
+recipes are in `packaging/` (read `packaging/README.md` first), the steps in
+`scripts/build_package.py`. Windows: installer + zip; Linux: `.deb`, `.rpm`, tar.gz; Arch:
+`packaging/arch/PKGBUILD`.
+
+- **Placeholder icon.** `frontend/assets/icons/icona.png` is a copy of `oscilloscope.png` and is the
+  single place for the program icon (Windows exe, Linux menu entry). Replace that file when the
+  real icon exists; see `packaging/README.md` for the sizes.
+- **Version in three places:** `pyproject.toml`, `frontend/appinfo.json` and `pkgver` in
+  `packaging/arch/PKGBUILD` (`tests/test_packaging.py` checks they agree).
+- **After a release, bump the version** in those three places to the next one: otherwise the nightly
+  builds (`X.Y.Z-nightly...`) sort older than the release `X.Y.Z`.
+- A data folder the program reads at run time (next to `frontend/`, `ola/`, `Instruments_LIB/`) must
+  also be listed in `packaging/pyinstaller/ola.spec`, at the same relative path.
+- The repository URL (`frontend/appinfo.json`, `packaging/`) is `mede-erik/Open-Lab-Automation`;
+  update it if the repository moves to the Open Lab Instruments organization.
+- Open points: the Windows installer is not signed and is English only.
+
+---
 
 ---
 

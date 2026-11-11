@@ -19,7 +19,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **Lint the new code** | `flake8 ola tests scripts` | Must be clean. |
 | **Lint for real errors** | `flake8 --select=E9,F63,F7,F82 .` | Syntax errors and undefined names, whole repository. |
 | **Check the copyright headers** | `python scripts/add_copyright_headers.py --check` | Without `--check` it adds the header to the files that lack it. |
-| **Compile the legacy C backend** | `bash backend/build.sh` | Only needed by `tests/test_c_backend.py`; the GUI does not use it. |
 | **Native transport (optional)** | `cd native && maturin build --release` | Rust transport; without it `ola` falls back to an equivalent pure-Python one. |
 | **Try an instrument without the GUI** | `python scripts/instrument_shell.py --sim` | `scripts/dry_run_call.py` shows the commands of a call without hardware. |
 
@@ -51,7 +50,6 @@ Core (frontend/core) ──────────────►  Engine (ola/
   * `logger.py` – Structured logging used throughout the app.
 * **Engine** (`ola/`, `native/`) – Qt-free: instrument library and call planner, step executor, transport (Rust or pure Python, pyvisa for USB-TMC/GPIB/VXI-11, serial, Prologix GPIB adapters), drivers (Analog Discovery, LiteVNA), measurement runner and the measurement modules in `ola/modules/`. Tests are in `tests/`. The description is in the section *Engine (`ola/` and `native/`)* of `README.md` and in `docs/engine.md`; do not duplicate it here.
 * **Instrument library** (`Instruments_LIB/`) – A separate repository used as a git submodule: models, call schemas (`schema/`), test guide (`TESTING.md`). Changes to it are made in that repository, then a pull request here moves the submodule pointer.
-* **Legacy C backend** (`backend/*.c`, `frontend/core/c_backend.py`) – Not used by the GUI and to be retired: **do not extend it**.
 
 ### Data Flow (simplified)
 
@@ -86,6 +84,24 @@ Strings are stored in `frontend/lang/<locale>.json` (`it`, `en`, `fr`, `es`, `de
 * **Copyright header** on every new source file (`.py`, `.c`, `.h`, `.rs`, `.sh`, `.bat`, `.qss`): run `python scripts/add_copyright_headers.py FILE...`. `tests/test_copyright_headers.py` fails otherwise.
 * **Tests** for new code; the docs are kept in sync by tests (`tests/test_docs.py`): public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, relative links must work.
 * **Pull requests** go to `main`. Do not stack a pull request on the branch of another one: when the first is merged the second ends up in the old branch and not in `main`.
+
+---
+
+## Packaging and releases
+
+Installable packages (Windows installer + zip; Linux `.deb`, `.rpm`, tar.gz; Arch `PKGBUILD`) are
+built by `.github/workflows/package.yml`: the pre-release `nightly` at every commit on `main`, a
+fixed release for every tag `vX.Y.Z`. Recipes in `packaging/` (start from `packaging/README.md`),
+steps in `scripts/build_package.py`.
+
+* **Placeholder icon** – `frontend/assets/icons/icona.png` is a copy of `oscilloscope.png`; it is the
+  single place for the real icon, used by the Windows exe and the Linux menu entry.
+* **After a release, bump the version** in `pyproject.toml`, `frontend/appinfo.json` and `pkgver` in
+  `packaging/arch/PKGBUILD` (all three must agree); otherwise nightly builds sort older than the release.
+* A new data folder read at run time must also be added to `packaging/pyinstaller/ola.spec`, at the same
+  relative path it has in the repository.
+* Repository URL is `mede-erik/Open-Lab-Automation` for now (it may move to the Open Lab Instruments
+  organization). The Windows installer is English only and not signed yet.
 
 ---
 

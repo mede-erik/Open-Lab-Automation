@@ -263,5 +263,5 @@ window says so.
 ## Not done yet
 
 The measurement modules other than `time_log` and `efficiency`, trying the connection on real instruments, the driver system
-for Analog Discovery, the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`)
-and the retirement of the old C backend. The plan and the status are in [`PLAN.md`](../PLAN.md).
+for Analog Discovery and the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`).
+The old C backend has been retired. The plan and the status are in [`PLAN.md`](../PLAN.md).
