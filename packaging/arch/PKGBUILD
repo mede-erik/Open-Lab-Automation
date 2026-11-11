@@ -14,6 +14,10 @@
 # * To build another revision (CI, testing a branch) set OLA_FRAGMENT, for example
 #       OLA_FRAGMENT=commit=<sha> makepkg
 #   The default is the tag of the release.
+# * The instrument library is the one the submodule pins, unless OLA_LIBRARY_COMMIT names another
+#   commit of Instruments_LIB: the CI uses it for nightly builds (newest commit of the library main
+#   branch) and for beta and final releases (latest published release of the library), see
+#   packaging/README.md.
 # * PyVISA, PyVISA-py and segno are not in the official repositories (at most in the AUR, which
 #   `makepkg -si` cannot use). They are pure Python, so their wheels are downloaded from PyPI as
 #   sources (with checksums) and installed in the private folder of the program. When
@@ -69,6 +73,9 @@ prepare() {
     git submodule init
     git config submodule.Instruments_LIB.url "${srcdir}/Instruments_LIB"
     git -c protocol.file.allow=always submodule update
+    if [ -n "${OLA_LIBRARY_COMMIT:-}" ]; then
+        git -C Instruments_LIB checkout --detach "${OLA_LIBRARY_COMMIT}"
+    fi
     # Rust crates are fetched here, the build is offline. All platforms, not just this one:
     # maturin runs `cargo metadata`, which needs the whole dependency tree (core-foundation...)
     cd native

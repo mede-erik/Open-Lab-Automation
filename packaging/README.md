@@ -91,14 +91,36 @@ Windows add `installer` (needs Inno Setup 6.3+); on Linux `linux` makes the `.de
 cross-compile. Linux packages are built on the oldest runner image (Ubuntu 22.04) so that they run
 on distributions with an older glibc.
 
+## Which instrument library goes in a package
+
+`Instruments_LIB` is a separate repository, so a package takes one of its commits, chosen by the
+kind of build (`library_source` in `scripts/build_package.py`):
+
+| Build | Library taken | Example |
+|---|---|---|
+| nightly (push on `main`) | the **newest commit of the library's `main`** | `main, 1e67e35 (newest commit)` |
+| development (manual run) | the newest commit of the library's `main` | as above |
+| alpha (`vX.Y.Z-alpha.N`), beta (`vX.Y.Z-beta.N`), release candidate (`-rcN`), final (`vX.Y.Z`) | the **latest published release** of the library (GitHub "latest": not a pre-release) | `v0.3, 80d6cec (latest release)` |
+
+The label is written in the notes of every release and of the nightly, and the library commit is
+checked out by the package jobs (`checkout-library`). On Linux the library tests
+(`tests/test_library_integrity.py`) run on the library of the package before it is built.
+The tests of `ci.yml` still run on the library pinned by the submodule.
+
+Consequence: **a final release needs a published release of the library first**. If the library has
+no release, the *Package* run of a release tag fails, with the GitHub error.
+
 ## Making a release
 
 1. Set the version in **both** `pyproject.toml` and `frontend/appinfo.json` (the build refuses if
    they differ) and `pkgver` in `packaging/arch/PKGBUILD`; `tests/test_packaging.py` checks it.
-2. Merge to `main`, wait for the green *Package* run of that commit.
-3. `git tag vX.Y.Z && git push origin vX.Y.Z`. The workflow tests the tag again, builds, and creates the
-   release `vX.Y.Z` with generated notes. A tag that does not match `pyproject.toml` fails at once.
-4. Bump the version in the three places to the next one. Otherwise the nightly builds are named
+2. Make sure the instrument library has the release you want the program to ship with: publish it
+   in `Instruments_LIB` first (beta and final releases take its **latest release**).
+3. Merge to `main`, wait for the green *Package* run of that commit.
+4. `git tag vX.Y.Z && git push origin vX.Y.Z` (or `vX.Y.Z-beta.N`). The workflow tests the tag again,
+   builds with the library of the table above, and creates the release with the notes of GitHub and
+   the library label on top. A tag that does not match `pyproject.toml` fails at once.
+5. Bump the version in the three places to the next one. Otherwise the nightly builds are named
    `X.Y.Z-nightly...`, which package managers consider **older** than the release `X.Y.Z`.
 
 ## Things to know

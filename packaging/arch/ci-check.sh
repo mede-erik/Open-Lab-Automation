@@ -7,10 +7,11 @@
 # this folder at the commit given in $1, installs the package and checks that the program starts.
 # makepkg refuses to run as root, so the build is done by a throw-away user.
 #
-#   packaging/arch/ci-check.sh <commit>
+#   packaging/arch/ci-check.sh <commit> [instrument library commit]
 
 set -euo pipefail
-commit="${1:?usage: ci-check.sh <commit>}"
+commit="${1:?usage: ci-check.sh <commit> [instrument library commit]}"
+library_commit="${2:-}"
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 
 pacman -Syu --noconfirm --needed git sudo
@@ -24,7 +25,8 @@ sudo -u builder git config --global --add safe.directory '*'
 sudo -u builder git config --global url."file:///home/builder/src/".insteadOf "https://github.com/mede-erik/Open-Lab-Automation.git"
 
 cd /home/builder/src/packaging/arch
-sudo -u builder env OLA_FRAGMENT="commit=${commit}" makepkg --syncdeps --noconfirm --cleanbuild
+sudo -u builder env OLA_FRAGMENT="commit=${commit}" OLA_LIBRARY_COMMIT="${library_commit}" \
+    makepkg --syncdeps --noconfirm --cleanbuild
 
 pacman -U --noconfirm ./*.pkg.tar.zst
 # sed, not head: with pipefail, head closing the pipe early would make pacman fail with SIGPIPE
