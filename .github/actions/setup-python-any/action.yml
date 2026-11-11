@@ -29,9 +29,22 @@ runs:
         cache: ${{ inputs.cache-dependency-path != '' && 'pip' || '' }}
         cache-dependency-path: ${{ inputs.cache-dependency-path }}
 
-    - name: Install uv (self-hosted runner)
+    # uv from its release, pinned and checked against its SHA256 (the repository only allows
+    # some third-party actions, so astral-sh/setup-uv is not used)
+    - name: Install uv 0.9.5 (self-hosted runner, checksum verified)
       if: runner.environment != 'github-hosted'
-      uses: astral-sh/setup-uv@v6
+      shell: bash
+      env:
+        UV_VERSION: "0.9.5"
+        UV_SHA256: "2cf10babba653310606f8b49876cfb679928669e7ddaa1fb41fb00ce73e64f66"
+      run: |
+        dir="$RUNNER_TEMP/uv-bin"
+        mkdir -p "$dir"
+        url="https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz"
+        curl -fsSL -o "$dir/uv.tar.gz" "$url"
+        echo "${UV_SHA256}  $dir/uv.tar.gz" | sha256sum -c -
+        tar -xzf "$dir/uv.tar.gz" -C "$dir" --strip-components=1
+        echo "$dir" >> "$GITHUB_PATH"
 
     - name: Python ${{ inputs.python-version }} in a virtual environment (self-hosted runner)
       if: runner.environment != 'github-hosted'
