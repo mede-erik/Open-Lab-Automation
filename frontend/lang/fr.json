@@ -500,5 +500,6 @@
   "roles_blocked": "{name} - ne peut pas faire ce que demande la mesure",
   "roles_nothing": "Tous les instruments cités par les mesures sont dans votre fichier d'instruments.",
   "roles_failed": "Les mesures n'ont pas été mises à jour : {error}",
-  "function_generator": "Générateur de fonctions"
+  "function_generator": "Générateur de fonctions",
+  "rf_signal_generator": "Générateur de signaux RF"
 }

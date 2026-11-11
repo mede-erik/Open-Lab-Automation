@@ -30,6 +30,8 @@ CATEGORY_LABELS = {
     "network_analyzers_series": "Network analyzer (VNA)",
     "oscilloscopes_series": "Oscilloscope",
     "electronic_loads_series": "Electronic load",
+    "function_generators_series": "Function generator",
+    "rf_signal_generators_series": "RF signal generator",
 }
 
 
