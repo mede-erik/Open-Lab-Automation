@@ -112,6 +112,9 @@ recipes are in `packaging/` (read `packaging/README.md` first), the steps in
   also be listed in `packaging/pyinstaller/ola.spec`, at the same relative path.
 - The repository URL (`frontend/appinfo.json`, `packaging/`) is `mede-erik/Open-Lab-Automation`;
   update it if the repository moves to the Open Lab Instruments organization.
+- Instrument library in the packages: nightly and alpha take the newest commit of the library's `main`; beta, rc and final
+  take the latest published release of `Instruments_LIB` (see `packaging/README.md`, "Which instrument library goes in a package").
+  Publish the library release before tagging the program.
 - Open points: the Windows installer is not signed and is English only.
 
 ---

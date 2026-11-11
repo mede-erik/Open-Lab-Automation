@@ -20,6 +20,11 @@ name: Package
 # Linux   : tar.gz + .deb + .rpm (nfpm); the PKGBUILD for Arch Linux lives in packaging/arch/
 #           and is only checked here, Arch users build it themselves
 #
+# Instrument library (Instruments_LIB) in the packages:
+#   nightly, dev and alpha -> the newest commit of the library's main branch
+#   beta, rc, final        -> the latest published release of the library (not a pre-release)
+# The commit is resolved once, in the job "meta", and every package job puts it in place.
+#
 # See packaging/README.md. Runners: the build jobs use GitHub-hosted runners (the Linux bundle
 # must be built on the oldest image, for the glibc). Repository variables PACKAGE_RUNS_ON_LINUX
 # and PACKAGE_RUNS_ON_WINDOWS (JSON, like CI_RUNS_ON) move them to self-hosted runners; leave
@@ -60,6 +65,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       prerelease: ${{ steps.version.outputs.prerelease }}
+      library_sha: ${{ steps.library.outputs.library_sha }}
+      library_label: ${{ steps.library.outputs.library_label }}
     steps:
       - uses: actions/checkout@v7
 
@@ -79,6 +86,16 @@ jobs:
           python3 scripts/build_package.py version --kind "$kind" --tag "$tag" --sha "$GITHUB_SHA" \
             | tee -a "$GITHUB_OUTPUT"
 
+      - name: Work out the instrument library of the packages
+        id: library
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KIND: ${{ steps.version.outputs.kind }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 scripts/build_package.py library --kind "$KIND" --version "$VERSION" \
+            | tee -a "$GITHUB_OUTPUT"
+
   windows:
     name: Windows (zip, installer)
     needs: [tests, meta]
@@ -93,6 +110,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+
+      - name: Instrument library of the package
+        env:
+          LIB_SHA: ${{ needs.meta.outputs.library_sha }}
+          LIB_LABEL: ${{ needs.meta.outputs.library_label }}
+        run: |
+          echo "Instrument library: $LIB_LABEL"
+          python scripts/build_package.py checkout-library --sha "$LIB_SHA"
 
       - uses: actions/setup-python@v6
         with:
@@ -163,6 +188,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Instrument library of the package
+        env:
+          LIB_SHA: ${{ needs.meta.outputs.library_sha }}
+          LIB_LABEL: ${{ needs.meta.outputs.library_label }}
+        run: |
+          echo "Instrument library: $LIB_LABEL"
+          python scripts/build_package.py checkout-library --sha "$LIB_SHA"
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -187,6 +220,11 @@ jobs:
 
       - name: Install the build tools
         run: pip install -r requirements.txt -r packaging/requirements.txt
+
+      # The library of the package is checked by the library tests of the program (the tests of
+      # ci.yml run on the pinned library, not on this one)
+      - name: Check the instrument library of the package
+        run: python -m pytest tests/test_library_integrity.py -q -p no:cacheprovider
 
       - name: Install nfpm (checksum verified)
         run: |
@@ -251,14 +289,16 @@ jobs:
   arch:
     # The PKGBUILD is checked (built and installed in an Arch container), not published.
     name: Arch Linux (PKGBUILD check)
-    needs: [tests]
+    needs: [tests, meta]
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      LIB_SHA: ${{ needs.meta.outputs.library_sha }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Build and install the package in archlinux
-        run: docker run --rm -v "$PWD:/work" archlinux:base-devel bash /work/packaging/arch/ci-check.sh "$GITHUB_SHA"
+        run: docker run --rm -v "$PWD:/work" archlinux:base-devel bash /work/packaging/arch/ci-check.sh "$GITHUB_SHA" "$LIB_SHA"
 
   publish:
     name: Publish (${{ needs.meta.outputs.kind }})
@@ -279,6 +319,7 @@ jobs:
       TAG: ${{ needs.meta.outputs.tag }}
       VERSION: ${{ needs.meta.outputs.version }}
       PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+      LIB_LABEL: ${{ needs.meta.outputs.library_label }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -301,8 +342,15 @@ jobs:
             # a re-run: replace the files of the release
             gh release upload "$TAG" release/* --repo "$REPO" --clobber
           else
+            # the generated notes of GitHub, with the instrument library of the release on top
+            notes="$(mktemp)"
+            {
+              echo "Instrument library: ${LIB_LABEL}"
+              echo
+              gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body
+            } > "$notes"
             gh release create "$TAG" release/* --repo "$REPO" --verify-tag \
-              --title "Open Lab Automation ${TAG#v}" --generate-notes "${flags[@]}"
+              --title "Open Lab Automation ${TAG#v}" --notes-file "$notes" "${flags[@]}"
           fi
 
       - name: Nightly release (main)
@@ -326,6 +374,7 @@ jobs:
 
           Commit: ${GITHUB_SHA}
           Version: ${VERSION}
+          Instrument library: ${LIB_LABEL}
           Built: $(date -u +'%Y-%m-%d %H:%M UTC')
 
           Files: \`SHA256SUMS\` lists the checksums."

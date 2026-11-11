@@ -85,6 +85,8 @@ steps in `scripts/build_package.py`.
   `packaging/arch/PKGBUILD` (all three must agree); otherwise nightly builds sort older than the release.
 * A new data folder read at run time must also be added to `packaging/pyinstaller/ola.spec`, at the same
   relative path it has in the repository.
+* Instrument library in the packages: nightly takes the newest commit of `Instruments_LIB` main; beta, rc and final take
+  its latest published release (see `packaging/README.md`). Publish the library release before tagging the program.
 * Repository URL is `mede-erik/Open-Lab-Automation` for now (it may move to the Open Lab Instruments
   organization). The Windows installer is English only and not signed yet.
 
