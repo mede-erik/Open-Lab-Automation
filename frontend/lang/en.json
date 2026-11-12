@@ -504,5 +504,6 @@
   "roles_blocked": "{name} - cannot do what the measurement asks",
   "roles_nothing": "All the instruments the measurements name are in your instrument file.",
   "roles_failed": "The measurements were not updated: {error}",
-  "function_generator": "Function generator"
+  "function_generator": "Function generator",
+  "rf_signal_generator": "RF signal generator"
 }

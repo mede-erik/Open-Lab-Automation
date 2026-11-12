@@ -504,5 +504,6 @@
   "roles_blocked": "{name} - kann nicht, was die Messung verlangt",
   "roles_nothing": "Alle von den Messungen genannten Geräte stehen in Ihrer Gerätedatei.",
   "roles_failed": "Die Messungen wurden nicht aktualisiert: {error}",
-  "function_generator": "Funktionsgenerator"
+  "function_generator": "Funktionsgenerator",
+  "rf_signal_generator": "HF-Signalgenerator"
 }

@@ -505,5 +505,6 @@
   "roles_blocked": "{name} - no puede hacer lo que pide la medida",
   "roles_nothing": "Todos los instrumentos que nombran las medidas están en su archivo de instrumentos.",
   "roles_failed": "No se actualizaron las medidas: {error}",
-  "function_generator": "Generador de funciones"
+  "function_generator": "Generador de funciones",
+  "rf_signal_generator": "Generador de señales de RF"
 }
