@@ -149,8 +149,9 @@ registry in the archive.
 
 ## 7. Open points
 
-- **Registry merge: "Upload my cables" (Decided as a procedure, to be built).** Cables are often the
-  same physical objects for the whole team, so a card is *matched*, not copied:
+- **Registry merge: "Upload my cables" (deferred: built with the archive, not before).** The
+  foundations that it needs are already in local mode (`uid`, `former_codes`, the history found by
+  `uid`), so nothing has to change when it is built. The procedure, as decided:
   - the program lists my cards and the archive's and proposes matches (same `uid`, else same code and
     kind and a similar description); for each of mine I answer **same object** or **different, import
     as new**;
@@ -165,11 +166,6 @@ registry in the archive.
     reprinted;
   - codes in the archive are allocated by creating the card file exclusively, so two people loading at
     the same time never get the same code.
-- **One archive at a time (for now).** The `uid` is global, the code is valid inside one archive.
-  Leaving an archive keeps a local copy of what was downloaded (a "detach" action). Joining another
-  one (the first is lost or corrupted) uses the same procedure, matching by `uid` first, so the cards
-  that are already there are recognised. Several archives together would need a "home" archive for
-  each cable (a label carries one code): not supported at the start, not forbidden by the format.
 - **Released revisions** (a validated setup for the team).
 - **Users and permissions**: the declared author is enough on a shared folder (the file system gives
   read/write); a server would need real accounts. Roles (read only, editor, administrator) later.
