@@ -23,6 +23,8 @@ pytest.importorskip("PyQt6")
 from PyQt6.QtCore import QSettings  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
     QApplication,
+    QCheckBox,
+    QComboBox,
     QDialog,
     QLabel,
     QMessageBox,
@@ -158,38 +160,54 @@ def test_a_double_click_on_the_row_sets_the_address_too(app, tmp_path, monkeypat
     assert saved(path)[0]["visa_address"] == FOUND
 
 
-def test_with_no_instrument_selected_the_window_says_so_and_sets_nothing(
-    app, tmp_path, monkeypatch
-):
+def test_with_nothing_selected_in_the_editor_the_window_still_works(app, tmp_path, monkeypatch):
+    """The target is chosen in the window itself: no need to select it in the editor first."""
+
     def act(window):
         button, status, table = parts(window)
-        table.setCurrentCell(0, 0)
+        table.setCurrentCell(0, 0)  # a plain click on the row
         button, status, _ = parts(window)
-        assert not button.isEnabled()
-        assert "No instrument is selected" in status[-1]
+        assert button.isEnabled() and FOUND in status[-1] and "PSU" in status[-1]
         button.click()
 
-    _, path, window = open_scan(monkeypatch, tmp_path, [PSU], None, act=act)
-    assert window.result() != QDialog.DialogCode.Accepted
+    editor, path, window = open_scan(monkeypatch, tmp_path, [PSU], None, act=act)
+    assert window.result() == QDialog.DialogCode.Accepted
+    assert saved(path)[0]["visa_address"] == FOUND
+    assert editor.current_instrument is editor.instruments[0]  # the editor now shows it
+
+
+def test_the_address_goes_to_the_instrument_chosen_in_the_window(app, tmp_path, monkeypatch):
+    other = dict(PSU, instance_name="PSU2", visa_address="TCPIP0::2.2.2.2::inst0::INSTR")
+
+    def act(window):
+        combo = window.findChild(QComboBox)
+        assert [combo.itemText(i) for i in range(combo.count())] == ["PSU", "PSU2"]
+        combo.setCurrentIndex(1)
+        window.findChild(QTableWidget).setCurrentCell(0, 0)
+        parts(window)[0].click()
+
+    _, path, _ = open_scan(monkeypatch, tmp_path, [PSU, other], 0, act=act)
     assert saved(path)[0]["visa_address"] == PSU["visa_address"]
+    assert saved(path)[1]["visa_address"] == FOUND
 
 
 def test_with_an_empty_file_the_window_says_there_is_no_instrument(app, tmp_path, monkeypatch):
     def act(window):
         window.findChild(QTableWidget).setCurrentCell(0, 0)
         button, status, _ = parts(window)
-        assert not button.isEnabled() and "No instrument is selected" in status[-1]
+        assert not button.isEnabled() and "no instrument that takes an address" in status[-1]
 
     _, path, _ = open_scan(monkeypatch, tmp_path, [], None, act=act)
     assert saved(path) == []
 
 
-def test_a_manual_instrument_has_no_address_and_the_window_says_so(app, tmp_path, monkeypatch):
+def test_a_manual_instrument_is_not_offered_as_target(app, tmp_path, monkeypatch):
     def act(window):
         window.findChild(QTableWidget).setCurrentCell(0, 0)
         button, status, _ = parts(window)
         assert not button.isEnabled()
-        assert "LOAD" in status[-1] and "manual instrument" in status[-1]
+        assert "no instrument that takes an address" in status[-1]
+        assert window.findChild(QComboBox).count() == 0  # a manual instrument is not offered
 
     _, path, _ = open_scan(monkeypatch, tmp_path, [LOAD], 0, act=act)
     assert "visa_address" not in saved(path)[0]
@@ -204,23 +222,73 @@ def test_when_nothing_is_found_the_window_says_so(app, tmp_path, monkeypatch):
     open_scan(monkeypatch, tmp_path, [PSU], 0, found=(), act=act)
 
 
-def test_the_message_follows_the_usb_filter(app, tmp_path, monkeypatch):
-    """Filtering the table drops the selected row: the button must follow, not stay enabled."""
+def test_the_kind_boxes_choose_what_is_shown(app, tmp_path, monkeypatch):
+    """Every kind is shown at the start; unchecking a kind hides it, checking it shows it again."""
+    found = (
+        FOUND,
+        "USB0::0x2A8D::0x0001::SN1::INSTR",
+        "ASRL3::INSTR",
+        "GPIB0::7::INSTR",
+    )
+
+    def shown(window):
+        table = window.findChild(QTableWidget)
+        return [table.item(r, 0).text().split("::")[0] for r in range(table.rowCount())]
+
+    def act(window):
+        boxes = {c.text(): c for c in window.findChildren(QCheckBox)}
+        assert set(boxes) == {"USB", "LAN", "RS232", "GPIB"}
+        assert all(c.isChecked() for c in boxes.values())
+        assert shown(window) == ["TCPIP0", "USB0", "ASRL3", "GPIB0"]
+        boxes["USB"].setChecked(False)
+        boxes["RS232"].setChecked(False)
+        assert shown(window) == ["TCPIP0", "GPIB0"]
+        boxes["USB"].setChecked(True)
+        assert shown(window) == ["TCPIP0", "USB0", "GPIB0"]
+        boxes["LAN"].setChecked(False)
+        boxes["GPIB"].setChecked(False)
+        assert shown(window) == ["USB0"]
+
+    open_scan(monkeypatch, tmp_path, [PSU], 0, found=found, act=act)
+
+
+def test_a_hidden_row_cannot_be_applied_and_the_button_follows(app, tmp_path, monkeypatch):
     found = (FOUND, "USB0::0x2A8D::0x0001::SN1::INSTR")
 
     def act(window):
         table = window.findChild(QTableWidget)
-        table.setCurrentCell(0, 0)
-        button, _, _ = parts(window)
-        assert button.isEnabled()
-        from PyQt6.QtWidgets import QCheckBox
-
-        window.findChild(QCheckBox).setChecked(True)  # USB only: row 0 is now the USB one
+        table.selectRow(0)  # the LAN one
+        assert parts(window)[0].isEnabled()
+        {c.text(): c for c in window.findChildren(QCheckBox)}["LAN"].setChecked(False)
         button, status, table = parts(window)
-        assert table.rowCount() == 1
+        assert table.rowCount() == 1 and table.currentRow() in (-1, 0)
         if table.currentRow() < 0:
             assert not button.isEnabled()
-        else:
-            assert button.isEnabled() and "USB0" in status[-1]
 
     open_scan(monkeypatch, tmp_path, [PSU], 0, found=found, act=act)
+
+
+def test_a_real_mouse_click_on_a_row_enables_the_button(app, tmp_path, monkeypatch):
+    """What happens on a screen: a click on the 5th row of the table (nothing selected in the
+    editor behind) selects the whole row and the button becomes available."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+
+    found = tuple(f"TCPIP0::192.168.1.{n}::inst0::INSTR" for n in range(1, 8))
+
+    def act(window):
+        window.show()
+        table = window.findChild(QTableWidget)
+        assert not parts(window)[0].isEnabled()
+        for column in (0, 1, 2):  # any cell of the row
+            table.clearSelection()
+            table.setCurrentCell(-1, -1)
+            rect = table.visualRect(table.model().index(4, column))
+            QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=rect.center())
+            button, status, _ = parts(window)
+            assert table.currentRow() == 4 and button.isEnabled(), column
+            assert "192.168.1.5" in status[-1]
+        parts(window)[0].click()
+
+    _, path, window = open_scan(monkeypatch, tmp_path, [PSU], None, found=found, act=act)
+    assert saved(path)[0]["visa_address"] == "TCPIP0::192.168.1.5::inst0::INSTR"

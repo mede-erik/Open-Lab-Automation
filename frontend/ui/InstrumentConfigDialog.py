@@ -835,14 +835,43 @@ class InstrumentConfigDialog(QDialog):
         dlg.setWindowTitle(self.translator.t('inst_scan_title'))
         vbox = QVBoxLayout(dlg)
 
-        # Barra filtro: Solo USB
+        # The instrument that gets the address: chosen here, so the window does not depend on what
+        # is selected in the editor behind it (the default is that one)
+        target_bar = QHBoxLayout()
+        target_bar.addWidget(QLabel(self.translator.t('inst_scan_target_label')))
+        target_combo = QComboBox()
+        for index, entry in enumerate(self.instruments):
+            if not entry.get('is_manual'):  # a manual instrument has no address
+                target_combo.addItem(self._name_of(entry), index)  # (Qt would copy the dict)
+        if self.current_instrument is not None:
+            for i in range(target_combo.count()):
+                if self.instruments[target_combo.itemData(i)] is self.current_instrument:
+                    target_combo.setCurrentIndex(i)
+
+        def target_entry():
+            """The instrument chosen in the combo (the real entry of the file), or None."""
+            index = target_combo.currentData()
+            return self.instruments[index] if index is not None else None
+        target_bar.addWidget(target_combo, 1)
+        vbox.addLayout(target_bar)
+
+        # What to show: every kind of connection that is checked (all of them at the start)
         filter_bar = QHBoxLayout()
-        usb_only_cb = QCheckBox(self.translator.t('inst_scan_usb_only'))
-        filter_bar.addWidget(usb_only_cb)
+        filter_bar.addWidget(QLabel(self.translator.t('inst_scan_show')))
+        kind_checks = {}
+        for kind, key in (('usb', 'inst_scan_kind_usb'), ('lan', 'inst_scan_kind_lan'),
+                          ('rs232', 'inst_scan_kind_rs232'), ('gpib', 'inst_scan_kind_gpib')):
+            check = QCheckBox(self.translator.t(key))
+            check.setChecked(True)
+            kind_checks[kind] = check
+            filter_bar.addWidget(check)
         filter_bar.addStretch(1)
         vbox.addLayout(filter_bar)
 
         table = QTableWidget(0, 3)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         table.setHorizontalHeaderLabels([self.translator.t('inst_scan_col_address'), "IDN", self.translator.t('inst_scan_col_interface')])
         vbox.addWidget(table)
 
@@ -913,24 +942,32 @@ class InstrumentConfigDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(self, self.translator.t('inst_scan_error_title'), str(e))
 
-        def is_usb(addr_iface_tuple):
-            _, iface_val = addr_iface_tuple
-            return "USB" in iface_val.upper()
+        def kind_of(iface_val):
+            """Kind of connection of a VISA interface name: usb, lan, rs232, gpib (or 'other')."""
+            name = iface_val.upper()
+            for prefix, kind in (('USB', 'usb'), ('TCPIP', 'lan'), ('SOCKET', 'lan'),
+                                 ('ASRL', 'rs232'), ('GPIB', 'gpib')):
+                if name.startswith(prefix):
+                    return kind
+            return 'other'
 
-        def populate_table(only_usb=False):
+        def populate_table():
+            """Fill the table with the kinds that are checked (the others are hidden, not lost)."""
+            keep = selected_address()
             table.setRowCount(0)
             for addr, (idn_text, iface_val) in idn_cache.items():
-                if only_usb and not is_usb((addr, iface_val)):
-                    continue
+                check = kind_checks.get(kind_of(iface_val))
+                if check is not None and not check.isChecked():
+                    continue  # kinds without a check box ("other") are always shown
                 row = table.rowCount()
                 table.insertRow(row)
                 table.setItem(row, 0, QTableWidgetItem(addr))
                 table.setItem(row, 1, QTableWidgetItem(idn_text))
                 table.setItem(row, 2, QTableWidgetItem(iface_val))
+                if addr == keep:
+                    table.selectRow(row)
             table.resizeColumnsToContents()
 
-        populate_table(only_usb=False)
-        usb_only_cb.stateChanged.connect(lambda _state: populate_table(usb_only_cb.isChecked()))
         table.cellDoubleClicked.connect(lambda row, _col: btn_apply.click())
 
         def copy_selected():
@@ -954,14 +991,12 @@ class InstrumentConfigDialog(QDialog):
         def apply_state():
             """(can_apply, text): what the button does now, or the reason why it cannot."""
             t = self.translator.t
-            entry = self.current_instrument
+            entry = target_entry()
             if not idn_cache:
                 return False, t('inst_scan_none')
             if entry is None:
                 return False, t('inst_scan_no_instrument')
             name = self._name_of(entry)
-            if entry.get('is_manual'):
-                return False, t('inst_scan_manual').format(name=name)
             addr = selected_address()
             if addr is None:
                 return False, t('inst_scan_pick').format(name=name)
@@ -977,13 +1012,25 @@ class InstrumentConfigDialog(QDialog):
             if not can_apply:
                 refresh_state()
                 return
-            self.current_instrument['visa_address'] = selected_address()
+            entry = target_entry()
+            entry['visa_address'] = selected_address()
             self.save_instruments()
-            self.show_instrument_editor(self.current_instrument)  # serial settings follow
+            if entry is not self.current_instrument:
+                self.list_widget.setCurrentRow(self.instruments.index(entry))  # shows it
+            else:
+                self.show_instrument_editor(entry)  # serial settings follow
             dlg.accept()  # the editor behind now shows the new address
 
+        def refilter(*_args):
+            populate_table()
+            refresh_state()
+
+        populate_table()
         table.currentCellChanged.connect(refresh_state)
-        usb_only_cb.stateChanged.connect(refresh_state)
+        table.itemSelectionChanged.connect(refresh_state)
+        target_combo.currentIndexChanged.connect(refresh_state)
+        for check in kind_checks.values():
+            check.stateChanged.connect(refilter)
         refresh_state()
 
         btn_copy.clicked.connect(copy_selected)
