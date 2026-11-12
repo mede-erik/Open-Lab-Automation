@@ -32,6 +32,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from . import bench
+
 log = logging.getLogger(__name__)
 
 Opener = Callable[
@@ -184,7 +186,8 @@ class ProjectConnector:
             else:
                 if known is not None:
                     self._close_link(known[2])
-                link = self._open_link(name, address, model_id, timeout_ms, serial)
+                with bench.span("connect", f"{name}: open"):
+                    link = self._open_link(name, address, model_id, timeout_ms, serial)
                 instrument = Instrument(name, link, driver_for(self.library, model_id, link))
                 self._open[name] = (key, instrument, link)
                 fresh = True
@@ -195,7 +198,8 @@ class ProjectConnector:
             except Exception as exc:
                 log.warning("set_remote not accepted by %s: %s", name, exc)
         if fresh:  # who the apparatus is, read once per connection and kept for the saved runs
-            instrument.identity = read_identity(handle, address)
+            with bench.span("connect", f"{name}: identity"):
+                instrument.identity = read_identity(handle, address)
         return handle
 
     def _open_link(

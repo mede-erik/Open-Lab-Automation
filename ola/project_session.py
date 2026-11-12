@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from . import bench as ola_bench
 from .assets import normalize_code, snapshots_for
 from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
@@ -299,10 +300,16 @@ class ProjectSession:
         ref: MeasurementRef,
         unattended: Optional[str] = None,
         accepted_differences: Optional[List[Finding]] = None,
+        bench: Optional[bool] = None,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
         file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
-        file or module, instrument not reachable)."""
+        file or module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
+        the opening of the connections on; None follows the ``OLA_BENCH`` environment variable."""
+        if bench is None:
+            bench = ola_bench.env_enabled()
+        if bench:
+            ola_bench.enable(fresh=True)  # so opening the connections is measured too
         row = next((r for r in self.rows() if r.ref.id == ref.id), None)
         if row is None or row.info is None or row.problem:
             raise MeasurementError(row.problem if row else f"no measurement {ref.id!r}")
@@ -317,7 +324,7 @@ class ProjectSession:
         measurement = self.registry.create(
             ref.type, self.resolve_golden(self.resolve_correction(measurement_file.params))
         )
-        runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
+        runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel, bench=bench)
         stamp = time.strftime("%Y%m%d_%H%M%S")
         path = self.run_dir / f"{Path(ref.file).stem}_{stamp}.jsonl"
         suffix = 2
