@@ -1,8 +1,8 @@
 # Shared archive of projects and measurements (proposal)
 
 Status: proposal, **not to be implemented yet**. Decisions taken in the discussion with the project
-owner are marked **Decided**. Section 6 lists the few small changes worth doing *before* the
-archive, because they are cheap now and expensive later.
+owner are marked **Decided**. Section 6 lists the few small changes done *before* the archive, because they are cheap now and
+expensive later (done).
 
 ## Goal
 
@@ -110,7 +110,7 @@ known-good setup (§7).
 
 ## 5. Phases
 
-1. **Foundations** (§6) in local mode. Nothing visible for the user.
+1. **Foundations** (§6) in local mode. Done.
 2. `ola/archive.py` (no Qt): the `Archive` interface (`list_projects`, `open_project`,
    `publish`, `status`, history) and the shared-folder backend; the revision logic of §3; tests with
    two simulated users on one temporary folder (including crash during publish and a stale lock).
@@ -120,34 +120,56 @@ known-good setup (§7).
 5. **Index** (SQLite) for searching runs by measurement, author, date, DUT, state.
 6. Later and only if needed: server or git backend, permissions, release marks.
 
-## 6. What to do now (small, useful also in local mode)
+## 6. Foundations (done, in local mode)
 
-These change formats that are being tested now, so they are cheaper before more data exists.
+Implemented in the first step, tested in `tests/test_archive_preparation.py`:
 
-1. **`project_id`** in the project file (a random UUID, created when missing; the name stays a label).
-   The archive folder is named by it, so renaming a project never breaks the link.
-2. **Who and where in the run header**: `author` (operating-system user, editable in the settings),
-   `host`, `software_version`. Unknown values are written as such, never left out.
-3. **Unique run file names**: put the `run_id` in the name, `<stem>_<date>_<time>_<run_id>.jsonl`
-   (`ProjectSession.build_runner` and `_belongs` change; the `_n` suffix disappears). No
-   compatibility needed, as already decided in `PLAN.md`.
-4. **Atomic writes** for project, measurement and instrument files (and the same helper for the
-   registry, which already does it). This also protects a single user against a crash during save.
-5. **A `uid` for every registry card**, also copied in the card snapshots saved in the runs. Codes are
-   what people see and what runs refer to, but merging two registries may force a code to change;
-   the `uid` keeps the link (§7).
-6. **Check, with a test, that no project file stores an absolute path.** Plain names are enforced for
-   the measurement files; the same must hold for calibrations, golden samples and anything else listed in
-   the project file.
+1. **`project_id`** in the project file (a random UUID; given to a project that has none and saved;
+   the name stays a label, renaming keeps the id).
+2. **Who and where in the run header**: `author` (`$OLA_AUTHOR`, else the operating-system user),
+   `host`, `software_version` (`ola/provenance.py`). A value that cannot be found is `"unknown"`.
+   Still to do: a field in the settings window to declare the author.
+3. **Unique run file names**: `<measurement>_<date>_<time>_<run id>.jsonl`. The `run_id` identifies
+   one execution of a measurement (the measurement itself has its `id` `m1`, `m2`... in the project).
+4. **Atomic writes** (`ola/fileio.py`) for project, measurement, instrument and calibration files and
+   for the references rewritten by a rename; the registry uses it too (and keeps its `.bak`).
+   The older editors in `frontend/ui` (`.eff`/`.was`/`.inst` dialogs) still write in place.
+5. **`uid` and `former_codes` on every registry card**, copied in the snapshot a run saves.
+   `ola.assets.runs_of` / `history(code, dirs, registry)` follow the object by `uid`, then by code
+   and former codes for runs without a `uid`; two objects with the same code are never mixed.
+6. **No absolute path in a project**: `attach_to_project` refuses a calibration outside the project
+   folder (it used to store the absolute path), and a test checks the names a project lists.
 
-What is *not* done now: archive settings, locks, history, index, user interface.
+Not done on purpose: archive settings, locks, history, index, user interface.
+
+Note for the correction of a measurement (`resolve_correction`): it uses the **newest finished**
+measurement of a cable by code. With two series of different frequency range the newest may not
+cover the sweep; the choice should then take the range into account. To do together with the
+registry in the archive.
 
 ## 7. Open points
 
-- **Registry merge.** A local registry that starts to use an archive may contain `CBL-0001` that is a
-  different cable from the archive's `CBL-0001`. Labels may already be printed. Options: ask on each
-  clash (same object: merge; different: new code and a new label); or start the archive with an empty
-  registry and never import. To be decided with the `uid` of §6.5.
+- **Registry merge: "Upload my cables" (Decided as a procedure, to be built).** Cables are often the
+  same physical objects for the whole team, so a card is *matched*, not copied:
+  - the program lists my cards and the archive's and proposes matches (same `uid`, else same code and
+    kind and a similar description); for each of mine I answer **same object** or **different, import
+    as new**;
+  - *same*: the archive's card is kept (the first to arrive sets it); fields that differ are shown and
+    I choose. My runs need no change: the history is found through the card, so the measurements of
+    both people appear on the same cable; which one is used is a rule of the views (the newest, per
+    kind of measurement and frequency range), not a merge;
+  - *different*, code free in the archive: it keeps its code; code taken: it gets the next free code,
+    the old one goes to `former_codes`, the measurement files of my projects are rewritten (as
+    `project_rename` does for instruments), run files are never touched, and a sheet of labels to
+    reprint is prepared. The QR code keeps holding the code, so only the cables that changed code are
+    reprinted;
+  - codes in the archive are allocated by creating the card file exclusively, so two people loading at
+    the same time never get the same code.
+- **One archive at a time (for now).** The `uid` is global, the code is valid inside one archive.
+  Leaving an archive keeps a local copy of what was downloaded (a "detach" action). Joining another
+  one (the first is lost or corrupted) uses the same procedure, matching by `uid` first, so the cards
+  that are already there are recognised. Several archives together would need a "home" archive for
+  each cable (a label carries one code): not supported at the start, not forbidden by the format.
 - **Released revisions** (a validated setup for the team).
 - **Users and permissions**: the declared author is enough on a shared folder (the file system gives
   read/write); a server would need real accounts. Roles (read only, editor, administrator) later.

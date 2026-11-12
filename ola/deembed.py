@@ -164,15 +164,20 @@ def load_cable(spec: Mapping[str, Any]) -> CableData:
 
 
 def latest_cable_run(
-    code: str, run_dirs: Iterable[Union[str, Path]], kinds: Sequence[str] = ("cable",)
+    code: str,
+    run_dirs: Iterable[Union[str, Path]],
+    kinds: Sequence[str] = ("cable",),
+    registry: Optional[Any] = None,
 ) -> Optional[Path]:
     """The newest **finished** measurement of the registry code ``code`` (a path), or None. By
     default only cable measurements; ``kinds`` can add others (``"attenuator"``: a pad used as a
-    fixture)."""
+    fixture). With the ``registry`` the cable is found by its uid too."""
     from .assets import history
 
     finished = [
-        r for r in history(code, run_dirs) if r.measurement in kinds and r.state == "finished"
+        r
+        for r in history(code, run_dirs, registry)
+        if r.measurement in kinds and r.state == "finished"
     ]
     return finished[-1].path if finished else None
 

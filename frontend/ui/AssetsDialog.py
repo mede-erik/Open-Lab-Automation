@@ -56,6 +56,7 @@ from ola.assets import (
     index_runs,
     last_measurement_line,
     normalize_code,
+    runs_of,
 )
 
 RunDirs = Union[Sequence[Union[str, Path]], Callable[[], Sequence[Union[str, Path]]]]
@@ -225,7 +226,7 @@ class AssetsDialog(QDialog):
         self._shown = self.registry.list(kind, self.retired_box.isChecked())
         self.table.setRowCount(len(self._shown))
         for row, asset in enumerate(self._shown):
-            runs = self.index.get(asset.id, [])
+            runs = runs_of(asset, self.index)
             status = self._t("ast_retired") if asset.retired else self._t("ast_active")
             cells = (asset.id, self._t(f"ast_kind_{asset.kind}"), asset.name, asset.description,
                      asset.created, str(len(runs)), status)  # fmt: skip
@@ -314,7 +315,7 @@ class AssetsDialog(QDialog):
         if len(chosen) != 1:
             return
         asset = chosen[0]
-        used = len(self.index.get(asset.id, []))
+        used = len(runs_of(asset, self.index))
         text = self._t("ast_confirm_delete", code=asset.id, name=asset.name)
         if used:
             text += "\n" + self._t("ast_confirm_delete_used", n=used)
@@ -336,7 +337,7 @@ class AssetsDialog(QDialog):
             return
 
         def latest(asset: Asset) -> str:
-            runs = self.index.get(asset.id, [])
+            runs = runs_of(asset, self.index)
             return last_measurement_line(runs[-1] if runs else None)
 
         self.label_tool = LabelDialog(chosen, self.translator, latest, self)
@@ -347,7 +348,7 @@ class AssetsDialog(QDialog):
         chosen = self.selected()
         if len(chosen) != 1:
             return
-        runs = self.index.get(chosen[0].id, [])
+        runs = runs_of(chosen[0], self.index)
         self.history_tool = AssetHistoryDialog(
             chosen[0], runs, self.translator, self, self.run_dirs()
         )

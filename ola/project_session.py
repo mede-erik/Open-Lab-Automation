@@ -301,11 +301,8 @@ class ProjectSession:
         )
         runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        path = self.run_dir / f"{Path(ref.file).stem}_{stamp}.jsonl"
-        suffix = 2
-        while path.exists():  # two runs in the same second
-            path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{suffix}.jsonl"
-            suffix += 1
+        # the run id is in the name: two people starting in the same second never collide
+        path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{runner.run_id}.jsonl"
         extra: Dict[str, Any] = {}
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
@@ -371,7 +368,7 @@ class ProjectSession:
             if not code:
                 continue
             folders = [self.run_dir, *self.extra_run_dirs]
-            found = latest_cable_run(code, folders, kinds)
+            found = latest_cable_run(code, folders, kinds, self.assets)
             if found is None:
                 what = " or ".join(kinds)
                 raise MeasurementError(
@@ -425,9 +422,16 @@ class ProjectSession:
 
 
 def _belongs(path: Path, stem: str) -> bool:
-    """``stem_<date>_<time>[_n].jsonl`` and not the run of another measurement whose file name
+    """``stem_<date>_<time>_<run id>.jsonl`` and not the run of another measurement whose file name
     merely starts with the same letters (``eff_2.eff`` and ``eff.eff``)."""
     start = len(stem) + 1
     rest = path.stem[start:]
     parts = rest.split("_")
-    return len(parts) in (2, 3) and parts[0].isdigit() and len(parts[0]) == 8
+    return (
+        len(parts) == 3
+        and parts[0].isdigit()
+        and len(parts[0]) == 8
+        and parts[1].isdigit()
+        and len(parts[1]) == 6
+        and bool(parts[2])
+    )

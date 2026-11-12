@@ -98,10 +98,10 @@ def test_runs_of_a_measurement_with_a_similar_name_are_not_mixed(tmp_path):
     a = add_efficiency(session, "eff")
     b = add_efficiency(session, "eff 2")
     session.run_dir.mkdir()
-    (session.run_dir / "eff_20260101_101010.jsonl").write_text("")
-    (session.run_dir / "eff_2_20260101_101010.jsonl").write_text("")
-    assert [p.name for p in session.runs(a)] == ["eff_20260101_101010.jsonl"]
-    assert [p.name for p in session.runs(b)] == ["eff_2_20260101_101010.jsonl"]
+    (session.run_dir / "eff_20260101_101010_a1b2c3d4e5f6.jsonl").write_text("")
+    (session.run_dir / "eff_2_20260101_101010_0123456789ab.jsonl").write_text("")
+    assert [p.name for p in session.runs(a)] == ["eff_20260101_101010_a1b2c3d4e5f6.jsonl"]
+    assert [p.name for p in session.runs(b)] == ["eff_2_20260101_101010_0123456789ab.jsonl"]
 
 
 def test_without_a_way_to_connect_the_reason_is_readable(tmp_path):

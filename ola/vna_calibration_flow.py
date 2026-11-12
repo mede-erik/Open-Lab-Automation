@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .call_errors import CallError, CallNotSupportedError, InvalidArgumentError
+from .fileio import atomic_write_json
 
 KINDS = ("ONE_PORT", "TRANSMISSION_RESPONSE", "TWO_PORT")
 KIND_TEXT = {
@@ -259,7 +260,7 @@ def load_kit(path) -> Dict[str, float]:
 
 def save_kit(path, kit: Dict[str, float]) -> None:
     """Write the values of a calibration kit to a JSON file."""
-    Path(path).write_text(json.dumps(kit, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, kit)
 
 
 def _slug(text: str) -> str:
@@ -278,9 +279,7 @@ def save_record(record: CalibrationRecord, directory) -> Path:
     while path.exists():  # never overwrite another calibration (two in the same second)
         path = directory / f"{_slug(record.instrument)}{serial}_{stamp}_{counter}.cal.json"
         counter += 1
-    path.write_text(
-        json.dumps(asdict(record), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    atomic_write_json(path, asdict(record))
     return path
 
 
@@ -298,19 +297,23 @@ def load_record(path) -> CalibrationRecord:
 def attach_to_project(project_path, record_path, record: CalibrationRecord) -> None:
     """List the calibration in the project file (key ``calibrations``, the newest per apparatus --
     the same instrument name and serial number -- replaces the older one). Other keys of the
-    project file are kept."""
+    project file are kept. ``InvalidArgumentError`` if the record is not inside the project folder
+    (a project never names a file outside itself)."""
     project_path = Path(project_path)
     raw = json.loads(project_path.read_text(encoding="utf-8"))
+    try:  # always a path inside the project folder: the project must stay movable and shareable
+        relative = Path(record_path).resolve().relative_to(project_path.resolve().parent).as_posix()
+    except ValueError:
+        raise InvalidArgumentError(
+            f"the calibration file {record_path} must be inside the project folder "
+            f"{project_path.resolve().parent}"
+        ) from None
     entry = {
         "instrument": record.instrument,
         "serial_number": record.serial_number,
         "kind": record.kind,
         "date": record.date,
-        "file": (
-            str(Path(record_path).resolve().relative_to(project_path.resolve().parent))
-            if project_path.resolve().parent in Path(record_path).resolve().parents
-            else str(record_path)
-        ),
+        "file": relative,
     }
     others = [
         c
@@ -319,7 +322,7 @@ def attach_to_project(project_path, record_path, record: CalibrationRecord) -> N
         != (record.instrument, record.serial_number)
     ]
     raw["calibrations"] = others + [entry]
-    project_path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    atomic_write_json(project_path, raw)
 
 
 def restore(handle, record: CalibrationRecord) -> None:
