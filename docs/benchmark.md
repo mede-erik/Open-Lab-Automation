@@ -23,6 +23,29 @@ python scripts/bench_report.py runs/efficiency_20261112_101500.jsonl
 python scripts/bench_report.py new.jsonl --compare old.jsonl      # median of every row, in %
 ```
 
+## Measuring a real instrument
+
+`benchmarks/bench_hardware.py` connects to one instrument and answers: how long does it take, and
+how much of that is the software?
+
+```bash
+python benchmarks/bench_hardware.py --model PSU_OWON_ODP3033 \
+    --address TCPIP0::192.168.1.50::inst0::INSTR --arg channel_number=1 --json owon.json
+```
+
+It is safe: only **queries** that need no argument are run (nothing is set or switched), and
+`self_test`, `reset`, calibration and clear calls are refused. By default it runs
+`identification_query`, `error_query`, `read_voltage`, `read_current` and `output_state_query`,
+those the model has; `--calls a,b` chooses others. `--arg NAME=VALUE` is passed to the calls whose
+schema has that argument (some models need `channel_number` although the schema says it is
+optional). A call that fails in the warm-up is skipped with the reason.
+
+The output has, per call, the mean total, the part spent on the instrument and the part spent in
+the software (plan, interpretation, lock, overhead) with its percentage, plus the same question
+sent straight to the link without planner and lock (`--raw`, default `*IDN?`): the best the link
+can do. `--json` saves the report; `--compare` shows the change against an earlier one, e.g. before
+and after a change of transport or of timeouts.
+
 ## What is measured
 
 All times are in milliseconds (`time.perf_counter_ns`); every row has `n`, mean, median, p95, min,

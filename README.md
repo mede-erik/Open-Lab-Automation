@@ -143,6 +143,7 @@ cd native && cargo test        # Rust tests
 pytest tests                   # Python tests (native and pure-Python transport)
 python benchmarks/bench_transport.py
 python benchmarks/bench_engine.py     # whole engine on a simulated instrument (see docs/benchmark.md)
+python benchmarks/bench_hardware.py --model ID --address VISA   # one real instrument, queries only
 ```
 
 Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see `ERROR_CODES.md`. The design and the project status are in `PLAN.md`.

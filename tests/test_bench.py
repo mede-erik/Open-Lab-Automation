@@ -184,3 +184,80 @@ def test_the_overhead_of_the_hooks_is_small():
         with bench.span("a", "b"):
             pass
     assert time.perf_counter() - t < 1.0
+
+
+# ---- benchmarks/bench_hardware.py (safe selection of calls, simulated link) ----------------
+def _load_hardware_script():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "benchmarks" / "bench_hardware.py"
+    spec = importlib.util.spec_from_file_location("bench_hardware", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def library():
+    from pathlib import Path
+
+    from ola.library import Library
+
+    path = Path(__file__).resolve().parent.parent / "Instruments_LIB" / "instruments_lib.json"
+    return Library.load(str(path))
+
+
+def test_hardware_benchmark_runs_only_safe_queries(library):
+    script = _load_hardware_script()
+    ok, refused = script.safe_calls(
+        library,
+        "PSU_OWON_ODP3033",
+        ["read_voltage", "set_voltage", "self_test", "output_on", "no_such_call", "error_query"],
+    )
+    assert ok == ["read_voltage", "error_query"]
+    reasons = dict(refused)
+    assert reasons["set_voltage"] == "not a query"
+    assert "slow" in reasons["self_test"]
+    assert reasons["output_on"] == "not a query"
+    assert "does not define" in reasons["no_such_call"]
+
+
+def test_hardware_benchmark_end_to_end_on_a_simulated_link(library, monkeypatch, capsys, tmp_path):
+    script = _load_hardware_script()
+    from ola import tester
+
+    link = SimTransport(lambda cmd: "1.5" if cmd.endswith("?") else None)
+    link.query = lambda cmd, timeout_ms=None: "ACME,PSU,1,1.0"  # the raw question
+    monkeypatch.setattr(tester, "open_visa", lambda *a, **k: link)
+    out = tmp_path / "r.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "bench_hardware.py",
+            "--model",
+            "PSU_OWON_ODP3033",
+            "--address",
+            "SIM",
+            "--repeat",
+            "5",
+            "--calls",
+            "read_voltage,set_voltage",
+            "--arg",
+            "channel_number=1",
+            "--json",
+            str(out),
+        ],
+    )
+    script.main()
+    text = capsys.readouterr().out
+    assert "skipped set_voltage: not a query" in text
+    assert "dut.read_voltage" in text and "Straight to the link" in text
+    import json
+
+    report = json.loads(out.read_text())
+    call = next(r for r in report["rows"] if r["category"] == "call")
+    assert call["n"] == 5  # the warm-up is not counted
+    assert bench.current() is None
+    assert link.log.count("MEAS:VOLT?") == 5 + 3  # measured + warm-up; set_voltage never sent
+    assert not any(c.startswith("VOLT ") for c in link.log)
