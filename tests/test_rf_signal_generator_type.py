@@ -66,6 +66,23 @@ MODELS = [
         ("set_output_state", {"state": True}, ["OUTPut:STATe ON"]),
         ("set_output_state", {"state": False}, ["OUTPut:STATe OFF"]),
         ("query_output_state", {}, ["OUTPut:STATe?"]),
+        ("set_modulation_state", {"kind": "AM", "state": True}, ["AM:STATe ON"]),
+        ("set_modulation_state", {"kind": "PULSE", "state": False}, ["PULM:STATe OFF"]),
+        ("query_modulation_state", {"kind": "FM"}, ["FM:STATe?"]),
+        ("set_modulation_source", {"kind": "FM", "source": "EXTERNAL"}, ["FM:SOURce EXTernal"]),
+        ("set_modulation_rate", {"kind": "AM", "value": 1000}, ["AM:INTernal:FREQuency 1000 Hz"]),
+        (
+            "set_modulation_rate",
+            {"kind": "PM", "value": 2500.5, "source": "INTERNAL_2"},
+            ["PM:INTernal2:FREQuency 2500.5 Hz"],
+        ),
+        ("set_modulation_waveform", {"kind": "FM", "shape": "TRIANGLE"},
+         ["FM:INTernal2:FUNCtion:SHAPe TRIangle"]),
+        ("set_modulation_external_coupling", {"kind": "AM", "coupling": "DC"},
+         ["AM:EXTernal:COUPling DC"]),
+        ("set_am_depth", {"value": 30}, ["AM:DEPTh 30 PCT"]),
+        ("set_fm_deviation", {"value": 20000}, ["FM:DEViation 20000 Hz"]),
+        ("set_pm_deviation", {"value": 1.57}, ["PM:DEViation 1.57 RAD"]),
     ],
 )
 def test_logical_calls_plan_the_commands_of_the_family(library, model_id, call, args, texts):
@@ -87,3 +104,17 @@ def test_a_value_the_family_cannot_give_is_not_a_crash(library):
         pytest.skip("the library has no RF signal generator yet")
     with pytest.raises(Exception, match="CALL-003|needs argument"):
         plan_call(library, "RFGEN_Keysight_N5172B", "set_frequency", {})
+
+
+@pytest.mark.parametrize(
+    "call, args",
+    [
+        ("set_modulation_source", {"kind": "PULSE", "source": "INTERNAL"}),  # no source for PULSE
+        ("set_modulation_rate", {"kind": "AM", "value": 10, "source": "EXTERNAL"}),  # not internal
+    ],
+)
+def test_a_modulation_the_manuals_do_not_document_is_not_handled(library, call, args):
+    if library.find_model("RFGEN_Keysight_N5172B") is None:
+        pytest.skip("the library has no RF signal generator yet")
+    with pytest.raises(Exception, match="CALL-002"):
+        plan_call(library, "RFGEN_Keysight_N5172B", call, args)
