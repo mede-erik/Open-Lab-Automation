@@ -6,7 +6,8 @@
 
 A run file is JSON Lines, one object per line::
 
-    {"kind": "run",   ...header: run_id, measurement, params, bindings, started_at...}
+    {"kind": "run",   ...header: run_id, author, host, software_version, measurement, params,
+                      bindings, started_at...}
     {"kind": "point", "table": "points", "index": 0, "elapsed_s": 0.5, "values": {...}, "t": ...}
     {"kind": "trace", "name": "ch1", "trace_kind": "real|complex", "x": [...], "y": [...],
      "meta": {...}, "t": ...}
@@ -28,6 +29,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 from .identity import snapshot
 from .measurement import Event
+from .provenance import provenance
 from .runner import FINAL_STATES, Runner
 
 
@@ -56,6 +58,7 @@ class RunWriter:
         info = runner.measurement.info
         return {
             "run_id": runner.run_id,
+            **provenance(),  # who, on which computer, with which version of the program
             "measurement": getattr(info, "id", type(runner.measurement).__name__),
             "module_version": getattr(info, "version", None),
             "params": runner.measurement.params,

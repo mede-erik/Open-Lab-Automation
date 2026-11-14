@@ -19,6 +19,7 @@ the environment variable `OLA_ASSETS_FILE` (for example in a shared folder). It 
 * **Code**: a prefix for the kind and a number: `CBL` cable, `ANT` antenna, `FLT` filter, `AMP` amplifier, `ATT` attenuator, `ADP` adapter,
   `DUT` any other device. Numbers count up per kind and are **never used again**, not even after a deletion or a restart.
   If two people work on separate copies of the file the numbers can clash: share one file.
+* **Identity (`uid`)**: every card also has a `uid`, a random identifier that never changes. The code is what you see and print, but it can change (two registries joined into a shared archive may force a new code, and the old one is kept in `former_codes`). A run saves the card of that day with its `uid`, so the history of a cable follows the `uid`, and two different cables that once had the same code are not mixed. Runs made before the `uid` existed are found by the code (and the former codes). Planned use: `docs/proposals/shared-archive.md`.
 * **Card**: name (required), what it is, manufacturer, serial number, owner, notes, the date it was created, and
   *details* that depend on the kind (a cable: type, connectors, length; an antenna: frequency range, connector, gain; a
   filter: type, frequency, connectors; an amplifier: nominal gain, supply; an attenuator: nominal value, tolerance, maximum power and frequency, connectors). A detail that is a measure is stored as a
