@@ -868,11 +868,20 @@ class InstrumentConfigDialog(QDialog):
         filter_bar.addStretch(1)
         vbox.addLayout(filter_bar)
 
-        table = QTableWidget(0, 3)
+        hint = QLabel(self.translator.t('inst_scan_check_hint'))
+        hint.setWordWrap(True)
+        vbox.addWidget(hint)
+
+        # columns: check box (add to the file), address, IDN, interface, model of the library
+        COL_ADDR, COL_IDN, COL_IFACE, COL_MODEL = 1, 2, 3, 4
+        table = QTableWidget(0, 5)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setHorizontalHeaderLabels([self.translator.t('inst_scan_col_address'), "IDN", self.translator.t('inst_scan_col_interface')])
+        table.setHorizontalHeaderLabels([
+            self.translator.t('inst_scan_col_add'), self.translator.t('inst_scan_col_address'), "IDN",
+            self.translator.t('inst_scan_col_interface'), self.translator.t('inst_scan_col_model'),
+        ])
         vbox.addWidget(table)
 
         # What the "Set" button will do (or why it cannot): it is never silent
@@ -882,9 +891,11 @@ class InstrumentConfigDialog(QDialog):
 
         btns = QDialogButtonBox()
         btn_copy = QPushButton(self.translator.t('inst_scan_copy'))
+        btn_add = QPushButton(self.translator.t('inst_scan_add_checked'))
         btn_apply = QPushButton(self.translator.t('inst_scan_apply'))
         btn_close = QPushButton(self.translator.t('inst_scan_close'))
         btns.addButton(btn_copy, QDialogButtonBox.ButtonRole.ActionRole)
+        btns.addButton(btn_add, QDialogButtonBox.ButtonRole.ActionRole)
         btns.addButton(btn_apply, QDialogButtonBox.ButtonRole.ActionRole)
         btns.addButton(btn_close, QDialogButtonBox.ButtonRole.RejectRole)
         vbox.addWidget(btns)
@@ -951,9 +962,24 @@ class InstrumentConfigDialog(QDialog):
                     return kind
             return 'other'
 
+        def recognized(idn_text):
+            """(type, series, model) of the library for an *IDN? answer, or None."""
+            try:
+                matches = self.load_instruments.find_models_by_idn(idn_text)
+            except Exception:
+                matches = []
+            return matches[0] if matches else None
+
+        models = {addr: recognized(idn_text) for addr, (idn_text, _) in idn_cache.items()}
+        to_add = set()  # addresses checked to be added (kept when a kind is hidden and shown)
+
+        def in_file(addr):
+            return any(e.get('visa_address') == addr for e in self.instruments)
+
         def populate_table():
             """Fill the table with the kinds that are checked (the others are hidden, not lost)."""
             keep = selected_address()
+            table.blockSignals(True)
             table.setRowCount(0)
             for addr, (idn_text, iface_val) in idn_cache.items():
                 check = kind_checks.get(kind_of(iface_val))
@@ -961,12 +987,42 @@ class InstrumentConfigDialog(QDialog):
                     continue  # kinds without a check box ("other") are always shown
                 row = table.rowCount()
                 table.insertRow(row)
-                table.setItem(row, 0, QTableWidgetItem(addr))
-                table.setItem(row, 1, QTableWidgetItem(idn_text))
-                table.setItem(row, 2, QTableWidgetItem(iface_val))
+                box = QTableWidgetItem()
+                match = models.get(addr)
+                if in_file(addr):
+                    model_text = self.translator.t('inst_scan_already')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+                elif match is None:
+                    model_text = self.translator.t('inst_scan_unknown_model')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+                else:
+                    model_text = match[2].get('name') or match[2].get('model', '')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled
+                                 | Qt.ItemFlag.ItemIsUserCheckable)
+                    box.setCheckState(Qt.CheckState.Checked if addr in to_add else Qt.CheckState.Unchecked)
+                table.setItem(row, 0, box)
+                table.setItem(row, COL_ADDR, QTableWidgetItem(addr))
+                table.setItem(row, COL_IDN, QTableWidgetItem(idn_text))
+                table.setItem(row, COL_IFACE, QTableWidgetItem(iface_val))
+                table.setItem(row, COL_MODEL, QTableWidgetItem(model_text))
                 if addr == keep:
                     table.selectRow(row)
+            table.blockSignals(False)
             table.resizeColumnsToContents()
+
+        def on_item_changed(item):
+            if item.column() != 0:
+                return
+            addr_item = table.item(item.row(), COL_ADDR)
+            if addr_item is None:
+                return
+            if item.checkState() == Qt.CheckState.Checked:
+                to_add.add(addr_item.text())
+            else:
+                to_add.discard(addr_item.text())
+            refresh_state()
+
+        table.itemChanged.connect(on_item_changed)
 
         table.cellDoubleClicked.connect(lambda row, _col: btn_apply.click())
 
@@ -974,7 +1030,7 @@ class InstrumentConfigDialog(QDialog):
             row = table.currentRow()
             if row < 0:
                 return
-            addr_item = table.item(row, 0)
+            addr_item = table.item(row, COL_ADDR)
             if addr_item is None:
                 return
             addr = addr_item.text()
@@ -985,7 +1041,7 @@ class InstrumentConfigDialog(QDialog):
         def selected_address():
             """The address of the selected row of the table, or None."""
             row = table.currentRow()
-            addr_item = table.item(row, 0) if row >= 0 else None
+            addr_item = table.item(row, COL_ADDR) if row >= 0 else None
             return addr_item.text() if addr_item is not None else None
 
         def apply_state():
@@ -1005,7 +1061,40 @@ class InstrumentConfigDialog(QDialog):
         def refresh_state(*_args):
             can_apply, text = apply_state()
             btn_apply.setEnabled(can_apply)
+            btn_add.setEnabled(bool(to_add))
+            if to_add:
+                text = self.translator.t('inst_scan_will_add').format(count=len(to_add)) + "\n" + text
             status.setText(text)
+
+        def add_checked():
+            """Add a new instrument of the file for every checked row (model of the library and
+            address found), then close: the editor shows the first one added."""
+            if not to_add:
+                return
+            first = None
+            for addr in [a for a in idn_cache if a in to_add]:  # in the order of the table
+                match = models.get(addr)
+                if match is None or in_file(addr):
+                    continue
+                type_name, series_id, model = match
+                taken = [self._name_of(e) for e in self.instruments]
+                name = model.get('model') or type_name
+                if name in taken:  # the name is what measurements use: it must be unique
+                    name = inst.unique_name(name, taken, suffix='_')
+                guessed = model.get('channels', model.get('num_channels', 1))
+                entry = self._new_entry(
+                    type_name, series_id, model.get('id'), model.get('name', ''), name,
+                    guessed if isinstance(guessed, int) else 1,
+                )
+                entry['visa_address'] = addr
+                self.instruments.append(entry)
+                self.list_widget.addItem(self._list_text(entry))
+                if first is None:
+                    first = len(self.instruments) - 1
+            self.save_instruments()
+            if first is not None:
+                self.list_widget.setCurrentRow(first)
+            dlg.accept()
 
         def apply_selected():
             can_apply, _text = apply_state()
@@ -1034,6 +1123,7 @@ class InstrumentConfigDialog(QDialog):
         refresh_state()
 
         btn_copy.clicked.connect(copy_selected)
+        btn_add.clicked.connect(add_checked)
         btn_apply.clicked.connect(apply_selected)
         btn_close.clicked.connect(dlg.reject)
         dlg.exec()
@@ -1162,6 +1252,29 @@ class InstrumentConfigDialog(QDialog):
             self.list_widget.setCurrentRow(self.list_widget.count() - 1)
             break
 
+    def _new_entry(self, type_name, series, model_id, model, name, guessed_num_channels=1):
+        """A new entry of the file for a library model (its channels are filled when shown)."""
+        caps = None
+        try:
+            caps = self.load_instruments.get_model_capabilities(type_name, series, model_id)
+        except Exception:
+            caps = None
+        num_channels = (
+            (caps.get('number_of_channels') if isinstance(caps, dict) else None)
+            or (caps.get('channels') if isinstance(caps, dict) and isinstance(caps.get('channels'), int) else None)
+            or (caps.get('number_of_slots') if isinstance(caps, dict) else None)
+            or guessed_num_channels
+        )
+        return {
+            'instrument_type': type_name,
+            'instance_name': name,
+            'series': series,
+            'model': model,
+            'model_id': model_id,
+            'num_channels': num_channels,
+            'channels': []
+        }
+
     def add_instrument_dialog(self):
         dlg = QDialog(self)
         t = self.translator.t
@@ -1228,27 +1341,7 @@ class InstrumentConfigDialog(QDialog):
             series = series_combo.currentData()
             model = model_combo.currentText().strip()
             model_id, guessed_num_channels = model_map.get(model, (model, 1))
-            # Ricava num_channels dalle capabilities quando possibile
-            caps = None
-            try:
-                caps = self.load_instruments.get_model_capabilities(type_name, series, model_id)
-            except Exception:
-                caps = None
-            num_channels = (
-                (caps.get('number_of_channels') if isinstance(caps, dict) else None)
-                or (caps.get('channels') if isinstance(caps, dict) and isinstance(caps.get('channels'), int) else None)
-                or (caps.get('number_of_slots') if isinstance(caps, dict) else None)
-                or guessed_num_channels
-            )
-            new_inst = {
-                'instrument_type': type_name,
-                'instance_name': name,
-                'series': series,
-                'model': model,
-                'model_id': model_id,
-                'num_channels': num_channels,
-                'channels': []
-            }
+            new_inst = self._new_entry(type_name, series, model_id, model, name, guessed_num_channels)
             self.instruments.append(new_inst)
             self.save_instruments()
             self.list_widget.addItem(self._list_text(new_inst))
