@@ -36,6 +36,7 @@
   "gpb_invalid": "Ungültige Konfiguration: {error}",
   "gpb_detected": "Hinzugefügte Adapter: {count}. Prüfen und Speichern drücken.",
   "gpb_detected_none": "Kein neuer Adapter gefunden",
+  "gpb_none_configured": "Kein GPIB-Adapter konfiguriert oder erkannt: anschließen und „Angeschlossene Adapter erkennen“ drücken, oder „Hinzufügen“ drücken.",
   "gpb_check": "Treiber und Adapter prüfen",
   "gpb_checking": "Prüfung läuft...",
   "gpb_check_failed": "Prüfung fehlgeschlagen: {error}",

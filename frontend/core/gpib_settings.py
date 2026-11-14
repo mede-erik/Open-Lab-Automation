@@ -55,8 +55,9 @@ def save_adapters(configs: List[GpibAdapterConfig], settings: Optional[QSettings
 
 
 def adapters_or_default(settings: Optional[QSettings] = None) -> List[GpibAdapterConfig]:
-    """The configured adapters, or a default Keysight 82357B on GPIB0 when none is configured."""
-    return load_adapters(settings) or [GpibAdapterConfig()]
+    """The configured adapters, or a generic VISA board GPIB0 when none is configured (used only
+    to write a GPIB address: it is never saved, so it never appears as a configured adapter)."""
+    return load_adapters(settings) or [GpibAdapterConfig(profile="generic_visa")]
 
 
 def remember_scan(adapter_name: str, devices: List[BusDevice]) -> None:

@@ -102,7 +102,8 @@ def open_scan(monkeypatch, tmp_path, entries, row, found=(FOUND,), act=None):
     open the scan window and run ``act(window)`` in it. Returns (editor, file path, window)."""
     library = LoadInstruments()
     assert library.load_instruments(LIBRARY_PATH)
-    monkeypatch.setattr(module, "pyvisa", fake_visa(found))
+    if found is not None:  # None keeps the fake pyvisa the test set itself
+        monkeypatch.setattr(module, "pyvisa", fake_visa(found))
     monkeypatch.setattr(module, "PYVISA_AVAILABLE", True)
     path = tmp_path / "lab.inst"
     path.write_text(json.dumps({"instruments": entries}), encoding="utf-8")
@@ -195,7 +196,7 @@ def test_with_an_empty_file_the_window_says_there_is_no_instrument(app, tmp_path
     def act(window):
         window.findChild(QTableWidget).setCurrentCell(0, 0)
         button, status, _ = parts(window)
-        assert not button.isEnabled() and "no instrument that takes an address" in status[-1]
+        assert not button.isEnabled() and "has no instrument yet" in status[-1]
 
     _, path, _ = open_scan(monkeypatch, tmp_path, [], None, act=act)
     assert saved(path) == []
@@ -206,7 +207,7 @@ def test_a_manual_instrument_is_not_offered_as_target(app, tmp_path, monkeypatch
         window.findChild(QTableWidget).setCurrentCell(0, 0)
         button, status, _ = parts(window)
         assert not button.isEnabled()
-        assert "no instrument that takes an address" in status[-1]
+        assert "has no instrument yet" in status[-1]
         assert window.findChild(QComboBox).count() == 0  # a manual instrument is not offered
 
     _, path, _ = open_scan(monkeypatch, tmp_path, [LOAD], 0, act=act)
@@ -233,7 +234,7 @@ def test_the_kind_boxes_choose_what_is_shown(app, tmp_path, monkeypatch):
 
     def shown(window):
         table = window.findChild(QTableWidget)
-        return [table.item(r, 0).text().split("::")[0] for r in range(table.rowCount())]
+        return [table.item(r, 1).text().split("::")[0] for r in range(table.rowCount())]
 
     def act(window):
         boxes = {c.text(): c for c in window.findChildren(QCheckBox)}
@@ -292,3 +293,98 @@ def test_a_real_mouse_click_on_a_row_enables_the_button(app, tmp_path, monkeypat
 
     _, path, window = open_scan(monkeypatch, tmp_path, [PSU], None, found=found, act=act)
     assert saved(path)[0]["visa_address"] == "TCPIP0::192.168.1.5::inst0::INSTR"
+
+
+def idn_visa(answers):
+    """A fake pyvisa where every address answers its own *IDN?."""
+
+    class Resource:
+        def __init__(self, address):
+            self.address = address
+
+        def query(self, command):
+            return answers[self.address]
+
+        def close(self):
+            pass
+
+    class Manager:
+        def __init__(self, *args):
+            pass
+
+        def list_resources(self):
+            return tuple(answers)
+
+        def open_resource(self, address):
+            return Resource(address)
+
+    return SimpleNamespace(ResourceManager=Manager)
+
+
+KNOWN = "TCPIP0::192.168.1.20::inst0::INSTR"
+UNKNOWN = "USB0::0x1234::0x5678::SN9::INSTR"
+ANSWERS = {KNOWN: "Keysight Technologies,E36312A,MY0001,1.0", UNKNOWN: "ACME,NOTHING,1,1"}
+
+
+def test_checked_instruments_found_are_added_to_an_empty_file(app, tmp_path, monkeypatch):
+    """A fresh file: the model is recognised from *IDN?, the row is checked and added."""
+    monkeypatch.setattr(module, "pyvisa", idn_visa(ANSWERS))
+
+    def act(window):
+        table = window.findChild(QTableWidget)
+        buttons = {b.text(): b for b in window.findChildren(QPushButton)}
+        add = buttons["Add the checked instruments"]
+        assert not add.isEnabled()  # nothing checked yet
+        rows = {table.item(r, 1).text(): r for r in range(table.rowCount())}
+        assert "E36312A" in table.item(rows[KNOWN], 4).text()
+        assert "not recognised" in table.item(rows[UNKNOWN], 4).text()
+        unknown_box = table.item(rows[UNKNOWN], 0)
+        assert not unknown_box.flags() & Qt.ItemFlag.ItemIsUserCheckable  # cannot be added
+        table.item(rows[KNOWN], 0).setCheckState(Qt.CheckState.Checked)
+        assert add.isEnabled()
+        assert "1 instrument" in [w.text() for w in window.findChildren(QLabel) if w.text()][-1]
+        add.click()
+
+    from PyQt6.QtCore import Qt
+
+    editor, path, window = open_scan(monkeypatch, tmp_path, [], None, found=None, act=act)
+    assert window.result() == QDialog.DialogCode.Accepted
+    entries = saved(path)
+    assert len(entries) == 1
+    assert entries[0]["model_id"] == "PSU_Keysight_E36312A"
+    assert entries[0]["instrument_type"] == "power_supply"
+    assert entries[0]["visa_address"] == KNOWN
+    assert entries[0]["instance_name"] == "E36312A"
+    assert editor.current_instrument is editor.instruments[0]  # the editor shows it
+
+
+def test_an_instrument_already_in_the_file_cannot_be_added_twice(app, tmp_path, monkeypatch):
+    from PyQt6.QtCore import Qt
+
+    monkeypatch.setattr(module, "pyvisa", idn_visa({KNOWN: ANSWERS[KNOWN]}))
+    present = dict(PSU, visa_address=KNOWN)
+
+    def act(window):
+        table = window.findChild(QTableWidget)
+        assert "already in the file" in table.item(0, 4).text()
+        assert not table.item(0, 0).flags() & Qt.ItemFlag.ItemIsUserCheckable
+
+    _, path, _ = open_scan(monkeypatch, tmp_path, [present], 0, found=None, act=act)
+    assert len(saved(path)) == 1
+
+
+def test_checks_survive_hiding_and_showing_a_kind(app, tmp_path, monkeypatch):
+    from PyQt6.QtCore import Qt
+
+    monkeypatch.setattr(module, "pyvisa", idn_visa({KNOWN: ANSWERS[KNOWN]}))
+
+    def act(window):
+        table = window.findChild(QTableWidget)
+        table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        lan = {c.text(): c for c in window.findChildren(QCheckBox)}["LAN"]
+        lan.setChecked(False)
+        assert table.rowCount() == 0
+        lan.setChecked(True)
+        assert table.item(0, 0).checkState() == Qt.CheckState.Checked
+
+    open_scan(monkeypatch, tmp_path, [], None, found=None, act=act)
