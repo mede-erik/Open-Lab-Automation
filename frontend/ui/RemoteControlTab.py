@@ -834,6 +834,8 @@ class RemoteControlTab(QWidget):
                 if item:
                     widget = item.widget()
                     if widget:
+                        if hasattr(widget, 'stop_reading'):  # a meter panel reading continuously
+                            widget.stop_reading()
                         widget.setParent(None)
 
             # Stop measurement timer if exists
@@ -875,15 +877,23 @@ class RemoteControlTab(QWidget):
             # --- First, collect all datalogger/multimeter channels for measurement area ---
             # Note: Oscilloscopes are excluded as they cannot perform continuous automatic measurements
             self.meas_vars = []  # [(inst, ch)]
+            meter_panels = []  # multimeters and dataloggers of the library: their own panel
             for inst in inst_data.get('instruments', []):
                 inst_type = inst.get('instrument_type', '')
                 # Gestisce varianti di naming: datalogger/dataloggers, multimeter/multimeters
                 if inst_type in ['datalogger', 'dataloggers', 'multimeter', 'multimeters']:
+                    panel = self._meter_panel(inst)
+                    if panel is not None:
+                        meter_panels.append(panel)
+                        continue
                     for ch in inst.get('channels', []):
                         is_enabled = ch.get('enabled', True)  # Solo canali abilitati
                         if is_enabled:
                             self.meas_vars.append((inst, ch))
                             print(f"    → Canale misura aggiunto: {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+
+            for panel in meter_panels:
+                self.meas_layout.addWidget(panel)
 
             if self.meas_vars:
                 # Crea un layout a griglia per le misure
@@ -1324,6 +1334,26 @@ class RemoteControlTab(QWidget):
                 print(f"[RemoteControlTab] Translation format error for key '{key}': {e}")
                 text = f"{key} [format error]"
         return text
+
+    def _meter_panel(self, inst):
+        """The panel of a multimeter or datalogger of the library (ola.meter_controls), or None
+        when the model is not in the library (its channels keep the plain readings)."""
+        from frontend.ui.MeterPanel import MeterPanel
+        from ola.inst_file import enabled_channels
+        from ola.meter_controls import meter_controls
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        if not model_id:
+            return None
+        controls = meter_controls(library, model_id, inst.get('instrument_type', ''))
+        return MeterPanel(
+            f"{inst.get('instance_name', '')} ({inst.get('model', '')})",
+            controls,
+            enabled_channels(inst),
+            lambda call, i=inst, **args: self.run_call(i, None, call, **args),
+            self._t,
+        )
 
     @staticmethod
     def _is_load(inst):
@@ -1934,6 +1964,9 @@ class RemoteControlTab(QWidget):
             # Stop del timer di misurazione
             if hasattr(self, 'measurement_timer'):
                 self.measurement_timer.stop()
+            from frontend.ui.MeterPanel import MeterPanel
+            for panel in self.findChildren(MeterPanel):
+                panel.stop_reading()
 
             for timer_key, timer in self.connection_timers.items():
                 try:
