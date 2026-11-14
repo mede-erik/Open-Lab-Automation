@@ -235,6 +235,10 @@ check_*.py
 *.backup
 *.bak
 
+# Editor settings (VS Code): personal, not part of the project
+.vscode/
+*.code-workspace
+
 # Output of scripts/build_package.py
 dist-package/
 build-package/

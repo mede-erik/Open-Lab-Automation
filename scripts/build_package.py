@@ -119,6 +119,57 @@ def compute_version(kind: str, tag: str = "", sha: str = "", date: str = "") -> 
     }
 
 
+# ------------------------------------------------------------------ instrument library
+
+LIBRARY_MAIN = "main"        # the newest commit of the library's main branch
+LIBRARY_RELEASE = "release"  # the latest published release of the library (not a pre-release)
+
+
+def library_source(kind: str, version: str) -> str:
+    """Which instrument library a package takes.
+
+    Release builds (alpha, beta, release candidates, final) take the latest published release of
+    the library, so that they only get a library that has been released. nightly and dev builds
+    take the newest commit of the library's main branch, for testing the library work in progress.
+    """
+    if kind == "release":
+        return LIBRARY_RELEASE
+    return LIBRARY_MAIN
+
+
+def library_repo() -> str:
+    """``owner/name`` of the instrument library, from the submodule URL in .gitmodules (the one
+    place where the library's address is written)."""
+    text = (ROOT / ".gitmodules").read_text(encoding="utf-8")
+    match = re.search(r"url\s*=\s*https://github\.com/([^/\s]+/[^/\s]+?)(?:\.git)?\s*$", text, re.M)
+    if not match:
+        raise BuildError("the URL of the instrument library is not in .gitmodules")
+    return match.group(1)
+
+
+def gh_api(path: str, jq: str) -> str:
+    """One value of the GitHub API, read with the gh command (GH_TOKEN in the environment)."""
+    result = subprocess.run(
+        ["gh", "api", path, "--jq", jq], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        raise BuildError(f"gh api {path} failed: {result.stderr.strip() or 'no output'}")
+    return result.stdout.strip()
+
+
+def resolve_library(source: str) -> Dict[str, str]:
+    """Commit and a readable label of the instrument library for a source (see library_source)."""
+    repo = library_repo()
+    if source == LIBRARY_MAIN:
+        sha = gh_api(f"repos/{repo}/commits/main", ".sha")
+        label = f"main, {sha[:7]} (newest commit)"
+    else:
+        tag = gh_api(f"repos/{repo}/releases/latest", ".tag_name")
+        sha = gh_api(f"repos/{repo}/commits/{tag}", ".sha")
+        label = f"{tag}, {sha[:7]} (latest release)"
+    return {"source": source, "sha": sha, "label": label}
+
+
 # ------------------------------------------------------------------ helpers
 
 
@@ -145,8 +196,27 @@ def need_bundle() -> None:
 
 def cmd_version(args: argparse.Namespace) -> None:
     info = compute_version(args.kind, args.tag, args.sha, args.date)
+    info["library"] = library_source(info["kind"], info["version"])
     for key, value in info.items():
         print(f"{key}={value}")
+
+
+def cmd_library(args: argparse.Namespace) -> None:
+    """Print which instrument library the package takes, as key=value lines (GITHUB_OUTPUT)."""
+    info = resolve_library(library_source(args.kind, args.version))
+    print(f"library_source={info['source']}")
+    print(f"library_sha={info['sha']}")
+    print(f"library_label={info['label']}")
+
+
+def cmd_checkout_library(args: argparse.Namespace) -> None:
+    """Put the instrument library at the commit chosen for this package (Instruments_LIB)."""
+    library = ROOT / "Instruments_LIB"
+    run(["git", "-C", library, "fetch", "--depth=1", "origin", args.sha])
+    run(["git", "-C", library, "checkout", "--detach", "FETCH_HEAD"])
+    if not (library / "instruments_lib.json").is_file():
+        raise BuildError("the library checked out has no instruments_lib.json")
+    print(f"Instrument library at {args.sha}")
 
 
 def build_native() -> None:
@@ -270,6 +340,15 @@ def parser() -> argparse.ArgumentParser:
     sub.add_argument("--sha", default=os.environ.get("GITHUB_SHA", ""), help="commit")
     sub.add_argument("--date", default="", help="YYYYMMDD (default: today, UTC)")
     sub.set_defaults(func=cmd_version)
+
+    sub = steps.add_parser("library", help="which instrument library a package takes")
+    sub.add_argument("--kind", choices=KINDS, required=True)
+    sub.add_argument("--version", required=True)
+    sub.set_defaults(func=cmd_library)
+
+    sub = steps.add_parser("checkout-library", help="library commit into Instruments_LIB")
+    sub.add_argument("--sha", required=True, help="commit of the library (from the library step)")
+    sub.set_defaults(func=cmd_checkout_library)
 
     sub = steps.add_parser("bundle", help="freeze the program and run its self-test")
     sub.add_argument("--native", action="store_true", help="build and include the Rust transport")

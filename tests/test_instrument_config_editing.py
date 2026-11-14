@@ -602,7 +602,7 @@ def scan_buttons(pop):
     return {b.text(): b for b in pop.findChildren(QPushButton)}
 
 
-def test_the_scan_lists_resources_filters_usb_and_applies_the_address(
+def test_the_scan_lists_resources_filters_by_kind_and_applies_the_address(
     app, tmp_path, library, monkeypatch
 ):
     addresses = [
@@ -623,10 +623,12 @@ def test_the_scan_lists_resources_filters_usb_and_applies_the_address(
             (table.item(r, 0).text(), table.item(r, 1).text(), table.item(r, 2).text())
             for r in range(table.rowCount())
         ]
-        usb = pop.findChild(QCheckBox)
-        usb.setChecked(True)
+        boxes = {c.text(): c for c in pop.findChildren(QCheckBox)}
+        for name in ("LAN", "RS232", "GPIB"):  # keep only the USB ones
+            boxes[name].setChecked(False)
         seen["usb_rows"] = table.rowCount()
-        usb.setChecked(False)
+        for name in ("LAN", "RS232", "GPIB"):
+            boxes[name].setChecked(True)
         buttons = scan_buttons(pop)
         buttons["Copy address"].click()  # nothing selected: nothing is copied
         table.setCurrentCell(1, 0)

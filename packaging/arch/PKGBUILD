@@ -14,6 +14,14 @@
 # * To build another revision (CI, testing a branch) set OLA_FRAGMENT, for example
 #       OLA_FRAGMENT=commit=<sha> makepkg
 #   The default is the tag of the release.
+# * The instrument library is the one the submodule pins, unless OLA_LIBRARY_COMMIT names another
+#   commit of Instruments_LIB: the CI uses it for nightly builds (newest commit of the library main
+#   branch) and for beta and final releases (latest published release of the library), see
+#   packaging/README.md.
+# * PyVISA, PyVISA-py and segno are not in the official repositories (at most in the AUR, which
+#   `makepkg -si` cannot use). They are pure Python, so their wheels are downloaded from PyPI as
+#   sources (with checksums) and installed in the private folder of the program. When
+#   requirements.txt asks for newer versions, update the three _ver variables and the checksums.
 # * Bump pkgver together with pyproject.toml and frontend/appinfo.json.
 
 pkgname=open-lab-automation
@@ -26,25 +34,37 @@ license=('GPL-3.0-only')
 depends=(
     'python'
     'python-pyqt6'
-    'python-pyvisa'
-    'python-pyvisa-py'
     'python-pyserial'
     'python-numpy'
     'python-matplotlib'
     'python-psycopg2'
     'python-cryptography'
-    'python-segno'
+    'python-typing_extensions'
 )
-makedepends=('git' 'cargo' 'python-maturin')
+makedepends=('git' 'cargo' 'maturin')
 optdepends=(
     'postgresql: store the measurements in a PostgreSQL server'
 )
 _fragment="${OLA_FRAGMENT:-tag=v${pkgver}}"
+_pyvisa_ver=1.16.2
+_pyvisa_py_ver=0.8.1
+_segno_ver=1.6.6
+_pypi=https://files.pythonhosted.org/packages/py3
 source=(
     "${pkgname}::git+${url}.git#${_fragment}"
     "Instruments_LIB::git+https://github.com/mede-erik/Instruments_LIB.git"
+    "${_pypi}/p/pyvisa/pyvisa-${_pyvisa_ver}-py3-none-any.whl"
+    "${_pypi}/p/pyvisa_py/pyvisa_py-${_pyvisa_py_ver}-py3-none-any.whl"
+    "${_pypi}/s/segno/segno-${_segno_ver}-py3-none-any.whl"
 )
-sha256sums=('SKIP' 'SKIP')
+noextract=("pyvisa-${_pyvisa_ver}-py3-none-any.whl"
+           "pyvisa_py-${_pyvisa_py_ver}-py3-none-any.whl"
+           "segno-${_segno_ver}-py3-none-any.whl")
+sha256sums=('SKIP'
+            'SKIP'
+            '54f034adafd3e8d1858d57cdafec64e920444f4b84b31c9fd17487fbad0a197a'
+            '31208a2933c1793b4e829ba5f07d265b83f280668df440ee7ee6ac505dea4ee9'
+            '28c7d081ed0cf935e0411293a465efd4d500704072cdb039778a2ab8736190c7')
 
 prepare() {
     cd "${srcdir}/${pkgname}"
@@ -53,9 +73,13 @@ prepare() {
     git submodule init
     git config submodule.Instruments_LIB.url "${srcdir}/Instruments_LIB"
     git -c protocol.file.allow=always submodule update
-    # Rust crates are fetched here, the build is offline
+    if [ -n "${OLA_LIBRARY_COMMIT:-}" ]; then
+        git -C Instruments_LIB checkout --detach "${OLA_LIBRARY_COMMIT}"
+    fi
+    # Rust crates are fetched here, the build is offline. All platforms, not just this one:
+    # maturin runs `cargo metadata`, which needs the whole dependency tree (core-foundation...)
     cd native
-    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+    cargo fetch --locked
 }
 
 build() {
@@ -80,6 +104,11 @@ package() {
     # Rust transport, next to the packages (the wheel is a zip: ola_native/…)
     python -m zipfile -e "${srcdir}"/wheels/ola_native-*.whl "${lib}"
     rm -rf "${lib}"/ola_native-*.dist-info
+
+    # PyVISA, PyVISA-py and segno (wheels are zip files; their dist-info is kept)
+    for wheel in "${srcdir}"/*.whl; do
+        python -m zipfile -e "${wheel}" "${lib}"
+    done
 
     python -m compileall -q -d "/usr/lib/${pkgname}" "${lib}"
 

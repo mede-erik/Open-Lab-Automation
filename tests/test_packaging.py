@@ -124,3 +124,34 @@ def test_workflows_name_existing_scripts():
     for rel in re.findall(r"(scripts/[\w./-]+\.py|packaging/[\w./-]+)", workflow):
         rel = rel.rstrip(".")  # the end of a sentence
         assert os.path.exists(os.path.join(REPO, rel)), f"package.yml names {rel}"
+
+
+# ---------------------------------------------------------------- instrument library
+
+
+@pytest.mark.parametrize(
+    "kind, version, expected",
+    [
+        ("nightly", "0.0.2-nightly.20260101.abc1234", "main"),
+        ("dev", "0.0.2-dev.20260101.local", "main"),
+        ("release", "0.0.2-alpha.1", "release"),
+        ("release", "0.0.2-beta.1", "release"),
+        ("release", "0.0.2-rc1", "release"),
+        ("release", "0.0.2", "release"),
+    ],
+)
+def test_library_source_by_kind_of_build(build, kind, version, expected):
+    assert build.library_source(kind, version) == expected
+
+
+def test_library_repo_is_read_from_the_submodule_url(build):
+    assert build.library_repo() == "mede-erik/Instruments_LIB"
+
+
+def test_workflow_calls_only_existing_build_steps():
+    """Every `build_package.py <step>` of the workflows is a step of the script."""
+    script = read("scripts", "build_package.py")
+    steps = set(re.findall(r'add_parser\("([\w-]+)"', script))
+    for name in (".github/workflows/package.yml", ".github/workflows/ci.yml"):
+        for step in re.findall(r"build_package\.py ([\w-]+)", read(*name.split("/"))):
+            assert step in steps, f"{name} calls build_package.py {step}, which does not exist"

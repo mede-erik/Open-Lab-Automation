@@ -161,6 +161,24 @@ class ProjectSession:
         self.project.save()
         return ref
 
+    def adopt(self, file_name: str, name: str = "") -> MeasurementRef:
+        """Add an existing measurement file of the project folder to the project and save it.
+        The type is read from the file; ``MeasurementError`` if it is not a measurement file of
+        a known type or is already in the project."""
+        check_plain_filename(file_name)
+        if any(m.file.lower() == file_name.lower() for m in self.project.measurements):
+            raise MeasurementError(f"{file_name} is already in the project")
+        content = MeasurementFile.load(self.project.directory / file_name)
+        info = self.registry.get(content.type)  # unknown type -> MeasurementError
+        taken = {m.id for m in self.project.measurements}
+        n = 1
+        while f"m{n}" in taken:
+            n += 1
+        ref = MeasurementRef(f"m{n}", info.id, name.strip() or Path(file_name).stem, file_name)
+        self.project.measurements.append(ref)
+        self.project.save()
+        return ref
+
     def rename(self, measurement_id: str, name: str) -> None:
         """Change the displayed name (the file keeps its name)."""
         name = name.strip()

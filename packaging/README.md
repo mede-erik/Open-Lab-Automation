@@ -28,7 +28,10 @@ Files of a release (the version is `X.Y.Z`, or `X.Y.Z-nightly.YYYYMMDD.<commit>`
 
 **Arch Linux** has no binary file: `packaging/arch/PKGBUILD` is the package builder.
 `cd packaging/arch && makepkg -si` builds the release `v<pkgver>` from the sources and installs it
-with the system Python packages. (GitHub's automatic "Source code" archives of a release lack the
+with the system Python packages. PyVISA, PyVISA-py and segno are not in the official Arch
+repositories, so the PKGBUILD downloads their (pure Python) wheels from PyPI, with checksums, and
+installs them in the program's own folder; update their versions and checksums in the PKGBUILD when
+`requirements.txt` asks for newer ones. (GitHub's automatic "Source code" archives of a release lack the
 `Instruments_LIB` submodule, which is why the PKGBUILD clones with git and checks the library out.)
 
 The Windows and Linux packages are **self-contained**: Python, Qt, numpy, matplotlib and the Rust
@@ -88,14 +91,36 @@ Windows add `installer` (needs Inno Setup 6.3+); on Linux `linux` makes the `.de
 cross-compile. Linux packages are built on the oldest runner image (Ubuntu 22.04) so that they run
 on distributions with an older glibc.
 
+## Which instrument library goes in a package
+
+`Instruments_LIB` is a separate repository, so a package takes one of its commits, chosen by the
+kind of build (`library_source` in `scripts/build_package.py`):
+
+| Build | Library taken | Example |
+|---|---|---|
+| nightly (push on `main`) | the **newest commit of the library's `main`** | `main, 1e67e35 (newest commit)` |
+| development (manual run) | the newest commit of the library's `main` | as above |
+| alpha (`vX.Y.Z-alpha.N`), beta (`vX.Y.Z-beta.N`), release candidate (`-rcN`), final (`vX.Y.Z`) | the **latest published release** of the library (GitHub "latest": not a pre-release) | `v0.3, 80d6cec (latest release)` |
+
+The label is written in the notes of every release and of the nightly, and the library commit is
+checked out by the package jobs (`checkout-library`). On Linux the library tests
+(`tests/test_library_integrity.py`) run on the library of the package before it is built.
+The tests of `ci.yml` still run on the library pinned by the submodule.
+
+Consequence: **a final release needs a published release of the library first**. If the library has
+no release, the *Package* run of a release tag fails, with the GitHub error.
+
 ## Making a release
 
 1. Set the version in **both** `pyproject.toml` and `frontend/appinfo.json` (the build refuses if
    they differ) and `pkgver` in `packaging/arch/PKGBUILD`; `tests/test_packaging.py` checks it.
-2. Merge to `main`, wait for the green *Package* run of that commit.
-3. `git tag vX.Y.Z && git push origin vX.Y.Z`. The workflow tests the tag again, builds, and creates the
-   release `vX.Y.Z` with generated notes. A tag that does not match `pyproject.toml` fails at once.
-4. Bump the version in the three places to the next one. Otherwise the nightly builds are named
+2. Make sure the instrument library has the release you want the program to ship with: publish it
+   in `Instruments_LIB` first (beta and final releases take its **latest release**).
+3. Merge to `main`, wait for the green *Package* run of that commit.
+4. `git tag vX.Y.Z && git push origin vX.Y.Z` (or `vX.Y.Z-beta.N`). The workflow tests the tag again,
+   builds with the library of the table above, and creates the release with the notes of GitHub and
+   the library label on top. A tag that does not match `pyproject.toml` fails at once.
+5. Bump the version in the three places to the next one. Otherwise the nightly builds are named
    `X.Y.Z-nightly...`, which package managers consider **older** than the release `X.Y.Z`.
 
 ## Things to know
@@ -110,8 +135,8 @@ on distributions with an older glibc.
   real one exists, replace that file with a larger PNG (256x256 is a good size; the Linux icon path
   in `nfpm.yaml`/`PKGBUILD` says `64x64` and should then say `256x256`).
 - **Installer language:** English only for now.
-- **The `arch` job of the workflow is not blocking** (`continue-on-error`) until it has been seen
-  green once. Remove that line from `package.yml` after the first green run.
+- **The `arch` job of the workflow is blocking**: it became green on the first complete run, so a
+  broken PKGBUILD now fails the *Package* workflow.
 - **Files the program writes** go to the user's home or the project folder (logs in the project,
   settings in `%APPDATA%` / `~/.config`), never to the installation folder, so installing in
   `Program Files` or `/opt` (read-only for the user) is fine.
