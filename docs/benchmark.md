@@ -55,6 +55,7 @@ max and total.
 | Table | Meaning |
 |-------|---------|
 | **Measurement thread** | Wall time of the thread that runs the measurement, split into *waiting by design* (`ctx.sleep`, questions to the user), *instrument calls*, *publishing results* (writer and listeners) and *the rest* (the measurement's own code). |
+| **Slowest calls / commands** | At the top of the report: the five calls and the five commands that take most of the time, with their **share** of the time of the measurement thread (`share_pct` in the JSON; also on every row of the report). Calls contain their commands, so do not add the two lists up. Deliberate delays and waits are not in them. `ola.bench.hotspots(report)` gives the same lists to code. |
 | **Calls** | Every `handle.call`, per instrument. Parts, mean per call: `plan` (library lookup and building the steps), `lock` (waiting for another thread's call on the same instrument), `io` (steps executed on the instrument), `delay` (the `delay` steps of the library), `interp` (raw answer to logical value) and `overhead` (the rest: what the software adds). |
 | **Steps** | Every step of every call, per instrument and command; numbers are replaced by `#` (`VOLT 5` and `VOLT 12` are one row). |
 | **Instrument response** (`rx`) | For a query, the wait for the answer after the command was sent: the response time of the instrument plus the link. `tx` is the time to send. |

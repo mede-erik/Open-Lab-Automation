@@ -114,6 +114,11 @@ class Bench:
                     part: round(parts[name].get(part, 0) / len(samples) / 1e6, 4) for part in _PARTS
                 }
             rows.append(row)
+        summary = _time_summary(stats, run_thread)
+        wall_ms = summary.get("wall_s", 0.0) * 1000
+        if wall_ms:  # how much of the measurement's time each row takes (threads may overlap)
+            for row in rows:
+                row["share_pct"] = round(100 * row["total_ms"] / wall_ms, 2)
         return {
             "version": REPORT_VERSION,
             "backend": _backend(),
@@ -121,7 +126,7 @@ class Bench:
             "platform": platform.platform(),
             "elapsed_s": round((now() - self.t0) / 1e9, 4),
             "dropped": dropped,
-            "summary": _time_summary(stats, run_thread),
+            "summary": summary,
             "rows": rows,
         }
 
@@ -354,6 +359,21 @@ def rows_of(report: Dict[str, Any], category: str) -> List[Dict[str, Any]]:
     return sorted(rows, key=lambda r: r["total_ms"], reverse=True)
 
 
+def hotspots(report: Dict[str, Any], top: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+    """The slowest calls and the slowest commands of a report, by total time.
+
+    ``{"calls": [...], "commands": [...]}``; each item has ``name``, ``n``, ``mean_ms``,
+    ``total_ms`` and, when the report knows the time of the measurement thread, ``share_pct``:
+    the part of that time the item takes. Calls contain their commands, so the two lists are not
+    to be added up; a share can pass 100 % if several threads work at once. Deliberate delays and
+    waits are not here: they are not slowness of the software or of the instruments."""
+    keys = ("name", "n", "mean_ms", "total_ms", "share_pct")
+    pick = lambda category: [  # noqa: E731
+        {k: r[k] for k in keys if k in r} for r in rows_of(report, category)[:top]
+    ]
+    return {"calls": pick("call"), "commands": pick("step")}
+
+
 def format_report(report: Dict[str, Any], top: int = 15) -> str:
     """The report as readable text (tables in milliseconds)."""
     out: List[str] = []
@@ -374,6 +394,20 @@ def format_report(report: Dict[str, Any], top: int = 15) -> str:
         ):
             value = summary.get(key, 0.0)
             out.append(f"  {label:42s} {value:9.3f} s  {100 * value / wall:5.1f} %")
+    slow = hotspots(report)
+    for key, title in (
+        ("calls", "Slowest calls (share of the measurement thread's time)"),
+        ("commands", "Slowest commands on the instruments"),
+    ):
+        if not slow[key]:
+            continue
+        out.append("")
+        out.append(title)
+        out.append(f"  {'name':44s} {'n':>6s} {'mean ms':>9s} {'total ms':>10s} {'share':>7s}")
+        for r in slow[key]:
+            share = f"{r['share_pct']:6.1f}%" if "share_pct" in r else f"{'-':>7s}"
+            name, n = r["name"][:44], r["n"]
+            out.append(f"  {name:44s} {n:6d} {r['mean_ms']:9.3f} {r['total_ms']:10.1f} {share}")
     sections = (
         ("call", "Calls (ms; parts = mean per call)"),
         ("step", "Steps on the instruments (ms)"),

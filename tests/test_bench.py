@@ -261,3 +261,67 @@ def test_hardware_benchmark_end_to_end_on_a_simulated_link(library, monkeypatch,
     assert bench.current() is None
     assert link.log.count("MEAS:VOLT?") == 5 + 3  # measured + warm-up; set_voltage never sent
     assert not any(c.startswith("VOLT ") for c in link.log)
+
+
+# ---- slowest calls and commands -----------------------------------------------------------------
+def _report_with(rows, wall_s=None):
+    return {"rows": rows, "summary": {"wall_s": wall_s} if wall_s else {}}
+
+
+def _row(category, name, total_ms, n=10, **extra):
+    return {
+        "category": category,
+        "name": name,
+        "n": n,
+        "total_ms": total_ms,
+        "mean_ms": total_ms / n,
+        "median_ms": total_ms / n,
+        "p95_ms": total_ms / n,
+        "min_ms": total_ms / n,
+        "max_ms": total_ms / n,
+        **extra,
+    }
+
+
+def test_hotspots_rank_calls_and_commands_by_total_time_and_leave_out_waits():
+    report = _report_with(
+        [
+            _row("call", "a.fast", 5.0),
+            _row("call", "a.slow", 50.0, share_pct=50.0),
+            _row("step", "a: write X #", 30.0),
+            _row("step", "a: query Y?", 80.0),
+            _row("delay", "a: delay", 900.0),
+            _row("wait", "sleep", 700.0),
+        ]
+    )
+    slow = bench.hotspots(report, top=1)
+    assert [r["name"] for r in slow["calls"]] == ["a.slow"] and slow["calls"][0]["share_pct"] == 50
+    assert [r["name"] for r in slow["commands"]] == ["a: query Y?"]  # delays and waits are not here
+    assert [r["name"] for r in bench.hotspots(report)["commands"]] == [
+        "a: query Y?",
+        "a: write X #",
+    ]
+
+
+def test_the_report_gives_each_row_its_share_of_the_measurement_time(tmp_path):
+    def run(ctx):
+        for i in range(3):
+            ctx.sleep(0.01)
+            ctx.emit_point({"i": i})
+
+    runner = Runner(Scripted(run, params={}), {}, collect=False, bench=True)
+    writer = RunWriter(tmp_path / "run.jsonl", RunWriter.header_for(runner))
+    runner.add_listener(writer)
+    run_to_end(runner)
+    report = read_run(writer.path)["bench"]
+    rows = {(r["category"], r["name"]): r for r in report["rows"]}
+    assert 0 < rows[("wait", "sleep")]["share_pct"] <= 100
+    assert rows[("phase", "run")]["share_pct"] > 90
+
+
+def test_the_text_report_has_the_slowest_section_with_and_without_the_share():
+    rows = [_row("call", "psu.read", 40.0, share_pct=40.0), _row("step", "psu: query A?", 30.0)]
+    text = bench.format_report(_report_with(rows, wall_s=0.1))
+    assert "Slowest calls" in text and "40.0%" in text and "Slowest commands" in text
+    no_share = bench.format_report(_report_with([_row("call", "psu.read", 40.0)]))
+    assert "Slowest calls" in no_share and "-" in no_share
