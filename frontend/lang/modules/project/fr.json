@@ -53,5 +53,7 @@
   "prj_export": "Exporter en CSV",
   "prj_export_done": "{n} lignes écrites dans {path}",
   "prj_export_failed": "Échec de l'exportation : {error}",
-  "prj_confirm_close": "{n} mesure(s) en cours. Les arrêter et fermer ?"
+  "prj_confirm_close": "{n} mesure(s) en cours. Les arrêter et fermer ?",
+  "prj_bench": "Mesurer les temps (benchmark)",
+  "prj_bench_tip": "Mesure chaque appel aux instruments et chaque phase de la prochaine mesure et affiche un rapport dans l'onglet Benchmark. Le délai ajouté est faible (environ 30 microsecondes par appel)."
 }

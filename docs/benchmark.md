@@ -11,11 +11,12 @@ It is off by default and then costs one variable check per instrumented place.
 
 | How | Use |
 |-----|-----|
-| `OLA_BENCH=1 python frontend/launcher.py` | The whole GUI: every run is measured. Nothing else changes. |
+| The *Measure timing (benchmark)* box of the Measurements tab | The next run started from that tab is measured; its window gets a **Benchmark** tab with the report when it ends. |
+| `OLA_BENCH=1 python frontend/launcher.py` | The whole GUI: every run is measured, with or without the box. |
 | `build_runner(ref, bench=True)` / `Runner(..., bench=True)` | From code; `bench=None` follows `OLA_BENCH`. |
 | `python benchmarks/bench_engine.py` | A repeatable loop on a simulated power supply: no hardware needed. |
 
-The report is published as a `bench` event, written to the run file as a `{"kind": "bench"}` line
+The report (in English, a monospace text) is published as a `bench` event, written to the run file as a `{"kind": "bench"}` line
 (`read_run(path)["bench"]`) and printed in the log of the run. Show or compare it later:
 
 ```bash
