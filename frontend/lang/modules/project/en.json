@@ -53,5 +53,7 @@
   "prj_export": "Export CSV",
   "prj_export_done": "{n} rows written to {path}",
   "prj_export_failed": "Could not export: {error}",
-  "prj_confirm_close": "{n} measurement(s) are running. Stop them and close?"
+  "prj_confirm_close": "{n} measurement(s) are running. Stop them and close?",
+  "prj_bench": "Measure timing (benchmark)",
+  "prj_bench_tip": "Times every instrument call and every phase of the next run and shows a report in a Benchmark tab. The extra delay is small (about 30 microseconds per call)."
 }

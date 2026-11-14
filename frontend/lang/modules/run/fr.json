@@ -54,5 +54,6 @@
   "run_choice_retry": "Réessayer",
   "run_choice_abort": "Abandonner",
   "run_choice_skip": "Ignorer le contrôle",
-  "run_choice_continue": "Continuer"
+  "run_choice_continue": "Continuer",
+  "run_tab_bench": "Benchmark"
 }

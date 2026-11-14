@@ -26,6 +26,7 @@ import uuid
 from enum import Enum
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
+from . import bench as _bench
 from .instrument import Aborted
 from .measurement import (
     Event,
@@ -86,8 +87,11 @@ class Runner:
         run_id: Optional[str] = None,
         stop_event: Optional[threading.Event] = None,
         unattended: Optional[str] = None,
+        bench: Optional[bool] = None,
     ):
-        """``unattended``: for scripts and tests without a user. If set, every question of the
+        """``bench``: measure where the time goes (see ``ola.bench``) and publish a ``bench``
+        event with the report at the end; None follows the ``OLA_BENCH`` environment variable.
+        ``unattended``: for scripts and tests without a user. If set, every question of the
         measurement is answered immediately with this choice (or with the question's default if
         it is not one of its choices); otherwise the run waits for ``answer()``."""
         self.measurement = measurement
@@ -112,6 +116,7 @@ class Runner:
         self._t0 = 0.0
         self._derived_warned = False
         self._unattended = unattended
+        self._bench = _bench.env_enabled() if bench is None else bool(bench)
         self._pending: Dict[str, Dict[str, Any]] = {}
 
     # ----- public -----------------------------------------------------------------------
@@ -138,6 +143,8 @@ class Runner:
             problems = self._check_bindings() + list(self.measurement.validate())
             if problems:
                 raise MeasurementError("; ".join(problems))
+            if self._bench:
+                _bench.enable()  # keeps the collector build_runner started before connecting
             self.started_at = time.time()
             self._t0 = time.monotonic()
             self._set_state(RunState.RUNNING)
@@ -229,7 +236,8 @@ class Runner:
             self._events.put(event)
         for listener in self._listeners:
             try:
-                listener(event)
+                with _bench.span("listener", type(listener).__name__):
+                    listener(event)
             except Exception as exc:  # a broken listener must not kill the measurement
                 if event.kind != "log":
                     self._publish_log(f"listener {listener!r} failed: {exc}", "warning")
@@ -240,6 +248,10 @@ class Runner:
             self._events.put(Event("log", {"level": level, "message": message}))
 
     def _emit(self, kind: str, data: Dict[str, Any]) -> None:
+        with _bench.span("emit", kind):
+            self._emit_event(kind, data)
+
+    def _emit_event(self, kind: str, data: Dict[str, Any]) -> None:
         if kind == "point":
             table = data.get("table", "points")
             values = data["values"]
@@ -307,9 +319,10 @@ class Runner:
             if self._state is RunState.RUNNING:
                 self._set_state(RunState.WAITING)
         try:
-            while not entry["event"].wait(0.05):
-                if self._stop.is_set():
-                    raise Stopped()
+            with _bench.span("wait", "question"):
+                while not entry["event"].wait(0.05):
+                    if self._stop.is_set():
+                        raise Stopped()
         finally:
             with self._lock:
                 self._pending.pop(qid, None)
@@ -328,8 +341,10 @@ class Runner:
         outcome = RunState.FINISHED
         try:
             ctx.checkpoint()
-            self.measurement.setup(ctx)
-            self.measurement.run(ctx)
+            with _bench.span("phase", "setup"):
+                self.measurement.setup(ctx)
+            with _bench.span("phase", "run"):
+                self.measurement.run(ctx)
             if self._stop.is_set():
                 outcome = RunState.STOPPED
         except (Stopped, Aborted):  # Aborted: a stop interrupted an instrument call
@@ -344,12 +359,28 @@ class Runner:
         finally:
             ctx._tearing_down = True
             try:
-                self.measurement.teardown(ctx)
+                with _bench.span("phase", "teardown"):
+                    self.measurement.teardown(ctx)
             except Exception as exc:
                 if is_user_cancel(exc):  # e.g. the operator declined to switch a manual output off
                     self._publish_cancel(exc)
                 else:
                     outcome = RunState.FAILED
                     self._fail("teardown", exc)
+        self._publish_bench()
         with self._lock:
             self._set_state(outcome)
+
+    def _publish_bench(self) -> None:
+        """At the end of a benchmarked run: the ``bench`` event and a summary in the log."""
+        collector = _bench.current()
+        if not self._bench or collector is None:
+            return
+        try:
+            report = collector.report(run_thread=threading.current_thread().name)
+            report["run_id"] = self.run_id
+            _bench.disable()
+            self._publish(Event("bench", report))
+            self._publish(Event("log", {"level": "info", "message": _bench.format_report(report)}))
+        except Exception as exc:  # the benchmark must never turn a good run into a bad one
+            self._publish_log(f"benchmark report failed: {exc!r}", "warning")

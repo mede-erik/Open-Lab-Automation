@@ -26,6 +26,7 @@ import time
 from typing import Any, Dict, Optional
 
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -53,6 +54,7 @@ from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.plot_widget import LinePlot
 from frontend.ui.trace_plot import SmithChart, TracePlot
+from ola import bench as ola_bench
 from ola.measurement import MeasurementError
 from ola.run_view import (
     QUESTION_CALIBRATION,
@@ -202,6 +204,7 @@ class RunWindow(QWidget):
         self._pending_view = None  # a view the measurement asks to open with ("smith")
         self._traces_checked: dict = {}  # trace name -> shown
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
+        self._bench_view = None  # the Benchmark tab, added when the report arrives
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
         self.resize(1000, 700)
         self._build_ui()
@@ -358,6 +361,8 @@ class RunWindow(QWidget):
         events = self.runner.drain()
         for event in events:
             self.model.apply(event)
+        if self.model.bench is not None and self._bench_view is None:
+            self._show_bench(self.model.bench)
         if events:
             self._update_table()
             self._update_log()
@@ -372,6 +377,18 @@ class RunWindow(QWidget):
         self._handle_questions()
         if self.model.finished and not events and self._dialog is None:
             self._timer.stop()  # nothing more can happen; the window stays as a record
+
+    def _show_bench(self, report: Dict[str, Any]) -> None:
+        """Add the Benchmark tab with the text of the timing report (see ``ola.bench``)."""
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        view.setPlainText(ola_bench.format_report(report, top=30))
+        self._bench_view = view
+        index = self.tabs.addTab(view, self._t("run_tab_bench"))
+        if not self._tab_chosen:  # the user asked for the timing: show it at the end
+            self.tabs.setCurrentIndex(index)
 
     def _refresh(self) -> None:
         m, state = self.model, self.model.state

@@ -27,6 +27,7 @@ import threading
 import time
 from typing import Any, List, Optional, Protocol, Sequence
 
+from . import bench
 from .call_errors import CallError, CallNotSupportedError, StepFailedError
 from .steps import Step
 
@@ -82,7 +83,12 @@ class Instrument:
         if self.transport is None:
             raise CallNotSupportedError(f"instrument '{self.name}' has no transport", call=call)
         results: List[Any] = []
+        t_wait = bench.stamp()
         with self._lock:
+            if t_wait:
+                waited = bench.now() - t_wait
+                bench.add_to_call("lock", waited)
+                bench.span_record("lock_wait", self.name, waited)
             self._recover(call)
             for index, step in enumerate(steps):
                 try:
@@ -108,6 +114,14 @@ class Instrument:
         self._stale = False
 
     def _execute(self, step: Step, cancel) -> Any:
+        timer = bench.StepTimer.start(self.name, step.op, step.text)
+        try:
+            return self._execute_step(step, cancel, timer)
+        finally:
+            if timer is not None:
+                timer.done()
+
+    def _execute_step(self, step: Step, cancel, timer) -> Any:
         if step.op == "delay":
             seconds = step.ms / 1000.0
             if cancel is None:
@@ -120,6 +134,8 @@ class Instrument:
             return None
         if step.op == "query":
             self.transport.send(step.text)
+            if timer is not None:
+                timer.sent()
         # query and read: collect the answer
         if step.returns == "binary":
             return self.transport.read_block(step.timeout_ms)
@@ -139,12 +155,21 @@ class Instrument:
                 f"instrument '{self.name}' has no driver for call '{call}'", call=call
             )
         function, args = _attr(spec, "function"), dict(_attr(spec, "args") or {})
+        t_wait = bench.stamp()
         with self._lock:
+            if t_wait:
+                waited = bench.now() - t_wait
+                bench.add_to_call("lock", waited)
+                bench.span_record("lock_wait", self.name, waited)
             if cancel is not None and cancel.is_set():
                 raise Aborted(f"call '{call}' aborted")
+            timer = bench.StepTimer.start(self.name, "driver", function)
             try:
                 return [self.driver.call(function, args)]
             except CallError:
                 raise  # the driver already reports a CALL-xxx error (value not handled, ...)
             except Exception as exc:
                 raise StepFailedError(call, 0, exc) from exc
+            finally:
+                if timer is not None:
+                    timer.done()

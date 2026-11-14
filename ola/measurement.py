@@ -20,6 +20,8 @@ import math
 import threading
 import time
 from dataclasses import dataclass, field
+
+from . import bench
 from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence
 
 API_VERSION = 1
@@ -204,13 +206,14 @@ class MeasurementContext:
             time.sleep(max(0.0, seconds))
             return
         end = time.monotonic() + max(0.0, seconds)
-        while True:
-            self.checkpoint()
-            remaining = end - time.monotonic()
-            if remaining <= 0:
-                return
-            if self._stop.wait(min(remaining, 0.05)):
-                raise Stopped()
+        with bench.span("wait", "sleep"):
+            while True:
+                self.checkpoint()
+                remaining = end - time.monotonic()
+                if remaining <= 0:
+                    return
+                if self._stop.wait(min(remaining, 0.05)):
+                    raise Stopped()
 
 
 class Measurement:

@@ -198,3 +198,13 @@ def test_format_si():
     assert format_si(1.5e6) == "1.5 M" and format_si(2e9, "Hz") == "2 GHz"
     assert format_si(5e-4, "s") == "500 us" and format_si(0, "Hz") == "0 Hz"
     assert format_si(999e6, "Hz") == "999 MHz" and format_si(1e3, "Hz") == "1 kHz"
+
+
+def test_a_bench_event_keeps_the_report():
+    from ola.measurement import Event
+    from ola.run_view import RunModel
+
+    model = RunModel()
+    assert model.bench is None
+    model.apply(Event("bench", {"version": 1, "rows": [], "run_id": "r"}))
+    assert model.bench == {"version": 1, "rows": [], "run_id": "r"}

@@ -13,6 +13,7 @@ A run file is JSON Lines, one object per line::
     {"kind": "log",   ...}   {"kind": "error", ...}
     {"kind": "question", "id": ..., "text": ..., "choices": [...], "data": {...}}   a question
     {"kind": "answered", "id": ..., "choice": "retry", "auto": false}               its answer
+    {"kind": "bench", ...}   timing report, only when the benchmark mode was on (``ola.bench``)
     {"kind": "end",   "state": "finished|stopped|failed", "error": null | {...}}
 
 A file without the final "end" line is a run that was interrupted: it can still be read.
@@ -109,6 +110,7 @@ def read_run(path: Union[str, Path]) -> Dict[str, Any]:
         "logs": [],
         "errors": [],
         "questions": [],
+        "bench": None,
         "end": None,
     }
     with open(path, encoding="utf-8") as f:
@@ -134,6 +136,8 @@ def read_run(path: Union[str, Path]) -> Dict[str, Any]:
                 run["errors"].append(obj)
             elif kind in ("question", "answered"):
                 run["questions"].append(obj)
+            elif kind == "bench":
+                run["bench"] = obj
             elif kind == "end":
                 run["end"] = obj
     return run

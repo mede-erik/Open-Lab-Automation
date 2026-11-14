@@ -226,3 +226,25 @@ def test_without_a_selection_nothing_runs(window, monkeypatch):
     )
     window.run_measurement()
     assert window.run_windows == []
+
+
+# ---------------------------------------------------------------- benchmark switch
+@pytest.mark.parametrize("checked, expected", [(False, None), (True, True)])
+def test_the_benchmark_box_decides_the_bench_option_of_the_run(
+    window, monkeypatch, popups, checked, expected
+):
+    from ola.measurement import MeasurementError
+
+    window.table.selectRow(0)
+    window.wiring_before_run = False
+    monkeypatch.setattr(window, "_check_compatibility", lambda ref: (True, None))
+    seen = {}
+
+    def build(*args, **kwargs):
+        seen.update(kwargs)
+        raise MeasurementError("stop here")
+
+    monkeypatch.setattr(window.session, "build_runner", build)
+    window.bench_check.setChecked(checked)
+    window.run_measurement()
+    assert seen["bench"] is expected  # None: the OLA_BENCH variable decides
