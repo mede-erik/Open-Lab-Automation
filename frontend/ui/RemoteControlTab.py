@@ -985,6 +985,15 @@ class RemoteControlTab(QWidget):
                             'channel_count': len(enabled_channels)
                         })
                         total_enabled_channels += len(enabled_channels)
+                elif inst_type in ['function_generator', 'function_generators']:
+                    controls = self._function_generator_controls(inst)
+                    power_instruments.append({
+                        'inst': inst,
+                        'enabled_channels': [],
+                        'channel_count': controls.channels,
+                        'panel': controls,
+                    })
+                    total_enabled_channels += controls.channels
 
             print("\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
             print(f"Strumenti validi: {len(power_instruments)}")
@@ -1221,6 +1230,24 @@ class RemoteControlTab(QWidget):
 
                 conn_btn.clicked.connect(handle_connect_clicked)
 
+                if inst_info.get('panel') is not None:  # a function generator: its own panel
+                    from frontend.ui.FunctionGeneratorPanel import FunctionGeneratorPanel
+                    inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_vbox = QVBoxLayout()
+                    inst_vbox.addWidget(conn_btn)
+                    panel = FunctionGeneratorPanel(
+                        inst_info['panel'],
+                        lambda number, call, i=inst, **args: self.run_call(
+                            i, None, call, channel_number=number, **args),
+                        self._t,
+                    )
+                    inst_vbox.addWidget(panel)
+                    inst_group.setLayout(inst_vbox)
+                    best_column_idx = column_loads.index(min(column_loads))
+                    columns[best_column_idx].addWidget(inst_group)
+                    column_loads[best_column_idx] += channel_count
+                    continue
+
                 # Strategia di layout per strumento con molti canali (>3)
                 if channel_count > 3:
                     # Crea sotto-colonne per questo strumento
@@ -1303,6 +1330,17 @@ class RemoteControlTab(QWidget):
             if self.logger:
                 self.logger.error(error_msg)
             # Error already logged - no popup needed
+
+    def _function_generator_controls(self, inst):
+        """What the panel of a function generator shows (ola.control_panels): only the calls its
+        model defines in the library; nothing if the model is not in the library."""
+        from ola.control_panels import FunctionGeneratorControls, function_generator_controls
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        if not model_id:
+            return FunctionGeneratorControls()
+        return function_generator_controls(library, model_id)
 
     def _format_channel_title(self, inst, ch):
         """Build the channel group box title, including the manual-instrument badge when applicable."""
