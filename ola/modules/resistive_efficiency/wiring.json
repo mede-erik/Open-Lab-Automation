@@ -1,0 +1,266 @@
+{
+  "nodes": [
+    {
+      "id": "psu",
+      "role": "supply",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "Power supply",
+        "it": "Alimentatore",
+        "fr": "Alimentation",
+        "es": "Fuente",
+        "de": "Netzteil"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        1,
+        0
+      ],
+      "title": "{device.label|Converter under test}",
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "load",
+      "kind": "device",
+      "at": [
+        2,
+        0
+      ],
+      "title": {
+        "en": "Resistive load",
+        "it": "Carico resistivo",
+        "fr": "Charge résistive",
+        "es": "Carga resistiva",
+        "de": "Ohmsche Last"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        },
+        {
+          "id": "relays",
+          "side": "bottom",
+          "label": {
+            "en": "Relays",
+            "it": "Relè",
+            "fr": "Relais",
+            "es": "Relés",
+            "de": "Relais"
+          },
+          "when": "switching.mode=mux"
+        }
+      ]
+    },
+    {
+      "id": "meter",
+      "role": "meter",
+      "at": [
+        1,
+        1
+      ],
+      "title": {
+        "en": "Voltmeter / datalogger",
+        "it": "Voltmetro / datalogger",
+        "fr": "Voltmètre / enregistreur",
+        "es": "Voltímetro / registrador",
+        "de": "Voltmeter / Datenlogger"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "top",
+          "label": {
+            "en": "Measure",
+            "it": "Misura",
+            "fr": "Mesure",
+            "es": "Medida",
+            "de": "Messung"
+          }
+        }
+      ]
+    },
+    {
+      "id": "mux",
+      "role": "switch",
+      "at": [
+        2,
+        1
+      ],
+      "when": "switching.mode=mux",
+      "title": {
+        "en": "Multiplexer / switch box",
+        "it": "Multiplexer / switch box",
+        "fr": "Multiplexeur / boîtier de commutation",
+        "es": "Multiplexor / caja de conmutación",
+        "de": "Multiplexer / Schaltbox"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "top",
+          "label": {
+            "en": "Relays",
+            "it": "Relè",
+            "fr": "Relais",
+            "es": "Relés",
+            "de": "Relais"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "psu.out",
+      "to": "dut.in",
+      "label": {
+        "en": "input",
+        "it": "ingresso",
+        "fr": "entrée",
+        "es": "entrada",
+        "de": "Eingang"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "load.in",
+      "label": {
+        "en": "load",
+        "it": "carico",
+        "fr": "charge",
+        "es": "carga",
+        "de": "Last"
+      }
+    },
+    {
+      "from": "dut.out",
+      "to": "meter.in",
+      "label": {
+        "en": "output voltage",
+        "it": "tensione di uscita",
+        "fr": "tension de sortie",
+        "es": "tensión de salida",
+        "de": "Ausgangsspannung"
+      },
+      "style": "dashed"
+    },
+    {
+      "from": "mux.out",
+      "to": "load.relays",
+      "when": "switching.mode=mux",
+      "label": {
+        "en": "relays",
+        "it": "relè",
+        "fr": "relais",
+        "es": "relés",
+        "de": "Relais"
+      },
+      "style": "dashed"
+    }
+  ],
+  "steps": [
+    {
+      "en": "Connect the output of the supply to the input of the converter ({device.label|converter under test}), plus to plus, minus to minus.",
+      "it": "Collega l'uscita dell'alimentatore all'ingresso del convertitore ({device.label|convertitore in prova}), più con più, meno con meno.",
+      "fr": "Connectez la sortie de l'alimentation à l'entrée du convertisseur ({device.label|convertisseur testé}), plus sur plus, moins sur moins.",
+      "es": "Conecte la salida de la fuente a la entrada del convertidor ({device.label|convertidor en prueba}), más con más, menos con menos.",
+      "de": "Den Ausgang des Netzteils mit dem Eingang des Wandlers ({device.label|Prüfling}) verbinden, Plus an Plus, Minus an Minus."
+    },
+    {
+      "en": "Connect the voltmeter (or the datalogger channel) to the output of the converter, where the load is connected.",
+      "it": "Collega il voltmetro (o il canale del datalogger) all'uscita del convertitore, dove è collegato il carico.",
+      "fr": "Connectez le voltmètre (ou la voie de l'enregistreur) à la sortie du convertisseur, là où la charge est connectée.",
+      "es": "Conecte el voltímetro (o el canal del registrador) a la salida del convertidor, donde está conectada la carga.",
+      "de": "Das Voltmeter (oder den Datenloggerkanal) an den Ausgang des Wandlers anschließen, dort wo die Last hängt."
+    },
+    {
+      "when": "switching.mode!=mux",
+      "text": {
+        "en": "Connect each load by hand when the program asks for it (the supply is off then): the name of the load is in the question.",
+        "it": "Collega ogni carico a mano quando il programma lo chiede (l'alimentatore è spento): il nome del carico è nella domanda.",
+        "fr": "Connectez chaque charge à la main quand le programme le demande (l'alimentation est éteinte) : le nom de la charge est dans la question.",
+        "es": "Conecte cada carga a mano cuando el programa lo pida (la fuente está apagada): el nombre de la carga está en la pregunta.",
+        "de": "Jede Last von Hand anschließen, wenn das Programm danach fragt (das Netzteil ist dann aus): der Name der Last steht in der Frage."
+      }
+    },
+    {
+      "when": "switching.mode=mux",
+      "text": {
+        "en": "Wire each resistor between the output of the converter and ground through its relay of the multiplexer; the relays of a load are closed together, the ones of the load before are opened first.",
+        "it": "Collega ogni resistenza tra l'uscita del convertitore e la massa attraverso il suo relè del multiplexer; i relè di un carico si chiudono insieme, quelli del carico precedente si aprono prima.",
+        "fr": "Câblez chaque résistance entre la sortie du convertisseur et la masse par son relais du multiplexeur ; les relais d'une charge se ferment ensemble, ceux de la charge précédente s'ouvrent d'abord.",
+        "es": "Cablee cada resistencia entre la salida del convertidor y masa a través de su relé del multiplexor; los relés de una carga se cierran juntos, los de la carga anterior se abren antes.",
+        "de": "Jeden Widerstand über sein Relais des Multiplexers zwischen Ausgang des Wandlers und Masse schalten; die Relais einer Last schließen gemeinsam, die der vorigen Last öffnen vorher."
+      }
+    },
+    {
+      "when": "iin_reading.role=meter",
+      "text": {
+        "en": "Put the current shunt in the input line and connect the datalogger channel across it.",
+        "it": "Metti lo shunt di corrente nella linea d'ingresso e collega il canale del datalogger ai suoi capi.",
+        "fr": "Placez le shunt de courant dans la ligne d'entrée et connectez la voie de l'enregistreur à ses bornes.",
+        "es": "Ponga el shunt de corriente en la línea de entrada y conecte el canal del registrador entre sus extremos.",
+        "de": "Den Stromshunt in die Eingangsleitung legen und den Datenloggerkanal daran anschließen."
+      }
+    }
+  ],
+  "notes": [
+    {
+      "en": "The supply is switched on by the measurement and switched off at the end, and while the load is changed. The power in each resistor is checked against its rating: a resistor above it stops the measurement.",
+      "it": "L'alimentatore viene acceso dalla misura e spento alla fine e mentre si cambia il carico. La potenza in ogni resistenza è confrontata con il suo valore nominale: una resistenza oltre il limite ferma la misura.",
+      "fr": "L'alimentation est allumée par la mesure et éteinte à la fin et pendant le changement de charge. La puissance dans chaque résistance est comparée à sa valeur nominale : une résistance au-dessus arrête la mesure.",
+      "es": "La fuente la enciende la medición y se apaga al final y mientras se cambia la carga. La potencia en cada resistencia se compara con su valor nominal: una resistencia por encima detiene la medición.",
+      "de": "Das Netzteil wird von der Messung eingeschaltet und am Ende sowie beim Lastwechsel ausgeschaltet. Die Leistung in jedem Widerstand wird mit seiner Nennleistung verglichen: ein Widerstand darüber stoppt die Messung."
+    }
+  ]
+}

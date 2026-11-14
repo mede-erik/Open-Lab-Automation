@@ -794,3 +794,43 @@ def test_trend_doc_names_the_verdicts_and_the_figures_that_exist():
     for option in ("--figure", "--limit", "--max-rate", "--warn-days", "--list-figures", "--csv"):
         assert option in text, option
         assert option in read(ROOT / "scripts" / "cable_trend.py"), option
+
+
+def test_resistive_efficiency_example_in_the_docs_is_valid_and_runs():
+    """The example of docs/resistive-efficiency.md is a real file: it validates and runs."""
+    import json as _json
+
+    from ola.registry import default_registry
+    from ola.runner import Runner
+    from ola.sim_bench import SimResistiveBench
+
+    text = read(ROOT / "docs" / "resistive-efficiency.md")
+    block = re.search(r"```json resistive_efficiency\.rfe\n(.*?)```", text, re.S)
+    assert block, "example block not found in docs/resistive-efficiency.md"
+    params = _json.loads(block.group(1))
+    params["timing"] = {"settle_s": 0, "samples": 1, "interval_s": 0}
+    params["switching"]["settle_s"] = 0
+    m = default_registry(user_dir="/nonexistent").create("resistive_efficiency", params)
+    assert [p for p in m.check() if p.severity == "error"] == []
+
+    def combine(closed):  # the wiring of the three loads of the example
+        mixed = 10 + 1 / (1 / 22 + 1 / 47)
+        return {"201": 10, "202,203": 1 / (1 / 22 + 1 / 47), "201,202,203": mixed}[
+            ",".join(sorted(closed))
+        ]
+
+    bench = SimResistiveBench(combine=combine, quiescent_a=0.001)
+    runner = Runner(m, {"supply": [bench.supply], "meter": [bench.meter], "switch": [bench.switch]})
+    runner.start()
+    assert runner.join(30) and runner.state.value == "finished", runner.error
+    rows = {}
+    for e in runner.drain():
+        if e.kind == "point":
+            rows.setdefault(e.data["table"], []).append(e.data["values"])
+    assert [r["load"] for r in rows["summary"]] == ["10R", "22||47", "10+(22||47)"]
+    assert len(rows["points"]) == 9 and rows["points"][0]["r_nom_ohm"] == 10
+    assert rows["points"][-1]["r_nom_ohm"] == pytest.approx(10 + 1 / (1 / 22 + 1 / 47))
+    assert all(r["efficiency_min_pct"] < r["efficiency_max_pct"] for r in rows["points"])
+    for name in ("tol_pct", "power_w", "channel", "supply_off", "efficiency_min_pct",
+                 "iin_reading", "max_vout_v", "SimResistiveBench"):  # fmt: skip
+        assert name in text, name

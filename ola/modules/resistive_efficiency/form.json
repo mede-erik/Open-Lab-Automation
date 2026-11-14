@@ -1,0 +1,512 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Converter, instruments and loads",
+        "it": "Convertitore, strumenti e carichi",
+        "fr": "Convertisseur, instruments et charges",
+        "es": "Convertidor, instrumentos y cargas",
+        "de": "Wandler, Geräte und Lasten"
+      },
+      "fields": [
+        {
+          "path": "supply",
+          "kind": "instrument",
+          "label": {
+            "en": "Supply",
+            "it": "Alimentatore",
+            "fr": "Alimentation",
+            "es": "Fuente",
+            "de": "Netzteil"
+          },
+          "help": {
+            "en": "The supply that feeds the input of the converter.",
+            "it": "L'alimentatore che alimenta l'ingresso del convertitore.",
+            "fr": "L'alimentation qui alimente l'entrée du convertisseur.",
+            "es": "La fuente que alimenta la entrada del convertidor.",
+            "de": "Das Netzteil, das den Eingang des Wandlers speist."
+          }
+        },
+        {
+          "path": "meter",
+          "kind": "instrument",
+          "label": {
+            "en": "Voltmeter (multimeter or datalogger)",
+            "it": "Voltmetro (multimetro o datalogger)",
+            "fr": "Voltmètre (multimètre ou enregistreur)",
+            "es": "Voltímetro (multímetro o registrador)",
+            "de": "Voltmeter (Multimeter oder Datenlogger)"
+          },
+          "help": {
+            "en": "Reads the output voltage (and the shunt or the input voltage, if asked).",
+            "it": "Legge la tensione di uscita (e lo shunt o la tensione d'ingresso, se richiesto).",
+            "fr": "Lit la tension de sortie (et le shunt ou la tension d'entrée, si demandé).",
+            "es": "Lee la tensión de salida (y el shunt o la tensión de entrada, si se pide).",
+            "de": "Misst die Ausgangsspannung (und den Shunt oder die Eingangsspannung, falls verlangt)."
+          }
+        },
+        {
+          "path": "switch",
+          "kind": "instrument",
+          "label": {
+            "en": "Multiplexer (datalogger or switch unit)",
+            "it": "Multiplexer (datalogger o switch box)",
+            "fr": "Multiplexeur (enregistreur ou boîtier de commutation)",
+            "es": "Multiplexor (registrador o caja de conmutación)",
+            "de": "Multiplexer (Datenlogger oder Schaltbox)"
+          },
+          "help": {
+            "en": "Only when the loads are connected by relays (switching mode 'multiplexer').",
+            "it": "Solo quando i carichi sono collegati dai relè (modo 'multiplexer').",
+            "fr": "Seulement quand les charges sont connectées par des relais (mode « multiplexeur »).",
+            "es": "Solo cuando las cargas se conectan con relés (modo «multiplexor»).",
+            "de": "Nur wenn die Lasten über Relais geschaltet werden (Modus „Multiplexer“)."
+          }
+        },
+        {
+          "path": "device.asset_id",
+          "kind": "asset",
+          "label": {
+            "en": "Converter from the registry",
+            "it": "Convertitore dal registro",
+            "fr": "Convertisseur du registre",
+            "es": "Convertidor del registro",
+            "de": "Wandler aus dem Register"
+          },
+          "label_path": "device.label"
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Converter name",
+            "it": "Nome del convertitore",
+            "fr": "Nom du convertisseur",
+            "es": "Nombre del convertidor",
+            "de": "Name des Wandlers"
+          },
+          "placeholder": {
+            "en": "e.g. 5 V buck",
+            "it": "es. buck 5 V",
+            "fr": "p. ex. buck 5 V",
+            "es": "p. ej. buck de 5 V",
+            "de": "z. B. 5-V-Buck"
+          }
+        },
+        {
+          "path": "supply_channel",
+          "kind": "int",
+          "label": {
+            "en": "Supply output channel",
+            "it": "Canale di uscita dell'alimentatore",
+            "fr": "Voie de sortie de l'alimentation",
+            "es": "Canal de salida de la fuente",
+            "de": "Ausgangskanal des Netzteils"
+          }
+        },
+        {
+          "path": "vin_v",
+          "kind": "json",
+          "label": {
+            "en": "Input voltages",
+            "it": "Tensioni d'ingresso",
+            "fr": "Tensions d'entrée",
+            "es": "Tensiones de entrada",
+            "de": "Eingangsspannungen"
+          },
+          "help": {
+            "en": "{\"values\": [9, 12, 15]} or {\"start\": 9, \"stop\": 15, \"points\": 4}. Each one is tried with every load.",
+            "it": "{\"values\": [9, 12, 15]} oppure {\"start\": 9, \"stop\": 15, \"points\": 4}. Ognuna è provata con ogni carico.",
+            "fr": "{\"values\": [9, 12, 15]} ou {\"start\": 9, \"stop\": 15, \"points\": 4}. Chacune est essayée avec chaque charge.",
+            "es": "{\"values\": [9, 12, 15]} o {\"start\": 9, \"stop\": 15, \"points\": 4}. Cada una se prueba con cada carga.",
+            "de": "{\"values\": [9, 12, 15]} oder {\"start\": 9, \"stop\": 15, \"points\": 4}. Jede wird mit jeder Last versucht."
+          }
+        },
+        {
+          "path": "loads",
+          "kind": "json",
+          "label": {
+            "en": "Loads",
+            "it": "Carichi",
+            "fr": "Charges",
+            "es": "Cargas",
+            "de": "Lasten"
+          },
+          "help": {
+            "en": "A list of loads made of real resistors: {\"name\": \"10R\", \"r_ohm\": 10, \"tol_pct\": 1, \"power_w\": 5, \"channel\": \"201\"}, or a group {\"name\": \"22||47\", \"parallel\": [{\"r_ohm\": 22, ...}, {\"r_ohm\": 47, ...}]} (also \"series\", nested as needed). \"channel\" is the relay of the multiplexer.",
+            "it": "Un elenco di carichi fatti di resistenze reali: {\"name\": \"10R\", \"r_ohm\": 10, \"tol_pct\": 1, \"power_w\": 5, \"channel\": \"201\"}, oppure un gruppo {\"name\": \"22||47\", \"parallel\": [{\"r_ohm\": 22, ...}, {\"r_ohm\": 47, ...}]} (anche \"series\", annidati). \"channel\" è il relè del multiplexer.",
+            "fr": "Une liste de charges faites de vraies résistances : {\"name\": \"10R\", \"r_ohm\": 10, \"tol_pct\": 1, \"power_w\": 5, \"channel\": \"201\"}, ou un groupe {\"name\": \"22||47\", \"parallel\": [{\"r_ohm\": 22, ...}, {\"r_ohm\": 47, ...}]} (aussi \"series\", imbriqués). « channel » est le relais du multiplexeur.",
+            "es": "Una lista de cargas hechas de resistencias reales: {\"name\": \"10R\", \"r_ohm\": 10, \"tol_pct\": 1, \"power_w\": 5, \"channel\": \"201\"}, o un grupo {\"name\": \"22||47\", \"parallel\": [{\"r_ohm\": 22, ...}, {\"r_ohm\": 47, ...}]} (también \"series\", anidados). «channel» es el relé del multiplexor.",
+            "de": "Eine Liste von Lasten aus echten Widerständen: {\"name\": \"10R\", \"r_ohm\": 10, \"tol_pct\": 1, \"power_w\": 5, \"channel\": \"201\"} oder eine Gruppe {\"name\": \"22||47\", \"parallel\": [{\"r_ohm\": 22, ...}, {\"r_ohm\": 47, ...}]} (auch \"series\", verschachtelt). „channel“ ist das Relais des Multiplexers."
+          }
+        },
+        {
+          "path": "switching.mode",
+          "kind": "choice",
+          "label": {
+            "en": "How the load is changed",
+            "it": "Come si cambia il carico",
+            "fr": "Comment on change de charge",
+            "es": "Cómo se cambia la carga",
+            "de": "Wie die Last gewechselt wird"
+          },
+          "choices": [
+            {
+              "value": "manual",
+              "label": {
+                "en": "By hand: the program asks",
+                "it": "A mano: il programma lo chiede",
+                "fr": "À la main : le programme le demande",
+                "es": "A mano: el programa lo pide",
+                "de": "Von Hand: das Programm fragt"
+              }
+            },
+            {
+              "value": "mux",
+              "label": {
+                "en": "By the relays of a multiplexer",
+                "it": "Con i relè di un multiplexer",
+                "fr": "Avec les relais d'un multiplexeur",
+                "es": "Con los relés de un multiplexor",
+                "de": "Mit den Relais eines Multiplexers"
+              }
+            }
+          ]
+        },
+        {
+          "path": "switching.settle_s",
+          "kind": "number",
+          "label": {
+            "en": "Wait after the relays",
+            "it": "Attesa dopo i relè",
+            "fr": "Attente après les relais",
+            "es": "Espera tras los relés",
+            "de": "Wartezeit nach den Relais"
+          },
+          "unit": "s",
+          "visible_if": {
+            "path": "switching.mode",
+            "equals": "mux"
+          }
+        },
+        {
+          "path": "switching.supply_off",
+          "kind": "bool",
+          "label": {
+            "en": "Switch the supply off while the load changes",
+            "it": "Spegni l'alimentatore mentre il carico cambia",
+            "fr": "Éteindre l'alimentation pendant le changement de charge",
+            "es": "Apagar la fuente mientras cambia la carga",
+            "de": "Netzteil beim Lastwechsel ausschalten"
+          },
+          "help": {
+            "en": "Recommended: nothing is connected with the converter running.",
+            "it": "Consigliato: niente viene collegato con il convertitore in funzione.",
+            "fr": "Recommandé : rien n'est connecté pendant que le convertisseur fonctionne.",
+            "es": "Recomendado: no se conecta nada con el convertidor funcionando.",
+            "de": "Empfohlen: es wird nichts bei laufendem Wandler angeschlossen."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "How the readings are taken",
+        "it": "Come si leggono i valori",
+        "fr": "Comment on lit les valeurs",
+        "es": "Cómo se leen los valores",
+        "de": "Wie gemessen wird"
+      },
+      "fields": [
+        {
+          "path": "vout_reading.call",
+          "kind": "text",
+          "label": {
+            "en": "Output reading: call",
+            "it": "Lettura dell'uscita: chiamata",
+            "fr": "Lecture de la sortie : appel",
+            "es": "Lectura de la salida: llamada",
+            "de": "Ausgangsmessung: Aufruf"
+          },
+          "placeholder": {
+            "en": "measure_dc_voltage",
+            "it": "measure_dc_voltage",
+            "fr": "measure_dc_voltage",
+            "es": "measure_dc_voltage",
+            "de": "measure_dc_voltage"
+          }
+        },
+        {
+          "path": "vout_reading.args",
+          "kind": "json",
+          "label": {
+            "en": "Output reading: arguments",
+            "it": "Lettura dell'uscita: argomenti",
+            "fr": "Lecture de la sortie : arguments",
+            "es": "Lectura de la salida: argumentos",
+            "de": "Ausgangsmessung: Argumente"
+          },
+          "help": {
+            "en": "A datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. A multimeter has no channels and wants numbers.",
+            "it": "Un datalogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multimetro non ha canali e vuole numeri.",
+            "fr": "Un enregistreur : {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multimètre n'a pas de voies et veut des nombres.",
+            "es": "Un registrador: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Un multímetro no tiene canales y quiere números.",
+            "de": "Ein Datenlogger: {\"range\": \"AUTO\", \"resolution\": \"DEF\", \"channels\": \"103\"}. Ein Multimeter hat keine Kanäle und will Zahlen."
+          }
+        },
+        {
+          "path": "iin_reading.role",
+          "kind": "choice",
+          "label": {
+            "en": "Input current: read by",
+            "it": "Corrente d'ingresso: letta da",
+            "fr": "Courant d'entrée : lu par",
+            "es": "Corriente de entrada: leída por",
+            "de": "Eingangsstrom: gelesen von"
+          },
+          "choices": [
+            {
+              "value": "supply",
+              "label": {
+                "en": "The supply (its own readback)",
+                "it": "L'alimentatore (la sua lettura)",
+                "fr": "L'alimentation (sa propre lecture)",
+                "es": "La fuente (su propia lectura)",
+                "de": "Das Netzteil (eigene Messung)"
+              }
+            },
+            {
+              "value": "meter",
+              "label": {
+                "en": "The voltmeter / datalogger (a shunt)",
+                "it": "Il voltmetro / datalogger (uno shunt)",
+                "fr": "Le voltmètre / enregistreur (un shunt)",
+                "es": "El voltímetro / registrador (un shunt)",
+                "de": "Das Voltmeter / der Datenlogger (ein Shunt)"
+              }
+            }
+          ]
+        },
+        {
+          "path": "iin_reading.call",
+          "kind": "text",
+          "label": {
+            "en": "Input current: call",
+            "it": "Corrente d'ingresso: chiamata",
+            "fr": "Courant d'entrée : appel",
+            "es": "Corriente de entrada: llamada",
+            "de": "Eingangsstrom: Aufruf"
+          },
+          "help": {
+            "en": "read_current for the supply, measure_dc_voltage for a shunt.",
+            "it": "read_current per l'alimentatore, measure_dc_voltage per uno shunt.",
+            "fr": "read_current pour l'alimentation, measure_dc_voltage pour un shunt.",
+            "es": "read_current para la fuente, measure_dc_voltage para un shunt.",
+            "de": "read_current für das Netzteil, measure_dc_voltage für einen Shunt."
+          }
+        },
+        {
+          "path": "iin_reading.args",
+          "kind": "json",
+          "label": {
+            "en": "Input current: arguments",
+            "it": "Corrente d'ingresso: argomenti",
+            "fr": "Courant d'entrée : arguments",
+            "es": "Corriente de entrada: argumentos",
+            "de": "Eingangsstrom: Argumente"
+          }
+        },
+        {
+          "path": "iin_reading.scale",
+          "kind": "number",
+          "label": {
+            "en": "Input current: scale",
+            "it": "Corrente d'ingresso: scala",
+            "fr": "Courant d'entrée : échelle",
+            "es": "Corriente de entrada: escala",
+            "de": "Eingangsstrom: Skalierung"
+          },
+          "help": {
+            "en": "With a shunt: 1 / the shunt in ohms (0.1 ohm is 10).",
+            "it": "Con uno shunt: 1 / lo shunt in ohm (0,1 ohm è 10).",
+            "fr": "Avec un shunt : 1 / le shunt en ohms (0,1 ohm vaut 10).",
+            "es": "Con un shunt: 1 / el shunt en ohmios (0,1 ohmio es 10).",
+            "de": "Mit Shunt: 1 / der Shunt in Ohm (0,1 Ohm ist 10)."
+          }
+        },
+        {
+          "path": "vin_reading",
+          "kind": "json",
+          "label": {
+            "en": "Input voltage at the converter (optional)",
+            "it": "Tensione d'ingresso al convertitore (facoltativa)",
+            "fr": "Tension d'entrée au convertisseur (facultatif)",
+            "es": "Tensión de entrada en el convertidor (opcional)",
+            "de": "Eingangsspannung am Wandler (optional)"
+          },
+          "help": {
+            "en": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"101\"}}. Without it the supply setpoint is the input voltage.",
+            "it": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"101\"}}. Senza, la tensione d'ingresso è quella impostata sull'alimentatore.",
+            "fr": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"101\"}}. Sans cela, la tension d'entrée est la consigne de l'alimentation.",
+            "es": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"101\"}}. Sin ella, la tensión de entrada es la consigna de la fuente.",
+            "de": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"101\"}}. Ohne sie gilt der Sollwert des Netzteils als Eingangsspannung."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Timing, safety and checks",
+        "it": "Tempi, sicurezza e verifiche",
+        "fr": "Temps, sécurité et contrôles",
+        "es": "Tiempos, seguridad y comprobaciones",
+        "de": "Zeiten, Sicherheit und Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "timing.settle_s",
+          "kind": "number",
+          "label": {
+            "en": "Wait after a change",
+            "it": "Attesa dopo una modifica",
+            "fr": "Attente après un changement",
+            "es": "Espera tras un cambio",
+            "de": "Wartezeit nach einer Änderung"
+          },
+          "unit": "s"
+        },
+        {
+          "path": "timing.samples",
+          "kind": "int",
+          "label": {
+            "en": "Readings averaged",
+            "it": "Letture mediate",
+            "fr": "Lectures moyennées",
+            "es": "Lecturas promediadas",
+            "de": "Gemittelte Messungen"
+          }
+        },
+        {
+          "path": "timing.interval_s",
+          "kind": "number",
+          "label": {
+            "en": "Interval between readings",
+            "it": "Intervallo tra le letture",
+            "fr": "Intervalle entre les lectures",
+            "es": "Intervalo entre lecturas",
+            "de": "Abstand zwischen den Messungen"
+          },
+          "unit": "s"
+        },
+        {
+          "path": "safety.max_vin_v",
+          "kind": "number",
+          "label": {
+            "en": "Safety: highest input voltage",
+            "it": "Sicurezza: tensione d'ingresso massima",
+            "fr": "Sécurité : tension d'entrée maximale",
+            "es": "Seguridad: tensión de entrada máxima",
+            "de": "Sicherheit: höchste Eingangsspannung"
+          },
+          "unit": "V"
+        },
+        {
+          "path": "safety.max_vout_v",
+          "kind": "number",
+          "label": {
+            "en": "Safety: highest output voltage",
+            "it": "Sicurezza: tensione di uscita massima",
+            "fr": "Sécurité : tension de sortie maximale",
+            "es": "Seguridad: tensión de salida máxima",
+            "de": "Sicherheit: höchste Ausgangsspannung"
+          },
+          "help": {
+            "en": "The power ratings of the resistors are checked at this voltage before anything is switched on.",
+            "it": "Le potenze delle resistenze sono verificate a questa tensione prima di accendere qualsiasi cosa.",
+            "fr": "Les puissances des résistances sont vérifiées à cette tension avant de tout allumer.",
+            "es": "Las potencias de las resistencias se comprueban a esta tensión antes de encender nada.",
+            "de": "Die Nennleistungen der Widerstände werden bei dieser Spannung geprüft, bevor etwas eingeschaltet wird."
+          },
+          "unit": "V"
+        },
+        {
+          "path": "safety.max_iin_a",
+          "kind": "number",
+          "label": {
+            "en": "Safety: highest input current",
+            "it": "Sicurezza: corrente d'ingresso massima",
+            "fr": "Sécurité : courant d'entrée maximal",
+            "es": "Seguridad: corriente de entrada máxima",
+            "de": "Sicherheit: höchster Eingangsstrom"
+          },
+          "unit": "A"
+        },
+        {
+          "path": "limits",
+          "kind": "json",
+          "label": {
+            "en": "Limits",
+            "it": "Limiti",
+            "fr": "Limites",
+            "es": "Límites",
+            "de": "Grenzwerte"
+          },
+          "help": {
+            "en": "Optional pass / fail: {\"min_efficiency_pct\": 85, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}. The efficiency is judged on its lowest value, the one the tolerances of the resistors guarantee.",
+            "it": "Promosso / non promosso facoltativo: {\"min_efficiency_pct\": 85, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}. Il rendimento è giudicato sul valore più basso, quello garantito dalle tolleranze delle resistenze.",
+            "fr": "Réussi / échoué facultatif : {\"min_efficiency_pct\": 85, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}. Le rendement est jugé sur sa valeur la plus basse, celle que garantissent les tolérances des résistances.",
+            "es": "Aprobado / suspendido opcional: {\"min_efficiency_pct\": 85, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}. El rendimiento se juzga por su valor más bajo, el que garantizan las tolerancias de las resistencias.",
+            "de": "Optional bestanden / nicht bestanden: {\"min_efficiency_pct\": 85, \"vout_min_v\": 4.75, \"vout_max_v\": 5.25}. Der Wirkungsgrad wird nach seinem niedrigsten Wert beurteilt, den die Toleranzen der Widerstände garantieren."
+          }
+        },
+        {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project. The rows are checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto. Le righe sono verificate rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet. Les lignes sont vérifiées par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto. Las filas se comprueban frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts. Die Zeilen werden damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"rows\": {\"match\": [\"load\", \"vin_set_v\"], \"columns\": {\"efficiency_pct\": 1.0}}} = every row within 1 point of efficiency of the golden one. See docs/golden.md.",
+            "it": "{\"rows\": {\"match\": [\"load\", \"vin_set_v\"], \"columns\": {\"efficiency_pct\": 1.0}}} = ogni riga entro 1 punto di rendimento da quella del campione. Vedi docs/golden.md.",
+            "fr": "{\"rows\": {\"match\": [\"load\", \"vin_set_v\"], \"columns\": {\"efficiency_pct\": 1.0}}} : voir docs/golden.md.",
+            "es": "{\"rows\": {\"match\": [\"load\", \"vin_set_v\"], \"columns\": {\"efficiency_pct\": 1.0}}}: vea docs/golden.md.",
+            "de": "{\"rows\": {\"match\": [\"load\", \"vin_set_v\"], \"columns\": {\"efficiency_pct\": 1.0}}}: siehe docs/golden.md."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to connect before measuring",
+            "it": "Chiedi di collegare prima di misurare",
+            "fr": "Demander de connecter avant de mesurer",
+            "es": "Pedir que se conecte antes de medir",
+            "de": "Vor dem Messen zum Anschließen auffordern"
+          }
+        }
+      ]
+    }
+  ]
+}

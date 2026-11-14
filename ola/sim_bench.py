@@ -26,6 +26,7 @@ what was asked of each instrument, in ``bench.log`` in order.
 
 from __future__ import annotations
 
+import math
 import random
 from typing import Any, Dict, List, Tuple
 
@@ -140,4 +141,157 @@ class SimBench:
             if channel == "101":
                 return self._noisy(self.vin_at_converter())
             return 0.0
+        return None
+
+
+class SimResistiveBench:
+    """A converter that feeds a **resistive load** made of resistors, with a supply, a voltmeter
+    and a multiplexer, to try the resistive-efficiency measurement without hardware::
+
+        bench = SimResistiveBench(channel_ohms={"201": 10.0, "202": 22.0})
+        bench.switch.call("close_channel", channels="201,202")     # 10 || 22 ohm
+        bench.supply.call("set_voltage", value=12.0)
+        bench.supply.call("output_on")
+        bench.meter.call("measure_dc_voltage", channels="103")     # the output
+        bench.meter.call("measure_dc_voltage", channels="102")     # a 0.1 ohm shunt on the input
+
+    The converter regulates its output to ``vout_v`` while its input is at least ``dropout_v`` and
+    the power ``vout_v**2 / R`` does not exceed ``pmax_w`` (above it the output sags, so the power
+    stays at ``pmax_w``). Its efficiency is ``eta_peak`` less ``vin_droop`` per volt above
+    ``dropout_v`` and ``load_droop`` times the fraction of ``pmax_w`` it delivers; with the supply
+    off it draws nothing, and with no load connected only ``quiescent_a``. The load is the closed
+    relays of the multiplexer, combined by ``combine`` (a function of the closed channels that gives
+    ohms: all in parallel by default), or ``manual_ohms`` for a measurement where the user connects
+    the resistors by hand. ``r_error`` is how far the real resistance is from the nominal one
+    (a fraction: +0.01 is 1 % more). Channel ``101`` of the meter is the input voltage, ``102`` the
+    shunt voltage (``shunt_ohm`` times the input current) and ``103`` the output. ``log`` records
+    every call in order, and ``events`` what happened to the circuit (``"supply off"``, ``"close
+    201"`` ...) so that a test can check the order.
+    """
+
+    def __init__(
+        self,
+        channel_ohms: Dict[str, float] = None,
+        combine: Any = None,
+        vout_v: float = 5.0,
+        dropout_v: float = 6.0,
+        eta_peak: float = 0.95,
+        vin_droop: float = 0.004,
+        load_droop: float = 0.05,
+        pmax_w: float = 25.0,
+        quiescent_a: float = 0.005,
+        shunt_ohm: float = 0.1,
+        r_error: float = 0.0,
+        seed: int = 5,
+    ):
+        self.channel_ohms = dict(channel_ohms or {})
+        self.combine = combine
+        self.vout_v, self.dropout_v, self.eta_peak = vout_v, dropout_v, eta_peak
+        self.vin_droop, self.load_droop, self.pmax_w = vin_droop, load_droop, pmax_w
+        self.quiescent_a, self.shunt_ohm, self.r_error = quiescent_a, shunt_ohm, r_error
+        self.setpoint_v = 0.0
+        self.supply_on = False
+        self.closed: List[str] = []
+        self.manual_ohms: Any = None
+        self.log: List[Tuple[str, str, Dict[str, Any]]] = []
+        self.events: List[str] = []
+        self.supply = _Instrument(
+            self, "supply",
+            ("set_voltage", "output_on", "output_off", "read_voltage", "read_current"),
+        )  # fmt: skip
+        self.meter = _Instrument(self, "meter", ("measure_dc_voltage",))
+        self.switch = _Instrument(
+            self, "switch", ("close_channel", "open_channels", "query_channel_closed_state")
+        )
+
+    # ----- the circuit -------------------------------------------------------------------------
+    def resistance(self) -> float:
+        """The real resistance of the load now (``inf`` if nothing is connected)."""
+        if self.closed:
+            channels = frozenset(self.closed)
+            if self.combine is not None:
+                nominal = float(self.combine(channels))
+            else:
+                nominal = 1.0 / sum(1.0 / self.channel_ohms[c] for c in channels)
+        elif self.manual_ohms is not None:
+            nominal = float(self.manual_ohms)
+        else:
+            return float("inf")
+        return nominal * (1 + self.r_error)
+
+    def running(self) -> bool:
+        """True if the supply is on and its voltage is high enough for the converter."""
+        return self.supply_on and self.setpoint_v >= self.dropout_v
+
+    def vout(self) -> float:
+        """The output voltage now: ``vout_v``, or less if the power would exceed ``pmax_w``."""
+        if not self.running():
+            return 0.0
+        r = self.resistance()
+        if math.isinf(r):
+            return self.vout_v
+        return min(self.vout_v, math.sqrt(self.pmax_w * r))
+
+    def pout(self) -> float:
+        """The power in the load now, watts."""
+        r = self.resistance()
+        return 0.0 if math.isinf(r) else self.vout() ** 2 / r
+
+    def efficiency(self) -> float:
+        """The efficiency now (a fraction)."""
+        eta = (
+            self.eta_peak
+            - self.vin_droop * (self.setpoint_v - self.dropout_v)
+            - self.load_droop * self.pout() / self.pmax_w
+        )
+        return max(0.2, min(0.99, eta))
+
+    def iin(self) -> float:
+        """The input current now, amps."""
+        if not self.supply_on:
+            return 0.0
+        if not self.running():
+            return 0.0
+        return self.quiescent_a + self.pout() / self.efficiency() / self.setpoint_v
+
+    # ----- the instruments ---------------------------------------------------------------------
+    def do(self, instrument: str, call: str, args: Dict[str, Any]) -> Any:
+        """Run one call of an instrument."""
+        if instrument == "supply":
+            if call == "set_voltage":
+                self.setpoint_v = float(args["value"])
+            elif call == "output_on":
+                self.supply_on = True
+                self.events.append("supply on")
+            elif call == "output_off":
+                self.supply_on = False
+                self.events.append("supply off")
+            elif call == "read_voltage":
+                return self.setpoint_v if self.supply_on else 0.0
+            elif call == "read_current":
+                return self.iin()
+        elif instrument == "meter":
+            channel = str(args.get("channels", ""))
+            if channel == "101":
+                return self.setpoint_v if self.supply_on else 0.0
+            if channel == "102":
+                return self.iin() * self.shunt_ohm
+            if channel in ("103", ""):
+                return self.vout()
+            return 0.0
+        elif instrument == "switch":
+            wanted = [c.strip() for c in str(args.get("channels", "")).split(",") if c.strip()]
+            for channel in wanted:
+                if call == "close_channel":
+                    if channel not in self.channel_ohms and self.combine is None:
+                        raise ValueError(f"no relay {channel}")
+                    if channel not in self.closed:
+                        self.closed.append(channel)
+                    self.events.append(f"close {channel}")
+                elif call == "open_channels":
+                    if channel in self.closed:
+                        self.closed.remove(channel)
+                    self.events.append(f"open {channel}")
+            if call == "query_channel_closed_state":
+                return ",".join("1" if c in self.closed else "0" for c in wanted)
         return None

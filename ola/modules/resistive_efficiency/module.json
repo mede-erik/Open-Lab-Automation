@@ -1,0 +1,98 @@
+{
+  "id": "resistive_efficiency",
+  "name": "Efficiency with a resistive load",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".rfe",
+  "entry": "measurement.py:ResistiveEfficiency",
+  "description": "Efficiency of a converter with a load made of real resistors that you write down (one resistor, or series and parallel groups, each with its tolerance and its power rating). For every load the measurement connects it, by hand or through the relays of a multiplexer, and sweeps the input voltage: the output power is Vout squared over the resistance, the input power is read from the supply or a shunt, and the efficiency comes with the range that the tolerances of the resistors allow. The power in each resistor is checked against its rating. The supply is switched off while the load is changed and at the end, also after an error or a stop.",
+  "roles": [
+    {
+      "name": "supply",
+      "category": "power_supply",
+      "required": true,
+      "description": "The supply that feeds the input of the converter (its readback can give the input current)"
+    },
+    {
+      "name": "meter",
+      "category": "multimeter",
+      "required": true,
+      "description": "A multimeter or a datalogger channel that reads the output voltage (and the input voltage or the shunt, if asked)"
+    },
+    {
+      "name": "switch",
+      "category": "any",
+      "required": false,
+      "description": "A datalogger multiplexer module or a switch unit that connects the resistors (needed when the loads are connected by relays)"
+    }
+  ],
+  "params_schema": {
+    "device": {
+      "type": "object",
+      "required": false,
+      "description": "label (identifies the converter) and asset_id (its code in the registry)"
+    },
+    "supply_channel": {
+      "type": "integer",
+      "min": 1,
+      "required": false,
+      "description": "output channel of the supply (for a multi-output supply)"
+    },
+    "vin_v": {
+      "type": "object",
+      "required": true,
+      "description": "the input voltages to try: {\"values\": [...]} or {\"start\", \"stop\", \"points\"}"
+    },
+    "loads": {
+      "type": "list",
+      "required": true,
+      "item": "object",
+      "description": "the loads, each with a name and either one resistor (r_ohm, tol_pct, power_w, channel) or a series / parallel group of resistors (nested as needed); channel is the relay of the multiplexer"
+    },
+    "switching": {
+      "type": "object",
+      "required": false,
+      "description": "mode (manual: you connect each load; mux: the relays do), settle_s (wait after the relays, 0.5 s) and supply_off (switch the supply off while the load changes, true by default)"
+    },
+    "vout_reading": {
+      "type": "object",
+      "required": true,
+      "description": "how the output voltage is read: call (measure_dc_voltage by default), args (for a datalogger {\"channels\": \"103\"}), scale and offset"
+    },
+    "iin_reading": {
+      "type": "object",
+      "required": true,
+      "description": "how the input current is read: role supply with call read_current, or a shunt on a datalogger with scale = 1 / the shunt in ohms"
+    },
+    "vin_reading": {
+      "type": "object",
+      "required": false,
+      "description": "how the input voltage AT THE CONVERTER is read; without it the setpoint is used"
+    },
+    "timing": {
+      "type": "object",
+      "required": false,
+      "description": "settle_s (wait after a change, 1 s by default), samples (readings averaged, 3) and interval_s (between them, 0.1 s)"
+    },
+    "safety": {
+      "type": "object",
+      "required": false,
+      "description": "max_vin_v, max_vout_v (the power ratings are checked at this output before anything is switched on) and max_iin_a"
+    },
+    "limits": {
+      "type": "object",
+      "required": false,
+      "description": "min_efficiency_pct (judged on the lowest efficiency, the one the tolerances guarantee), vout_min_v, vout_max_v: pass / fail"
+    },
+    "golden": {
+      "type": "object",
+      "required": false,
+      "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {rows: {match: [columns that pair the rows], columns: {column: tolerance}}, curves, min_overlap}"
+    },
+    "confirm_setup": {
+      "type": "boolean",
+      "required": false,
+      "description": "ask, before measuring, to connect the instruments"
+    }
+  }
+}
