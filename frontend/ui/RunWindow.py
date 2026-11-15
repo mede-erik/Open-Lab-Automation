@@ -25,7 +25,9 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QByteArray, Qt, QTimer
+from PyQt6.QtGui import QImage, QPainter, QPixmap
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -56,6 +58,7 @@ from frontend.ui.trace_plot import SmithChart, TracePlot
 from ola.measurement import MeasurementError
 from ola.run_view import (
     QUESTION_CALIBRATION,
+    QUESTION_LOAD,
     QUESTION_OUTPUTS_ON,
     QUESTION_VERIFY,
     VIEW_SMITH,
@@ -109,6 +112,12 @@ class QuestionDialog(QDialog):
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
             layout.addWidget(label)
+        picture = self._picture(question.get("data") or {})
+        if picture is not None:
+            label = QLabel()
+            label.setPixmap(picture)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(label)
         row = QHBoxLayout()
         row.addStretch(1)
         self.buttons: Dict[str, QPushButton] = {}
@@ -145,12 +154,41 @@ class QuestionDialog(QDialog):
                 stop=format_si(data.get("stop_hz", 0), "Hz"),
                 points=data.get("points", "?"),
             )
+        if kind == QUESTION_LOAD:
+            return t(
+                "run_q_load_details",
+                load=data.get("load", "?"),
+                description=str(data.get("description", "")),
+            )
         if kind == QUESTION_OUTPUTS_ON:
             names = ", ".join(
                 f"{o.get('variable')} ({o.get('instrument')})" for o in data.get("outputs", [])
             )
             return t("run_q_outputs_on_details", outputs=names)
         return ""
+
+    @staticmethod
+    def _picture(data: Dict[str, Any]) -> Optional[QPixmap]:
+        """The drawing a question carries (``data["svg"]``: the schematic of a load to connect), on
+        a white background, at most 560 pixels wide; None if there is none or it cannot be read."""
+        svg = data.get("svg")
+        if not isinstance(svg, str) or not svg:
+            return None
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        if not renderer.isValid():
+            return None
+        size = renderer.defaultSize()
+        if size.width() <= 0 or size.height() <= 0:
+            return None
+        scale = min(560 / size.width(), 4.0)
+        image = QImage(
+            round(size.width() * scale), round(size.height() * scale), QImage.Format.Format_ARGB32
+        )
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+        return QPixmap.fromImage(image)
 
     def _choose(self, choice: str) -> None:
         self.chosen = choice

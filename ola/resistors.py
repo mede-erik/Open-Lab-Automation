@@ -23,6 +23,12 @@ description; ``Load.resistance()`` gives ``(nominal, lowest, highest)`` ohms: se
 parallel the lowest value comes from every resistor at its lowest; ``Load.loading(v)`` gives the
 power in each resistor for a voltage ``v`` across the whole load, as an **upper bound** that takes
 the tolerances in the worst direction, with the fraction of the rating it is.
+
+``describe(load)`` says in words how the resistors are connected ("10 ohm in series with (22 ohm in
+parallel with 47 ohm)") and ``schematic(load)`` draws it, nested as written, as an
+``ola.labels.Drawing`` (``render_svg`` makes the picture): this is what the measurement shows when
+the operator has to connect the load by hand. A resistor can come from a kit of resistors
+(``ola.resistor_kits``): ``kit`` and ``ref`` say which, and are kept with its values.
 """
 
 from __future__ import annotations
@@ -30,6 +36,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
+
+from .labels import Box, Drawing, Line, Text
 
 MAX_DEPTH = 6
 MAX_RESISTORS = 64
@@ -52,6 +60,8 @@ class Resistor:
     tol_pct: float = 0.0
     power_w: Optional[float] = None
     channel: str = ""
+    kit: str = ""  # the kit of resistors it was taken from, and its name there (provenance only)
+    ref: str = ""
 
     @property
     def low(self) -> float:
@@ -157,7 +167,12 @@ def _parse_node(raw: Any, path: str, depth: int, count: List[int], fallback: str
             for i, item in enumerate(items)
         ]
         return Group(kind, children)
-    unknown = sorted(set(raw) - {"name", "r_ohm", "tol_pct", "power_w", "channel"})
+    if "ref" in raw and "r_ohm" not in raw:
+        raise LoadError(
+            f"{path}: the resistor {raw['ref']!r} of a kit is not resolved: the project takes its "
+            "values from the kit when the measurement starts"
+        )
+    unknown = sorted(set(raw) - {"name", "r_ohm", "tol_pct", "power_w", "channel", "kit", "ref"})
     if unknown:
         raise LoadError(f"{path}: unknown field(s) {unknown}: use r_ohm, tol_pct, power_w, channel")
     r = raw.get("r_ohm")
@@ -176,7 +191,13 @@ def _parse_node(raw: Any, path: str, depth: int, count: List[int], fallback: str
     if count[0] > MAX_RESISTORS:
         raise LoadError(f"too many resistors in a load (at most {MAX_RESISTORS})")
     return Resistor(
-        str(raw.get("name") or fallback), float(r), float(tol), power and float(power), channel
+        str(raw.get("name") or fallback),
+        float(r),
+        float(tol),
+        power and float(power),
+        channel,
+        str(raw.get("kit") or ""),
+        str(raw.get("ref") or ""),
     )
 
 
@@ -208,6 +229,150 @@ def parse_loads(raw: Any, path: str = "loads") -> List[Load]:
     return loads
 
 
+def has_refs(raw: Any) -> bool:
+    """True if a description (a load, a group or a list of them) still has a resistor that is only a
+    reference to a kit (``{"ref": "R22"}``)."""
+    if isinstance(raw, list):
+        return any(has_refs(item) for item in raw)
+    if not isinstance(raw, Mapping):
+        return False
+    if "ref" in raw and "r_ohm" not in raw:
+        return True
+    return any(has_refs(raw[k]) for k in ("series", "parallel") if k in raw)
+
+
+def _value(ohm: float) -> str:
+    """``22``, ``4.7``, ``2.2k``, ``1M``: a resistance as it is written on a resistor."""
+    for scale, suffix in ((1e6, "M"), (1e3, "k")):
+        if ohm >= scale:
+            return f"{ohm / scale:.4g}{suffix}"
+    return f"{ohm:.4g}"
+
+
+def _facts(resistor: Resistor) -> str:
+    parts = [f"±{resistor.tol_pct:g} %"] if resistor.tol_pct else []
+    if resistor.power_w:
+        parts.append(f"{resistor.power_w:g} W")
+    return ", ".join(parts)
+
+
+def _describe(node: Node, top: bool) -> str:
+    if isinstance(node, Resistor):
+        facts = _facts(node).replace("±", "+/-")
+        return f"{_value(node.r_ohm)} ohm" + (f" ({facts})" if facts else "")
+    joiner = " in series with " if node.kind == "series" else " in parallel with "
+    text = joiner.join(_describe(child, False) for child in node.children)
+    return text if top else f"({text})"
+
+
+def describe(load: Load) -> str:
+    """The load in words, nested as written: ``10 ohm (+/-1 %, 5 W) in series with (22 ohm in
+    parallel with 47 ohm)``, and its equivalent resistance."""
+    text = _describe(load.root, True)
+    nominal, low, high = load.resistance()
+    spread = f", {low:.4g} to {high:.4g} ohm with the tolerances" if low != high else ""
+    return f"{text} = {nominal:.4g} ohm{spread}"
+
+
+# ----- the schematic ----------------------------------------------------------------------------
+BOX_W, BOX_H, LEAD, GAP, ROW_GAP, RAIL, MARGIN = 17.0, 10.0, 3.0, 5.0, 3.5, 4.0, 4.0
+
+
+@dataclass
+class _Block:
+    """A part of the schematic: its size and the height of the wire that goes through it."""
+
+    width: float
+    height: float
+    mid: float  # the wire enters and leaves at this height
+    draw: Any  # draw(x, y) -> list of items, with the block's corner at (x, y)
+
+
+def _block(node: Node) -> _Block:
+    if isinstance(node, Resistor):
+        width = BOX_W + 2 * LEAD
+
+        def draw_resistor(x: float, y: float) -> List[Any]:
+            top = x + LEAD
+            facts = _facts(node)
+            items: List[Any] = [
+                Box(top, y, BOX_W, BOX_H),
+                Line(x, y + BOX_H / 2, top, y + BOX_H / 2),
+                Line(top + BOX_W, y + BOX_H / 2, x + width, y + BOX_H / 2),
+                Text(top + BOX_W / 2, y + 4.4, 3.0, f"{_value(node.r_ohm)} Ω", True, "middle"),
+            ]
+            if facts:
+                items.append(Text(top + BOX_W / 2, y + 8.2, 2.1, facts, False, "middle"))
+            return items
+
+        return _Block(width, BOX_H, BOX_H / 2, draw_resistor)
+    blocks = [_block(child) for child in node.children]
+    if node.kind == "series":
+        above = max(b.mid for b in blocks)
+        below = max(b.height - b.mid for b in blocks)
+        width = sum(b.width for b in blocks) + GAP * (len(blocks) - 1)
+
+        def draw_series(x: float, y: float) -> List[Any]:
+            items: List[Any] = []
+            cx = x
+            for number, b in enumerate(blocks):
+                items += b.draw(cx, y + above - b.mid)
+                cx += b.width
+                if number + 1 < len(blocks):
+                    items.append(Line(cx, y + above, cx + GAP, y + above))
+                    cx += GAP
+            return items
+
+        return _Block(width, above + below, above, draw_series)
+    width = max(b.width for b in blocks) + 2 * RAIL
+    tops, y = [], 0.0
+    for b in blocks:
+        tops.append(y)
+        y += b.height + ROW_GAP
+    height = y - ROW_GAP
+    first, last = tops[0] + blocks[0].mid, tops[-1] + blocks[-1].mid
+    mid = (first + last) / 2
+
+    def draw_parallel(x: float, y0: float) -> List[Any]:
+        items: List[Any] = [
+            Line(x + RAIL, y0 + first, x + RAIL, y0 + last),
+            Line(x + width - RAIL, y0 + first, x + width - RAIL, y0 + last),
+            Line(x, y0 + mid, x + RAIL, y0 + mid),  # the wire in and out of the rails
+            Line(x + width - RAIL, y0 + mid, x + width, y0 + mid),
+        ]
+        for b, top in zip(blocks, tops):
+            bx = x + RAIL + (width - 2 * RAIL - b.width) / 2
+            items += b.draw(bx, y0 + top)
+            wire = y0 + top + b.mid
+            items.append(Line(x + RAIL, wire, bx, wire))
+            items.append(Line(bx + b.width, wire, x + width - RAIL, wire))
+        return items
+
+    return _Block(width, height, mid, draw_parallel)
+
+
+def schematic(load: Load) -> Drawing:
+    """The load drawn as a schematic, series and parallel nested as written, the value, tolerance
+    and rating on each resistor, between a terminal marked ``+`` (the output of the converter) and
+    one marked ``-`` (ground). Millimetres; ``ola.labels.render_svg`` turns it into a picture."""
+    block = _block(load.root)
+    stub = 8.0
+    width = block.width + 2 * (MARGIN + stub)
+    height = block.height + 2 * MARGIN + 6.0
+    drawing = Drawing(width, height)
+    x0, y0 = MARGIN + stub, MARGIN + 6.0
+    mid = y0 + block.mid
+    drawing.items += block.draw(x0, y0)
+    drawing.items += [
+        Line(MARGIN, mid, x0, mid),
+        Line(x0 + block.width, mid, width - MARGIN, mid),
+        Text(MARGIN, mid - 1.5, 3.0, "+", True, "start"),
+        Text(width - MARGIN, mid - 1.5, 3.0, "−", True, "end"),
+        Text(width / 2, 4.2, 3.0, load.name, True, "middle"),
+    ]
+    return drawing
+
+
 def channels_of(loads: Sequence[Load]) -> List[str]:
     """Every relay that any load uses, without repeats."""
     seen: List[str] = []
@@ -219,5 +384,6 @@ def channels_of(loads: Sequence[Load]) -> List[str]:
 
 
 __all__ = [
-    "Group", "Load", "LoadError", "Resistor", "channels_of", "parse_load", "parse_loads",
+    "Group", "Load", "LoadError", "Resistor", "channels_of", "describe", "has_refs", "parse_load",
+    "parse_loads", "schematic",
 ]  # fmt: skip

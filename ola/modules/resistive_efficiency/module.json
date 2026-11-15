@@ -43,11 +43,16 @@
       "required": true,
       "description": "the input voltages to try: {\"values\": [...]} or {\"start\", \"stop\", \"points\"}"
     },
+    "resistor_kit": {
+      "type": "string",
+      "required": false,
+      "description": "the kit of resistors where a load that is only {\"ref\": \"R22\"} is looked up (a resistor can also name its kit: {\"kit\": \"PWR\", \"ref\": \"R22\"}); the project replaces the references by the values of the kit when the measurement starts"
+    },
     "loads": {
       "type": "list",
       "required": true,
       "item": "object",
-      "description": "the loads, each with a name and either one resistor (r_ohm, tol_pct, power_w, channel) or a series / parallel group of resistors (nested as needed); channel is the relay of the multiplexer"
+      "description": "the loads, each with a name and either one resistor (r_ohm, tol_pct, power_w, channel) or a series / parallel group of resistors (nested as needed); channel is the relay of the multiplexer. A resistor can be a reference to a kit of resistors: {\"kit\": \"PWR\", \"ref\": \"R22\"}"
     },
     "switching": {
       "type": "object",
@@ -63,6 +68,11 @@
       "type": "object",
       "required": true,
       "description": "how the input current is read: role supply with call read_current, or a shunt on a datalogger with scale = 1 / the shunt in ohms"
+    },
+    "iout_reading": {
+      "type": "object",
+      "required": false,
+      "description": "optional: the output current, measured by a shunt in the output line read by a datalogger (scale = 1 / the shunt in ohms). With it Pout = Vout * Iout and the resistors are only a check (r_measured_ohm, r_in_tolerance); without it the output current is assumed to be the one the resistors give, Vout / R"
     },
     "vin_reading": {
       "type": "object",

@@ -434,3 +434,216 @@ def test_the_rows_are_checked_against_a_golden_sample(registry, tmp_path):
     worse = run(registry, with_golden, SimResistiveBench(channel_ohms=OHMS, eta_peak=0.85))[2]
     assert worse["golden_result"][0]["golden_verdict"] == "FAIL"
     assert worse["golden"][0]["check"] == "efficiency_pct (rows)"
+
+
+# ---- the output current: measured with a shunt, or assumed from the resistors -------------------
+OUT_SHUNT = {"call": "measure_dc_voltage", "args": {"channels": "104"}, "scale": 20}  # 0.05 ohm
+
+
+def test_without_an_output_shunt_the_current_is_the_one_the_resistors_give(registry):
+    _r, _b, tables = run(registry, params(limits=None))
+    row = tables["points"][0]
+    assert row["pout_source"] == "assumed" and "r_measured_ohm" not in row
+    assert row["iout_a"] == pytest.approx(row["vout_v"] / row["r_nom_ohm"])
+    assert row["efficiency_min_pct"] < row["efficiency_pct"] < row["efficiency_max_pct"]
+
+
+def test_with_an_output_shunt_the_power_is_measured_and_the_resistors_are_a_check(registry):
+    shunted = params(limits=None)
+    shunted["iout_reading"] = OUT_SHUNT
+    _r, _b, tables = run(registry, shunted)  # the resistors are exact: 10 ohm and 14.99 ohm
+    for row in tables["points"]:
+        assert row["pout_source"] == "measured"
+        assert row["pout_w"] == pytest.approx(row["vout_v"] * row["iout_a"])
+        assert row["r_measured_ohm"] == pytest.approx(row["r_nom_ohm"], rel=1e-9)
+        assert row["r_in_tolerance"] is True
+        # a measured power has no range from the tolerances
+        assert row["efficiency_min_pct"] == row["efficiency_pct"] == row["efficiency_max_pct"]
+    _r, _b, assumed = run(registry, params(limits=None))
+    for a, b in zip(tables["points"], assumed["points"]):  # the same efficiency, as it should be
+        assert a["efficiency_pct"] == pytest.approx(b["efficiency_pct"], rel=1e-9)
+
+
+def test_a_resistor_that_has_drifted_is_seen_when_the_current_is_measured(registry):
+    shunted = params(limits=None)
+    shunted["iout_reading"] = OUT_SHUNT
+    drifted = SimResistiveBench(channel_ohms=OHMS, r_error=0.08)  # 8 % off, tolerance 1 %
+    runner, _b, tables = run(registry, shunted, drifted)
+    assert runner.state is RunState.FINISHED
+    first = tables["points"][0]
+    assert first["r_measured_ohm"] == pytest.approx(10.8) and first["r_in_tolerance"] is False
+    assert any("10R at 9 V: the readings give 10.8 ohm, outside 9.9 to 10.1 ohm" in m
+               for m in tables["logs"])  # fmt: skip
+    # the efficiency is the measured one: not the range from the written tolerance
+    assert first["efficiency_pct"] == pytest.approx(
+        first["vout_v"] ** 2 / 10.8 / first["pin_w"] * 100
+    )
+    assert (
+        first["efficiency_pct"] < first["efficiency_min_pct"] or first["pout_source"] == "measured"
+    )
+
+
+def test_the_output_shunt_is_read_by_the_meter_only(registry):
+    shunted = params()
+    shunted["iout_reading"] = {"role": "supply", "call": "read_current"}
+    found = problems(registry, shunted)
+    assert any(p == "iout_reading.role" and "must be one of" in m for p, _s, m in found)
+
+
+def test_measured_current_in_the_numbers():
+    load = parse_load({"name": "10R", "r_ohm": 10, "tol_pct": 1})
+    row = figures(12.0, 0.5, 5.0, load, iout=0.5)  # 5 V and 0.5 A: exactly 10 ohm
+    assert row["pout_w"] == pytest.approx(2.5) and row["r_measured_ohm"] == pytest.approx(10.0)
+    assert row["r_in_tolerance"] is True and row["pout_source"] == "measured"
+    off = figures(12.0, 0.5, 5.0, load, iout=0.4)  # 12.5 ohm: well outside 9.9 to 10.1
+    assert off["r_in_tolerance"] is False and off["pout_w"] == pytest.approx(2.0)
+    edge = figures(12.0, 0.5, 5.0, load, iout=5 / 10.12)  # 10.12 ohm: within the reading margin
+    assert edge["r_in_tolerance"] is True
+    nothing = figures(12.0, 0.5, 0.0, load, iout=0.0)  # a converter that is off
+    assert "r_measured_ohm" not in nothing and nothing["pout_w"] == 0.0
+
+
+# ---- the question of the manual mode carries the load, in words and drawn ----------------------
+def test_by_hand_the_question_says_how_to_connect_the_load_and_carries_the_schematic(registry):
+    import xml.etree.ElementTree as ET
+
+    from ola.run_view import question_kind
+
+    bench = SimResistiveBench()
+    p = params(switching={"mode": "manual"})
+    runner = Runner(registry.create("resistive_efficiency", p), handles(bench, switch=False))
+    runner.start()
+    deadline = time.time() + 5
+    while not runner.pending_questions and time.time() < deadline:
+        time.sleep(0.01)
+    q = runner.pending_questions[0]
+    assert question_kind(q) == "load" and q["data"]["load"] == "10R"
+    assert q["data"]["description"].startswith("10 ohm (+/-1 %, 5 W) = 10 ohm")
+    assert "10 ohm (+/-1 %, 5 W)" in q["text"] and "'10R'" in q["text"]
+    assert ET.fromstring(q["data"]["svg"]).tag.endswith("svg")
+    bench.manual_ohms = 10.0
+    runner.answer(q["id"], "continue")
+    deadline = time.time() + 5
+    while time.time() < deadline and not any(x["id"] != q["id"] for x in runner.pending_questions):
+        time.sleep(0.01)
+    second = [x for x in runner.pending_questions if x["id"] != q["id"]][0]
+    assert (
+        "22 ohm (+/-1 %, 2 W) in parallel with 47 ohm (+/-5 %, 2 W) = 14.99 ohm" in second["text"]
+    )
+    runner.answer(second["id"], "abort")
+    assert runner.join(10) and runner.state is RunState.STOPPED
+
+
+# ---- the resistors of a kit --------------------------------------------------------------------
+def kit_params():
+    """The loads of BASE written with references to a kit of power resistors."""
+    p = params(resistor_kit="PWR")
+    p["loads"] = [
+        {"name": "10R", "ref": "R10"},
+        {"name": "22||47", "parallel": [{"ref": "R22"}, {"kit": "PWR", "ref": "R47"}]},
+    ]
+    return p
+
+
+def make_kits(tmp_path):
+    from ola.resistor_kits import Kit, KitRegistry, KitResistor
+
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(Kit("PWR", [
+        KitResistor("R10", 10, tol_pct=1, power_w=5, channel="201"),
+        KitResistor("R22", 22, tol_pct=1, power_w=2, channel="202"),
+        KitResistor("R47", 47, tol_pct=5, power_w=2, channel="203"),
+    ]))  # fmt: skip
+    return kits
+
+
+def test_the_editor_accepts_references_to_a_kit_and_says_they_are_checked_later(registry):
+    found = problems(registry, kit_params())
+    assert [p for p in found if p[1] == "error"] == []
+    assert [(p, s) for p, s, _m in found if p == "loads"] == [("loads", "warning")]
+    bad = kit_params()
+    bad["loads"][0] = {"name": "x", "ref": ""}
+    del bad["resistor_kit"]
+    paths = [p for p, s, _m in problems(registry, bad) if s == "error"]
+    assert "loads[0].ref" in paths and "loads[0]" in paths  # no name, and no kit to look in
+    bad["resistor_kit"] = 5
+    assert any(p == "resistor_kit" for p, s, _m in problems(registry, bad))
+
+
+def test_an_unresolved_reference_stops_the_run_before_anything_is_switched(registry):
+    bench = SimResistiveBench(channel_ohms=OHMS)
+    runner = Runner(registry.create("resistive_efficiency", kit_params()), handles(bench))
+    runner.start()
+    assert runner.join(10) and runner.state is RunState.FAILED
+    assert "not resolved" in str(runner.error) and bench.log == []
+
+
+def test_the_project_writes_the_values_of_the_kit_into_the_run(registry, tmp_path):
+    from ola.project import MeasurementFile, Project
+    from ola.project_session import ProjectSession
+
+    project = Project.new("P", tmp_path / "proj")
+    ref = project.add_measurement("resistive_efficiency", "buck", registry)
+    MeasurementFile(
+        type="resistive_efficiency", role_bindings={"supply": ["s"], "meter": ["m"],
+                                                    "switch": ["x"]}, params=kit_params(),
+    ).save(project.directory / ref.file)  # fmt: skip
+    project.save()
+    bench = SimResistiveBench(channel_ohms=OHMS)
+    session = ProjectSession(project, registry, connect=lambda n, cancel=None: bench.supply)
+    session.resistor_kits = make_kits(tmp_path)
+    resolved = session.resolve_kits(session.load(ref).params)
+    assert resolved["loads"][0] == {"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 5,
+                                    "channel": "201", "kit": "PWR", "ref": "R10"}  # fmt: skip
+    parallel = resolved["loads"][1]["parallel"]
+    assert [x["r_ohm"] for x in parallel] == [22, 47] and parallel[1]["channel"] == "203"
+    # no references: the same object comes back
+    plain = params()
+    assert session.resolve_kits(plain) is plain
+
+
+def test_a_resolved_load_runs_like_the_written_one(registry, tmp_path):
+    from ola.project import Project
+    from ola.project_session import ProjectSession
+
+    project = Project.new("P", tmp_path / "proj")
+    session = ProjectSession(project, registry)
+    session.resistor_kits = make_kits(tmp_path)
+    resolved = session.resolve_kits(kit_params())
+    assert [p for p in problems(registry, resolved) if p[1] == "error"] == []  # now checked fully
+    _r, _b, from_kit = run(registry, resolved)
+    _r2, _b2, written = run(registry, params())
+    assert [r["efficiency_pct"] for r in from_kit["points"]] == pytest.approx(
+        [r["efficiency_pct"] for r in written["points"]]
+    )
+    assert from_kit["points"][0]["load"] == "10R"
+
+
+def test_a_missing_kit_or_resistor_is_said_before_the_run(registry, tmp_path):
+    from ola.project import Project
+    from ola.project_session import ProjectSession
+
+    project = Project.new("P", tmp_path / "proj")
+    session = ProjectSession(project, registry)
+    session.resistor_kits = make_kits(tmp_path)
+    wrong = kit_params()
+    wrong["resistor_kit"] = "Nope"
+    with pytest.raises(MeasurementError, match="no kit of resistors called 'Nope'"):
+        session.resolve_kits(wrong)
+    wrong = kit_params()
+    wrong["loads"][0]["ref"] = "R99"
+    with pytest.raises(MeasurementError, match="has no resistor 'R99'"):
+        session.resolve_kits(wrong)
+
+
+def test_the_ratings_from_the_kit_are_checked_once_it_is_resolved(registry, tmp_path):
+    from ola.project import Project
+    from ola.project_session import ProjectSession
+
+    session = ProjectSession(Project.new("P", tmp_path / "proj"), registry)
+    kits = make_kits(tmp_path)
+    kits.get("PWR").get("R10").power_w = 1.0  # 6 V on 10 ohm is 3.6 W
+    session.resistor_kits = kits
+    resolved = session.resolve_kits(kit_params())
+    found = problems(registry, resolved)
+    assert any(p == "loads[0]" and s == "error" and "dissipates" in m for p, s, m in found)

@@ -33,6 +33,7 @@ QUESTION_OUTPUTS_ON = "outputs_on"  # outputs already on will be switched off: c
 QUESTION_CALIBRATION = (
     "calibration"  # an instrument must be calibrated / connected: continue / abort
 )
+QUESTION_LOAD = "load"  # connect this load of resistors by hand: the diagram is in the data
 QUESTION_GENERIC = "generic"
 
 
@@ -45,6 +46,8 @@ def question_kind(question: Mapping[str, Any]) -> str:
         return QUESTION_OUTPUTS_ON
     if data.get("kind") == "calibration":
         return QUESTION_CALIBRATION
+    if data.get("kind") == "load":
+        return QUESTION_LOAD
     return QUESTION_GENERIC
 
 

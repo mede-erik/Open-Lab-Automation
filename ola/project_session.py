@@ -90,6 +90,7 @@ class ProjectSession:
         self.project, self.registry, self.connect = project, registry, connect
         self._instruments = list(instruments) if instruments is not None else None
         self.assets = assets
+        self.resistor_kits: Optional[Any] = None  # ``ola.resistor_kits.KitRegistry`` (default file)
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
         self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
 
@@ -315,7 +316,10 @@ class ProjectSession:
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
         handles = self.bind(measurement_file, row.info, cancel)
         measurement = self.registry.create(
-            ref.type, self.resolve_golden(self.resolve_correction(measurement_file.params))
+            ref.type,
+            self.resolve_kits(
+                self.resolve_golden(self.resolve_correction(measurement_file.params))
+            ),
         )
         runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -339,6 +343,27 @@ class ProjectSession:
         )
         runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
+
+    def resolve_kits(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """The parameters with the resistors of a kit written out: a resistor of a load that is
+        ``{"kit": "PWR", "ref": "R22"}`` (or ``{"ref": "R22"}`` with ``resistor_kit``) becomes the
+        values of that resistor in the kit, saved in the header of the run, so it is known later
+        which values were used. ``MeasurementError`` for an unknown kit or resistor. Parameters
+        without a reference are returned unchanged."""
+        from .resistor_kits import KitError, KitRegistry
+        from .resistors import has_refs
+
+        if not has_refs(params.get("loads")):
+            return params
+        try:
+            kits = self.resistor_kits if self.resistor_kits is not None else KitRegistry()
+            resolved = json.loads(json.dumps(params))
+            resolved["loads"] = kits.resolve_loads(
+                resolved["loads"], str(params.get("resistor_kit") or "")
+            )
+        except KitError as exc:
+            raise MeasurementError(str(exc)) from exc
+        return resolved
 
     def resolve_golden(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """The parameters with the golden sample found: ``golden.name`` becomes the file of that

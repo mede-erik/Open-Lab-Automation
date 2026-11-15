@@ -164,7 +164,9 @@ class SimResistiveBench:
     ohms: all in parallel by default), or ``manual_ohms`` for a measurement where the user connects
     the resistors by hand. ``r_error`` is how far the real resistance is from the nominal one
     (a fraction: +0.01 is 1 % more). Channel ``101`` of the meter is the input voltage, ``102`` the
-    shunt voltage (``shunt_ohm`` times the input current) and ``103`` the output. ``log`` records
+    shunt voltage (``shunt_ohm`` times the input current), ``103`` the output and ``104`` the
+    voltage on a shunt of ``out_shunt_ohm`` in the output line (times the load current). ``log``
+    records
     every call in order, and ``events`` what happened to the circuit (``"supply off"``, ``"close
     201"`` ...) so that a test can check the order.
     """
@@ -181,9 +183,11 @@ class SimResistiveBench:
         pmax_w: float = 25.0,
         quiescent_a: float = 0.005,
         shunt_ohm: float = 0.1,
+        out_shunt_ohm: float = 0.05,
         r_error: float = 0.0,
         seed: int = 5,
     ):
+        self.out_shunt_ohm = out_shunt_ohm
         self.channel_ohms = dict(channel_ohms or {})
         self.combine = combine
         self.vout_v, self.dropout_v, self.eta_peak = vout_v, dropout_v, eta_peak
@@ -246,6 +250,11 @@ class SimResistiveBench:
         )
         return max(0.2, min(0.99, eta))
 
+    def iout(self) -> float:
+        """The current in the load now, amps."""
+        r = self.resistance()
+        return 0.0 if math.isinf(r) else self.vout() / r
+
     def iin(self) -> float:
         """The input current now, amps."""
         if not self.supply_on:
@@ -276,6 +285,8 @@ class SimResistiveBench:
                 return self.setpoint_v if self.supply_on else 0.0
             if channel == "102":
                 return self.iin() * self.shunt_ohm
+            if channel == "104":  # a shunt in the output line
+                return self.iout() * self.out_shunt_ohm
             if channel in ("103", ""):
                 return self.vout()
             return 0.0

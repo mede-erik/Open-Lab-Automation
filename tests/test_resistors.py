@@ -138,3 +138,83 @@ def test_a_list_of_loads_needs_distinct_names():
         parse_loads([R10, {"name": "10R", "r_ohm": 5}])
     with pytest.raises(LoadError, match=r"loads\[1\].r_ohm"):
         parse_loads([R10, {"name": "x", "r_ohm": -1}])
+
+
+# ---- in words and as a schematic --------------------------------------------------------------
+def test_a_resistance_is_written_as_on_the_resistor():
+    from ola.resistors import _value
+
+    assert [_value(v) for v in (22, 4.7, 0.47, 2200, 2.2e6, 1000, 1e6)] == [
+        "22", "4.7", "0.47", "2.2k", "2.2M", "1k", "1M",
+    ]  # fmt: skip
+
+
+def test_the_load_is_described_in_words_nested_as_written():
+    from ola.resistors import describe
+
+    assert describe(parse_load({"r_ohm": 22})) == "22 ohm = 22 ohm"
+    assert describe(parse_load(R10)) == (
+        "10 ohm (+/-1 %, 5 W) = 10 ohm, 9.9 to 10.1 ohm with the tolerances"
+    )
+    text = describe(parse_load(MIXED))
+    assert text.startswith("10 ohm (+/-1 %, 5 W) in series with (22 ohm (+/-1 %, 2 W) in parallel")
+    assert "with 47 ohm (+/-5 %, 2 W)) = 24.99 ohm" in text and "with the tolerances" in text
+    both = describe(
+        parse_load({"parallel": [{"series": [{"r_ohm": 1}, {"r_ohm": 2}]}, {"r_ohm": 3}]})
+    )
+    assert both.startswith("(1 ohm in series with 2 ohm) in parallel with 3 ohm = ")
+
+
+def test_the_schematic_draws_every_resistor_inside_the_picture():
+    import xml.etree.ElementTree as ET
+
+    from ola.labels import Box, Line, Text, render_svg
+    from ola.resistors import schematic
+
+    for raw, count in ((R10, 1), (PARALLEL, 2), (MIXED, 3)):
+        load = parse_load(raw)
+        drawing = schematic(load)
+        boxes = [i for i in drawing.items if isinstance(i, Box)]
+        assert len(boxes) == count
+        texts = [i.text for i in drawing.items if isinstance(i, Text)]
+        assert load.name in texts and "+" in texts and "−" in texts
+        for r in load.resistors():
+            assert f"{r.r_ohm:g} Ω" in texts
+        for item in drawing.items:  # nothing outside the picture
+            if isinstance(item, Box):
+                assert 0 <= item.x and item.x + item.w <= drawing.width
+                assert 0 <= item.y and item.y + item.h <= drawing.height
+            if isinstance(item, Line):
+                for x, y in ((item.x1, item.y1), (item.x2, item.y2)):
+                    assert -1e-9 <= x <= drawing.width + 1e-9 and -1e-9 <= y <= drawing.height
+        root = ET.fromstring(render_svg(drawing))  # a well-formed SVG
+        assert root.tag.endswith("svg")
+
+
+def test_in_the_schematic_the_resistors_are_where_series_and_parallel_put_them():
+    from ola.labels import Box
+    from ola.resistors import schematic
+
+    def boxes(raw):
+        return [i for i in schematic(parse_load(raw)).items if isinstance(i, Box)]
+
+    series = boxes({"series": [{"r_ohm": 1}, {"r_ohm": 2}, {"r_ohm": 3}]})
+    assert [round(b.y, 6) for b in series] == [round(series[0].y, 6)] * 3  # side by side
+    assert series[0].x < series[1].x < series[2].x
+    parallel = boxes({"parallel": [{"r_ohm": 1}, {"r_ohm": 2}, {"r_ohm": 3}]})
+    assert parallel[0].y < parallel[1].y < parallel[2].y  # one above the other
+    assert len({round(b.x, 6) for b in parallel}) == 1
+    wide = boxes({"parallel": [{"series": [{"r_ohm": 1}, {"r_ohm": 2}]}, {"r_ohm": 3}]})
+    assert wide[0].y < wide[2].y and wide[0].x < wide[1].x  # a series in the first branch
+
+
+def test_a_resistor_of_a_kit_must_be_resolved_before_it_is_used():
+    from ola.resistors import has_refs
+
+    ref = {"kit": "PWR", "ref": "R22"}
+    assert has_refs(ref) and has_refs([R10, {"series": [R10, ref]}]) and not has_refs(R10)
+    assert not has_refs({**R10, "kit": "PWR", "ref": "R10"})  # values and where they came from
+    with pytest.raises(LoadError, match="'R22' of a kit is not resolved"):
+        parse_load({"name": "x", "series": [R10, ref]}, "loads[0]")
+    kept = parse_load({**R10, "kit": "PWR", "ref": "R10"}).root
+    assert (kept.kit, kept.ref, kept.r_ohm) == ("PWR", "R10", 10)

@@ -226,11 +226,11 @@
     {
       "when": "switching.mode!=mux",
       "text": {
-        "en": "Connect each load by hand when the program asks for it (the supply is off then): the name of the load is in the question.",
-        "it": "Collega ogni carico a mano quando il programma lo chiede (l'alimentatore è spento): il nome del carico è nella domanda.",
-        "fr": "Connectez chaque charge à la main quand le programme le demande (l'alimentation est éteinte) : le nom de la charge est dans la question.",
-        "es": "Conecte cada carga a mano cuando el programa lo pida (la fuente está apagada): el nombre de la carga está en la pregunta.",
-        "de": "Jede Last von Hand anschließen, wenn das Programm danach fragt (das Netzteil ist dann aus): der Name der Last steht in der Frage."
+        "en": "Connect each load by hand when the program asks for it (the supply is off then): the question gives the resistors, with their values, and a schematic of how to connect them.",
+        "it": "Collega ogni carico a mano quando il programma lo chiede (l'alimentatore è spento): la domanda indica le resistenze, con i valori, e uno schema di come collegarle.",
+        "fr": "Connectez chaque charge à la main quand le programme le demande (l'alimentation est éteinte) : la question donne les résistances, avec leurs valeurs, et un schéma de connexion.",
+        "es": "Conecte cada carga a mano cuando el programa lo pida (la fuente está apagada): la pregunta da las resistencias, con sus valores, y un esquema de cómo conectarlas.",
+        "de": "Jede Last von Hand anschließen, wenn das Programm danach fragt (das Netzteil ist dann aus): die Frage nennt die Widerstände mit ihren Werten und ein Schaltbild zum Anschließen."
       }
     },
     {
@@ -251,6 +251,16 @@
         "fr": "Placez le shunt de courant dans la ligne d'entrée et connectez la voie de l'enregistreur à ses bornes.",
         "es": "Ponga el shunt de corriente en la línea de entrada y conecte el canal del registrador entre sus extremos.",
         "de": "Den Stromshunt in die Eingangsleitung legen und den Datenloggerkanal daran anschließen."
+      }
+    },
+    {
+      "when": "iout_reading",
+      "text": {
+        "en": "Put the output shunt in the line between the converter and the load and connect the datalogger channel across it.",
+        "it": "Metti lo shunt d'uscita nella linea tra il convertitore e il carico e collega il canale del datalogger ai suoi capi.",
+        "fr": "Placez le shunt de sortie dans la ligne entre le convertisseur et la charge et connectez la voie de l'enregistreur à ses bornes.",
+        "es": "Ponga el shunt de salida en la línea entre el convertidor y la carga y conecte el canal del registrador entre sus extremos.",
+        "de": "Den Ausgangsshunt in die Leitung zwischen Wandler und Last legen und den Datenloggerkanal daran anschließen."
       }
     }
   ],

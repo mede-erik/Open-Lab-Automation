@@ -54,5 +54,7 @@
   "run_choice_retry": "Reintentar",
   "run_choice_abort": "Abortar",
   "run_choice_skip": "Omitir la comprobación",
-  "run_choice_continue": "Continuar"
+  "run_choice_continue": "Continuar",
+  "run_q_load_title": "Conectar la carga",
+  "run_q_load_details": "<b>{load}</b>: {description}<br>Conecte las resistencias como en el esquema, entre la salida del convertidor (+) y masa (−). La fuente está apagada."
 }

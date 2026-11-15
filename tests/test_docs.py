@@ -834,3 +834,28 @@ def test_resistive_efficiency_example_in_the_docs_is_valid_and_runs():
     for name in ("tol_pct", "power_w", "channel", "supply_off", "efficiency_min_pct",
                  "iin_reading", "max_vout_v", "SimResistiveBench"):  # fmt: skip
         assert name in text, name
+
+
+def test_resistor_kits_examples_in_the_docs_are_a_real_file_and_real_loads(tmp_path):
+    """docs/resistor-kits.md: the file of kits loads and the loads of the example resolve."""
+    import json as _json
+
+    from ola.resistor_kits import KitRegistry
+    from ola.resistors import parse_loads
+
+    text = read(ROOT / "docs" / "resistor-kits.md")
+    kits_file = re.search(r"```json resistor_kits\.json\n(.*?)```", text, re.S)
+    loads_example = re.search(r"```json loads\.json\n(.*?)```", text, re.S)
+    assert kits_file and loads_example, "example blocks not found in docs/resistor-kits.md"
+    path = tmp_path / "kits.json"
+    path.write_text(kits_file.group(1), encoding="utf-8")
+    kits = KitRegistry(path)
+    assert kits.names() == ["PWR"] and kits.get("PWR").note == "the power resistors of the bench"
+    example = _json.loads(loads_example.group(1))
+    loads = parse_loads(kits.resolve_loads(example["loads"], example["resistor_kit"]))
+    assert [x.name for x in loads] == ["10R", "22||47", "10+(22||47)"]
+    assert [round(x.resistance()[0], 3) for x in loads] == [10, 14.986, 24.986]
+    assert loads[2].channels() == ["201", "202", "305"]  # the relay written in the load wins
+    for name in ("resistor_kits.json.bak", "OLA_RESISTOR_KITS_FILE", "Copy the reference",
+                 "header of the run", "Resistor kits..."):  # fmt: skip
+        assert name in text, name

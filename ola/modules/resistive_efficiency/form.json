@@ -141,6 +141,24 @@
           }
         },
         {
+          "path": "resistor_kit",
+          "kind": "text",
+          "label": {
+            "en": "Kit of resistors",
+            "it": "Kit di resistenze",
+            "fr": "Kit de résistances",
+            "es": "Kit de resistencias",
+            "de": "Widerstandssatz"
+          },
+          "help": {
+            "en": "Optional: the kit (Tools > Resistor kits) where a resistor written as {\"ref\": \"R22\"} is looked up. A resistor can also name its kit: {\"kit\": \"PWR\", \"ref\": \"R22\"}.",
+            "it": "Facoltativo: il kit (Strumenti > Kit di resistenze) in cui si cerca una resistenza scritta come {\"ref\": \"R22\"}. Una resistenza può anche indicare il suo kit: {\"kit\": \"PWR\", \"ref\": \"R22\"}.",
+            "fr": "Facultatif : le kit (Outils > Kits de résistances) où l'on cherche une résistance écrite {\"ref\": \"R22\"}. Une résistance peut aussi nommer son kit : {\"kit\": \"PWR\", \"ref\": \"R22\"}.",
+            "es": "Opcional: el kit (Herramientas > Kits de resistencias) donde se busca una resistencia escrita como {\"ref\": \"R22\"}. Una resistencia también puede nombrar su kit: {\"kit\": \"PWR\", \"ref\": \"R22\"}.",
+            "de": "Optional: der Satz (Werkzeuge > Widerstandssätze), in dem ein als {\"ref\": \"R22\"} geschriebener Widerstand gesucht wird. Ein Widerstand kann auch seinen Satz nennen: {\"kit\": \"PWR\", \"ref\": \"R22\"}."
+          }
+        },
+        {
           "path": "switching.mode",
           "kind": "choice",
           "label": {
@@ -332,6 +350,24 @@
             "fr": "Avec un shunt : 1 / le shunt en ohms (0,1 ohm vaut 10).",
             "es": "Con un shunt: 1 / el shunt en ohmios (0,1 ohmio es 10).",
             "de": "Mit Shunt: 1 / der Shunt in Ohm (0,1 Ohm ist 10)."
+          }
+        },
+        {
+          "path": "iout_reading",
+          "kind": "json",
+          "label": {
+            "en": "Output current: shunt reading (optional)",
+            "it": "Corrente d'uscita: lettura dello shunt (facoltativa)",
+            "fr": "Courant de sortie : lecture du shunt (facultatif)",
+            "es": "Corriente de salida: lectura del shunt (opcional)",
+            "de": "Ausgangsstrom: Shunt-Messung (optional)"
+          },
+          "help": {
+            "en": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"104\"}, \"scale\": 20}: a shunt in the output line read by a datalogger (scale = 1 / the shunt in ohms). With it the output power is measured and the resistors are only a check; without it the current is assumed to be the one the resistors give, and the tolerances make the efficiency a range.",
+            "it": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"104\"}, \"scale\": 20}: uno shunt sulla linea d'uscita letto da un datalogger (scala = 1 / lo shunt in ohm). Con esso la potenza d'uscita è misurata e le resistenze sono solo un controllo; senza, la corrente si suppone quella data dalle resistenze e le tolleranze rendono il rendimento un intervallo.",
+            "fr": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"104\"}, \"scale\": 20} : un shunt sur la ligne de sortie lu par un enregistreur (échelle = 1 / le shunt en ohms). Avec lui la puissance de sortie est mesurée et les résistances ne sont qu'un contrôle ; sans lui le courant est supposé être celui que donnent les résistances, et les tolérances font du rendement un intervalle.",
+            "es": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"104\"}, \"scale\": 20}: un shunt en la línea de salida leído por un registrador (escala = 1 / el shunt en ohmios). Con él la potencia de salida se mide y las resistencias son solo una comprobación; sin él la corriente se supone la que dan las resistencias, y las tolerancias convierten el rendimiento en un intervalo.",
+            "de": "{\"call\": \"measure_dc_voltage\", \"args\": {\"channels\": \"104\"}, \"scale\": 20}: ein Shunt in der Ausgangsleitung, von einem Datenlogger gelesen (Skalierung = 1 / der Shunt in Ohm). Damit wird die Ausgangsleistung gemessen und die Widerstände sind nur eine Kontrolle; ohne ihn gilt der Strom der Widerstände, und die Toleranzen machen den Wirkungsgrad zu einem Bereich."
           }
         },
         {

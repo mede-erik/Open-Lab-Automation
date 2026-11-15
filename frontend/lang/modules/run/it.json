@@ -54,5 +54,7 @@
   "run_choice_retry": "Riprova",
   "run_choice_abort": "Interrompi",
   "run_choice_skip": "Salta il controllo",
-  "run_choice_continue": "Continua"
+  "run_choice_continue": "Continua",
+  "run_q_load_title": "Collega il carico",
+  "run_q_load_details": "<b>{load}</b>: {description}<br>Collega le resistenze come nello schema, tra l'uscita del convertitore (+) e la massa (−). L'alimentatore è spento."
 }

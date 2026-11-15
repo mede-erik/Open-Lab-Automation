@@ -9,6 +9,7 @@ Parameters (``.rfe`` file)::
     {"device": {"label": "5 V buck"},
      "supply_channel": 1,                                              # optional
      "vin_v": {"values": [9, 12, 15]},                       # or {"start", "stop", "points"}
+     "resistor_kit": "PWR",                           # optional: where {"ref": ...} are looked up
      "loads": [{"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 5, "channel": "201"},
                {"name": "22||47", "parallel": [
                    {"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
@@ -17,6 +18,7 @@ Parameters (``.rfe`` file)::
      "vout_reading": {"call": "measure_dc_voltage",
                       "args": {"range": "AUTO", "resolution": "DEF", "channels": "103"}},
      "iin_reading": {"role": "supply", "call": "read_current"},     # or a shunt on a datalogger
+     "iout_reading": {"call": "measure_dc_voltage", "args": {"channels": "104"}, "scale": 10},
      "vin_reading": {"call": "measure_dc_voltage", "args": {"channels": "101"}},  # optional
      "timing": {"settle_s": 1, "samples": 3, "interval_s": 0.1},
      "safety": {"max_vin_v": 20, "max_vout_v": 6, "max_iin_a": 3},
@@ -26,7 +28,10 @@ Parameters (``.rfe`` file)::
 A supply feeds the converter (role ``supply``), a multimeter or one channel of a datalogger reads
 the output voltage (role ``meter``) and the load is one of the ``loads``: resistors that **you**
 write (``ola.resistors``: one resistor, or series / parallel groups, each with its tolerance and its
-power rating). For **every load** the measurement connects it and sweeps the input voltage:
+power rating), or take from a **kit of resistors** saved once and used in many measurements
+(``ola.resistor_kits``: ``{"kit": "PWR", "ref": "R22"}``, or ``{"ref": "R22"}`` with
+``resistor_kit``; the project puts the values in when the measurement starts). For **every load**
+the measurement connects it and sweeps the input voltage:
 
 * ``switching.mode`` ``"manual"``: the program asks you to connect the load (by its name) and goes
   on when you say so; ``"mux"``: the relays of the multiplexer (a datalogger module or a switch
@@ -39,6 +44,11 @@ power rating). For **every load** the measurement connects it and sweeps the inp
   and the efficiency ``Pout / Pin``. The tolerances of the resistors make the resistance a range:
   the point gives the nominal efficiency and its **lowest and highest** (``efficiency_min_pct``,
   ``efficiency_max_pct``: the resistance at its lowest gives the highest power).
+* With ``iout_reading`` (a shunt in the output line read by a datalogger, ``scale`` = 1 / the shunt)
+  the output current is **measured** and ``Pout = Vout * Iout``: the resistors are then only a check
+  (``r_measured_ohm`` = ``Vout / Iout`` and ``r_in_tolerance``: a resistor that has drifted out of
+  its tolerance, as power resistors do, shows up). Without it the output current is **assumed**, the
+  one the resistors give (``Vout / R``), and the tolerances make the result a range.
 
 Safe by construction: ``safety.max_vin_v`` refuses an input above it, ``max_vout_v`` checks the
 power ratings of the resistors **before anything is switched on** (an error if one would be above
@@ -51,12 +61,13 @@ against ``limits``; the verdict uses the **lowest** efficiency, the guaranteed o
 """
 
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from ola.efficiency_spec import Problem
 from ola.golden import check_golden_param, finish, recording
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
-from ola.resistors import Load, LoadError, parse_loads
+from ola.labels import render_svg
+from ola.resistors import Load, LoadError, describe, has_refs, parse_loads, schematic
 from ola.sweep import SweepError, axis_values
 from ola.vna_common import check_asset, is_number
 
@@ -66,6 +77,7 @@ READING_KEYS = ("role", "call", "args", "scale", "offset")
 SWITCH_MODES = ("manual", "mux")
 MAX_POINTS = 1000
 MIN_POWER_W = 1e-6  # below this input power an efficiency means nothing
+R_MARGIN = 0.005  # the readings of Vout and Iout are not exact: half a percent on the resistance
 
 
 def default_params() -> Dict[str, Any]:
@@ -103,6 +115,28 @@ def _check_reading(spec: Any, path: str, out: List[Problem], roles: Sequence[str
             out.append(Problem(f"{path}.{key}", "must be a number"))
     if is_number(spec.get("scale")) and spec["scale"] == 0:
         out.append(Problem(f"{path}.scale", "must not be 0"))
+
+
+def _check_refs(raw: Any, default_kit: str, out: List[Problem], path: str = "loads") -> None:
+    """The references to a kit of resistors, as far as they can be checked without the kit."""
+    if isinstance(raw, list):
+        for i, item in enumerate(raw):
+            _check_refs(item, default_kit, out, f"{path}[{i}]")
+        return
+    if not isinstance(raw, dict):
+        return
+    if "ref" in raw and "r_ohm" not in raw:
+        if not isinstance(raw["ref"], str) or not raw["ref"].strip():
+            out.append(Problem(f"{path}.ref", "the name of the resistor in the kit is missing"))
+        kit = raw.get("kit", default_kit)
+        if not isinstance(kit, str) or not kit.strip():
+            out.append(
+                Problem(path, 'the resistor names no kit: write "kit" in it, or give resistor_kit')
+            )
+        return
+    for key in ("series", "parallel"):
+        if key in raw:
+            _check_refs(raw[key], default_kit, out, f"{path}.{key}")
 
 
 def _check_switching(spec: Any, loads: List[Load], raw: Any, out: List[Problem]) -> None:
@@ -200,12 +234,27 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         if any(v <= 0 for v in vins):
             out.append(Problem("vin_v", "the input voltages must be above 0"))
     loads: List[Load] = []
-    try:
-        loads = parse_loads(params.get("loads"))
-    except LoadError as exc:
-        text = str(exc)
-        match = re.match(r"(loads(?:\[\d+\])?[\w.\[\]]*)", text)
-        out.append(Problem(match.group(1) if match else "loads", text))
+    default_kit = params.get("resistor_kit", "")
+    if "resistor_kit" in params and not isinstance(default_kit, str):
+        out.append(Problem("resistor_kit", "the name of the kit must be text"))
+        default_kit = ""
+    if has_refs(params.get("loads")):
+        _check_refs(params["loads"], default_kit, out)
+        out.append(
+            Problem(
+                "loads",
+                "some resistors come from a kit: their values, ratings and relays are checked "
+                "when the measurement starts",
+                "warning",
+            )
+        )
+    else:
+        try:
+            loads = parse_loads(params.get("loads"))
+        except LoadError as exc:
+            text = str(exc)
+            match = re.match(r"(loads(?:\[\d+\])?[\w.\[\]]*)", text)
+            out.append(Problem(match.group(1) if match else "loads", text))
     if "vout_reading" not in params:
         out.append(Problem("vout_reading", "how the output voltage is read is missing"))
     else:
@@ -216,6 +265,8 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         _check_reading(params["iin_reading"], "iin_reading", out, ("meter", "supply"))
     if "vin_reading" in params:
         _check_reading(params["vin_reading"], "vin_reading", out, ("meter", "supply"))
+    if "iout_reading" in params:
+        _check_reading(params["iout_reading"], "iout_reading", out, ("meter",))
     _check_switching(params.get("switching"), loads, params.get("loads"), out)
     _check_safety(params.get("safety"), vins, loads, out)
     rated = any(r.power_w for load in loads for r in load.resistors())
@@ -263,22 +314,38 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
 
 
 # ----- the numbers ----------------------------------------------------------------------------
-def figures(vin: float, iin: float, vout: float, load: Load) -> Dict[str, Any]:
-    """Powers and efficiency of one reading, with the range the tolerance of the load gives.
-    ``efficiency_*`` are None when the input power is too small to mean anything. No I/O."""
+def figures(
+    vin: float, iin: float, vout: float, load: Load, iout: Optional[float] = None
+) -> Dict[str, Any]:
+    """Powers and efficiency of one reading. Without ``iout`` the output current is assumed to be
+    what the resistors give, ``vout / R``, and the tolerance of the load makes the power and the
+    efficiency a range. With a measured ``iout`` the output power is ``vout * iout`` (the range
+    collapses to the value) and the resistance the reading shows is ``r_measured_ohm``, with
+    ``r_in_tolerance`` saying whether it is inside the range of the load. ``efficiency_*`` are None
+    when the input power is too small to mean anything. No I/O."""
     nominal, low, high = load.resistance()
     pin = vin * iin
-    pout, pout_min, pout_max = vout**2 / nominal, vout**2 / high, vout**2 / low
-    row: Dict[str, Any] = {
-        "iout_a": vout / nominal,
-        "pin_w": pin,
-        "pout_w": pout,
-        "pout_min_w": pout_min,
-        "pout_max_w": pout_max,
-        "efficiency_pct": None,
-        "efficiency_min_pct": None,
-        "efficiency_max_pct": None,
-    }
+    if iout is None:
+        pout, pout_min, pout_max = vout**2 / nominal, vout**2 / high, vout**2 / low
+        row: Dict[str, Any] = {"iout_a": vout / nominal, "pout_source": "assumed"}
+    else:
+        pout = pout_min = pout_max = vout * iout
+        row = {"iout_a": iout, "pout_source": "measured"}
+        if iout > 0 and vout > 0:
+            measured = vout / iout
+            row["r_measured_ohm"] = measured
+            row["r_in_tolerance"] = low * (1 - R_MARGIN) <= measured <= high * (1 + R_MARGIN)
+    row.update(
+        {
+            "pin_w": pin,
+            "pout_w": pout,
+            "pout_min_w": pout_min,
+            "pout_max_w": pout_max,
+            "efficiency_pct": None,
+            "efficiency_min_pct": None,
+            "efficiency_max_pct": None,
+        }
+    )
     if pin > MIN_POWER_W:
         row["efficiency_pct"] = pout / pin * 100.0
         row["efficiency_min_pct"] = pout_min / pin * 100.0
@@ -330,7 +397,10 @@ class ResistiveEfficiency(Measurement):
         # with a golden sample: the rows (a load and an input voltage each) are checked at the end
         ctx = recording(ctx, "resistive_efficiency", self.params, summary_row=False)
         p = self.params
-        loads = parse_loads(p["loads"])
+        try:
+            loads = parse_loads(p["loads"])
+        except LoadError as exc:  # a resistor of a kit that nobody resolved
+            raise MeasurementError(str(exc)) from exc
         vins = axis_values(p["vin_v"])
         mode = (p.get("switching") or {}).get("mode", "manual")
         supply, meter = ctx.instrument("supply"), ctx.instrument("meter")
@@ -416,12 +486,19 @@ class ResistiveEfficiency(Measurement):
             ctx.sleep(float(spec.get("settle_s", 0.5)))
             return
         nominal = load.resistance()[0]
+        words = describe(load)
         answer = ctx.ask(
-            f"Connect the load '{load.name}' ({nominal:.4g} ohm) to the output of the converter. "
+            f"Connect the load '{load.name}': {words}, to the output of the converter. "
             "The supply is off. Then continue.",
             ["continue", "abort"],
             default="abort",
-            data={"load": load.name, "r_ohm": nominal},
+            data={
+                "kind": "load",
+                "load": load.name,
+                "r_ohm": nominal,
+                "description": words,
+                "svg": render_svg(schematic(load)),
+            },
         )
         if answer == "abort":
             raise Stopped()
@@ -448,6 +525,7 @@ class ResistiveEfficiency(Measurement):
         ctx.sleep(float(timing.get("settle_s", 1.0)))
         n = int(timing.get("samples", 3))
         vouts: List[float] = []
+        iouts: List[float] = []
         iins: List[float] = []
         vins: List[float] = []
         for k in range(n):
@@ -456,6 +534,8 @@ class ResistiveEfficiency(Measurement):
             iins.append(self._reading(p["iin_reading"], supply, meter, "read_current"))
             if p.get("vin_reading"):
                 vins.append(self._reading(p["vin_reading"], supply, meter))
+            if p.get("iout_reading"):
+                iouts.append(self._reading(p["iout_reading"], supply, meter))
             if k + 1 < n:
                 ctx.sleep(float(timing.get("interval_s", 0.1)))
         vout, iin = sum(vouts) / n, sum(iins) / n
@@ -471,11 +551,18 @@ class ResistiveEfficiency(Measurement):
             "iin_a": iin,
             "vout_v": vout,
             "n_samples": n,
-            **figures(vin_real, iin, vout, load),
+            **figures(vin_real, iin, vout, load, sum(iouts) / n if iouts else None),
         }
         resistor, fraction = load.most_loaded(vout)
         row["loading_pct"] = fraction * 100.0
         row["loading_resistor"] = resistor.name if resistor else ""
+        if row.get("r_in_tolerance") is False:
+            ctx.log(
+                f"{load.name} at {vin:g} V: the readings give {row['r_measured_ohm']:.4g} ohm, "
+                f"outside {low:.4g} to {high:.4g} ohm: a resistor has drifted or is not the one "
+                "that was written",
+                "warning",
+            )
         if row["efficiency_pct"] is None:
             ctx.log(
                 f"{load.name} at {vin:g} V: no input power, the efficiency is not worked out",
