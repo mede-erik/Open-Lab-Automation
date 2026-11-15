@@ -132,10 +132,13 @@ def _parse_manifest(path: Path, builtin: bool) -> ModuleInfo:
         if r["name"] in seen:
             raise ValueError(f"duplicate role {r['name']!r}")
         seen.add(r["name"])
-        unknown = set(r) - {"name", "category", "required", "multiple", "description"}
+        unknown = set(r) - {"name", "category", "required", "multiple", "description", "accepts"}
         if unknown:
             raise ValueError(f"role {r['name']!r}: unknown field(s) {sorted(unknown)}")
-        roles.append(Role(**r))
+        accepts = r.get("accepts", [])
+        if not isinstance(accepts, list) or not all(isinstance(a, str) and a for a in accepts):
+            raise ValueError(f"role {r['name']!r}: 'accepts' must be a list of instrument types")
+        roles.append(Role(**{**r, "accepts": tuple(accepts)}))
     schema = raw.get("params_schema", {})
     if not isinstance(schema, dict):
         raise ValueError("'params_schema' must be an object")

@@ -21,7 +21,7 @@ its ``form.json`` in the language of the application; the ones of this window fr
 import json
 import os
 import sys
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor
@@ -89,6 +89,7 @@ class FormEditorDialog(QDialog):
         type_id: str,
         translator: Any = None,
         instruments: Sequence[str] = (),
+        role_instruments: Optional[Mapping[str, Sequence[str]]] = None,
         assets: Any = None,
         parent: Optional[QWidget] = None,
     ):
@@ -98,6 +99,9 @@ class FormEditorDialog(QDialog):
         self.lang = self.tr_.lang
         self.file_path, self.registry, self.type_id = file_path, registry, type_id
         self.instruments = list(instruments)
+        # the instruments each role can take (a supply role does not list a datalogger); a role
+        # not in the mapping lists them all
+        self.role_instruments = {k: list(v) for k, v in (role_instruments or {}).items()}
         self.assets = assets  # the registry of cables and devices (ola.assets), or None
         self.dirty = False
         self._loading = False
@@ -212,7 +216,7 @@ class FormEditorDialog(QDialog):
             widget = QComboBox()
             widget.setEditable(True)
             widget.addItem("", None)
-            for name in self.instruments:
+            for name in self.role_instruments.get(field.path, self.instruments):
                 widget.addItem(name, name)
             widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
         elif field.kind == "asset":

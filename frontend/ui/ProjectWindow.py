@@ -535,6 +535,7 @@ class ProjectWindow(QMainWindow):
                     ref.type,
                     self.translator,
                     self.session.instruments,
+                    role_instruments=self.session.instruments_by_role(self.registry.get(ref.type)),
                     assets=self.assets,
                     parent=self,
                 )

@@ -81,6 +81,25 @@ def entry_type(entry: Dict[str, Any]) -> str:
     return TYPE_ALIASES.get(raw, raw)
 
 
+def role_types(role: Any) -> Optional[frozenset]:
+    """The instrument types that can take a measurement role (``ola.measurement.Role``), or None
+    when any instrument can: the types the role lists in ``accepts``, otherwise its ``category``
+    (``any`` takes every type)."""
+    listed = [str(a).strip().lower() for a in (getattr(role, "accepts", ()) or ())]
+    if listed:
+        return frozenset(TYPE_ALIASES.get(a, a) for a in listed)
+    category = str(getattr(role, "category", "any") or "any").strip().lower()
+    return None if category == "any" else frozenset({TYPE_ALIASES.get(category, category)})
+
+
+def fits_role(entry: Dict[str, Any], role: Any) -> bool:
+    """True if the instrument of this entry can take the role. An entry with no type is not
+    excluded (it cannot be told what it is)."""
+    types = role_types(role)
+    kind = entry_type(entry)
+    return types is None or not kind or kind in types
+
+
 # ====================================================================== the file
 def load_inst(path) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """The entries of an ``.inst`` file and its other top-level keys (kept for ``save_inst``).

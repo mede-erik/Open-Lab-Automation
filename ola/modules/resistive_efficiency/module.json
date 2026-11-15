@@ -16,12 +16,14 @@
     {
       "name": "meter",
       "category": "multimeter",
+      "accepts": ["multimeter", "datalogger"],
       "required": true,
       "description": "A multimeter or a datalogger channel that reads the output voltage (and the input voltage or the shunt, if asked)"
     },
     {
       "name": "switch",
       "category": "any",
+      "accepts": ["datalogger", "switch_unit"],
       "required": false,
       "description": "A datalogger multiplexer module or a switch unit that connects the resistors (needed when the loads are connected by relays)"
     }
