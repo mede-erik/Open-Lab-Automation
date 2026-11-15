@@ -36,6 +36,7 @@ from . import bench as ola_bench
 from .assets import normalize_code, snapshots_for
 from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
+from .inst_file import fits_role, load_inst
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
 from .registry import ModuleInfo, ModuleRegistry
@@ -106,6 +107,26 @@ class ProjectSession:
         return instrument_names(
             self.project.directory / check_plain_filename(self.project.inst_file)
         )
+
+    def instruments_by_role(self, info: ModuleInfo) -> Dict[str, List[str]]:
+        """For each role of a measurement type, the names of the project's instruments that can
+        take it (``ola.inst_file.fits_role``): a supply role does not list a datalogger. When the
+        types of the instruments are not known (no instrument file), every role gets all names."""
+        names = self.instruments
+        entries: Dict[str, Dict[str, Any]] = {}
+        if self._instruments is None and self.project.inst_file:
+            try:
+                path = self.project.directory / check_plain_filename(self.project.inst_file)
+                entries = {
+                    str(e.get("instance_name")): e for e in load_inst(path)[0]
+                    if e.get("instance_name")
+                }
+            except (ValueError, MeasurementError):
+                entries = {}
+        return {
+            role.name: [n for n in names if n not in entries or fits_role(entries[n], role)]
+            for role in info.roles
+        }
 
     def module_types(self) -> List[ModuleInfo]:
         """The measurement types that can be added."""

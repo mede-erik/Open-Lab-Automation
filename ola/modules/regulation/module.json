@@ -11,7 +11,8 @@
      "description": "The supply that feeds the input of the converter"},
     {"name": "load", "category": "electronic_load", "required": false,
      "description": "The electronic load on the output (needed for the load test, and for the line test if it has a load current)"},
-    {"name": "meter", "category": "multimeter", "required": true,
+    {"name": "meter", "category": "multimeter", "accepts": ["multimeter", "datalogger"],
+     "required": true,
      "description": "A multimeter or a datalogger channel that reads the output voltage (and the input voltage at the converter, if asked)"}
   ],
   "params_schema": {

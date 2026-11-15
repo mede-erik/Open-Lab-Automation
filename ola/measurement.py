@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass, field
 
 from . import bench
-from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 API_VERSION = 1
 
@@ -47,6 +47,9 @@ class Role:
     required: bool = True
     multiple: bool = False  # the role may be bound to several instruments
     description: str = ""
+    accepts: Tuple[str, ...] = ()
+    """Instrument types that can take the role (``multimeter``, ``datalogger``...). Empty: the
+    ``category`` itself (any type for ``any``). See ``ola.inst_file.role_types``."""
 
 
 class InstrumentHandle(Protocol):

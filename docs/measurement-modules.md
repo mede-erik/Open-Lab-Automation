@@ -76,7 +76,7 @@ works with any power supply the library knows.
 | `api_version` | must be `1` (the version of this interface) |
 | `extension` | `.` + 2-8 lowercase letters/digits, starts with a letter; **one per module**, never shared; not one of the reserved ones (`.json .inst .was .csv .txt .md .py .exe .dll .so .bat .sh .xml .zip .log .db .ini .cfg .yaml .yml`) |
 | `entry` | `file.py:ClassName`, the class must derive from `Measurement` |
-| `roles` | list of `{name, category, required=true, multiple=false, description}`; unknown fields are rejected |
+| `roles` | list of `{name, category, accepts, required=true, multiple=false, description}`; unknown fields are rejected |
 | `params_schema` | free-form description of the parameters for editors; **not enforced**, your `validate()` must check |
 | `description` | text shown to the user |
 
@@ -87,6 +87,13 @@ skipped; it never breaks the other modules.
 A **role** is what the measurement needs, not a model: `psu` of category `power_supply`. The user binds
 each role to an instrument of the project (`role_bindings` in the measurement file). A role with
 `multiple: true` takes a list of instruments (the time log uses it).
+
+The editor of a measurement lists, for each role, only the instruments of the project that can take it: those whose
+type is the `category` of the role (a `power_supply` role does not offer a datalogger), or, when the role has
+`accepts`, any of the types listed there (`"accepts": ["multimeter", "datalogger"]` for a voltmeter that may
+be either). A role of category `any` without `accepts` lists every instrument. The types are those of the `.inst`
+file: `power_supply`, `electronic_load`, `multimeter`, `datalogger`, `oscilloscope`, `function_generator`,
+`network_analyzer`, `switch_unit`, `rf_signal_generator`.
 
 ## What the module can use (`ctx`)
 
