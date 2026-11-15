@@ -53,5 +53,7 @@
   "prj_export": "Exportar CSV",
   "prj_export_done": "{n} filas escritas en {path}",
   "prj_export_failed": "No se pudo exportar: {error}",
-  "prj_confirm_close": "{n} medición(es) en curso. ¿Detenerlas y cerrar?"
+  "prj_confirm_close": "{n} medición(es) en curso. ¿Detenerlas y cerrar?",
+  "prj_bench": "Medir los tiempos (benchmark)",
+  "prj_bench_tip": "Mide cada llamada a los instrumentos y cada fase de la próxima medición y muestra un informe en la pestaña Benchmark. El retraso añadido es pequeño (unos 30 microsegundos por llamada)."
 }

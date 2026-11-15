@@ -79,6 +79,7 @@ class RunModel:
         self.last_t: Optional[float] = None
         self.end_t: Optional[float] = None
         self.waited_s: float = 0.0  # time spent waiting for the user (not counted in the ETA)
+        self.bench: Optional[Dict[str, Any]] = None  # timing report, when the benchmark was on
         self._asked_at: Dict[str, float] = {}
 
     # ----- following the run ------------------------------------------------------------------
@@ -118,6 +119,8 @@ class RunModel:
         elif event.kind == "error":
             self.error = data
             self.logs.append((event.t, "error", data.get("message", "")))
+        elif event.kind == "bench":
+            self.bench = dict(data)
         elif event.kind == "question":
             self.pending[data["id"]] = dict(data)
             self._asked_at[data["id"]] = event.t
