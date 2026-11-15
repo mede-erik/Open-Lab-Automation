@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
-from .assets import history
+from .assets import AssetRegistry, history
 from .compare import CompareError, load_run
 
 DAY = 86400.0
@@ -100,12 +100,14 @@ def series(
     run_dirs: Iterable[Union[str, Path]],
     figure: str = DEFAULT_FIGURE,
     measurement: Optional[str] = "cable",
+    registry: Optional[AssetRegistry] = None,
 ) -> List[TrendPoint]:
     """The value of ``figure`` (a key of the summary row) in every finished run of the object with
     this code, oldest first. Runs of another kind of measurement (``measurement``; None for any),
-    runs that did not finish and runs without that figure are left out."""
+    runs that did not finish and runs without that figure are left out. With the
+    ``registry`` the object is followed by its uid and former codes (see ``ola.assets.history``)."""
     out: List[TrendPoint] = []
-    for ref in history(code, run_dirs):
+    for ref in history(code, run_dirs, registry):
         if measurement and ref.measurement != measurement:
             continue
         try:
@@ -125,11 +127,14 @@ def series(
 
 
 def figures(
-    code: str, run_dirs: Iterable[Union[str, Path]], measurement: Optional[str] = "cable"
+    code: str,
+    run_dirs: Iterable[Union[str, Path]],
+    measurement: Optional[str] = "cable",
+    registry: Optional[AssetRegistry] = None,
 ) -> List[str]:
     """The numeric figures that the finished runs of an object have (to choose what to follow)."""
     keys: List[str] = []
-    for ref in history(code, run_dirs):
+    for ref in history(code, run_dirs, registry):
         if measurement and ref.measurement != measurement:
             continue
         try:
@@ -252,10 +257,11 @@ def trend_for(
     code: str,
     run_dirs: Iterable[Union[str, Path]],
     figure: str = DEFAULT_FIGURE,
+    registry: Optional[AssetRegistry] = None,
     **options: Any,
 ) -> Trend:
     """``series`` and ``assess`` in one call; ``options`` are those of ``assess``."""
-    return assess(series(code, run_dirs, figure), figure=figure, **options)
+    return assess(series(code, run_dirs, figure, registry=registry), figure=figure, **options)
 
 
 def export_csv(points: Sequence[TrendPoint], path: Union[str, Path]) -> None:

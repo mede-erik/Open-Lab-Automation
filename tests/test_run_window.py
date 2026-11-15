@@ -457,3 +457,75 @@ def test_the_compression_curve_of_an_amplifier_can_be_shown_on_its_own(app, wind
     assert [c[0] for c in w.trace_plot.curves] == ["gain_vs_power_db"]
     assert w.trace_plot.xlabel == "Input power (dBm)" and w.trace_plot.ylabel == "Gain (dB)"
     assert not w.trace_plot.log_x
+
+
+def test_the_question_of_a_load_shows_its_description_and_its_schematic(app):
+    """The manual question of the resistive-efficiency measurement carries a drawing of the load."""
+    from PyQt6.QtGui import QPixmap
+    from PyQt6.QtWidgets import QLabel
+
+    from frontend.ui.module_translator import CatalogTranslator
+    from ola.labels import render_svg
+    from ola.resistors import describe, parse_load, schematic
+
+    load = parse_load(
+        {
+            "name": "10+(22||47)",
+            "series": [
+                {"r_ohm": 10, "tol_pct": 1, "power_w": 5},
+                {"parallel": [{"r_ohm": 22}, {"r_ohm": 47}]},
+            ],
+        }
+    )
+    question = {
+        "id": "q1",
+        "text": "Connect the load '10+(22||47)'",
+        "choices": ["continue", "abort"],
+        "default": "abort",
+        "data": {
+            "kind": "load",
+            "load": load.name,
+            "r_ohm": load.resistance()[0],
+            "description": describe(load),
+            "svg": render_svg(schematic(load)),
+        },
+    }
+    d = QuestionDialog(question, CatalogTranslator("run", lang="en"))
+    assert d.windowTitle() == "Connect the load"
+    labels = d.findChildren(QLabel)
+    details = [x.text() for x in labels if "10+(22||47)" in x.text() and "<b>" in x.text()]
+    assert details and "in parallel with" in details[0] and "ground" in details[0]
+    pictures = [x.pixmap() for x in labels if x.pixmap() is not None and not x.pixmap().isNull()]
+    assert len(pictures) == 1 and isinstance(pictures[0], QPixmap)
+    assert 100 < pictures[0].width() <= 560 * 4 and pictures[0].height() > 50
+    assert set(d.buttons) == {"continue", "abort"}
+    # a damaged drawing is not shown, and does not break the question
+    question["data"]["svg"] = "not a drawing"
+    broken = QuestionDialog(question, CatalogTranslator("run", lang="en"))
+    assert not [x for x in broken.findChildren(QLabel) if x.pixmap() and not x.pixmap().isNull()]
+    d.close_now()
+    broken.close_now()
+
+
+# ---- benchmark tab ----------------------------------------------------------------------------
+def _tab_names(w):
+    return [w.tabs.tabText(i) for i in range(w.tabs.count())]
+
+
+def test_a_benchmarked_run_gets_a_benchmark_tab_with_the_report(app, windows):
+    runner, _ = make(bench=True)
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished and w._bench_view is not None)
+    assert "Benchmark" in _tab_names(w)
+    text = w._bench_view.toPlainText()
+    assert "Measurement thread" in text and "Phases" in text
+    assert w.tabs.currentWidget() is w._bench_view  # the user did not pick a tab: show it
+    assert w.model.bench["run_id"] == runner.run_id
+
+
+def test_a_run_without_the_benchmark_has_no_such_tab(app, windows):
+    runner, _ = make(bench=False)
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    app.processEvents()
+    assert "Benchmark" not in _tab_names(w) and w._bench_view is None and w.model.bench is None

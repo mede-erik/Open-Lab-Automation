@@ -38,6 +38,7 @@ from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -283,6 +284,9 @@ class ProjectWindow(QMainWindow):
             button.clicked.connect(lambda _c=False, h=handler: h())
             self.buttons[key] = button
             row.addWidget(button)
+        self.bench_check = QCheckBox(self._t("prj_bench"))
+        self.bench_check.setToolTip(self._t("prj_bench_tip"))
+        row.addWidget(self.bench_check)
         row.addStretch(1)
         root.addLayout(row)
 
@@ -676,7 +680,11 @@ class ProjectWindow(QMainWindow):
         if not proceed:
             return
         try:
-            runner, run_file = self.session.build_runner(ref, accepted_differences=accepted)
+            runner, run_file = self.session.build_runner(
+                ref,
+                accepted_differences=accepted,
+                bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
+            )
         except MeasurementError as exc:
             QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
             return
