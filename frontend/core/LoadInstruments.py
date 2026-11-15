@@ -738,6 +738,34 @@ class LoadInstruments:
                 return series
         return None
 
+    @staticmethod
+    def _norm_model(text):
+        """A model name compared without case, spaces, dashes and underscores."""
+        return ''.join(ch for ch in str(text or '').upper() if ch.isalnum())
+
+    def find_models_by_idn(self, idn_text):
+        """The library models an ``*IDN?`` answer (``manufacturer,model,serial,firmware``) names.
+
+        Returns a list of ``(type_name, series_id, model)`` (``model`` is the library entry), the
+        best first: the model field must match the ``model`` of the entry (case, spaces and dashes
+        do not count); when several do, the ones whose manufacturer shares a word with the answer
+        come first. Experimental models are included. Empty list if nothing matches."""
+        parts = [p.strip() for p in str(idn_text or '').split(',')]
+        if len(parts) < 2 or not self._norm_model(parts[1]):
+            return []
+        wanted = self._norm_model(parts[1])
+        maker_words = {w for w in parts[0].upper().replace('-', ' ').split() if len(w) > 1}
+        found = []
+        for type_name in self.get_all_types():
+            for series in self.get_series(type_name) or []:
+                for model in series.get('models', []) or []:
+                    if self._norm_model(model.get('model')) != wanted:
+                        continue
+                    words = set(str(model.get('manufacturer', '')).upper().replace('-', ' ').split())
+                    found.append((not (maker_words & words), type_name, series.get('series_id'), model))
+        found.sort(key=lambda item: item[0])
+        return [(t, s, m) for _, t, s, m in found]
+
     def get_all_types(self):
         """
         Restituisce tutti i tipi di strumenti disponibili nella libreria.
@@ -880,4 +908,4 @@ class LoadInstruments:
             if module_id in compatible_ids and not module.get('not_enabled', False):
                 enabled_modules.append(module)
         
-        return enabled_modules
+        return enabled_modules

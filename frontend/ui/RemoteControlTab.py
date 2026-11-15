@@ -834,7 +834,7 @@ class RemoteControlTab(QWidget):
                 if item:
                     widget = item.widget()
                     if widget:
-                        if hasattr(widget, 'stop_reading'):  # a meter panel reading continuously
+                        if hasattr(widget, 'stop_reading'):  # a panel reading continuously
                             widget.stop_reading()
                         widget.setParent(None)
 
@@ -1334,6 +1334,10 @@ class RemoteControlTab(QWidget):
             for column in columns:
                 column.addStretch()
 
+            # Network analyzers: their own panel, reached like the measurements do (a LiteVNA
+            # is a driver, not a VISA resource)
+            self._add_vna_panels(inst_data.get('instruments', []), inst_file_path)
+
         except Exception as e:
             error_msg = f"ERRORE in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
             print(error_msg)
@@ -1392,6 +1396,45 @@ class RemoteControlTab(QWidget):
             lambda call, i=inst, **args: self.run_call(i, None, call, **args),
             self._t,
         )
+
+    def _close_vna_connector(self):
+        connector = getattr(self, '_vna_connector', None)
+        if connector is not None:
+            try:
+                connector.close()
+            except Exception as exc:
+                logger.debug("closing the VNA connections failed: %s", exc)
+        self._vna_connector = None
+
+    def _add_vna_panels(self, instruments, inst_file_path):
+        """One VnaPanel (sweep, traces, plot, export) per network analyzer of the file, in the
+        measurements area. The connection is the one of the measurements
+        (ola.connection.ProjectConnector), so drivers such as the LiteVNA work too."""
+        from pathlib import Path
+        from frontend.ui.VnaPanel import VnaPanel
+        from ola.connection import ProjectConnector
+        from ola.vna_controls import VnaControls, vna_controls
+        self._close_vna_connector()
+        analyzers = [i for i in instruments
+                     if str(i.get('instrument_type', '')).lower() in ('network_analyzer', 'vna')]
+        if not analyzers:
+            return
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        if library is None:
+            return
+        path = Path(inst_file_path)
+        self._vna_connector = ProjectConnector(library, lambda p=path: p)
+        for inst in analyzers:
+            model_id = library.resolve_model_id(inst.get('model_id', inst.get('model', '')))
+            controls = vna_controls(library, model_id) if model_id else VnaControls()
+            name = inst.get('instance_name', '')
+            panel = VnaPanel(
+                f"{name} ({inst.get('model', '')})",
+                controls,
+                lambda n=name: self._vna_connector.connect(n),
+                self._t,
+            )
+            self.meas_layout.addWidget(panel)
 
     def _load_controls(self, inst):
         """What the panel of an electronic load shows (ola.load_controls): only the calls its
@@ -2029,6 +2072,10 @@ class RemoteControlTab(QWidget):
             from frontend.ui.MeterPanel import MeterPanel
             for panel in self.findChildren(MeterPanel):
                 panel.stop_reading()
+            from frontend.ui.VnaPanel import VnaPanel
+            for panel in self.findChildren(VnaPanel):
+                panel.stop_reading()
+            self._close_vna_connector()
 
             for timer_key, timer in self.connection_timers.items():
                 try:
