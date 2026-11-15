@@ -23,6 +23,8 @@ from ola.call_errors import ManualActionCancelledError
 from ola.datalogger_setup import datalogger_calls, scan_order
 from ola.manual_instrument import manual_handle_from_inst
 from ola.datalogger_setup import signature as datalogger_signature
+from ola.multimeter_setup import accepts_from, measured_channel, multimeter_calls
+from ola.multimeter_setup import signature as multimeter_signature
 
 
 # =========================
@@ -852,6 +854,9 @@ class RemoteControlTab(QWidget):
             self.connection_retry_counts.clear()
 
             self.meas_labels.clear()
+            # a reloaded file is sent again to the meters (the instrument may have been reset)
+            self.__dict__.pop('_datalogger_signature', None)
+            self.__dict__.pop('_multimeter_signature', None)
             # Close previous VISA connections
             for inst in self.visa_connections.values():
                 try:
@@ -880,7 +885,12 @@ class RemoteControlTab(QWidget):
             for inst in inst_data.get('instruments', []):
                 inst_type = inst.get('instrument_type', '')
                 # Gestisce varianti di naming: datalogger/dataloggers, multimeter/multimeters
-                if inst_type in ['datalogger', 'dataloggers', 'multimeter', 'multimeters']:
+                if inst_type in ['multimeter', 'multimeters']:
+                    # one input: the first enabled channel is the one measured
+                    ch = measured_channel(inst.get('channels', []))
+                    if ch is not None:
+                        self.meas_vars.append((inst, ch))
+                elif inst_type in ['datalogger', 'dataloggers']:
                     for ch in inst.get('channels', []):
                         is_enabled = ch.get('enabled', True)  # Solo canali abilitati
                         if is_enabled:
@@ -1634,6 +1644,26 @@ class RemoteControlTab(QWidget):
             self.run_call(inst, None, name, **args)
         done[key] = sig
 
+    def _configure_multimeter(self, inst, ch):
+        """
+        Configure a multimeter from its .inst entry, as a datalogger is: the function of its
+        channel (meas_type) and the automatic range or the range of the file
+        (ola.multimeter_setup). It is sent again only when the configuration in the .inst file
+        changes. The range calls are sent only if the model has them.
+        """
+        key = inst.get('instance_name', '')
+        done = self.__dict__.setdefault('_multimeter_signature', {})
+        sig = multimeter_signature(ch)
+        if done.get(key) == sig:
+            return
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        commands = (library.commands(model_id) or {}) if model_id else {}
+        for name, args in multimeter_calls(ch, accepts_from(commands)):
+            self.run_call(inst, None, name, **args)
+        done[key] = sig
+
     def _set_remote_once(self, library, model_id, visa_addr, executor):
         """
         Serial (RS-232) instruments ignore commands until they are put in remote mode
@@ -1992,7 +2022,8 @@ class RemoteControlTab(QWidget):
                         continue
                     numeric_val = readings[idx]
                 else:
-                    numeric_val = float(self.run_call(inst, ch, 'read_measurement'))
+                    self._configure_multimeter(inst, ch)
+                    numeric_val = float(self.run_call(inst, None, 'read_measurement'))
 
                 final_val = numeric_val / attenuation if attenuation != 0 else numeric_val
 
