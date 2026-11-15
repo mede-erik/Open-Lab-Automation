@@ -30,9 +30,12 @@ import json
 import os
 import re
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+
+from .fileio import atomic_write_json
 
 FORMAT_VERSION = 1
 ENV_FILE = "OLA_ASSETS_FILE"
@@ -100,6 +103,10 @@ class Asset:
     )  # kind-specific: length_m, connectors...
     created: str = ""
     retired: bool = False  # taken out of use: kept, so that its old results still make sense
+    # who this object is, for ever: the code is what people see and can change (two registries
+    # merged may force a new one), the uid never does. Runs keep it in the card they saved.
+    uid: str = field(default_factory=lambda: uuid.uuid4().hex)
+    former_codes: List[str] = field(default_factory=list)  # codes it had before, newest last
     extra: Dict[str, Any] = field(default_factory=dict)  # keys this program does not know
 
     def to_dict(self) -> Dict[str, Any]:
@@ -108,7 +115,7 @@ class Asset:
             "id": self.id, "kind": self.kind, "name": self.name, "description": self.description,
             "manufacturer": self.manufacturer, "serial": self.serial, "owner": self.owner,
             "notes": self.notes, "attributes": self.attributes, "created": self.created,
-            "retired": self.retired,
+            "retired": self.retired, "uid": self.uid, "former_codes": list(self.former_codes),
         }  # fmt: skip
         return {**self.extra, **data}
 
@@ -118,8 +125,9 @@ class Asset:
         if not isinstance(raw.get("id"), str) or not raw["id"]:
             raise AssetError(f"a card without a code: {dict(raw)!r}")
         known = {"id", "kind", "name", "description", "manufacturer", "serial", "owner", "notes",
-                 "attributes", "created", "retired"}  # fmt: skip
+                 "attributes", "created", "retired", "uid", "former_codes"}  # fmt: skip
         attributes = raw.get("attributes")
+        former = raw.get("former_codes")
         return Asset(
             id=raw["id"],
             kind=str(raw.get("kind", "other")),
@@ -132,6 +140,8 @@ class Asset:
             attributes=dict(attributes) if isinstance(attributes, dict) else {},
             created=str(raw.get("created", "")),
             retired=bool(raw.get("retired", False)),
+            uid=str(raw["uid"]) if raw.get("uid") else uuid.uuid4().hex,
+            former_codes=[str(c) for c in former] if isinstance(former, list) else [],
             extra={k: v for k, v in raw.items() if k not in known},
         )
 
@@ -186,6 +196,7 @@ class AssetRegistry:
         if raw.get("format_version", FORMAT_VERSION) > FORMAT_VERSION:
             raise AssetError(f"{self.path}: made by a newer version of the program")
         self.assets = [Asset.from_dict(item) for item in raw.get("assets", [])]
+        missing_uid = any(not item.get("uid") for item in raw.get("assets", []))
         counters = raw.get("counters", {})
         self.counters = (
             {k: int(v) for k, v in counters.items()} if isinstance(counters, dict) else {}
@@ -198,6 +209,11 @@ class AssetRegistry:
             if code:
                 prefix, number = code.split("-")
                 self.counters[prefix] = max(self.counters.get(prefix, 0), int(number))
+        if missing_uid:  # cards made before the uid existed: keep the ones just given
+            try:
+                self.save()
+            except OSError:  # a read-only file: they will be given again, no harm until saved
+                pass
 
     def save(self) -> None:
         """Write the file atomically; the previous one is kept as ``<name>.bak``."""
@@ -208,12 +224,10 @@ class AssetRegistry:
             "assets": [a.to_dict() for a in self.assets],
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp = self.path.with_name(self.path.name + ".tmp")
-        temp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         if self.path.is_file():
             backup = self.path.with_name(self.path.name + ".bak")
             backup.write_bytes(self.path.read_bytes())
-        os.replace(temp, self.path)
+        atomic_write_json(self.path, data)
 
     # ----- the cards --------------------------------------------------------------------------
     def get(self, code: str) -> Optional[Asset]:
@@ -331,6 +345,8 @@ class RunRef:
     when: str
     measurement: str
     state: str
+    # code -> uid of the card the run saved for it (None: an old run, whose card has no uid)
+    uids: Dict[str, Optional[str]] = field(default_factory=dict)
 
 
 def read_header(path: Path) -> Optional[Dict[str, Any]]:
@@ -382,21 +398,56 @@ def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
             codes = asset_ids_in(header.get("params") or {})
             if not codes:
                 continue
+            cards = header.get("assets") if isinstance(header.get("assets"), dict) else {}
+            uids = {
+                code: (cards.get(code) or {}).get("uid") or None
+                for code in codes
+                if isinstance(cards.get(code) or {}, dict)
+            }
             ref = RunRef(
-                path, run_date(path), str(header.get("measurement", "?")), _end_state(path)
+                path, run_date(path), str(header.get("measurement", "?")), _end_state(path), uids
             )
             for code in codes:
                 out.setdefault(code, []).append(ref)
+                if uids.get(code):  # also under the uid, which does not change with the code
+                    out.setdefault(uids[code], []).append(ref)
     for refs in out.values():
         refs.sort(key=lambda r: (r.when, r.path.name))
     return out
 
 
-def history(code: str, run_dirs: Iterable[Union[str, Path]]) -> List[RunRef]:
+def history(
+    code: str,
+    run_dirs: Iterable[Union[str, Path]],
+    registry: Optional["AssetRegistry"] = None,
+) -> List[RunRef]:
     """The runs that used the object with this code, oldest first: found by the code every run
     saved in its header (only the first line of each file is read). Folders that do not exist
-    are skipped."""
-    return index_runs(run_dirs).get(normalize_code(code) or code, [])
+    are skipped. With the ``registry`` the object is found by its ``uid`` and former codes too
+    (``runs_of``); without it, or for a code it does not know, only by the code."""
+    index = index_runs(run_dirs)
+    asset = registry.get(code) if registry is not None else None
+    if asset is not None:
+        return runs_of(asset, index)
+    return list(index.get(normalize_code(code) or code, []))
+
+
+def runs_of(
+    asset: Asset,
+    index: Mapping[str, List[RunRef]],
+) -> List[RunRef]:
+    """The runs of this object in an ``index_runs`` result, oldest first. A run that saved the
+    card with a ``uid`` belongs to the object with that uid, whatever the code was or became; a run
+    without one (made before the uid existed) belongs to the object with that code, now or before
+    (``former_codes``). So two different objects that had the same code in two registries are
+    never mixed."""
+    found: Dict[Path, RunRef] = {r.path: r for r in index.get(asset.uid, [])}
+    codes = [normalize_code(c) or c for c in [asset.id, *asset.former_codes]]
+    for code in dict.fromkeys(codes):
+        for ref in index.get(code, []):
+            if ref.uids.get(code) is None:
+                found.setdefault(ref.path, ref)
+    return sorted(found.values(), key=lambda r: (r.when, r.path.name))
 
 
 # the figure that tells the most about each kind of measurement, in order of preference
@@ -447,5 +498,5 @@ def snapshots_for(params: Mapping[str, Any], registry: Optional[AssetRegistry]) 
 __all__: Sequence[str] = [
     "Asset", "AssetError", "AssetRegistry", "KINDS", "RunRef", "asset_ids_in", "default_path",
     "history", "index_runs", "last_measurement_line", "normalize_code", "qr_text", "read_header",
-    "snapshots_for",
+    "runs_of", "snapshots_for",
 ]  # fmt: skip

@@ -89,22 +89,20 @@ def test_a_damaged_or_missing_measurement_file_does_not_stop_the_others(tmp_path
 def test_nothing_is_left_half_done_when_a_file_cannot_be_written(tmp_path, monkeypatch):
     make_project(tmp_path, bindings=[{"dmm": "DMM"}, {"dmm": "DMM"}])
     before = {f: (tmp_path / f).read_text(encoding="utf-8") for f in ("m0.meas", "m1.meas")}
-    from pathlib import Path
-
-    real = Path.write_text
+    real = pr.atomic_write_json
     calls = []
 
-    def flaky(self, text, *args, **kwargs):
-        if self.name.endswith(".meas") and "NEW" in text:
-            calls.append(self.name)
+    def flaky(path, data, *args, **kwargs):
+        if str(path).endswith(".meas") and "NEW" in json.dumps(data):
+            calls.append(path)
             if len(calls) == 2:
                 raise OSError("disk full")
-        return real(self, text, *args, **kwargs)
+        return real(path, data, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "write_text", flaky)
+    monkeypatch.setattr(pr, "atomic_write_json", flaky)
     with pytest.raises(pr.RenameError):
         pr.rename_references(tmp_path / "lab.inst", "DMM", "NEW")
-    monkeypatch.setattr(Path, "write_text", real)
+    monkeypatch.setattr(pr, "atomic_write_json", real)
     after = {f: (tmp_path / f).read_text(encoding="utf-8") for f in before}
     assert json.loads(after["m0.meas"]) == json.loads(before["m0.meas"])
     assert json.loads(after["m1.meas"]) == json.loads(before["m1.meas"])
