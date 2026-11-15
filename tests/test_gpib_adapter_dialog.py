@@ -45,7 +45,14 @@ def bus():
     return FakeBus({7: answers({"*IDN?": "KEYSIGHT,34461A,MY1,A.02"})})
 
 
+def preset(settings):
+    """A Keysight 82357B on GPIB0 already configured (nothing is configured on its own)."""
+    if not gpib_settings.load_adapters(settings):
+        gpib_settings.save_adapters([GpibAdapterConfig()], settings)
+
+
 def make(app, settings, bus):
+    preset(settings)
     d = GpibAdapterDialog(
         settings=settings, rm_factory=lambda backend="": FakeRM(bus), asynchronous=False
     )
@@ -53,7 +60,7 @@ def make(app, settings, bus):
     return d
 
 
-def test_starts_with_a_keysight_82357b(app, settings, bus):
+def test_shows_the_configured_keysight_82357b(app, settings, bus):
     d = make(app, settings, bus)
     assert d.adapter_list.count() == 1
     cfg = d.form_config()
@@ -94,7 +101,7 @@ def test_invalid_form_is_not_saved(app, settings, bus, errors):
     d.name_edit.setText("")
     assert not d.save()
     assert errors and "GPIB-006" in errors[0]
-    assert gpib_settings.load_adapters(settings) == []
+    assert [c.name for c in gpib_settings.load_adapters(settings)] == ["GPIB0"]  # unchanged
 
 
 def test_duplicate_names_are_refused(app, settings, bus, errors):
@@ -265,6 +272,7 @@ def test_address_editor_without_configured_adapters(app, tmp_path):
 def linux_dialog(app, settings, bus, platform="linux", runner=None, confirm=lambda text: True):
     from tests.test_gpib_linux import FakeProbe
 
+    preset(settings)
     d = GpibAdapterDialog(
         settings=settings,
         rm_factory=lambda backend="": FakeRM(bus),
@@ -349,3 +357,52 @@ def test_linux_python_bindings(app, settings, bus):
     d.linux_check()
     d.linux_python()
     assert calls[0][1:] == ["-m", "pip", "install", "gpib-ctypes"]
+
+
+# ----- nothing is configured on its own ---------------------------------------------------
+def no_visa(backend=""):
+    raise OSError("no VISA library")
+
+
+def test_a_fresh_install_shows_no_adapter_when_none_is_detected(app, settings, monkeypatch):
+    """No saved adapter and nothing connected: the list is empty (no default Keysight), the
+    settings tabs are disabled, the window says what to do, and closing saves nothing."""
+    from ola import gpib_adapter
+
+    monkeypatch.setattr(gpib_adapter, "list_serial_ports", lambda: [])
+    d = GpibAdapterDialog(settings=settings, rm_factory=no_visa, asynchronous=False)
+    assert d.adapters == [] and d.adapter_list.count() == 0
+    assert not d.tabs.isEnabled() and not d.remove_button.isEnabled()
+    assert "No GPIB adapter" in d.status.text()
+    d.close()
+    assert gpib_settings.load_adapters(settings) == []
+    again = GpibAdapterDialog(settings=settings, rm_factory=no_visa, asynchronous=False)
+    assert again.adapter_list.count() == 0
+
+
+def test_a_fresh_install_lists_only_the_detected_adapters(app, settings, bus, monkeypatch):
+    from ola import gpib_adapter
+
+    monkeypatch.setattr(gpib_adapter, "list_serial_ports", lambda: [])
+    monkeypatch.setattr(gpib_adapter, "list_usb_devices", lambda: [])
+    bus.board = 3
+    d = GpibAdapterDialog(
+        settings=settings, rm_factory=lambda backend="": FakeRM(bus), asynchronous=False
+    )
+    assert [(c.board, c.profile) for c in d.adapters] == [(3, "generic_visa")]
+    assert d.tabs.isEnabled()
+
+
+def test_the_last_adapter_can_be_removed(app, settings, bus):
+    d = make(app, settings, bus)
+    d.remove_adapter()
+    assert d.adapters == [] and not d.tabs.isEnabled()
+    assert d.save()
+    assert gpib_settings.load_adapters(settings) == []
+
+
+def test_the_address_editor_default_is_a_generic_board_never_saved(settings):
+    assert gpib_settings.load_adapters(settings) == []
+    default = gpib_settings.adapters_or_default(settings)
+    assert [(c.name, c.profile, c.board) for c in default] == [("GPIB0", "generic_visa", 0)]
+    assert gpib_settings.load_adapters(settings) == []

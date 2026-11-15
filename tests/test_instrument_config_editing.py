@@ -620,7 +620,7 @@ def test_the_scan_lists_resources_filters_by_kind_and_applies_the_address(
     def interact(pop):
         table = pop.findChild(QTableWidget)
         seen["rows"] = [
-            (table.item(r, 0).text(), table.item(r, 1).text(), table.item(r, 2).text())
+            (table.item(r, 1).text(), table.item(r, 2).text(), table.item(r, 3).text())
             for r in range(table.rowCount())
         ]
         boxes = {c.text(): c for c in pop.findChildren(QCheckBox)}
@@ -800,7 +800,7 @@ def test_a_resource_that_answers_with_write_and_read_still_gets_its_idn(
 
     def look(pop):
         table = pop.findChild(QTableWidget)
-        seen["idn"] = table.item(0, 1).text()
+        seen["idn"] = table.item(0, 2).text()
 
     force_exec(monkeypatch, look, QDialog.DialogCode.Rejected)
     dialog.open_network_scan_dialog()

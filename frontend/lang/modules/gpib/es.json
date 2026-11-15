@@ -36,6 +36,7 @@
   "gpb_invalid": "Configuración no válida: {error}",
   "gpb_detected": "Adaptadores añadidos: {count}. Revísalos y pulsa Guardar.",
   "gpb_detected_none": "No se encontró ningún adaptador nuevo",
+  "gpb_none_configured": "Ningún adaptador GPIB configurado ni detectado: conéctelo y pulse «Detectar adaptadores conectados», o pulse «Añadir».",
   "gpb_check": "Comprobar controlador y adaptador",
   "gpb_checking": "Comprobando...",
   "gpb_check_failed": "La comprobación ha fallado: {error}",

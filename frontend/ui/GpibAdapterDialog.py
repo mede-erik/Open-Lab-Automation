@@ -26,6 +26,7 @@ address editor of the instruments uses it. Slow operations (check, scan) run in 
 ``frontend/lang/modules/gpib/<lang>.json``.
 """
 
+import logging
 import os
 import sys
 import threading
@@ -64,6 +65,8 @@ from ola import gpib_adapter as ga
 from ola import gpib_linux as gl
 from ola.errors import TransportError
 from ola.gpib_adapter import FAMILY_VISA, GpibAdapterConfig, GpibError
+
+log = logging.getLogger(__name__)
 
 LEVEL_MARK = {"ok": "✔", "info": "ℹ", "warn": "⚠", "error": "✖"}
 BACKEND_KEYS = (("", "gpb_backend_default"), ("@py", "gpb_backend_py"), ("@ivi", "gpb_backend_ivi"))
@@ -118,9 +121,15 @@ class GpibAdapterDialog(QDialog):
         self._cancel = threading.Event()
         self._console = None  # (adapter name, address, connection) kept open between commands
         self._loading = False
+        # nothing is added on its own: only the saved adapters, or those detected when none is saved
         self.adapters: List[GpibAdapterConfig] = gpib_settings.load_adapters(settings)
-        if not self.adapters:
-            self.adapters = [GpibAdapterConfig()]
+        first_detection = not self.adapters
+        if first_detection:
+            try:
+                self.adapters = list(ga.detect_adapters([], **self._engine_kw))
+            except Exception as exc:  # no VISA library, no serial ports...: start empty
+                log.debug("GPIB adapter detection failed: %s", exc)
+                self.adapters = []
         self.devices: List[ga.BusDevice] = []
         self.platform = platform
         self._probe = probe
@@ -134,6 +143,12 @@ class GpibAdapterDialog(QDialog):
         self._build()
         self._fill_list()
         self.adapter_list.setCurrentRow(0)
+        self._update_empty_state()
+        if first_detection:
+            self._set_status(
+                self._t("gpb_detected", count=len(self.adapters)) if self.adapters
+                else self._t("gpb_none_configured")
+            )
 
     def _t(self, key: str, **values) -> str:
         return self.tr_.t(key, **values)
@@ -371,6 +386,12 @@ class GpibAdapterDialog(QDialog):
         return w
 
     # ----- adapters list -------------------------------------------------------------------------
+    def _update_empty_state(self):
+        """With no adapter the settings tabs and Remove have nothing to work on."""
+        has = bool(self.adapters)
+        self.tabs.setEnabled(has)
+        self.remove_button.setEnabled(has)
+
     def _fill_list(self):
         self.adapter_list.blockSignals(True)
         self.adapter_list.clear()
@@ -475,6 +496,10 @@ class GpibAdapterDialog(QDialog):
 
     def save(self) -> bool:
         """Save every adapter in the application settings."""
+        if not self.adapters:
+            gpib_settings.save_adapters([], self._settings)
+            self._set_status(self._t("gpb_saved"))
+            return True
         if self._apply_form() is None:
             return False
         try:
@@ -487,6 +512,12 @@ class GpibAdapterDialog(QDialog):
 
     def _autosave(self):
         """Save on closing when the form is valid (no message if it is not)."""
+        if not self.adapters:  # nothing configured: nothing to keep (and nothing is invented)
+            try:
+                gpib_settings.save_adapters([], self._settings)
+            except GpibError:
+                pass
+            return
         cfg = self.form_config()
         row = self.adapter_list.currentRow()
         try:
@@ -516,14 +547,18 @@ class GpibAdapterDialog(QDialog):
         self.adapters.append(cfg)
         self._fill_list()
         self.adapter_list.setCurrentRow(len(self.adapters) - 1)
+        self._update_empty_state()
 
     def remove_adapter(self):
         row = self.adapter_list.currentRow()
-        if row < 0 or len(self.adapters) <= 1:
+        if row < 0 or row >= len(self.adapters):
             return
         del self.adapters[row]
         self._fill_list()
         self.adapter_list.setCurrentRow(min(row, len(self.adapters) - 1))
+        self._update_empty_state()
+        if not self.adapters:
+            self._set_status(self._t("gpb_none_configured"))
 
     def detect(self):
         """Add the adapters that look connected and are not configured yet."""
@@ -533,6 +568,7 @@ class GpibAdapterDialog(QDialog):
         if found:
             self._fill_list()
             self.adapter_list.setCurrentRow(len(self.adapters) - len(found))
+            self._update_empty_state()
             self._set_status(self._t("gpb_detected", count=len(found)))
         else:
             self._set_status(self._t("gpb_detected_none"))
