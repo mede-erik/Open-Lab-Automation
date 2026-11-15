@@ -884,6 +884,16 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   used; button *Propose from the ticked results* and `golden_check.py --derive`). Then the step also in Bode, TDR and in the measurements with
   a table of rows (ripple, regulation, efficiency, S-parameters): `rows` = rows matched by columns (`match`) and tolerance per
   column, verdict in the `golden_result` table (`summary_row=False` + `finish(ctx)`). Also `derive_tolerances` for `rows` (from Python).
+  **Efficiency with a resistive load** (2026-11, `resistive_efficiency`, `.rfe`, `ola/resistors.py`, `ola/resistor_kits.py`): the efficiency of a
+  converter on real resistors written down by the user (single, series / parallel, nested), each with tolerance, power rating and the relay
+  of a multiplexer. The load is connected by hand (the question gives the values in words and a **schematic**, drawn by `ola.resistors.schematic`
+  and shown in the question dialog) or through the relays of a datalogger module / switch unit, with the supply off while it changes. `Pout =
+  Vout^2 / R` with the range the tolerances allow (verdict on the lowest efficiency), or **measured** with a shunt in the output line
+  (`iout_reading`): then the resistors are a check (`r_measured_ohm`, `r_in_tolerance`). The power in each resistor is checked against its
+  rating before the run (`safety.max_vout_v`) and on every reading. **Kits of resistors** (`Tools > Resistor kits...`): the bench's power
+  resistors saved once and used as `{"kit": "PWR", "ref": "R22"}`; the project writes the values into the header of the run. To do later:
+  resistors with a **code of their own and a measured value** like the cables (power resistors drift with the currents they carry, so the
+  value needs measuring again from time to time), a reading of the relays back, and derating of the power with temperature.
 - ⏳ Not done yet: trying the `connect` on real instruments (requires the library/handle branch to be merged),
   module and fields for the LiteVNA67 text serial (`until`/`lines`/`size`/`flush`, awaiting the device data), driver system for AD2/AD3, wheel pipeline and CI.
 
