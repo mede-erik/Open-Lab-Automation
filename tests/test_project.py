@@ -24,13 +24,13 @@ def test_new_project_add_save_load_roundtrip(tmp_path, registry):
     r2 = p.add_measurement("time_log", "Temperature log", registry)
     assert (r1.id, r2.id) == ("m1", "m2")
     assert r1.file == "temperature_log.tlg" and r2.file == "temperature_log_2.tlg"
-    p.extra["project_id"] = "keep-me"
+    p.extra["team_note"] = "keep-me"
     p.save()
 
     loaded = Project.load(p.path)
     assert loaded.name == "Pippo" and loaded.inst_file == "pippo.inst"
     assert [vars(m) for m in loaded.measurements] == [vars(r1), vars(r2)]
-    assert loaded.extra == {"project_id": "keep-me"}
+    assert loaded.extra == {"team_note": "keep-me"}
     assert loaded.validate(registry) == []
 
     mf = MeasurementFile.load(loaded.file_path(r1))

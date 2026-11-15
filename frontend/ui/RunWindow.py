@@ -25,7 +25,9 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QByteArray, Qt, QTimer
+from PyQt6.QtGui import QFontDatabase, QImage, QPainter, QPixmap
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -53,9 +55,11 @@ from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.plot_widget import LinePlot
 from frontend.ui.trace_plot import SmithChart, TracePlot
+from ola import bench as ola_bench
 from ola.measurement import MeasurementError
 from ola.run_view import (
     QUESTION_CALIBRATION,
+    QUESTION_LOAD,
     QUESTION_OUTPUTS_ON,
     QUESTION_VERIFY,
     VIEW_SMITH,
@@ -109,6 +113,12 @@ class QuestionDialog(QDialog):
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
             layout.addWidget(label)
+        picture = self._picture(question.get("data") or {})
+        if picture is not None:
+            label = QLabel()
+            label.setPixmap(picture)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(label)
         row = QHBoxLayout()
         row.addStretch(1)
         self.buttons: Dict[str, QPushButton] = {}
@@ -145,12 +155,41 @@ class QuestionDialog(QDialog):
                 stop=format_si(data.get("stop_hz", 0), "Hz"),
                 points=data.get("points", "?"),
             )
+        if kind == QUESTION_LOAD:
+            return t(
+                "run_q_load_details",
+                load=data.get("load", "?"),
+                description=str(data.get("description", "")),
+            )
         if kind == QUESTION_OUTPUTS_ON:
             names = ", ".join(
                 f"{o.get('variable')} ({o.get('instrument')})" for o in data.get("outputs", [])
             )
             return t("run_q_outputs_on_details", outputs=names)
         return ""
+
+    @staticmethod
+    def _picture(data: Dict[str, Any]) -> Optional[QPixmap]:
+        """The drawing a question carries (``data["svg"]``: the schematic of a load to connect), on
+        a white background, at most 560 pixels wide; None if there is none or it cannot be read."""
+        svg = data.get("svg")
+        if not isinstance(svg, str) or not svg:
+            return None
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        if not renderer.isValid():
+            return None
+        size = renderer.defaultSize()
+        if size.width() <= 0 or size.height() <= 0:
+            return None
+        scale = min(560 / size.width(), 4.0)
+        image = QImage(
+            round(size.width() * scale), round(size.height() * scale), QImage.Format.Format_ARGB32
+        )
+        image.fill(Qt.GlobalColor.white)
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+        return QPixmap.fromImage(image)
 
     def _choose(self, choice: str) -> None:
         self.chosen = choice
@@ -202,6 +241,7 @@ class RunWindow(QWidget):
         self._pending_view = None  # a view the measurement asks to open with ("smith")
         self._traces_checked: dict = {}  # trace name -> shown
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
+        self._bench_view = None  # the Benchmark tab, added when the report arrives
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
         self.resize(1000, 700)
         self._build_ui()
@@ -358,6 +398,8 @@ class RunWindow(QWidget):
         events = self.runner.drain()
         for event in events:
             self.model.apply(event)
+        if self.model.bench is not None and self._bench_view is None:
+            self._show_bench(self.model.bench)
         if events:
             self._update_table()
             self._update_log()
@@ -372,6 +414,18 @@ class RunWindow(QWidget):
         self._handle_questions()
         if self.model.finished and not events and self._dialog is None:
             self._timer.stop()  # nothing more can happen; the window stays as a record
+
+    def _show_bench(self, report: Dict[str, Any]) -> None:
+        """Add the Benchmark tab with the text of the timing report (see ``ola.bench``)."""
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        view.setPlainText(ola_bench.format_report(report, top=30))
+        self._bench_view = view
+        index = self.tabs.addTab(view, self._t("run_tab_bench"))
+        if not self._tab_chosen:  # the user asked for the timing: show it at the end
+            self.tabs.setCurrentIndex(index)
 
     def _refresh(self) -> None:
         m, state = self.model, self.model.state

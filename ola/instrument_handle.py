@@ -17,6 +17,7 @@ from __future__ import annotations
 import threading
 from typing import Any, Dict, Optional
 
+from . import bench
 from .call_planner import plan_call
 from .compat import note_use, observe
 from .instrument import Instrument
@@ -66,8 +67,12 @@ class InstrumentHandle:
 
     def call(self, name: str, **args: Any) -> Any:
         """Run a logical call and return its logical result (None for calls without result)."""
-        plan = plan_call(self._library, self.model_id, name, args)
-        result = plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        with bench.call_frame(self.name, name) as frame:
+            with frame.part("plan"):
+                plan = plan_call(self._library, self.model_id, name, args)
+            raw = self._instrument.run(plan, cancel=self._cancel)
+            with frame.part("interp"):
+                result = plan.interpret(raw)
         try:
             observe(self.observed, name, args, result)
             note_use(self.used, name, args)
@@ -79,8 +84,12 @@ class InstrumentHandle:
 
     def readback(self, name: str, **args: Any) -> Any:
         """Read back the value of a ``set`` call (for example the voltage setpoint)."""
-        plan = plan_call(self._library, self.model_id, name, args, readback=True)
-        return plan.interpret(self._instrument.run(plan, cancel=self._cancel))
+        with bench.call_frame(self.name, f"{name} (readback)") as frame:
+            with frame.part("plan"):
+                plan = plan_call(self._library, self.model_id, name, args, readback=True)
+            raw = self._instrument.run(plan, cancel=self._cancel)
+            with frame.part("interp"):
+                return plan.interpret(raw)
 
     def read_waveform_full(self, channel_number: int, bits: int = 8, stop: bool = True) -> Any:
         """The whole acquisition memory of a channel (blocks joined); see ``ola.waveform``."""

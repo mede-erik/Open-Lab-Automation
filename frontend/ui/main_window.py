@@ -269,6 +269,13 @@ class MainWindow(QMainWindow):
         assets_action.triggered.connect(self.open_assets_tool)
         tools_menu.addAction(assets_action)
         
+        # Kits of resistors (the power resistors of the bench, used in many measurements)
+        resistors_action = QAction(
+            CatalogTranslator("resistors", self.translator).t("res_menu"), self
+        )
+        resistors_action.triggered.connect(self.open_resistor_kits_tool)
+        tools_menu.addAction(resistors_action)
+
         # GPIB adapters (Keysight 82357B, NI GPIB-USB-HS, Prologix, AR488...): set up and scan
         gpib_action = QAction(CatalogTranslator("gpib", self.translator).t("gpb_menu"), self)
         gpib_action.triggered.connect(self.open_gpib_adapter_tool)
@@ -984,6 +991,23 @@ class MainWindow(QMainWindow):
 
         self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
         self._assets_tool.show()
+
+    def open_resistor_kits_tool(self):
+        """Open the window of the kits of resistors."""
+        from frontend.ui.ResistorKitsDialog import ResistorKitsDialog
+        from ola.resistor_kits import KitError, KitRegistry, default_path
+
+        tr = CatalogTranslator("resistors", self.translator)
+        try:
+            registry = KitRegistry()
+        except KitError as exc:
+            self.logger.error(f"Kits of resistors not available: {exc}")
+            QMessageBox.warning(
+                self, "Open Lab Automation", tr.t("res_open_failed", error=f"{default_path()}: {exc}")
+            )
+            return
+        self._resistors_tool = ResistorKitsDialog(registry, self.translator, self)
+        self._resistors_tool.show()
 
     @staticmethod
     def _wiring_preference() -> bool:
