@@ -505,3 +505,27 @@ def test_the_question_of_a_load_shows_its_description_and_its_schematic(app):
     assert not [x for x in broken.findChildren(QLabel) if x.pixmap() and not x.pixmap().isNull()]
     d.close_now()
     broken.close_now()
+
+
+# ---- benchmark tab ----------------------------------------------------------------------------
+def _tab_names(w):
+    return [w.tabs.tabText(i) for i in range(w.tabs.count())]
+
+
+def test_a_benchmarked_run_gets_a_benchmark_tab_with_the_report(app, windows):
+    runner, _ = make(bench=True)
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished and w._bench_view is not None)
+    assert "Benchmark" in _tab_names(w)
+    text = w._bench_view.toPlainText()
+    assert "Measurement thread" in text and "Phases" in text
+    assert w.tabs.currentWidget() is w._bench_view  # the user did not pick a tab: show it
+    assert w.model.bench["run_id"] == runner.run_id
+
+
+def test_a_run_without_the_benchmark_has_no_such_tab(app, windows):
+    runner, _ = make(bench=False)
+    w = window(windows, runner, auto_start=True)
+    assert pump(app, lambda: w.model.finished)
+    app.processEvents()
+    assert "Benchmark" not in _tab_names(w) and w._bench_view is None and w.model.bench is None

@@ -56,5 +56,6 @@
   "run_choice_skip": "Skip the check",
   "run_choice_continue": "Continue",
   "run_q_load_title": "Connect the load",
-  "run_q_load_details": "<b>{load}</b>: {description}<br>Connect the resistors as drawn, between the output of the converter (+) and ground (−). The supply is off."
+  "run_q_load_details": "<b>{load}</b>: {description}<br>Connect the resistors as drawn, between the output of the converter (+) and ground (−). The supply is off.",
+  "run_tab_bench": "Benchmark"
 }

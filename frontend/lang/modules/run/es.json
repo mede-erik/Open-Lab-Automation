@@ -56,5 +56,6 @@
   "run_choice_skip": "Omitir la comprobación",
   "run_choice_continue": "Continuar",
   "run_q_load_title": "Conectar la carga",
-  "run_q_load_details": "<b>{load}</b>: {description}<br>Conecte las resistencias como en el esquema, entre la salida del convertidor (+) y masa (−). La fuente está apagada."
+  "run_q_load_details": "<b>{load}</b>: {description}<br>Conecte las resistencias como en el esquema, entre la salida del convertidor (+) y masa (−). La fuente está apagada.",
+  "run_tab_bench": "Benchmark"
 }
