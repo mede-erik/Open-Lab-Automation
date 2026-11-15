@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from .fileio import atomic_write_json, atomic_write_text
 from .measurement import MeasurementError
 from .project import Project, check_plain_filename
 
@@ -113,11 +114,11 @@ def rename_references(
                 if ref.role in bindings:
                     bindings[ref.role] = _renamed(bindings[ref.role], old, new)
             originals[path] = text
-            path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            atomic_write_json(path, raw)
     except (OSError, ValueError) as exc:
         for path, text in originals.items():  # put back what was already written
             try:
-                path.write_text(text, encoding="utf-8")
+                atomic_write_text(path, text)
             except OSError:
                 pass
         raise RenameError(f"cannot update the measurements: {exc}") from exc
