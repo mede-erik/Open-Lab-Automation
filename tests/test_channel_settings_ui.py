@@ -112,3 +112,38 @@ def test_changing_to_another_function_takes_the_sensor_out(app):
 def test_a_model_without_probes_disables_the_sensor_cell(app):
     c = cells(app, {"meas_type": "TEMP"}, ModelOptions())
     assert not c.range_box.isEnabled()
+
+
+RTD_OPTIONS = ModelOptions(
+    temp_nplc=["1"],
+    probes={"RTD": ["85", "91"], "TCouple": ["K"]},
+    rtd_ohms={"RTD": [100.0, 1000.0]},
+)
+
+
+def test_an_rtd_is_offered_as_pt100_and_pt1000(app):
+    channel = {"meas_type": "TEMP"}
+    c = cells(app, channel, RTD_OPTIONS)
+    labels = [c.range_box.itemText(i) for i in range(c.range_box.count())]
+    assert "probe_rtd2 PT100" in labels and "probe_rtd2 PT1000" in labels
+    assert "probe_rtd2 PT1000 (α 0.00391)" in labels  # the other alpha is spelled out
+    c.range_box.setCurrentIndex(c.range_box.findData("RTD|85|1000"))
+    assert channel["probe_type"] == "RTD" and channel["sensor_type"] == "85"
+    assert channel["rtd_ohms"] == 1000.0
+
+
+def test_the_rtd_resistance_of_the_file_is_shown_and_a_thermocouple_takes_it_out(app):
+    channel = {"meas_type": "TEMP", "probe_type": "RTD", "sensor_type": "85", "rtd_ohms": 1000}
+    c = cells(app, channel, RTD_OPTIONS)
+    assert c.range_box.currentData() == "RTD|85|1000"
+    c.range_box.setCurrentIndex(c.range_box.findData("TCouple|K"))
+    assert channel["probe_type"] == "TCouple" and "rtd_ohms" not in channel
+
+
+def test_a_model_without_the_resistance_call_offers_the_alpha_only(app):
+    options = ModelOptions(temp_nplc=["1"], probes={"RTD": ["85"]})
+    channel = {"meas_type": "TEMP"}
+    c = cells(app, channel, options)
+    assert c.range_box.itemText(0) == "probe_rtd2 α 0.00385"
+    c.range_box.setCurrentIndex(0)
+    assert "rtd_ohms" not in channel

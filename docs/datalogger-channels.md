@@ -61,6 +61,10 @@ The DAQ970A/973A library entries list no temperature integration time yet, so no
 
 ### PT100 and PT1000
 
-On the 34970A the RTD type is the platinum alpha (`85` = 0.00385, `91` = 0.00391), not the
-nominal resistance. The nominal resistance is set with `TEMP:TRAN:RTD:RES:REF` (default 100 Ω, so a
-PT1000 needs 1000 Ω). The library has no call for it yet, so the software cannot set a PT1000.
+On the 34970A/34972A and DAQ970A/973A the RTD type is the platinum alpha (`85` = 0.00385, `91` =
+0.00391); the nominal resistance is a separate setting (`set_rtd_resistance`, `set_frtd_resistance`;
+the instrument's default is 100 Ω). The editor offers an RTD as **PT100** and **PT1000** (the alpha
+0.00391 is spelled out next to them) and writes the choice as `rtd_ohms` (`100` or `1000`) in the
+channel. The call is sent right after `configure_temperature`. A file without `rtd_ohms` leaves the
+instrument's own value; a model without the call is offered the alpha only, and a file that asks for
+`rtd_ohms` on such a model is refused with a sentence when the measurement starts.
