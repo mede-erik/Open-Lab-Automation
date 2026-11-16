@@ -110,7 +110,7 @@ def test_the_function_comes_from_the_measurement_type_of_the_file():
     assert function_of("RES").measure == "measure_resistance"
     assert function_of("FRES").range_call == "set_fresistance_range"
     assert function_of("VOLT:AC") is None and function_of("FREQ") is None  # no such settings
-    assert settings_of({"enabled": True, "channel_id": "101", "meas_type": "TEMP"}) is None
+    assert function_of("TEMP").name == "TEMP"  # temperature has its own settings now
     assert function_of("VOLT:DC").impedance == "input_impedance_auto"
     assert function_of("CURR:DC").impedance is None
 
@@ -521,3 +521,60 @@ def test_the_simulated_datalogger_behaves_like_the_34970a_where_it_matters():
 def test_channel_settings_hold_what_the_label_needs():
     s = ChannelSettings(101, "101", function_of("VOLT:DC"))
     assert s.label == "101" and not s.configured
+
+
+# ---- temperature: probe, sensor and integration time -----------------------------------------
+def temp(number=101, **settings):
+    return {"enabled": True, "name": f"t{number}", "channel_id": str(number),
+            "meas_type": "TEMP", **settings}  # fmt: skip
+
+
+def test_temperature_has_an_integration_time_but_no_range_impedance_or_zero():
+    f = function_of("TEMP")
+    assert (f.configure, f.measure, f.nplc) == (
+        "configure_temperature", "measure_temperature", "set_temperature_nplc",
+    )  # fmt: skip
+    assert f.range_call is None and f.impedance is None and f.zero is False
+    assert channel_setup.MEASURE_CALLS["measure_temperature"] is f  # read from the scan list
+
+
+def test_a_temperature_channel_needs_its_probe_and_sensor():
+    with pytest.raises(ChannelSetupError, match="probe type"):
+        settings_of(temp())
+    s = settings_of(temp(probe_type="TCouple", sensor_type="K", nplc=20))
+    assert (s.probe, s.sensor, s.nplc, s.range) == ("TCouple", "K", 20.0, "AUTO")
+    assert s.configured
+
+
+def test_a_temperature_zero_is_refused_and_the_editor_says_so():
+    bad = temp(probe_type="RTD", sensor_type="85", zero=True)
+    with pytest.raises(ChannelSetupError, match="zero"):
+        settings_of(bad)
+    assert any("zero" in p for p in channel_setup.channel_problems(bad))
+
+
+def test_temperature_configures_with_probe_and_sensor_then_sets_the_integration_time():
+    calls = config_calls(settings(
+        temp(101, probe_type="TCouple", sensor_type="K", nplc=20),
+        temp(102, probe_type="TCouple", sensor_type="K"),
+    ))  # fmt: skip
+    assert calls == [
+        ("configure_temperature", {"probe_type": "TCouple", "type": "K", "resolution": "DEF",
+                                   "channels": "101"}),
+        ("set_temperature_nplc", {"plcs": 20.0, "channels": "101"}),
+        ("configure_temperature", {"probe_type": "TCouple", "type": "K", "resolution": "DEF",
+                                   "channels": "102"}),
+    ]  # fmt: skip
+
+
+def test_the_library_gives_the_probes_sensors_and_integration_times_of_a_model():
+    library = Library.load(LIBRARY)
+    options = options_of(library.commands(library.resolve_model_id("34970A")))
+    assert options.probes["TCouple"] == ["B", "E", "J", "K", "N", "R", "S", "T"]
+    assert options.probes["RTD"] == ["85", "91"]
+    assert options.probes["THERmistor"] == ["2252", "5000", "10000"]
+    assert options.temp_nplc == options.nplc
+    # the DAQ970A names the thermistor probe FTHermistor; its sensors come from the table when
+    # the library lists none (the integration times depend on the library version, not tested)
+    daq = options_of(library.commands(library.resolve_model_id("DAQ970A")))
+    assert daq.probes["FTHermistor"] == ["2252", "5000", "10000"]

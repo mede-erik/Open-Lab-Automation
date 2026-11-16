@@ -68,3 +68,47 @@ def test_a_function_without_settings_clears_them(app):
     c.fill_function("VOLT:AC")
     assert "nplc" not in channel and "zero" not in channel
     assert not c.zero_box.isEnabled()
+
+
+TEMP_OPTIONS = ModelOptions(
+    nplc=["1", "20"],
+    temp_nplc=["0.2", "1", "20"],
+    zero=True,
+    impedance=True,
+    probes={"TCouple": ["J", "K"], "RTD": ["85"]},
+)
+
+
+def test_a_temperature_channel_chooses_its_probe_and_sensor_in_one_cell(app):
+    channel = {"meas_type": "TEMP"}
+    c = cells(app, channel, TEMP_OPTIONS)
+    assert c.range_box.isEnabled() and c.range_box.count() == 3
+    c.range_box.setCurrentIndex(c.range_box.findData("RTD|85"))
+    assert channel["probe_type"] == "RTD" and channel["sensor_type"] == "85"
+    assert "range" not in channel
+
+
+def test_a_temperature_channel_shows_the_sensor_the_file_has(app):
+    c = cells(app, {"meas_type": "TEMP", "probe_type": "TCouple", "sensor_type": "J"}, TEMP_OPTIONS)
+    assert c.range_box.currentData() == "TCouple|J"
+
+
+def test_a_temperature_channel_takes_the_temperature_integration_times_and_no_zero(app):
+    channel = {"meas_type": "TEMP"}
+    c = cells(app, channel, TEMP_OPTIONS)
+    assert c.nplc_box.isEnabled() and c.nplc_box.count() == 1 + len(TEMP_OPTIONS.temp_nplc)
+    c.nplc_box.setCurrentIndex(c.nplc_box.findData("0.2"))
+    assert channel["nplc"] == 0.2
+    assert not c.zero_box.isEnabled() and not c.impedance_box.isEnabled()
+
+
+def test_changing_to_another_function_takes_the_sensor_out(app):
+    channel = {"meas_type": "TEMP", "probe_type": "RTD", "sensor_type": "85"}
+    c = cells(app, channel, TEMP_OPTIONS)
+    c.fill_function("VOLT:DC")
+    assert "probe_type" not in channel and "sensor_type" not in channel
+
+
+def test_a_model_without_probes_disables_the_sensor_cell(app):
+    c = cells(app, {"meas_type": "TEMP"}, ModelOptions())
+    assert not c.range_box.isEnabled()
