@@ -57,5 +57,9 @@
   "run_choice_continue": "Weiter",
   "run_q_load_title": "Last anschließen",
   "run_q_load_details": "<b>{load}</b>: {description}<br>Die Widerstände wie im Schaltbild zwischen dem Ausgang des Wandlers (+) und Masse (−) anschließen. Das Netzteil ist aus.",
-  "run_tab_bench": "Benchmark"
+  "run_tab_bench": "Benchmark",
+  "run_q_zero_title": "Kanal nullen",
+  "run_q_zero_short": "Kanal <b>{channel}</b> {name}: Schritt 1 von 2. Die beiden Eingangsklemmen verbinden, damit das Gerät nur den Offset der Verdrahtung und seines Eingangs misst, dann fortfahren.",
+  "run_q_zero_back": "Kanal <b>{channel}</b> {name}: Schritt 2 von 2. Der Offset wurde übernommen {offset}. Die Klemmen wieder anschließen und fortfahren.",
+  "run_choice_skip_zero": "Diesen Kanal überspringen"
 }

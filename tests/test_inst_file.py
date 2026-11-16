@@ -158,3 +158,21 @@ def test_frequencies_are_shown_the_way_they_are_typed():
     for hz in (50e3, 6.3e9, 100e6, 1.5e6, 999.0):
         assert parse_frequency(inst.format_frequency(hz)) == pytest.approx(hz)
     assert inst.format_frequency(6.3e9) == "6.3G" and inst.format_frequency(50e3) == "50k"
+
+
+def datalogger(**channel):
+    ch = {"enabled": True, "name": "CH1", "channel_id": "101", "meas_type": "VOLT:DC"}
+    ch.update(channel)
+    return {
+        "instrument_type": "datalogger",
+        "instance_name": "DL",
+        "model_id": "D1",
+        "visa_address": "ASRL3::INSTR",
+        "channels": [ch],
+    }
+
+
+def test_datalogger_channel_settings_are_checked():
+    assert "channel_setting" not in codes(inst.check_entry(datalogger(nplc=20, impedance="auto")))
+    bad = datalogger(nplc="fast", impedance="1k")
+    assert "channel_setting" in codes(inst.check_entry(bad))

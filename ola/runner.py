@@ -14,6 +14,10 @@
 
 Listeners are called in the runner thread; an exception in a listener is logged as a warning and
 never stops the measurement. A GUI listener must hand events over to its own thread.
+
+Before ``setup`` the runner calls ``prepare_run(ctx)`` of every handle that has it (a datalogger
+with settings for its channels, ``ola.channel_setup``): it may ask the operator, for example to
+short the terminals of a channel to zero it.
 """
 
 from __future__ import annotations
@@ -341,6 +345,7 @@ class Runner:
         outcome = RunState.FINISHED
         try:
             ctx.checkpoint()
+            self._prepare_instruments(ctx)
             with _bench.span("phase", "setup"):
                 self.measurement.setup(ctx)
             with _bench.span("phase", "run"):
@@ -370,6 +375,19 @@ class Runner:
         self._publish_bench()
         with self._lock:
             self._set_state(outcome)
+
+    def _prepare_instruments(self, ctx: MeasurementContext) -> None:
+        """Before the measurement: every instrument handle that has something to do first
+        (``prepare_run(ctx)``: the channels of a datalogger to configure and to zero, which asks the
+        operator) does it, once, whatever the number of roles it is bound to."""
+        done = set()
+        for handles in self.bindings.values():
+            for handle in handles:
+                prepare = getattr(handle, "prepare_run", None)
+                if callable(prepare) and id(handle) not in done:
+                    done.add(id(handle))
+                    with _bench.span("phase", f"prepare {getattr(handle, 'name', '?')}"):
+                        prepare(ctx)
 
     def _publish_bench(self) -> None:
         """At the end of a benchmarked run: the ``bench`` event and a summary in the log."""
