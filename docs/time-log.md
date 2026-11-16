@@ -6,19 +6,58 @@ value that changes.
 
 ## How it works
 
-For every sample the module asks each **channel** for one value, with a logical call of the library, and writes one row:
-`t_s` (the time at which the reading of the sample **started**, from the start of the run) and one column for each channel.
+The log has one or more **sources**, one for each instrument. Each source reads its instrument at its own **interval**: a
+multimeter every hour, a datalogger every ten minutes, the internal readings of a supply every five minutes. For every sample a
+source asks its instrument for each of its **readings** (a logical call of the library, with optional arguments) and writes one
+row in its own **table**, named after the source, with `t_s` (the time at which the reading of the sample **started**, from the
+start of the run) and one column for each reading.
 
 The samples are scheduled **from the start**, not from the end of the previous one: a slow reading shortens the next wait, it does
-not move all the following samples later, so the log does not drift. If the readings take longer than the interval the samples
-follow one another without waiting.
+not move the following samples later, so the log does not drift. If a reading takes longer than the interval of its source, the
+samples that fell due in the meantime are **skipped** and a warning is written to the log.
 
-The log ends after `samples` samples, or when the next sample would fall after `duration_s`. If a reading fails the log **stops
-with an error** and what was recorded is kept.
+Each source ends after its `samples`, or when its next sample would fall after the common `duration_s`. Without `duration_s` every
+source needs `samples`, otherwise the log would never end. If a reading fails the log **stops with an error** and what was recorded
+is kept.
 
 ## The file
 
 ```json temperatures.tlg
+{
+  "duration_s": 86400,
+  "sources": [
+    {"name": "dmm", "instrument": "dmm1", "interval_s": 3600,
+     "readings": [{"name": "vout", "call": "read_voltage"}]},
+    {"name": "daq", "instrument": "daq", "interval_s": 600, "samples": 500,
+     "readings": [{"name": "temp1", "call": "measure_temperature", "args": {"channels": "101"}}]},
+    {"name": "psu", "instrument": "psu1", "interval_s": 300,
+     "readings": [{"name": "v", "call": "read_voltage"}, {"name": "i", "call": "read_current"}]}
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `duration_s` | the whole log: no sample is taken after it. Optional, above 0 |
+| `sources` | a non-empty list, one entry per instrument |
+| `name` | the name of the source: it is also the name of its table in the results. Unique, not `points` nor `t_s` |
+| `instrument` | the name of one of the instruments chosen for the run |
+| `interval_s` | the time between two samples of this source, at least 0.001 s |
+| `samples` | how many samples the source takes, at least 1. Optional when `duration_s` is given |
+| `readings` | a non-empty list. Each reading has a `name` (unique in the source, it becomes the column; `t_s` is reserved), a `call` (a logical call of the library that gives a value, [`instrument-calls.md`](instrument-calls.md)) and optional `args` (an object) |
+
+A datalogger reads its channels with the calls that take the channel in `args` (as in the example): one call for each channel.
+
+The `instrument` of a source must be one of the instruments chosen in the editor: if it is not, the run does not start and says which
+ones are bound.
+
+### The earlier format
+
+A file with `channels` and a single `interval_s` is still read, as before: all the channels are sampled together at that interval
+and written to the main table of the results (`points`). Each channel names its own `instrument`. It cannot be mixed with `sources`
+in the same file.
+
+```json old-temperatures.tlg
 {
   "interval_s": 1.0,
   "duration_s": 3600,
@@ -29,28 +68,18 @@ with an error** and what was recorded is kept.
 }
 ```
 
-| Field | Meaning |
-|---|---|
-| `interval_s` | the time between two samples, at least 0.001 s |
-| `duration_s` | stop after this time, above 0 |
-| `samples` | or stop after this many samples, at least 1. **One of the two is needed**, otherwise the log would never end; with both, the first limit reached ends it |
-| `channels` | a non-empty list; each channel has a `name` (unique, it becomes the column), the `instrument` (the name of one of the instruments chosen for the run) and the `call` (a logical call of the library that gives a value, [`instrument-calls.md`](instrument-calls.md)); `args` (an object) is optional |
-
-The `instrument` of a channel must be one of the instruments chosen in the editor: if it is not, the run does not start and says
-which ones are bound.
-
 ## How to use it
 
-1. Choose the instruments in the editor (they are the role `instruments`, any category, as many as you need) and give each channel
-   the **name** of the instrument it reads.
-2. Choose an interval that the instrument can follow: a datalogger reading many channels, or a DMM at a slow rate, can take
-   seconds for one sample.
-3. Watch the progress: with `duration_s` the total is worked out as `duration / interval + 1` samples.
+1. Choose the instruments in the editor (they are the role `instruments`, any category, as many as you need).
+2. Give each source the instrument it reads and an interval that the instrument can follow: a datalogger reading many channels, or
+   a DMM at a slow rate, can take seconds for one sample.
+3. Watch the progress: the total is the sum of the `samples` of the sources; a source without `samples` counts the samples that fit in `duration_s` at its interval.
 4. Stop it at any moment with the stop button; the samples already read stay in the run.
 
-The window of the connections ([`wiring.md`](wiring.md)) shows the instruments before the run.
+The window of the connections ([`wiring.md`](wiring.md)) lists the sources, in order, before the run.
 
 ## Not done yet
 
-Reading several channels of the same instrument is one call for each channel, not one call for all (a datalogger scan reads them
-one by one). A limit or an alarm on a value, and a log that continues across a stop, are not there.
+Reading several channels of the same datalogger is one call for each channel, not one call for all (a datalogger scan reads them
+one by one). A limit or an alarm on a value, and a log that continues across a stop, are not there. The editor of the file is
+still the generic one (the parameters as JSON): a dedicated editor for the sources comes next.
