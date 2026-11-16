@@ -329,6 +329,7 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 - [ ] Datalogger from an `.inst` file
   - [ ] scan list and channel functions
   - [ ] per-channel range, integration time and input impedance
+  - [ ] temperature channels: probe (thermocouple, RTD, thermistor), sensor type and integration time
   - [ ] guided zero with shorted inputs (before a measurement starts)
 - [ ] RF signal generator panel (AM, FM, PM and pulse modulation)
 

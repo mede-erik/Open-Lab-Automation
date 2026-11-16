@@ -9,17 +9,25 @@ impedance (``ola.channel_setup``), as four cells of the channel table.
 ``.inst`` file) and keeps the dictionary up to date: a setting that is the default is **taken out**
 of the dictionary, so a file that does not use them stays as it was. What each cell offers comes
 from ``options`` (what the model lists, ``ModelOptions``): a model without integration time has
-that cell disabled, one without the zero calls has no zero, and so on; a function that has none of
-them (AC voltage, frequency, temperature) has all four disabled and its settings cleared.
-``model_options`` reads the options of the model of an instrument from the library.
+that cell disabled, one without the zero calls has no zero, and so on. A temperature channel has
+its probe and sensor in the range cell (one choice: probe and sensor together), its integration
+time from ``set_temperature_nplc``, and no zero and no input impedance. A function that has none of
+them (AC voltage, frequency) has its cells disabled and its settings cleared.
 """
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from PyQt6.QtWidgets import QCheckBox, QComboBox
 
 from frontend.ui.connector_setup import default_library_path, load_library
-from ola.channel_setup import FUNCTIONS, ModelOptions, function_of, options_of
+from ola.channel_setup import (
+    FUNCTIONS,
+    TEMPERATURE,
+    ModelOptions,
+    canonical_probe,
+    function_of,
+    options_of,
+)
 
 UNITS = {"VOLT:DC": "V", "CURR:DC": "A", "RES": "Ω", "FRES": "Ω"}
 AUTO = "AUTO"
@@ -73,13 +81,19 @@ class SettingsCells:
         unit = UNITS.get(name, "")
         ch = self.channel
         if not keep:
-            for key in ("range", "nplc", "zero", "impedance"):
+            for key in ("range", "nplc", "zero", "impedance", "probe_type", "sensor_type"):
                 ch.pop(key, None)
-        self._fill_range(name, unit, ch.get("range"))
-        self._fill_nplc(ch.get("nplc") if function else None, bool(function and self.options.nplc))
-        self.zero_box.setChecked(bool(ch.get("zero")) and bool(function and self.options.zero))
-        self.zero_box.setEnabled(bool(function and self.options.zero))
-        self.zero_box.setToolTip(self._tip("channel_zero_tip", function and self.options.zero))
+        temperature = name == TEMPERATURE
+        if temperature:
+            self._fill_sensor(ch.get("probe_type"), ch.get("sensor_type"))
+        else:
+            self._fill_range(name, unit, ch.get("range"))
+        integration = self.options.temp_nplc if temperature else self.options.nplc
+        self._fill_nplc(ch.get("nplc") if function else None, integration if function else [])
+        zero = bool(function and function.zero and self.options.zero)
+        self.zero_box.setChecked(bool(ch.get("zero")) and zero)
+        self.zero_box.setEnabled(zero)
+        self.zero_box.setToolTip(self._tip("channel_zero_tip", zero))
         self._fill_impedance(function, ch.get("impedance"))
         self._loading = was
 
@@ -99,12 +113,48 @@ class SettingsCells:
         box.setEnabled(bool(name))
         box.setToolTip(self._tip("channel_range_tip", name))
 
-    def _fill_nplc(self, current: Any, available: bool) -> None:
+    def _fill_sensor(self, probe: Any, sensor: Any) -> None:
+        """The cell of a temperature channel: the probe and the sensor, one choice each
+        (``TCouple|K``, ``RTD|85``...), as the model lists them."""
+        box = self.range_box
+        box.clear()
+        for name, sensors in self.options.probes.items():
+            for kind in sensors:
+                box.addItem(f"{self._probe_text(name)} {self._sensor_text(name, kind)}",
+                            f"{name}|{kind}")  # fmt: skip
+        if probe and sensor and not self._select(box, f"{probe}|{sensor}"):
+            box.addItem(f"{probe} {sensor}", f"{probe}|{sensor}")  # a value the file has
+            self._select(box, f"{probe}|{sensor}")
+        box.setEnabled(bool(self.options.probes))
+        box.setToolTip(self._tip("channel_sensor_tip", self.options.probes))
+
+    def _probe_text(self, probe: str) -> str:
+        key = {
+            "TCouple": "probe_thermocouple",
+            "RTD": "probe_rtd2",
+            "FRTD": "probe_rtd4",
+            "THERmistor": "probe_thermistor",
+        }.get(canonical_probe(probe) or "", "")
+        return self.t(key) if key else probe
+
+    @staticmethod
+    def _sensor_text(probe: str, sensor: str) -> str:
+        """The sensor as a person names it: a thermocouple letter, the RTD's alpha, the
+        thermistor's resistance at 25 degrees."""
+        kind = canonical_probe(probe)
+        if kind == "THERmistor":
+            return f"{sensor} Ω"
+        if kind in ("RTD", "FRTD"):
+            return {"85": "PT385", "91": "PT3916"}.get(sensor, sensor)
+        return sensor
+
+    def _fill_nplc(self, current: Any, integration: List[str]) -> None:
         box = self.nplc_box
         box.clear()
         box.addItem(self.t("nplc_default"), "")
-        for value in self.options.nplc if available else []:
+        for value in integration:
             box.addItem(value, value)
+        available = bool(integration)
         if current not in (None, "") and available and not self._select(box, current):
             box.addItem(f"{current:g}" if isinstance(current, (int, float)) else str(current),
                         str(current))  # fmt: skip
@@ -145,8 +195,15 @@ class SettingsCells:
         if self._loading:
             return
         ch = self.channel
-        rng = self.range_box.currentData()
-        self._set(ch, "range", None if rng in (None, AUTO) else float(rng))
+        function = function_of(ch.get("meas_type", "VOLT:DC"))
+        if function is not None and function.name == TEMPERATURE:
+            probe, _, sensor = str(self.range_box.currentData() or "").partition("|")
+            self._set(ch, "probe_type", probe or None)
+            self._set(ch, "sensor_type", sensor or None)
+            self._set(ch, "range", None)
+        else:
+            rng = self.range_box.currentData()
+            self._set(ch, "range", None if rng in (None, AUTO) else float(rng))
         nplc = self.nplc_box.currentData()
         self._set(ch, "nplc", float(nplc) if nplc else None)
         self._set(ch, "zero", True if self.zero_box.isChecked() else None)

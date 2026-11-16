@@ -6,9 +6,9 @@ default, so a file that does not use them is unchanged.
 
 | Setting | `.inst` key | Values | What it does |
 |---|---|---|---|
-| Range | `range` | `"AUTO"` (default) or a number in the units of the function | Fixed range per channel, or auto range. |
+| Range | `range` | `"AUTO"` (default) or a number in the units of the function | Fixed range per channel, or auto range. For a temperature channel the cell holds the probe and the sensor instead (below). |
 | Integration time | `nplc` | power line cycles, e.g. `20`, `100` | More cycles: less noise, slower reading. Left out: the instrument default. |
-| Zero | `zero` | `true` | Offset zero with the inputs shorted (see below). |
+| Zero | `zero` | `true` | Offset zero with the inputs shorted (see below). Not for temperature. |
 | Input impedance | `impedance` | `"auto"` or `"10M"` | Automatic (above 10 GOhm on the low DC ranges) or fixed 10 MOhm. DC voltage only. |
 
 The editor offers only what the model of the instrument lists in the library: a model without the
@@ -44,3 +44,17 @@ only in measurements.
 * Only dataloggers whose library entry has the calls (Keysight 34970A / 34972A, DAQ970A / DAQ973A).
 * Multimeters (no scan list) and the old datalogger dialog are not covered.
 * Tested on a simulated 34970A (`ola/sim_datalogger.py`), not on hardware.
+
+## Temperature
+
+A channel with `meas_type` `TEMP` needs two more keys, both with the values the library lists for the
+model (`configure_temperature`):
+
+| Key | Values | Note |
+|---|---|---|
+| `probe_type` | `TCouple` (thermocouple), `RTD` (2-wire), `FRTD` (4-wire), `THERmistor` | `FTHermistor` on the DAQ970A/973A |
+| `sensor_type` | a thermocouple letter (`B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`); an RTD type (`85` = PT385, `91` = PT3916); a thermistor resistance at 25 °C (`2252`, `5000`, `10000`) | the list depends on the probe; the library may restrict it |
+
+The integration time of a temperature channel is `set_temperature_nplc`, so it can match the voltage
+channels or make the reading faster. Range, input impedance and zero do not apply to temperature.
+The DAQ970A/973A library entries list no temperature integration time yet, so none is offered there.
