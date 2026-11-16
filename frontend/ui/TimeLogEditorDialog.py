@@ -56,13 +56,13 @@ class TimeLogEditorDialog(QDialog):
         path: str,
         instruments: Mapping[str, Mapping[str, Any]],
         validate: Callable[[Dict[str, Any]], List[str]],
-        calls: Callable[[Mapping[str, Any]], Sequence[str]],
+        calls: Callable[[Mapping[str, Any]], Sequence[Any]],
         translator: Any = None,
         parent: Optional[QWidget] = None,
     ):
         """``instruments``: the entries of the ``.inst`` file by name. ``validate(params)``: the
-        problems of the parameters (the module's own check). ``calls(entry)``: the logical calls
-        of an instrument's model in the library."""
+        problems of the parameters (the module's own check). ``calls(entry)``: the readings of an
+        instrument's model in the library (``ola.readings.Readable``: name, unit, channel)."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("timelog", translator)
         self.path = path
@@ -138,11 +138,13 @@ class TimeLogEditorDialog(QDialog):
         form.addRow("", self.scan_check)
 
         self.readings_label = QLabel(self._t("tlg_readings"))
-        self.readings = QTableWidget(0, 3)
+        self.readings = QTableWidget(0, 4)
         self.readings.itemChanged.connect(lambda _item: self._store())
-        self.readings.setHorizontalHeaderLabels(
-            [self._t("tlg_col_name"), self._t("tlg_col_call"), self._t("tlg_col_args")]
-        )
+        self.readings.setHorizontalHeaderLabels([
+            self._t("tlg_col_name"), self._t("tlg_col_call"), self._t("tlg_col_channel"),
+            self._t("tlg_col_args"),
+        ])
+        self._readable: Dict[str, Any] = {}  # the readings of the chosen instrument, by call
         self.readings_add = QPushButton(self._t("tlg_add_reading"))
         self.readings_add.clicked.connect(lambda: self._add_row(self.readings))
         self.readings_del = QPushButton(self._t("tlg_remove_row"))
@@ -237,7 +239,8 @@ class TimeLogEditorDialog(QDialog):
         self.samples_edit.setText("" if samples is None else str(samples))
         self.scan_check.setChecked(bool(source.get("scan")))
         self._fill_rows(self.readings, [
-            [r.get("name", ""), r.get("call", ""), _dump(r.get("args"))]
+            [r.get("name", ""), r.get("call", ""),
+             "" if r.get("channel") is None else str(r["channel"]), _dump(r.get("args"))]
             for r in source.get("readings", [])
         ])
         self._fill_rows(self.channels, [
@@ -257,18 +260,40 @@ class TimeLogEditorDialog(QDialog):
         self._store()
 
     def _instrument_changed(self, *_args) -> None:
-        """The calls offered for a reading are those of the chosen instrument's model."""
+        """The calls offered for a reading are the readings of the chosen instrument's model."""
         entry = self.instruments.get(self.instrument_combo.currentData() or "")
-        calls = list(self.calls_of(entry)) if entry else []
+        offered = list(self.calls_of(entry)) if entry else []
+        self._readable = {getattr(r, "name", str(r)): r for r in offered}
         for row in range(self.readings.rowCount()):
             combo = self.readings.cellWidget(row, 1)
             if isinstance(combo, QComboBox):
-                current = combo.currentText()
+                current = _call_of(combo)
                 combo.blockSignals(True)
                 combo.clear()
-                combo.addItems(calls)
-                combo.setEditText(current)
+                for name, reading in self._readable.items():
+                    unit = getattr(reading, "unit", "")
+                    combo.addItem(f"{name} ({unit})" if unit else name, name)
+                self._set_call(combo, current)
                 combo.blockSignals(False)
+        self._store()
+
+    @staticmethod
+    def _set_call(combo: QComboBox, call: str) -> None:
+        """Show a call: the entry of the list if it is there, otherwise the text as it is."""
+        index = combo.findData(call) if call else -1
+        if index >= 0:
+            combo.setCurrentIndex(index)
+        else:
+            combo.setEditText(call)
+
+    def _call_changed(self, row: int) -> None:
+        """A reading that takes a channel starts with channel 1 (an empty channel would fail)."""
+        combo = self.readings.cellWidget(row, 1)
+        reading = self._readable.get(_call_of(combo)) if isinstance(combo, QComboBox) else None
+        if reading is not None and getattr(reading, "channel", False):
+            item = self.readings.item(row, 2)
+            if item is not None and not item.text().strip():
+                item.setText("1")
         self._store()
 
     def _fill_rows(self, table: QTableWidget, rows: List[List[str]]) -> None:
@@ -291,9 +316,9 @@ class TimeLogEditorDialog(QDialog):
             combo = QComboBox()
             combo.setEditable(True)
             combo.setEditText(values[1])
-            combo.currentTextChanged.connect(lambda _t: self._store())
+            combo.currentTextChanged.connect(lambda _t, r=row: self._call_changed(r))
             table.setCellWidget(row, 1, combo)
-            values = [values[0], None, values[2]]
+            values = [values[0], None, values[2], values[3]]
             if not self._loading:
                 self._instrument_changed()
         for column, value in enumerate(values):
@@ -318,9 +343,11 @@ class TimeLogEditorDialog(QDialog):
         source["scan"] = self.scan_check.isChecked()
         source["readings"] = [
             {"name": self._cell(self.readings, row, 0),
-             "call": self._combo(self.readings, row, 1),
-             **({"args": _load(self._cell(self.readings, row, 2))}
-                if self._cell(self.readings, row, 2) else {})}
+             "call": _call_of(self.readings.cellWidget(row, 1)),
+             **({"channel": _channel(self._cell(self.readings, row, 2))}
+                if self._cell(self.readings, row, 2) else {}),
+             **({"args": _load(self._cell(self.readings, row, 3))}
+                if self._cell(self.readings, row, 3) else {})}
             for row in range(self.readings.rowCount())
         ]
         source["channels"] = [
@@ -376,6 +403,22 @@ class TimeLogEditorDialog(QDialog):
         self.file.save(self.path)
         self.accept()
         return True
+
+
+def _call_of(widget: Any) -> str:
+    """The call a reading's combo shows: the list entry's call, or the text typed."""
+    if not isinstance(widget, QComboBox):
+        return ""
+    text = widget.currentText().strip()
+    data = widget.currentData()
+    return data if data and widget.itemText(widget.currentIndex()) == widget.currentText() else text
+
+
+def _channel(text: str) -> Any:
+    try:
+        return int(text)
+    except ValueError:
+        return text  # not a number: the module says so
 
 
 def _number(text: str) -> Optional[float]:

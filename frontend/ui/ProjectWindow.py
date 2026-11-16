@@ -544,9 +544,11 @@ class ProjectWindow(QMainWindow):
             return {}
         return {str(e["instance_name"]): e for e in entries if e.get("instance_name")}
 
-    def _library_calls(self, entry: Dict[str, Any]) -> List[str]:
-        """The logical calls of an instrument's model in the library (none if it is not there)."""
+    def _library_calls(self, entry: Dict[str, Any]) -> List[Any]:
+        """The readings an instrument's model has inside (``ola.readings.Readable``): voltage and
+        current of a supply, of a load, the value of a meter... None if it is not in the library."""
         from frontend.ui.connector_setup import default_library_path, load_library
+        from ola.readings import readable_calls
 
         try:
             library = load_library(default_library_path())
@@ -554,7 +556,7 @@ class ProjectWindow(QMainWindow):
             return []
         key = entry.get("model_id") or entry.get("model") or ""
         model_id = library.resolve_model_id(key) if key else None
-        return sorted((library.commands(model_id) or {}).keys()) if model_id else []
+        return readable_calls(library, model_id) if model_id else []
 
     def edit_measurement(self) -> None:
         """Open the editor of the selected measurement's type."""

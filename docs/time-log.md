@@ -31,7 +31,7 @@ is kept.
     {"name": "daq", "instrument": "daq", "interval_s": 600, "samples": 500,
      "readings": [{"name": "temp1", "call": "measure_temperature", "args": {"channels": "101"}}]},
     {"name": "psu", "instrument": "psu1", "interval_s": 300,
-     "readings": [{"name": "v", "call": "read_voltage"}, {"name": "i", "call": "read_current"}]}
+     "readings": [{"name": "v", "call": "read_voltage", "channel": 1}, {"name": "i", "call": "read_current", "channel": 1}]}
   ]
 }
 ```
@@ -44,9 +44,20 @@ is kept.
 | `instrument` | the name of one of the instruments chosen for the run |
 | `interval_s` | the time between two samples of this source, at least 0.001 s |
 | `samples` | how many samples the source takes, at least 1. Optional when `duration_s` is given |
-| `readings` | a non-empty list. Each reading has a `name` (unique in the source, it becomes the column; `t_s` is reserved), a `call` (a logical call of the library that gives a value, [`instrument-calls.md`](instrument-calls.md)) and optional `args` (an object) |
+| `readings` | a non-empty list. Each reading has a `name` (unique in the source, it becomes the column; `t_s` is reserved), a `call` (a logical call of the library that gives a value, [`instrument-calls.md`](instrument-calls.md)), an optional `channel` (integer, see below) and optional `args` (an object) |
 
-A datalogger reads its channels with the calls that take the channel in `args` (as in the example): one call for each channel.
+### The readings an instrument has inside
+
+Any instrument of the project can be read: the voltage, current and power of a supply or of an electronic load, the value of a
+multimeter, and so on. The editor offers, for the instrument of a source, **its readings** (`read_...` and `measure_...` calls that
+give a number, with their unit), not every command of the model: the status and calibration queries are left out.
+
+A reading can name a **`channel`**. A supply with several outputs takes it as the `channel_number` of the call; a **multichannel
+load** has the channel selected first (`select_channel`); an instrument that has no channels refuses a reading that names one, and
+the run does not start. A load with one input and a multimeter have no channel. The editor fills in channel 1 when the call takes one.
+
+A datalogger is better read with the scan below: one call reads all its channels. Reading it channel by channel with
+`measure_...` calls is possible but needs the arguments of the call (`channels`, `range`...) in `args`.
 
 The `instrument` of a source must be one of the instruments chosen in the editor: if it is not, the run does not start and says which
 ones are bound.

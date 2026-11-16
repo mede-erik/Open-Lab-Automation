@@ -14,8 +14,14 @@ Parameters, one entry per instrument (the format of the current version)::
          "readings": [{"name": "temp1", "call": "measure_temperature",
                        "args": {"channels": "101"}}]},
         {"name": "psu", "instrument": "psu1", "interval_s": 300,
-         "readings": [{"name": "v", "call": "read_voltage"},
-                      {"name": "i", "call": "read_current"}]}]}
+         "readings": [{"name": "v", "call": "read_voltage", "channel": 1},
+                      {"name": "i", "call": "read_current", "channel": 1}]}]}
+
+A reading is any of the readings an instrument has inside (``read_voltage``, ``read_current``,
+``read_power``, ``measure_dc_voltage``...: ``ola.readings.readable_calls`` lists them for a model).
+For an instrument with channels a reading can give ``"channel": N``: a supply with several outputs
+gets it as ``channel_number``; a multichannel load has the channel selected first
+(``select_channel``). An instrument without channels refuses a reading that names one.
 
 A datalogger can be read **all its channels together**: such a source has ``"scan": true`` and
 its ``channels`` (the settings of the ``.inst`` file: ``channel_id``, ``meas_type``, optional
@@ -133,6 +139,10 @@ class TimeLog(Measurement):
                 if r["name"] == "t_s" or r["name"] in reading_names:
                     problems.append(f"source {name!r}: reading name {r['name']!r} is not usable")
                 reading_names.add(r["name"])
+                if "channel" in r and not _count(r["channel"]):
+                    problems.append(
+                        f"source {name!r}, reading {r['name']!r}: channel must be an integer >= 1"
+                    )
                 if "args" in r and not isinstance(r["args"], dict):
                     problems.append(
                         f"source {name!r}, reading {r['name']!r}: 'args' must be an object"
@@ -211,7 +221,7 @@ class TimeLog(Measurement):
                     }
                 else:
                     group["readings"] = [
-                        (r["name"], s["instrument"], r["call"], r.get("args", {}))
+                        (r["name"], s["instrument"], r["call"], r.get("args", {}), r.get("channel"))
                         for r in s["readings"]
                     ]
                 plan.append(group)
@@ -223,7 +233,7 @@ class TimeLog(Measurement):
                 "samples": p.get("samples"),
                 "scan": None,
                 "readings": [
-                    (ch["name"], ch["instrument"], ch["call"], ch.get("args", {}))
+                    (ch["name"], ch["instrument"], ch["call"], ch.get("args", {}), None)
                     for ch in p["channels"]
                 ],
             }
@@ -246,7 +256,7 @@ class TimeLog(Measurement):
                 group["handles"] = []
                 continue
             readers = []
-            for name, instrument, call, args in group["readings"]:
+            for name, instrument, call, args, channel in group["readings"]:
                 if instrument not in by_name:
                     where = (
                         f"source {group['table']!r}" if "sources" in self.params
@@ -256,7 +266,9 @@ class TimeLog(Measurement):
                         f"{where}: instrument {instrument!r} is not bound "
                         f"(bound: {sorted(by_name)})"
                     )
-                readers.append((name, by_name[instrument], call, args))
+                handle = by_name[instrument]
+                args, select = self._channel(name, handle, call, dict(args), channel)
+                readers.append((name, handle, call, args, select))
             group["handles"] = readers
 
     def _total(self, duration: Optional[float]) -> Optional[int]:
@@ -276,6 +288,23 @@ class TimeLog(Measurement):
         if group["samples"] is not None and state["n"] >= group["samples"]:
             return True
         return duration is not None and state["k"] * group["interval"] > duration
+
+    @staticmethod
+    def _channel(name: str, handle: Any, call: str, args: Dict[str, Any], channel: Optional[int]):
+        """How a reading reaches its channel: as the ``channel_number`` argument if the call takes
+        it (a supply with several outputs), otherwise by selecting the channel first
+        (``select_channel``, a multichannel load); ``(args, channel to select or None)``."""
+        if channel is None:
+            return args, None
+        known = getattr(handle, "call_arguments", None)
+        if known is None or "channel_number" in known(call):  # a handle that cannot tell: pass it
+            return {**args, "channel_number": channel}, None
+        supports = getattr(handle, "supports", None)
+        if callable(supports) and supports("select_channel"):
+            return args, channel
+        raise MeasurementError(
+            f"reading {name!r}: {handle.name} has no channels (remove the channel of the reading)"
+        )
 
     @staticmethod
     def _scan(group: Dict[str, Any]) -> Dict[str, Any]:
@@ -312,7 +341,9 @@ class TimeLog(Measurement):
             t_sample = time.monotonic() - t0  # when the acquisition of this sample starts
             if group["scan"] is not None:
                 values.update(self._scan(group))
-            for name, handle, call, args in group["handles"]:
+            for name, handle, call, args, select in group["handles"]:
+                if select is not None:  # a multichannel load: the channel is selected first
+                    handle.call("select_channel", channel_number=select)
                 values[name] = handle.call(call, **args)
             values["t_s"] = t_sample
             ctx.emit_point(values, table=group["table"])
