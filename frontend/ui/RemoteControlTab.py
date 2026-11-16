@@ -75,11 +75,10 @@ class RemoteControlTab(QWidget):
         self.main_layout = QVBoxLayout()
         # Layout orizzontale per titolo e pulsante reload
         top_layout = QHBoxLayout()
-        self.label = QLabel('Remote control of instruments')
+        self.label = QLabel()  # texts: see _retranslate
         top_layout.addWidget(self.label)
         # Pulsante oscilloscopio con icona
         self.osc_btn = QPushButton()
-        self.osc_btn.setToolTip('Configura Oscilloscopio (.was)')
         osc_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/oscilloscope.png')
         print(f"[RemoteControlTab] Cercando icona oscilloscopio: {osc_icon_path}")
         if os.path.exists(osc_icon_path):
@@ -97,7 +96,6 @@ class RemoteControlTab(QWidget):
         top_layout.addWidget(self.osc_btn)
         # Pulsante reload con icona
         self.reload_btn = QPushButton()
-        self.reload_btn.setToolTip('Ricarica strumenti (.inst)')
         refresh_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/refresh.png')
         print(f"[RemoteControlTab] Cercando icona refresh: {refresh_icon_path}")
         if os.path.exists(refresh_icon_path):
@@ -115,7 +113,7 @@ class RemoteControlTab(QWidget):
         top_layout.addWidget(self.reload_btn)
         top_layout.addStretch()
         self.main_layout.addLayout(top_layout)
-        self.meas_group = QGroupBox('Measurements (Datalogger/Multimeter)')
+        self.meas_group = QGroupBox()
         self.meas_layout = QVBoxLayout()
         self.meas_group.setLayout(self.meas_layout)
         self.main_layout.addWidget(self.meas_group)
@@ -141,6 +139,7 @@ class RemoteControlTab(QWidget):
         self.connection_retry_counts = {}  # Tracks per-timer retry attempt count
         # Translator is provided later via update_translation() by the shared application state
         self.translator = None
+        self._retranslate()
 
     def _reload_instruments_from_mainwindow(self):
         """Richiama la funzione di reload strumenti dal MainWindow se disponibile."""
@@ -772,14 +771,30 @@ class RemoteControlTab(QWidget):
 
         dialog.exec()
 
+    def _retranslate(self):
+        """Set every fixed text of the tab (title, tooltips, measurements box and its controls)
+        in the language of the application; without a translator, in English."""
+        self.label.setText(self._t('remote_control'))
+        self.osc_btn.setToolTip(self._t('rc_osc_tip'))
+        self.reload_btn.setToolTip(self._t('rc_reload_tip'))
+        self.meas_group.setTitle(self._t('measurements'))
+        # the controls of the measurements box exist only when the file has meters
+        for name, key in (('refresh_btn', 'rc_refresh'), ('auto_refresh_cb', 'rc_auto_refresh'),
+                          ('interval_label', 'rc_interval')):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                try:
+                    widget.setText(self._t(key))
+                except RuntimeError:  # the widget was deleted with the old measurements box
+                    setattr(self, name, None)
+
     def update_translation(self, translator):
         """
         Update UI elements with translated text.
         :param translator: Translator instance for language translation.
         """
         self.translator = translator
-        self.label.setText(translator.t('remote_control'))
-        self.meas_group.setTitle(translator.t('measurements') if hasattr(translator, 't') else 'Measurements (Datalogger/Multimeter only)')
+        self._retranslate()
         # Optionally update channel group titles
         for group in self.current_channel_widgets:
             inst = group.property('instrument')
@@ -947,18 +962,20 @@ class RemoteControlTab(QWidget):
                 # Add control buttons in horizontal layout
                 control_layout = QHBoxLayout()
 
-                refresh_btn = QPushButton('Aggiorna Misure')
+                refresh_btn = QPushButton()
+                self.refresh_btn = refresh_btn
                 refresh_btn.clicked.connect(self.refresh_measurements_manual)
                 control_layout.addWidget(refresh_btn)
 
                 # Toggle per aggiornamento automatico
-                self.auto_refresh_cb = QCheckBox('Aggiornamento Automatico')
+                self.auto_refresh_cb = QCheckBox()
                 self.auto_refresh_cb.setChecked(True)
                 self.auto_refresh_cb.toggled.connect(self.toggle_auto_refresh)
                 control_layout.addWidget(self.auto_refresh_cb)
 
                 # Slider per intervallo di aggiornamento
-                interval_label = QLabel('Intervallo (s):')
+                interval_label = QLabel()
+                self.interval_label = interval_label
                 control_layout.addWidget(interval_label)
 
                 self.interval_slider = QSlider(Qt.Orientation.Horizontal)
@@ -975,6 +992,7 @@ class RemoteControlTab(QWidget):
                 control_widget = QWidget()
                 control_widget.setLayout(control_layout)
                 self.meas_layout.addWidget(control_widget)
+                self._retranslate()  # the three new controls get their texts
 
                 # Setup timer per aggiornamento automatico
                 self.measurement_timer = QTimer()
@@ -1252,7 +1270,7 @@ class RemoteControlTab(QWidget):
                 conn_btn.clicked.connect(handle_connect_clicked)
 
                 if inst_info.get('panel') is not None:  # a generator: its own panel
-                    inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_group = QGroupBox(self._instrument_title(inst))
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
                     if inst_info.get('panel_kind') == 'rf':
@@ -1281,7 +1299,7 @@ class RemoteControlTab(QWidget):
                 if channel_count > 3:
                     # Crea sotto-colonne per questo strumento
                     print(f"  → Strumento con {channel_count} canali: creazione sotto-colonne")
-                    inst_main_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_main_group = QGroupBox(self._instrument_title(inst))
                     inst_main_layout = QVBoxLayout()
                     inst_main_layout.addWidget(conn_btn)
 
@@ -1324,7 +1342,7 @@ class RemoteControlTab(QWidget):
 
                 else:
                     # Strumento normale: crea groupbox standard
-                    inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
+                    inst_group = QGroupBox(self._instrument_title(inst))
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
 
@@ -1386,6 +1404,16 @@ class RemoteControlTab(QWidget):
             return RfControls()
         return rf_controls(library, model_id)
 
+    @staticmethod
+    def _instrument_title(inst):
+        """Name of an instrument with its model in brackets; just the name when there is no model
+        (a manual instrument has none), never empty brackets."""
+        name = str(inst.get('instance_name', '') or '').strip()
+        model = str(inst.get('model', '') or '').strip()
+        if name and model:
+            return f"{name} ({model})"
+        return name or model
+
     def _format_channel_title(self, inst, ch):
         """Build the channel group box title, including the manual-instrument badge when applicable."""
         title = f"{inst.get('instance_name', '')} - {ch.get('name', '')}"
@@ -1395,10 +1423,10 @@ class RemoteControlTab(QWidget):
 
     def _t(self, key, **kwargs):
         """Helper to get a translated string, with optional format substitution."""
-        if self.translator and hasattr(self.translator, 't'):
-            text = self.translator.t(key)
-        else:
-            text = key
+        if not self.translator or not hasattr(self.translator, 't'):
+            from frontend.core.Translator import Translator
+            self.translator = Translator()  # English until the application gives its own
+        text = self.translator.t(key)
         if kwargs:
             try:
                 text = text.format(**kwargs)
@@ -1439,7 +1467,7 @@ class RemoteControlTab(QWidget):
             controls = vna_controls(library, model_id) if model_id else VnaControls()
             name = inst.get('instance_name', '')
             panel = VnaPanel(
-                f"{name} ({inst.get('model', '')})",
+                self._instrument_title(inst),
                 controls,
                 lambda n=name: self._vna_connector.connect(n),
                 self._t,

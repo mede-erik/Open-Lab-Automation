@@ -178,7 +178,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `TESTING.md` — How to test an instrument of the library and report the result
 - `frontend/ui/` — Dialog boxes and UI components (one file per window)
   - `RemoteControlTab.py` — Remote control panel
-  - `InstFileDialog.py`, `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
+  - `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
   - `EffFileDialog.py` — Efficiency sweep editor
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)

@@ -135,9 +135,6 @@ DIALOGS = {
     ),
     "GpibAdapterDialog": lambda m, li, tr, p: m.GpibAdapterDialog(translator=tr),
     "HexDecConverterDialog": lambda m, li, tr, p: m.HexDecConverterDialog(translator=tr),
-    "InstFileDialog": lambda m, li, tr, p: m.InstFileDialog(
-        str(p / "test_instruments.inst"), li, tr
-    ),
     "InstrumentConfigDialog": lambda m, li, tr, p: m.InstrumentConfigDialog(
         str(p / "test_instruments.inst"), li
     ),
