@@ -32,6 +32,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDoubleValidator
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
+from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
 from frontend.core.errorhandler import ErrorCode, DataloggerError, get_error_handler
 
 
@@ -57,7 +58,7 @@ class DataloggerSlotConfigDialog(QDialog):
         self.error_handler = get_error_handler()
         
         self.setWindowTitle(self.translator.t('datalogger_slot_config'))
-        self.resize(1000, 700)
+        resize_to_screen(self, 1000, 700)
         
         # Get datalogger capabilities
         type_name = instrument.get('instrument_type', 'datalogger')
@@ -130,7 +131,7 @@ class DataloggerSlotConfigDialog(QDialog):
         # Header with info
         header_label = QLabel(self.translator.t('datalogger_slot_config_info'))
         header_label.setWordWrap(True)
-        header_label.setStyleSheet("QLabel { padding: 10px; background-color: #e3f2fd; border-radius: 5px; }")
+        header_label.setProperty("class", "infobox")
         main_layout.addWidget(header_label)
         
         # Scroll area for slots
@@ -216,7 +217,7 @@ class DataloggerSlotConfigDialog(QDialog):
         info_label = QLabel()
         info_label.setProperty('slot_idx', slot_idx)
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("QLabel { padding: 5px; font-size: 10px; color: #666; }")
+        info_label.setProperty("class", "muted")
         layout.addWidget(info_label)
         self._update_module_info(slot_idx, info_label, current_module_id)
         
@@ -398,13 +399,8 @@ class DataloggerSlotConfigDialog(QDialog):
                 )
                 table.setCellWidget(row, 4, unit_edit)
             
-            # Resize columns
-            header = table.horizontalHeader()
-            header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-            header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-            header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            # Columns and height: the name and the attenuation take the room, no inner scroll bar
+            fit_table_to_rows(table, fixed_columns=(0, 4), min_column_width=90)
         
         except DataloggerError as e:
             self.error_handler.handle_error(e, f"Error configuring channels for module {module_id}")

@@ -475,6 +475,9 @@ class MainWindow(QMainWindow):
             if os.path.exists(theme_path):
                 with open(theme_path, 'r', encoding='utf-8') as f:
                     stylesheet = f.read()
+                    # The icons of the theme (arrows) are found by their real path
+                    icons_dir = os.path.join(os.path.dirname(styles_dir), 'icons').replace('\\', '/')
+                    stylesheet = stylesheet.replace('@ICONS@', icons_dir)
                     self.setStyleSheet(stylesheet)
                     logger.info(f"Theme '{theme_filename}' applied ({len(stylesheet)} chars)")
             else:

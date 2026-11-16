@@ -125,13 +125,13 @@ QComboBox {
 
 QComboBox::drop-down {
     border: none;
+    width: 22px;
 }
 
 QComboBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 4px solid #2c3e50;
+    image: url("@ICONS@/arrow_down_light.svg");
+    width: 12px;
+    height: 12px;
 }
 
 QComboBox QAbstractItemView {
@@ -266,6 +266,25 @@ QSpinBox:focus, QDoubleSpinBox:focus {
     border: 2px solid #3498db;
 }
 
+QSpinBox::up-button, QDoubleSpinBox::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    width: 18px;
+    border: none;
+    background: transparent;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url("@ICONS@/arrow_up_light.svg");
+    width: 10px;
+    height: 10px;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url("@ICONS@/arrow_down_light.svg");
+    width: 10px;
+    height: 10px;
+}
+
 /* Check box styling */
 QCheckBox {
     color: #2c3e50;
@@ -282,6 +301,7 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: #3498db;
     border: 1px solid #3498db;
+    image: url("@ICONS@/check_light.svg");
 }
 
 /* Radio button styling */
@@ -341,18 +361,14 @@ QTableWidget {
 
 QTableWidget QLineEdit {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
 
 QTableWidget QComboBox {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
@@ -360,7 +376,45 @@ QTableWidget QComboBox {
 QTableWidget QCheckBox {
     padding: 2px;
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
+}
+
+/* ===== INFO TEXT (instead of colours written in the code) ===== */
+QLabel[class="infobox"] {
+    background-color: #e3f2fd;
+    color: #2c3e50;
+    padding: 8px 10px;
+    border-radius: 5px;
+}
+
+QLabel[class="accent"] {
+    color: #0b6bb5;
+    padding: 4px 2px;
+}
+
+QLabel[class="muted"] {
+    color: #5f6b76;
+    padding: 4px 2px;
+}
+
+QLabel[class="error"] {
+    color: #b00020;
+}
+
+QLabel[class="ok"] {
+    color: #2e7d32;
+}
+
+QLabel[class="warning"] {
+    color: #b26a00;
+}
+
+QPushButton[class="action"] {
+    padding: 10px 12px;
+    font-weight: bold;
+}
+
+/* a table whose cells hold widgets: they fill the cell (the padding of the items would shrink them) */
+QTableWidget[class="widgetcells"]::item {
+    padding: 0px;
 }
