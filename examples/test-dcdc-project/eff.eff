@@ -1,24 +1,162 @@
 {
   "type": "efficiency",
-  "sweeps": [
-    {
-      "variable": "Vaux",
-      "config": {
-        "mode": "range",
-        "start": 5.0,
-        "stop": 10.0,
-        "points": 5
+  "module_version": "1.0.0",
+  "api_version": 1,
+  "role_bindings": {
+    "instruments": [
+      "AUX",
+      "DAQ",
+      "HC",
+      "LOAD"
+    ]
+  },
+  "params": {
+    "variables": [
+      {
+        "name": "iout",
+        "set": {
+          "instrument": "LOAD",
+          "call": "set_current_level"
+        },
+        "sweep": {
+          "start": 0.2,
+          "stop": 1.0,
+          "points": 5
+        },
+        "limits": {
+          "min": 0,
+          "max": 5
+        },
+        "output": {
+          "on": {
+            "instrument": "LOAD",
+            "call": "load_on"
+          },
+          "off": {
+            "instrument": "LOAD",
+            "call": "load_off"
+          },
+          "mode": "keep_on"
+        }
+      },
+      {
+        "name": "vin",
+        "set": {
+          "instrument": "HC",
+          "call": "set_voltage",
+          "args": {
+            "channel_number": 2
+          }
+        },
+        "sweep": {
+          "values": [
+            12,
+            15,
+            18
+          ]
+        },
+        "reads": {
+          "psu": {
+            "instrument": "HC",
+            "call": "read_voltage",
+            "args": {
+              "channel_number": 2
+            }
+          },
+          "daq": {
+            "instrument": "DAQ",
+            "call": "measure_dc_voltage",
+            "args": {
+              "range": "AUTO",
+              "resolution": "AUTO",
+              "channels": "102"
+            },
+            "scale": 10
+          }
+        },
+        "verify": {
+          "read": "daq",
+          "tol_rel": 0.02,
+          "tol_abs": 0.1,
+          "on_fail": "warn"
+        },
+        "limits": {
+          "min": 10,
+          "max": 20
+        },
+        "output": {
+          "on": {
+            "instrument": "HC",
+            "call": "output_on"
+          },
+          "off": {
+            "instrument": "HC",
+            "call": "output_off"
+          },
+          "state": {
+            "instrument": "HC",
+            "call": "output_state_query"
+          },
+          "mode": "keep_on"
+        }
+      },
+      {
+        "name": "vaux",
+        "set": {
+          "instrument": "AUX",
+          "call": "set_voltage"
+        },
+        "value": 12,
+        "output": {
+          "on": {
+            "instrument": "AUX",
+            "call": "output_on"
+          },
+          "mode": "always_on"
+        }
+      },
+      {
+        "name": "iin",
+        "reads": {
+          "psu": {
+            "instrument": "HC",
+            "call": "read_current",
+            "args": {
+              "channel_number": 2
+            }
+          }
+        }
+      },
+      {
+        "name": "vout",
+        "reads": {
+          "daq": {
+            "instrument": "DAQ",
+            "call": "measure_dc_voltage",
+            "args": {
+              "range": "AUTO",
+              "resolution": "AUTO",
+              "channels": "101"
+            }
+          }
+        }
       }
-    }
-  ],
-  "measured_variables": [
-    "VOUT",
-    "VIN_monitor",
-    "Vd_Q1",
-    "Vs_Q1"
-  ],
-  "timing": {
-    "delay_between_points": 0.5,
-    "delay_between_loops": 1.0
+    ],
+    "timing": {
+      "settle_s": 2,
+      "samples": 3,
+      "interval_s": 1
+    },
+    "power_order": [
+      "vin",
+      "iout"
+    ],
+    "derived": {
+      "pin": "vin@psu * iin@psu",
+      "pout": "vout@daq * iout",
+      "efficiency": "100 * pout / pin"
+    },
+    "startup": [],
+    "shutdown": []
   }
 }

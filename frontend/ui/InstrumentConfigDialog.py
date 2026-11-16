@@ -6,9 +6,9 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox, QScrollArea
+    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox, QScrollArea, QSplitter, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QLocale
+from PyQt6.QtCore import Qt, pyqtSignal, QLocale, QSize, QTimer
 from PyQt6.QtGui import QAction, QDoubleValidator
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
 from frontend.core.Translator import Translator
@@ -18,6 +18,8 @@ from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
 from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
 from frontend.ui.DataloggerSlotConfigDialog import DataloggerSlotConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
+from frontend.ui.layout_utils import clamp_to_screen, fit_table_to_rows, resize_to_screen
+from frontend.ui.theme_utils import set_class
 from frontend.ui.InstrumentPanels import NetworkAnalyzerPanel, SerialPanel, SwitchUnitPanel
 from ola import inst_file as inst
 from ola import project_rename
@@ -35,14 +37,19 @@ class InstrumentConfigDialog(QDialog):
     # Emesso ogni volta che la configurazione strumenti viene salvata
     instruments_changed = pyqtSignal(str)  # arg: percorso del file .inst
 
+    DEFAULT_WIDTH = 900
+    DEFAULT_HEIGHT = 560
+    LIST_WIDTH = 220  # the instrument list; the editor has all the rest
+
     def __init__(self, inst_file_path, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
-        self.translator = Translator()
+        # the language of the application (a Translator of its own would always be English)
+        self.translator = getattr(parent, 'translator', None) or Translator()
         self.setWindowTitle(self.translator.t('inst_dialog_title'))
         self.inst_file_path = inst_file_path
         self.load_instruments = load_instruments
         self.extra_keys = {}  # other top-level keys of the file: kept when it is saved
-        self.resize(900, 500)
+        resize_to_screen(self, self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.instruments = []
         self.current_instrument = None
         self.suppress_save = False
@@ -93,12 +100,10 @@ class InstrumentConfigDialog(QDialog):
 
     def init_ui(self):
         t = self.translator.t
-        layout = QHBoxLayout(self)
+        root = QVBoxLayout(self)
 
-        # Left panel with list and buttons
-        left_panel = QVBoxLayout()
-
-        # Button panel
+        # The buttons run along the whole window (they used to sit above the list and made it as
+        # wide as they are, leaving the editor with what remained)
         button_panel = QHBoxLayout()
         add_btn = QPushButton(t('inst_add'))
         add_btn.clicked.connect(self.add_instrument_dialog)
@@ -113,16 +118,18 @@ class InstrumentConfigDialog(QDialog):
         button_panel.addWidget(manual_btn)
         button_panel.addWidget(save_btn)
         button_panel.addWidget(discover_btn)
-        left_panel.addLayout(button_panel)
+        button_panel.addStretch(1)
+        root.addLayout(button_panel)
 
         if self.load_error:
             error_label = QLabel(t('inst_file_error').format(error=self.load_error))
             error_label.setWordWrap(True)
-            error_label.setStyleSheet("color: #b00020;")
-            left_panel.addWidget(error_label)
+            set_class(error_label, 'error')
+            root.addWidget(error_label)
 
         # Instrument list
         self.list_widget = QListWidget()
+        self.list_widget.setMinimumWidth(150)
         for entry in self.instruments:
             self.list_widget.addItem(self._list_text(entry))
         self.list_widget.currentRowChanged.connect(self.on_instrument_selected)
@@ -131,23 +138,42 @@ class InstrumentConfigDialog(QDialog):
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
 
-        left_panel.addWidget(self.list_widget, 1)
-
-        layout.addLayout(left_panel, 2)
-
         # Editor panel (scrolls: a network analyzer or a serial instrument has many fields)
         self.editor_widget = QWidget()
         self.editor_layout = QVBoxLayout(self.editor_widget)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.editor_widget)
-        layout.addWidget(scroll, 5)
+        self.editor_scroll = QScrollArea()
+        self.editor_scroll.setWidgetResizable(True)
+        self.editor_scroll.setWidget(self.editor_widget)
+
+        # The list is narrow, the editor takes the rest; the border between them can be moved
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.addWidget(self.list_widget)
+        self.splitter.addWidget(self.editor_scroll)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([self.LIST_WIDTH, self.DEFAULT_WIDTH - self.LIST_WIDTH])
+        root.addWidget(self.splitter, 1)
 
         self.refresh_list_marks()
         if self.instruments:
             self.list_widget.setCurrentRow(0)
         else:
             self.show_empty_editor()
+
+    def fit_to_editor(self):
+        """Make the window large enough for the editor of the selected instrument (a channel
+        table needs more room than a name and an address), within the screen. It never shrinks the
+        window: what the user has enlarged stays."""
+        viewport = self.editor_scroll.viewport()
+        need = self.editor_widget.sizeHint()
+        extra_w = self.width() - viewport.width()
+        extra_h = self.height() - viewport.height()
+        wanted = QSize(max(self.width(), need.width() + extra_w),
+                       max(self.height(), need.height() + extra_h))
+        size = clamp_to_screen(self, wanted)
+        if size != self.size():
+            self.resize(size)
 
     # ---- the problems of the entries --------------------------------------------------------
     def _name_of(self, entry):
@@ -212,10 +238,10 @@ class InstrumentConfigDialog(QDialog):
         t = self.translator.t
         if problems:
             lines = ["\u26a0 " + self.problem_text(c, v) for c, v in problems]
-            label.setStyleSheet("color: #b00020;")
+            set_class(label, 'error')
             label.setText(t('inst_problems_title') + ":\n" + "\n".join(lines))
         else:
-            label.setStyleSheet("color: #2e7d32;")
+            set_class(label, 'ok')
             label.setText("\u2713 " + t('inst_problems_ok'))
 
     def changed(self):
@@ -346,7 +372,7 @@ class InstrumentConfigDialog(QDialog):
         self.name_edit.editingFinished.connect(self.commit_name)
         form.addRow(t('inst_field_name'), self.name_edit)
         self.name_error = QLabel()
-        self.name_error.setStyleSheet("color: #b00020;")
+        set_class(self.name_error, 'error')
         self.name_error.setVisible(False)
         form.addRow(self.name_error)
         # Address editor (a manual instrument has no address)
@@ -419,6 +445,8 @@ class InstrumentConfigDialog(QDialog):
                 entry, self.entry_caps(entry), self.translator, self.changed))
         self.editor_layout.addStretch(1)
         self.refresh_problems()
+        # when the layout of the editor is done, make room for it
+        QTimer.singleShot(0, self.fit_to_editor)
 
     def serial_defaults(self, entry):
         """The RS-232 settings the library gives for the model of an entry."""
@@ -444,12 +472,12 @@ class InstrumentConfigDialog(QDialog):
         # Info label
         info_label = QLabel("🔧 " + self.translator.t('inst_osc_info'))
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #f0f0f0; border-radius: 5px; }")
+        info_label.setProperty("class", "infobox")
         self.editor_layout.addWidget(info_label)
 
         # Pulsante per aprire OscilloscopeConfigDialog
         config_btn = QPushButton("⚙️ " + self.translator.t('inst_osc_button'))
-        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.setProperty("class", "action")
         config_btn.clicked.connect(lambda: self.open_oscilloscope_config_dialog(entry))
         self.editor_layout.addWidget(config_btn)
 
@@ -459,7 +487,8 @@ class InstrumentConfigDialog(QDialog):
             enabled_count = sum(1 for ch in channels if ch.get('enabled', False))
             summary_label = QLabel("📊 " + self.translator.t('inst_osc_summary').format(
                 total=len(channels), enabled=enabled_count))
-            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            summary_label.setProperty("class", "accent")
+            summary_label.setWordWrap(True)
             self.editor_layout.addWidget(summary_label)
 
             # Lista canali abilitati
@@ -469,7 +498,7 @@ class InstrumentConfigDialog(QDialog):
                     for ch in channels if ch.get('enabled', False)
                 ]))
                 enabled_list.setWordWrap(True)
-                enabled_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                enabled_list.setProperty("class", "muted")
                 self.editor_layout.addWidget(enabled_list)
 
     def open_oscilloscope_config_dialog(self, entry):
@@ -486,12 +515,12 @@ class InstrumentConfigDialog(QDialog):
         # Info label
         info_label = QLabel("🔧 " + self.translator.t('datalogger_slot_config_desc'))
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #e3f2fd; border-radius: 5px; }")
+        info_label.setProperty("class", "infobox")
         self.editor_layout.addWidget(info_label)
 
         # Button to open DataloggerSlotConfigDialog
         config_btn = QPushButton("⚙️ " + self.translator.t('configure_datalogger_slots'))
-        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.setProperty("class", "action")
         config_btn.clicked.connect(lambda: self.open_datalogger_slot_config_dialog(entry))
         self.editor_layout.addWidget(config_btn)
 
@@ -515,7 +544,8 @@ class InstrumentConfigDialog(QDialog):
                 f"{self.translator.t('total_channels')}: {total_channels} | "
                 f"{self.translator.t('enabled_channels')}: {enabled_channels}"
             )
-            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            summary_label.setProperty("class", "accent")
+            summary_label.setWordWrap(True)
             self.editor_layout.addWidget(summary_label)
 
             # List configured modules
@@ -530,7 +560,7 @@ class InstrumentConfigDialog(QDialog):
 
                 modules_list = QLabel(self.translator.t('configured_modules') + ": " + ", ".join(module_list_parts))
                 modules_list.setWordWrap(True)
-                modules_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                modules_list.setProperty("class", "muted")
                 self.editor_layout.addWidget(modules_list)
 
     def open_datalogger_slot_config_dialog(self, entry):
@@ -563,7 +593,7 @@ class InstrumentConfigDialog(QDialog):
         if n <= 0:
             # Mostra messaggio informativo invece di non mostrare nulla
             info_label = QLabel("ℹ️ " + self.translator.t('inst_no_channels'))
-            info_label.setStyleSheet("QLabel { color: #888; padding: 10px; }")
+            info_label.setProperty("class", "muted")
             self.editor_layout.addWidget(info_label)
             return
 
@@ -740,7 +770,7 @@ class InstrumentConfigDialog(QDialog):
                 unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
                 table.setCellWidget(row, 4, unit_edit)
 
-        table.resizeColumnsToContents()
+        fit_table_to_rows(table)
         self.editor_layout.addWidget(table)
         self.channel_table = table
 
@@ -833,6 +863,8 @@ class InstrumentConfigDialog(QDialog):
 
         dlg = QDialog(self)
         dlg.setWindowTitle(self.translator.t('inst_scan_title'))
+        dlg.setSizeGripEnabled(True)
+        resize_to_screen(dlg, 980, 520)  # room for the address and the IDN answer on one line
         vbox = QVBoxLayout(dlg)
 
         # The instrument that gets the address: chosen here, so the window does not depend on what
@@ -882,7 +914,19 @@ class InstrumentConfigDialog(QDialog):
             self.translator.t('inst_scan_col_add'), self.translator.t('inst_scan_col_address'), "IDN",
             self.translator.t('inst_scan_col_interface'), self.translator.t('inst_scan_col_model'),
         ])
-        vbox.addWidget(table)
+        # the IDN answer takes the room that is left, the other columns are as wide as their text
+        header = table.horizontalHeader()
+        header.setStretchLastSection(False)
+        for column in (0, COL_ADDR, COL_IFACE):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(COL_IDN, QHeaderView.ResizeMode.Stretch)
+        # the model column can hold a long sentence: fixed width, the full text is in the tooltip
+        header.setSectionResizeMode(COL_MODEL, QHeaderView.ResizeMode.Interactive)
+        table.setColumnWidth(COL_MODEL, 230)
+        table.setWordWrap(False)  # one line per row: with word wrap the IDN showed only its first word
+        table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        table.setMinimumHeight(160)
+        vbox.addWidget(table, 1)
 
         # What the "Set" button will do (or why it cannot): it is never silent
         status = QLabel()
@@ -1002,13 +1046,13 @@ class InstrumentConfigDialog(QDialog):
                     box.setCheckState(Qt.CheckState.Checked if addr in to_add else Qt.CheckState.Unchecked)
                 table.setItem(row, 0, box)
                 table.setItem(row, COL_ADDR, QTableWidgetItem(addr))
-                table.setItem(row, COL_IDN, QTableWidgetItem(idn_text))
-                table.setItem(row, COL_IFACE, QTableWidgetItem(iface_val))
-                table.setItem(row, COL_MODEL, QTableWidgetItem(model_text))
+                for column, text in ((COL_IDN, idn_text), (COL_IFACE, iface_val), (COL_MODEL, model_text)):
+                    cell = QTableWidgetItem(text)
+                    cell.setToolTip(text)
+                    table.setItem(row, column, cell)
                 if addr == keep:
                     table.selectRow(row)
             table.blockSignals(False)
-            table.resizeColumnsToContents()
 
         def on_item_changed(item):
             if item.column() != 0:

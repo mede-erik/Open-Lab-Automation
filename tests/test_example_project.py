@@ -88,6 +88,32 @@ def test_project_variables_are_defined_by_the_instruments(instruments):
     assert set(project["measure_variables"]) <= names
     assert project["inst_file"] == "test_instruments.inst"
     assert set(project["was_files"]) | set(project["eff_files"]) <= set(os.listdir(PROJECT))
+
+
+def test_efficiency_file_is_current_and_uses_the_instruments_of_the_project(library, instruments):
+    """``eff.eff`` is a measurement file of the current format (it was in the old one, which the
+    editor reads as "give a list of parameters"): its parameters validate, it only names
+    instruments of the project, and every call of a library instrument can be planned."""
+    from ola.efficiency_spec import validate_params
+
     eff = load("eff.eff")
-    assert {s["variable"] for s in eff["sweeps"]} <= names
-    assert set(eff["measured_variables"]) <= names
+    assert eff["type"] == "efficiency" and "variables" in eff["params"]
+    by_name = {i["instance_name"]: i for i in instruments}
+    problems = validate_params(eff["params"], sorted(by_name))
+    assert [p for p in problems if p.severity == "error"] == []
+    assert set(eff["role_bindings"]["instruments"]) <= set(by_name)
+
+    calls = []
+    for variable in eff["params"]["variables"]:
+        blocks = [variable.get("set")] + [r for r in variable.get("reads", {}).values()]
+        blocks += [b for b in variable.get("output", {}).values() if isinstance(b, dict)]
+        calls += [b for b in blocks if b]
+    assert calls
+    for call in calls:
+        entry = by_name[call["instrument"]]
+        if entry.get("is_manual"):
+            continue  # the operator carries it out: nothing to plan
+        args = dict(call.get("args", {}))
+        if call["call"].startswith("set_"):
+            args["value"] = 1
+        assert plan_call(library, entry["model_id"], call["call"], args).steps, call

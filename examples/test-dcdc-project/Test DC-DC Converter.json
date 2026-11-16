@@ -25,5 +25,12 @@
     "Vs_Q1"
   ],
   "format_version": 2,
-  "measurements": []
+  "measurements": [
+    {
+      "id": "m1",
+      "type": "efficiency",
+      "name": "Efficiency",
+      "file": "eff.eff"
+    }
+  ]
 }

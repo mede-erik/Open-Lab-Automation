@@ -188,11 +188,12 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     window.save_project_json()
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["control_variables"] == ["VX"]
-    assert [m["file"] for m in saved["measurements"]] == [cable_file]
+    # (the example project already lists its efficiency measurement)
+    assert [m["file"] for m in saved["measurements"]] == ["eff.eff", cable_file]
     # and the tab saving afterwards keeps the menu's data
-    window.project_tab.session.rename("m1", "Lead B")
+    window.project_tab.session.rename("m2", "Lead B")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["control_variables"] == ["VX"] and saved["measurements"][0]["name"] == "Lead B"
+    assert saved["control_variables"] == ["VX"] and saved["measurements"][1]["name"] == "Lead B"
 
     # double click on a measurement file: the editor of the Measurements tab, not the old dialog
     opened = []
@@ -207,13 +208,14 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     # removing it goes through the tab too
 
     def remove():  # what the tab does after its question
-        window.project_tab.session.remove("m1")
+        window.project_tab.session.remove("m2")
         window.project_tab._refresh()
 
     monkeypatch.setattr(window.project_tab, "remove_measurement", remove)
     window.delete_file(item)
     assert cable_file not in listed(window)
-    assert json.loads(path.read_text(encoding="utf-8"))["measurements"] == []
+    remaining = json.loads(path.read_text(encoding="utf-8"))["measurements"]
+    assert [m["file"] for m in remaining] == ["eff.eff"]  # the efficiency of the example is left
 
 
 @pytest.mark.gui
@@ -234,4 +236,4 @@ def test_an_existing_measurement_file_can_be_added_from_disk(window, home, monke
     window.add_existing_file()
     assert os.path.isfile(project / ref.file)
     assert ref.file in listed(window)
-    assert [m.file for m in session.project.measurements] == [ref.file]
+    assert [m.file for m in session.project.measurements] == ["eff.eff", ref.file]

@@ -30,7 +30,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - Cable and device registry with labels, wiring diagrams before each run, CSV results (Touchstone for RF).
 
 - **Project management**
-  - Measurement projects with their configuration files: `.json` (project and variables), `.inst` (instruments), `.eff` (efficiency sweep), `.was` (oscilloscope settings).
+  - Measurement projects with their configuration files: `.json` (project and variables), `.inst` (instruments), `.was` (oscilloscope settings) and one file per measurement (`.eff`, `.cbl`, `.flt`, ...; see [Project Structure](#project-structure)).
   - Dedicated editors for instruments, efficiency sweeps and oscilloscope settings, with advanced naming options for files and instances.
   - Optional PostgreSQL storage of the measurement data; the connection settings are saved with an encrypted password.
   - Measurements are run from the *Measurements* tab (the project window): new measurement, edit, **Start measurement** and the runs already made; see the [Engine](#engine-ola-and-native) section for the measurement types. They have been tried only with simulated instruments so far.
@@ -52,10 +52,123 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - **Engine (`ola/`, `native/`):** Python + Rust — Qt-free instrument transport, step executor and measurement core (see [Engine](#engine-ola-and-native) below)
 - **Instrument Library:** JSON (`Instruments_LIB/instruments_lib.json`) — Extensible database of supported instruments
 - **Configuration Files:**
+  - `<project>.json` — Project metadata (`"format_version": 2`), the list of its measurements and the variable definitions
   - `.inst` — Instrument configuration and channel setup
-  - `.eff` — Efficiency measurement sweeps with nested variable support
   - `.was` — Oscilloscope waveform acquisition and trigger settings
-  - `.json` — Project metadata and variable definitions
+  - One file per measurement, the extension gives its type (each type is a module of `ola/modules/`, see [Engine](#engine-ola-and-native)):
+    - `.amp` — RF amplifier
+    - `.ant` — Antenna impedance
+    - `.att` — Attenuator
+    - `.bod` — Bode plot
+    - `.cbl` — Cable characterization
+    - `.eff` — Efficiency sweep, with nested variable support
+    - `.flt` — Filter
+    - `.reg` — Line and load regulation
+    - `.rfe` — Efficiency with a resistive load
+    - `.rtl` — Return loss / VSWR
+    - `.rpl` — Ripple and noise
+    - `.spm` — S-parameters (VNA)
+    - `.tdr` — Time domain (TDR)
+    - `.tlg` — Time log
+  - `runs/` — Results of each run, in the project folder (JSON Lines)
+
+## Requirements
+
+- Python 3.10+
+- PyQt6
+- Git (the instrument library `Instruments_LIB` is a submodule)
+- Additional Python packages listed in `requirements.txt`
+
+## Getting Started
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone --recurse-submodules https://github.com/mede-erik/Open-Lab-Automation.git
+   cd Open-Lab-Automation
+   ```
+   If you already cloned without `--recurse-submodules`, download the instrument library with:
+   ```bash
+   git submodule update --init
+   ```
+
+2. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Launch the application:
+   ```bash
+   python frontend/launcher.py
+   ```
+
+### Trying an instrument from the terminal
+The instrument shell connects to one instrument of the library and runs its logical calls, showing exactly which commands are sent and what comes back. It is the quickest way to check a library entry against a real instrument (see `Instruments_LIB/TESTING.md`).
+
+```bash
+python scripts/instrument_shell.py          # choose category, model and interface, then connect
+python scripts/instrument_shell.py --sim    # no hardware: a simulated instrument answers
+```
+
+Once connected, `help` lists the commands. The main ones:
+
+| Command | What it does |
+|---|---|
+| `calls` / `missing` | list the calls the model defines / the mandatory calls it lacks |
+| `call NAME a=v ...` | run a call (missing arguments are asked) |
+| `plan NAME a=v ...` | show the commands without sending them |
+| `readback NAME` | read back the value of a set call |
+| `test [writes] [all]` | run every call that needs no argument (`writes` also runs the actions) |
+| `was FILE.was [plan]` | apply the settings of an oscilloscope `.was` file |
+| `fullwave CH`, `save FILE.csv`, `stats` | read the whole memory of a channel, save the last waveform, show its statistics |
+| `serial`, `probe`, `loopback`, `raw TEXT` | RS-232 settings, find the settings an instrument answers to, adapter test, send a raw string |
+
+The arrow keys recall previous commands (kept between sessions) and Tab completes them; on Windows this needs `pyreadline3` (in `requirements.txt`).
+
+To see the commands a call would send to a model, without any instrument:
+
+```bash
+python scripts/dry_run_call.py --model OSC_Siglent_SDS824X_HD --call set_channel_scale --arg channel_number=1 --arg value=0.5
+python scripts/dry_run_call.py --model OSC_Rigol_DS1054Z --was project.was
+```
+
+### Running the tests
+```bash
+pytest                                  # all tests (tests/ and the test_*.py files at the root)
+python scripts/check_translations.py    # language files
+```
+
+### Supported instruments
+The library currently describes:
+
+| Category | Series |
+|---|---|
+| Power supplies | OWON ODP, Keysight E36300, TDK-Lambda GEN, Rohde & Schwarz HMP, HP E3631A |
+| Electronic loads | Chroma 6330A, Keysight EL4900, Siglent SDL1000X-E |
+| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, Digilent Analog Discovery 2 (driver) |
+| Dataloggers | Agilent 34970A, Keysight 34972A, Keysight DAQ970A/DAQ973A |
+| Switch units | Agilent 3499A |
+| Function generators | Rigol DG1022 / DG1022A, Agilent 33120A, Digilent Analog Discovery 2 (driver) |
+| Multimeters | HP 3478A, Agilent 34401A (experimental, never tried on a real instrument) |
+| Network analyzers | Zenko LiteVNA (driver), Siglent SNA, Rohde & Schwarz ZNB/ZNL/ZNLE, ZVA/ZVB/ZVT/ZVL (all experimental, never tried on a real instrument) |
+
+Tried on a real instrument so far: **Agilent 34970A** over RS-232 and **Siglent SDS824X HD** over LAN (readings, settings, 8/16-bit waveforms and whole-memory transfers, `.was` files). All the other models are written from the manuals; many are marked experimental in the library. The Analog Discovery 2 needs the Digilent WaveForms runtime. Reports of tests on other instruments are welcome: `Instruments_LIB/TESTING.md` explains how to test and what to report.
+
+
+### Quick Start
+1. Create a new project or open an existing one
+2. Add instruments using the three-level selection (Type → Series → Model), or add a manual instrument for a bench supply or load without remote control
+3. Configure instruments:
+   - For dataloggers with slots: use the "Configure Datalogger Slots" button to select modules
+   - For other instruments: configure channels, variables, and measurement settings
+4. Set up efficiency sweeps with nested variables in the `.eff` file editor
+5. Configure oscilloscope acquisition and trigger in the `.was` file editor
+6. Start the measurements from the *Measurements* tab and follow them in the run window; the remote control panel drives single instruments by hand
+
+### Example Projects
+Check the `examples/` directory for sample configurations:
+- `test-dcdc-project/` — DC-DC converter efficiency measurement setup
+- `Test_scpi/` — Basic SCPI communication examples
 
 ## Engine (`ola/` and `native/`)
 
@@ -155,13 +268,6 @@ python benchmarks/bench_hardware.py --model ID --address VISA   # one real instr
 
 Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see `ERROR_CODES.md`. The design and the project status are in `PLAN.md`.
 
-## Requirements
-
-- Python 3.10+
-- PyQt6
-- Git (the instrument library `Instruments_LIB` is a submodule)
-- Additional Python packages listed in `requirements.txt`
-
 ## File List and Description
 
 ### Core Application
@@ -178,7 +284,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `TESTING.md` — How to test an instrument of the library and report the result
 - `frontend/ui/` — Dialog boxes and UI components (one file per window)
   - `RemoteControlTab.py` — Remote control panel
-  - `InstFileDialog.py`, `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
+  - `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
   - `EffFileDialog.py` — Efficiency sweep editor
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
@@ -215,97 +321,6 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `Instruments_LIB/docs/` — Instrument manuals and documentation
 - `examples/` — Example projects and configuration files
 
-
-## Getting Started
-
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone --recurse-submodules https://github.com/mede-erik/Open-Lab-Automation.git
-   cd Open-Lab-Automation
-   ```
-   If you already cloned without `--recurse-submodules`, download the instrument library with:
-   ```bash
-   git submodule update --init
-   ```
-
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Launch the application:
-   ```bash
-   python frontend/launcher.py
-   ```
-
-### Trying an instrument from the terminal
-The instrument shell connects to one instrument of the library and runs its logical calls, showing exactly which commands are sent and what comes back. It is the quickest way to check a library entry against a real instrument (see `Instruments_LIB/TESTING.md`).
-
-```bash
-python scripts/instrument_shell.py          # choose category, model and interface, then connect
-python scripts/instrument_shell.py --sim    # no hardware: a simulated instrument answers
-```
-
-Once connected, `help` lists the commands. The main ones:
-
-| Command | What it does |
-|---|---|
-| `calls` / `missing` | list the calls the model defines / the mandatory calls it lacks |
-| `call NAME a=v ...` | run a call (missing arguments are asked) |
-| `plan NAME a=v ...` | show the commands without sending them |
-| `readback NAME` | read back the value of a set call |
-| `test [writes] [all]` | run every call that needs no argument (`writes` also runs the actions) |
-| `was FILE.was [plan]` | apply the settings of an oscilloscope `.was` file |
-| `fullwave CH`, `save FILE.csv`, `stats` | read the whole memory of a channel, save the last waveform, show its statistics |
-| `serial`, `probe`, `loopback`, `raw TEXT` | RS-232 settings, find the settings an instrument answers to, adapter test, send a raw string |
-
-The arrow keys recall previous commands (kept between sessions) and Tab completes them; on Windows this needs `pyreadline3` (in `requirements.txt`).
-
-To see the commands a call would send to a model, without any instrument:
-
-```bash
-python scripts/dry_run_call.py --model OSC_Siglent_SDS824X_HD --call set_channel_scale --arg channel_number=1 --arg value=0.5
-python scripts/dry_run_call.py --model OSC_Rigol_DS1054Z --was project.was
-```
-
-### Running the tests
-```bash
-pytest                                  # all tests (tests/ and the test_*.py files at the root)
-python scripts/check_translations.py    # language files
-```
-
-### Supported instruments
-The library currently describes:
-
-| Category | Series |
-|---|---|
-| Power supplies | OWON ODP, Keysight E36300, TDK-Lambda GEN, Rohde & Schwarz HMP, HP E3631A |
-| Electronic loads | Chroma 6330A, Keysight EL4900, Siglent SDL1000X-E |
-| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, Digilent Analog Discovery 2 (driver) |
-| Dataloggers | Agilent 34970A, Keysight 34972A, Keysight DAQ970A/DAQ973A |
-| Switch units | Agilent 3499A |
-| Function generators | Rigol DG1022 / DG1022A, Agilent 33120A, Digilent Analog Discovery 2 (driver) |
-| Multimeters | HP 3478A, Agilent 34401A (experimental, never tried on a real instrument) |
-| Network analyzers | Zenko LiteVNA (driver), Siglent SNA, Rohde & Schwarz ZNB/ZNL/ZNLE, ZVA/ZVB/ZVT/ZVL (all experimental, never tried on a real instrument) |
-
-Tried on a real instrument so far: **Agilent 34970A** over RS-232 and **Siglent SDS824X HD** over LAN (readings, settings, 8/16-bit waveforms and whole-memory transfers, `.was` files). All the other models are written from the manuals; many are marked experimental in the library. The Analog Discovery 2 needs the Digilent WaveForms runtime. Reports of tests on other instruments are welcome: `Instruments_LIB/TESTING.md` explains how to test and what to report.
-
-
-### Quick Start
-1. Create a new project or open an existing one
-2. Add instruments using the three-level selection (Type → Series → Model), or add a manual instrument for a bench supply or load without remote control
-3. Configure instruments:
-   - For dataloggers with slots: use the "Configure Datalogger Slots" button to select modules
-   - For other instruments: configure channels, variables, and measurement settings
-4. Set up efficiency sweeps with nested variables in the `.eff` file editor
-5. Configure oscilloscope acquisition and trigger in the `.was` file editor
-6. Start the measurements from the *Measurements* tab and follow them in the run window; the remote control panel drives single instruments by hand
-
-### Example Projects
-Check the `examples/` directory for sample configurations:
-- `test-dcdc-project/` — DC-DC converter efficiency measurement setup
-- `Test_scpi/` — Basic SCPI communication examples
 
 ## Software test status
 
