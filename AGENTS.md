@@ -70,6 +70,7 @@ Everything the GUI and the measurements ask of an instrument is a **logical call
 - **No bare `except:`**: Always specify the exception type. Log the error.
 - **Copyright header** on every new source file (`python scripts/add_copyright_headers.py FILE...`).
 - **Safety in measurements**: `teardown` always runs and puts the instruments in a safe state; limits come from the library and are checked before anything is sent.
+- **Test status**: The list "Software test status" in `README.md` is the to-do list of what is still not tested on real hardware. When you add a feature, add it there unchecked, in its category, with sub-items for its parts. Check a box only after the feature ran on the real instrument (never on the simulated bench), and write the model next to it. Never check a box for a test that did not run.
 
 ---
 
