@@ -97,6 +97,13 @@ class InstrumentHandle:
 
         return read_waveform_full(self, channel_number, bits=bits, stop=stop)
 
+    def call_arguments(self, name: str) -> Dict[str, bool]:
+        """The arguments of a logical call, ``{name: required}`` (empty if the library does not
+        describe it): for example whether a reading takes ``channel_number``."""
+        from .readings import call_arguments
+
+        return call_arguments(self._library, self.model_id, name)
+
     def supports(self, name: str) -> bool:
         """True if the model defines the call (the call may still reject some values)."""
         commands = self._library.commands(self.model_id)

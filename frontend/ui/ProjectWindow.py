@@ -531,6 +531,33 @@ class ProjectWindow(QMainWindow):
             if ref.id == measurement_id:
                 self.table.selectRow(row)
 
+    def _inst_entries(self) -> Dict[str, Dict[str, Any]]:
+        """The instruments of the project's .inst file, by name (what a measurement can use)."""
+        from ola.inst_file import load_inst
+
+        project = self.session.project if self.session is not None else None
+        if project is None or not project.inst_file:
+            return {}
+        try:
+            entries, _ = load_inst(project.directory / project.inst_file)
+        except ValueError:
+            return {}
+        return {str(e["instance_name"]): e for e in entries if e.get("instance_name")}
+
+    def _library_calls(self, entry: Dict[str, Any]) -> List[Any]:
+        """The readings an instrument's model has inside (``ola.readings.Readable``): voltage and
+        current of a supply, of a load, the value of a meter... None if it is not in the library."""
+        from frontend.ui.connector_setup import default_library_path, load_library
+        from ola.readings import readable_calls
+
+        try:
+            library = load_library(default_library_path())
+        except Exception:  # the window still opens: the calls are typed by hand then
+            return []
+        key = entry.get("model_id") or entry.get("model") or ""
+        model_id = library.resolve_model_id(key) if key else None
+        return readable_calls(library, model_id) if model_id else []
+
     def edit_measurement(self) -> None:
         """Open the editor of the selected measurement's type."""
         ref = self._selected()
@@ -544,6 +571,17 @@ class ProjectWindow(QMainWindow):
                     str(self.session.path(ref)),
                     self.translator,
                     self.session.instruments,
+                    parent=self,
+                )
+            elif ref.type == "time_log":
+                from frontend.ui.TimeLogEditorDialog import TimeLogEditorDialog
+
+                dialog = TimeLogEditorDialog(
+                    str(self.session.path(ref)),
+                    self._inst_entries(),
+                    validate=lambda params: self.registry.create("time_log", params).validate(),
+                    calls=self._library_calls,
+                    translator=self.translator,
                     parent=self,
                 )
             elif load_form_spec(self.registry.get(ref.type)) is not None:
