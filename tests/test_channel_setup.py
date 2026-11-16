@@ -197,8 +197,9 @@ def test_what_the_library_gives_a_model_to_choose_from():
     assert options.ranges["VOLT:DC"] == ["0.1", "1", "10", "100", "300"]
     assert options.ranges["CURR:DC"] == ["0.01", "0.1", "1"]
     assert options.zero and options.impedance
-    empty = options_of(library.commands(library.resolve_model_id("DAQ970A")))
-    assert (empty.nplc, empty.ranges, empty.zero, empty.impedance) == ([], {}, False, False)
+    for model in ("DAQ970A", "DAQ973A"):
+        daq = options_of(library.commands(library.resolve_model_id(model)))
+        assert "100" in daq.nplc and "VOLT:DC" in daq.ranges and daq.zero and daq.impedance
     assert options_of(None).zero is False
 
 

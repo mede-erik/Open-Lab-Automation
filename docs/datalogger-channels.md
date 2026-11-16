@@ -41,7 +41,6 @@ only in measurements.
 
 ## Limits
 
-* Only dataloggers whose library entry has the calls (Keysight 34970A / 34972A); DAQ970A / DAQ973A
-  need them added to the library.
+* Only dataloggers whose library entry has the calls (Keysight 34970A / 34972A, DAQ970A / DAQ973A).
 * Multimeters (no scan list) and the old datalogger dialog are not covered.
 * Tested on a simulated 34970A (`ola/sim_datalogger.py`), not on hardware.
