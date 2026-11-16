@@ -154,3 +154,12 @@ def test_flow_layout_wraps_when_narrow(qtbot):
     box.show()
     positions = {flow.itemAt(i).geometry().y() for i in range(flow.count())}
     assert len(positions) == 3
+
+
+def test_number_list_shown_without_floating_point_noise():
+    """The preview of a sweep showed ``0.6000000000000001``; the fields still read back exactly."""
+    from frontend.ui.efficiency_widgets import format_number_list
+
+    values = [0.2, 0.4, 0.2 + 0.2 + 0.2, 0.8, 1.0]
+    assert format_number_list(values, digits=10) == "0.2, 0.4, 0.6, 0.8, 1"
+    assert "0.6000000000000001" in format_number_list(values)  # editing keeps the exact value

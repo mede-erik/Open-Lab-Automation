@@ -67,9 +67,13 @@ def format_number(value: object) -> str:
     return repr(float(value))
 
 
-def format_number_list(values: Sequence[float]) -> str:
-    """``[9, 12.5]`` -> ``"9, 12.5"``."""
-    return ", ".join(format_number(v) for v in values)
+def format_number_list(values: Sequence[float], digits: Optional[int] = None) -> str:
+    """``[9, 12.5]`` -> ``"9, 12.5"``. With ``digits`` the numbers are rounded to that many
+    significant digits, for showing (``0.6000000000000001`` -> ``0.6``); without, each one reads
+    back to the same value."""
+    if digits is None:
+        return ", ".join(format_number(v) for v in values)
+    return ", ".join(format_number(float(f"{v:.{digits}g}")) for v in values)
 
 
 # ---- marking widgets -------------------------------------------------------------------------

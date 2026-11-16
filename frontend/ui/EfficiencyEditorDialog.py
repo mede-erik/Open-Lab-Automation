@@ -747,7 +747,7 @@ class EfficiencyEditorDialog(QDialog):
         if error:
             text = f"<span style='color:{self._c('error')}'>{error}</span>"
         elif values and mode not in ("none", "fixed"):
-            shown_values = format_number_list(values[:8]) + (" …" if len(values) > 8 else "")
+            shown_values = format_number_list(values[:8], digits=10) + (" …" if len(values) > 8 else "")
             text = self._t("eff_preview_values", n=len(values), values=shown_values)
         else:
             text = ""
