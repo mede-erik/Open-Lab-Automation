@@ -62,6 +62,7 @@ from ola.run_view import (
     QUESTION_LOAD,
     QUESTION_OUTPUTS_ON,
     QUESTION_VERIFY,
+    QUESTION_ZERO,
     VIEW_SMITH,
     RunModel,
     format_si,
@@ -154,6 +155,14 @@ class QuestionDialog(QDialog):
                 start=format_si(data.get("start_hz", 0), "Hz"),
                 stop=format_si(data.get("stop_hz", 0), "Hz"),
                 points=data.get("points", "?"),
+            )
+        if kind == QUESTION_ZERO:
+            offset = data.get("offset")
+            return t(
+                "run_q_zero_back" if data.get("step") == "reconnect" else "run_q_zero_short",
+                channel=data.get("channel", "?"),
+                name=data.get("name", ""),
+                offset="" if offset is None else f"{offset:+.6g}",
             )
         if kind == QUESTION_LOAD:
             return t(

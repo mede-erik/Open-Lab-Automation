@@ -57,5 +57,9 @@
   "run_choice_continue": "Continua",
   "run_q_load_title": "Collega il carico",
   "run_q_load_details": "<b>{load}</b>: {description}<br>Collega le resistenze come nello schema, tra l'uscita del convertitore (+) e la massa (−). L'alimentatore è spento.",
-  "run_tab_bench": "Benchmark"
+  "run_tab_bench": "Benchmark",
+  "run_q_zero_title": "Azzera il canale",
+  "run_q_zero_short": "Canale <b>{channel}</b> {name}: passo 1 di 2. Collega insieme i suoi due morsetti d'ingresso, così lo strumento misura solo l'offset del cablaggio e del suo ingresso, poi continua.",
+  "run_q_zero_back": "Canale <b>{channel}</b> {name}: passo 2 di 2. L'offset è stato preso {offset}. Ricollega i morsetti dove erano e continua.",
+  "run_choice_skip_zero": "Salta questo canale"
 }

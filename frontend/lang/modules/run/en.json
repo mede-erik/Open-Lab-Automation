@@ -57,5 +57,9 @@
   "run_choice_continue": "Continue",
   "run_q_load_title": "Connect the load",
   "run_q_load_details": "<b>{load}</b>: {description}<br>Connect the resistors as drawn, between the output of the converter (+) and ground (−). The supply is off.",
-  "run_tab_bench": "Benchmark"
+  "run_tab_bench": "Benchmark",
+  "run_q_zero_title": "Zero the channel",
+  "run_q_zero_short": "Channel <b>{channel}</b> {name}: step 1 of 2. Connect its two input terminals together, so that the instrument measures only the offset of the wiring and of its input, and then continue.",
+  "run_q_zero_back": "Channel <b>{channel}</b> {name}: step 2 of 2. The offset was taken {offset}. Connect the terminals back where they were and continue.",
+  "run_choice_skip_zero": "Skip this channel"
 }

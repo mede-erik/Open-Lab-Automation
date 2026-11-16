@@ -16,7 +16,7 @@ translates each call for the model in use. No Qt, no I/O.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 Call = Tuple[str, Dict[str, Any]]
 
@@ -67,8 +67,14 @@ def _setting(channel: Dict[str, Any], key: str, default: Any) -> Any:
     return default if value in (None, "") else value
 
 
-def datalogger_calls(channels: List[Dict[str, Any]]) -> List[Call]:
-    """The configuration calls for the enabled channels of a datalogger, in the order to send."""
+def datalogger_calls(
+    channels: List[Dict[str, Any]], supports: Optional[Callable[[str], bool]] = None
+) -> List[Call]:
+    """The configuration calls for the enabled channels of a datalogger, in the order to send.
+    A channel that has an integration time (``nplc``) or an input impedance in the file gets those
+    calls after its ``configure_*`` (``ola.channel_setup``); with ``supports`` a call the model has
+    not is left out. The zero of a channel is not here: it needs the operator, see the measurement.
+    """
     enabled = [c for c in channels if c.get("enabled", True)]
     if not enabled:
         return []
@@ -101,9 +107,26 @@ def datalogger_calls(channels: List[Dict[str, Any]]) -> List[Call]:
         else:
             args = {"range": key[1], "resolution": key[2], "channels": text}
         calls.append((key[0], args))
+    calls += _setting_calls(enabled, supports)
     scan = ",".join(str(n) for n in sorted({channel_number(c) for c in enabled}))
     calls.append(("select_channels", {"channels": scan}))
     return calls
+
+
+def _setting_calls(
+    enabled: List[Dict[str, Any]], supports: Optional[Callable[[str], bool]]
+) -> List[Call]:
+    """The integration time and input impedance calls of the channels that ask for them."""
+    from .channel_setup import extra_calls, settings_of  # (it imports this module)
+
+    wanted = []
+    for ch in enabled:
+        if ch.get("nplc") in (None, "") and ch.get("impedance") in (None, ""):
+            continue
+        parsed = settings_of(ch)
+        if parsed is not None:
+            wanted.append(parsed)
+    return extra_calls(wanted, supports)
 
 
 def scan_order(channels: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
