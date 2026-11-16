@@ -200,7 +200,22 @@ class ProjectConnector:
         if fresh:  # who the apparatus is, read once per connection and kept for the saved runs
             with bench.span("connect", f"{name}: identity"):
                 instrument.identity = read_identity(handle, address)
-        return handle
+        return self._with_channel_settings(name, entry, handle)
+
+    @staticmethod
+    def _with_channel_settings(name: str, entry: Dict[str, Any], handle: Any) -> Any:
+        """The handle of a datalogger whose channels ask for a range, an integration time, a zero or
+        an input impedance (``ola.channel_setup``) is wrapped so the measurement gets them; any
+        other handle is returned as it is."""
+        from .channel_setup import ChannelSetupError, wrap_if_configured
+        from .datalogger_setup import DataloggerSetupError
+
+        if not (entry.get("channels") or entry.get("slots")):
+            return handle
+        try:
+            return wrap_if_configured(handle, entry)
+        except (ChannelSetupError, DataloggerSetupError) as exc:
+            raise ConnectionProblem(f"'{name}': {exc}") from exc
 
     def _open_link(
         self, name: str, address: str, model_id: str, timeout_ms: int, serial: Dict[str, Any]

@@ -1668,7 +1668,11 @@ class RemoteControlTab(QWidget):
         sig = datalogger_signature(channels)
         if done.get(key) == sig:
             return
-        for name, args in datalogger_calls(channels):
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_id = library.resolve_model_id(inst.get('model_id', inst.get('model', ''))) if library else None
+        commands = (library.commands(model_id) or {}) if model_id else {}
+        supports = (lambda call: call in commands) if commands else None
+        for name, args in datalogger_calls(channels, supports):
             self.run_call(inst, None, name, **args)
         done[key] = sig
 

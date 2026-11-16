@@ -83,3 +83,17 @@ def test_calls_are_known_to_the_datalogger_models(model):
     for name, args in datalogger_calls(channels):
         plan = plan_call(library, resolved, name, args)
         assert plan.steps, name
+
+
+def test_nplc_and_impedance_calls_only_when_supported():
+    channels = [ch("a", 101, nplc=20, impedance="10M"), ch("b", 102)]
+    names = [n for n, _ in datalogger_calls(channels, supports=lambda c: True)]
+    assert "set_voltage_dc_nplc" in names or any("nplc" in n for n in names)
+    assert any("impedance" in n for n in names)
+    names_off = [n for n, _ in datalogger_calls(channels, supports=lambda c: False)]
+    assert not any("nplc" in n or "impedance" in n for n in names_off)
+
+
+def test_plain_channels_send_no_extra_calls():
+    names = [n for n, _ in datalogger_calls([ch("a", 101)], supports=lambda c: True)]
+    assert not any("nplc" in n or "impedance" in n for n in names)

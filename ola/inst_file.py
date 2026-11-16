@@ -10,7 +10,10 @@ a unique ``instance_name`` (the name measurements use), and either a ``model_id`
 the values by hand). Besides that an entry may carry:
 
 * ``channels`` (and ``slots`` with channels for a datalogger): ``enabled``, ``name`` and the
-  limits ``max_voltage``, ``max_current`` and ``max_power`` of a supply or a load;
+  limits ``max_voltage``, ``max_current`` and ``max_power`` of a supply or a load; for a datalogger
+  also, each left out when it is the default, ``range`` (a fixed one), ``nplc`` (the integration
+  time in power line cycles), ``zero`` (zero the offset with the inputs shorted, before the
+  measurement) and ``impedance`` (``auto`` or ``10M``), see ``ola.channel_setup``;
 * ``serial``: the RS-232 settings that differ from the ones of the library (``baud``,
   ``data_bits``, ``parity``, ``stop_bits``, ``flow_control``), for an ``ASRL`` address;
 * ``timeout_ms``: how long to wait for an answer;
@@ -313,6 +316,14 @@ def check_entry(
     elif kind in ("oscilloscope", "datalogger", "multimeter"):
         if not enabled_channels(entry):
             problems.append(("no_channel", {}))
+        if kind == "datalogger":
+            from .channel_setup import channel_problems  # the settings of the channels
+
+            for ch in enabled_channels(entry):
+                for error in channel_problems(ch):
+                    problems.append(
+                        ("channel_setting", {"channel": ch.get("name", "?"), "error": error})
+                    )
     elif kind == "network_analyzer":
         if not [p for p in entry.get("ports") or [] if isinstance(p, dict) and p.get("enabled")]:
             problems.append(("no_port", {}))

@@ -33,6 +33,7 @@ from PyQt6.QtGui import QDoubleValidator
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
 from frontend.core.errorhandler import ErrorCode, DataloggerError, get_error_handler
+from frontend.ui.channel_settings import SettingsCells, model_options
 
 
 class DataloggerSlotConfigDialog(QDialog):
@@ -307,6 +308,12 @@ class DataloggerSlotConfigDialog(QDialog):
                 channel_table.setRowCount(0)
                 self.slots[slot_idx]['channels'] = []
     
+    def _model_options(self):
+        """What the model of the datalogger lets you choose for a channel (see channel_settings)."""
+        if getattr(self, '_options', None) is None:
+            self._options = model_options(self.instrument)
+        return self._options
+
     def _populate_channel_table(self, slot_idx, table, module_id):
         """
         Populate the channel configuration table for a module.
@@ -347,14 +354,20 @@ class DataloggerSlotConfigDialog(QDialog):
             
             # Configure table
             table.setRowCount(num_channels)
-            table.setColumnCount(5)
+            table.setColumnCount(9)
             table.setHorizontalHeaderLabels([
                 self.translator.t('enable'),
                 self.translator.t('channel_name'),
                 self.translator.t('measurement_type'),
                 self.translator.t('attenuation'),
-                self.translator.t('unit')
+                self.translator.t('unit'),
+                self.translator.t('channel_range'),
+                self.translator.t('channel_nplc'),
+                self.translator.t('channel_zero'),
+                self.translator.t('channel_impedance'),
             ])
+            options = self._model_options()
+            self._cells = {k: v for k, v in getattr(self, '_cells', {}).items() if k[0] != slot_idx}
             
             # Populate rows
             for row, ch in enumerate(channels):
@@ -397,6 +410,12 @@ class DataloggerSlotConfigDialog(QDialog):
                     lambda val, s=slot_idx, r=row: self._on_channel_unit_changed(s, r, val)
                 )
                 table.setCellWidget(row, 4, unit_edit)
+
+                # Range, integration time, zero and input impedance (what the model has)
+                cells = SettingsCells(ch, options, self.translator.t)
+                self._cells[(slot_idx, row)] = cells
+                for offset, widget in enumerate(cells.widgets):
+                    table.setCellWidget(row, 5 + offset, widget)
             
             # Resize columns
             header = table.horizontalHeader()
@@ -405,6 +424,8 @@ class DataloggerSlotConfigDialog(QDialog):
             header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
             header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
             header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            for column in range(5, 9):
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         
         except DataloggerError as e:
             self.error_handler.handle_error(e, f"Error configuring channels for module {module_id}")
@@ -431,6 +452,9 @@ class DataloggerSlotConfigDialog(QDialog):
         """Handle measurement type change."""
         try:
             self.slots[slot_idx]['channels'][row]['meas_type'] = val
+            cells = getattr(self, '_cells', {}).get((slot_idx, row))
+            if cells is not None:  # the settings depend on the function: they start again
+                cells.fill_function(val)
         except (IndexError, KeyError) as e:
             self.error_handler.handle_error(e, f"Error updating measurement type for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
     
