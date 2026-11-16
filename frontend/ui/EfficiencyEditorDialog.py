@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -65,6 +66,7 @@ from frontend.ui.efficiency_widgets import (
     parse_number,
     parse_number_list,
 )
+from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
 from ola.efficiency_editor import EditorError, EfficiencyEditor
 from ola.efficiency_spec import CallChecker
@@ -116,7 +118,7 @@ class EfficiencyEditorDialog(QDialog):
         self._calls: Dict[str, CallEdit] = {}  # CallEdit of every bound path template
         self.editor = self._open_model(params, checker)
         self.setWindowTitle(self._t("eff_title"))
-        self.resize(1180, 820)
+        resize_to_screen(self, 1180, 820)
         self._build_ui()
         self._refresh_all()
         if self.editor.variables:
@@ -194,26 +196,32 @@ class EfficiencyEditorDialog(QDialog):
         buttons.addWidget(self.close_btn)
         root.addLayout(buttons)
 
+    def _note(self, key: str) -> QLabel:
+        """A sentence of help: it wraps, so it never makes its panel wider than the window."""
+        label = QLabel(self._t(key))
+        label.setWordWrap(True)
+        return label
+
     # ---- parameters tab ---------------------------------------------------------------------
     def _build_parameters_tab(self) -> QWidget:
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.addWidget(QLabel(self._t("eff_param_list_help")))
+        left_layout.addWidget(self._note("eff_param_list_help"))
         self.param_list = QListWidget()
         self.param_list.currentRowChanged.connect(self._select_parameter)
         left_layout.addWidget(self.param_list, 1)
-        row = QHBoxLayout()
-        for key, handler in (
+        row = QGridLayout()  # three buttons a row: five in one row do not fit the narrow list
+        for index, (key, handler) in enumerate((
             ("eff_add", self._add_parameter),
             ("eff_duplicate", self._duplicate_parameter),
             ("eff_remove", self._remove_parameter),
             ("eff_up", lambda: self._move_parameter(-1)),
             ("eff_down", lambda: self._move_parameter(+1)),
-        ):
+        )):
             button = QPushButton(self._t(key))
             button.clicked.connect(handler)
             setattr(self, f"btn_{key}", button)
-            row.addWidget(button)
+            row.addWidget(button, index // 3, index % 3)
         left_layout.addLayout(row)
 
         self.form_container = QWidget()
@@ -244,6 +252,10 @@ class EfficiencyEditorDialog(QDialog):
         splitter.addWidget(scroll)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 5)
+        splitter.setChildrenCollapsible(False)
+        left.setMinimumWidth(330)
+        scroll.setMinimumWidth(380)
+        splitter.setSizes([340, 800])
         return splitter
 
     def _call_edit(self, path: str, scoped: bool = True) -> CallEdit:
@@ -295,7 +307,7 @@ class EfficiencyEditorDialog(QDialog):
             "eff_set", "variables[{i}].set", lambda: {"instrument": "", "call": ""}
         )
         form = QFormLayout(self.set_group)
-        form.addRow(QLabel(self._t("eff_set_help")))
+        form.addRow(self._note("eff_set_help"))
         form.addRow(self._t("eff_call"), self._call_edit("variables[{i}].set"))
         form.addRow(
             self._t("eff_value_arg"), self._line("variables[{i}].set.value_arg", tip="value")
@@ -331,7 +343,7 @@ class EfficiencyEditorDialog(QDialog):
     def _build_reads_group(self) -> QGroupBox:
         group = QGroupBox(self._t("eff_reads"))
         layout = QVBoxLayout(group)
-        layout.addWidget(QLabel(self._t("eff_reads_help")))
+        layout.addWidget(self._note("eff_reads_help"))
         self.reads_layout = QVBoxLayout()
         layout.addLayout(self.reads_layout)
         add = QPushButton(self._t("eff_add_reading"))
@@ -346,7 +358,7 @@ class EfficiencyEditorDialog(QDialog):
             lambda: {"read": "", "tol_rel": 0.01, "on_fail": "ask"},
         )
         form = QFormLayout(self.verify_group)
-        form.addRow(QLabel(self._t("eff_verify_help")))
+        form.addRow(self._note("eff_verify_help"))
         self.verify_read = QComboBox()
         self.verify_read.setEditable(True)
         field = _Field(self.verify_read, "variables[{i}].verify.read", "combo", True)
@@ -376,11 +388,12 @@ class EfficiencyEditorDialog(QDialog):
             "eff_output", "variables[{i}].output", lambda: {"mode": "keep_on"}
         )
         form = QFormLayout(self.output_group)
-        form.addRow(QLabel(self._t("eff_output_help")))
+        form.addRow(self._note("eff_output_help"))
         labels = {v: self._t(f"eff_out_{v}") for v in OUTPUT_MODES}
         self.output_mode = self._choice("variables[{i}].output.mode", OUTPUT_MODES, labels)
         form.addRow(self._t("eff_out_mode"), self.output_mode)
         self.output_mode_help = QLabel()
+        self.output_mode_help.setWordWrap(True)
         self.output_mode_help.setWordWrap(True)
         form.addRow(self.output_mode_help)
         for key in ("on", "off", "state"):
@@ -393,7 +406,7 @@ class EfficiencyEditorDialog(QDialog):
     def _build_timing_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.addWidget(QLabel(self._t("eff_timing_help")))
+        layout.addWidget(self._note("eff_timing_help"))
         form = QFormLayout()
         form.addRow(
             self._t("eff_settle"), self._line("timing.settle_s", "number", scoped=False, tip="s")
@@ -408,8 +421,9 @@ class EfficiencyEditorDialog(QDialog):
             self._line("timing.cooldown_s", "number", scoped=False, tip="s"),
         )
         layout.addLayout(form)
-        layout.addWidget(QLabel(self._t("eff_cooldown_help")))
+        layout.addWidget(self._note("eff_cooldown_help"))
         self.timing_summary = QLabel()
+        self.timing_summary.setWordWrap(True)
         self.timing_summary.setWordWrap(True)
         layout.addWidget(self.timing_summary)
         layout.addStretch(1)
@@ -420,7 +434,7 @@ class EfficiencyEditorDialog(QDialog):
         page = QWidget()
         layout = QHBoxLayout(page)
         left = QVBoxLayout()
-        left.addWidget(QLabel(self._t("eff_formulas_help")))
+        left.addWidget(self._note("eff_formulas_help"))
         self.formula_table = QTableWidget(0, 2)
         self.formula_table.setHorizontalHeaderLabels(
             [self._t("eff_f_name"), self._t("eff_f_formula")]
@@ -451,7 +465,7 @@ class EfficiencyEditorDialog(QDialog):
         left.addLayout(row)
         layout.addLayout(left, 3)
         right = QVBoxLayout()
-        right.addWidget(QLabel(self._t("eff_names_help")))
+        right.addWidget(self._note("eff_names_help"))
         self.names_list = QListWidget()
         self.names_list.itemDoubleClicked.connect(self._insert_name)
         right.addWidget(self.names_list, 1)
@@ -462,7 +476,7 @@ class EfficiencyEditorDialog(QDialog):
     def _build_power_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.addWidget(QLabel(self._t("eff_power_help")))
+        layout.addWidget(self._note("eff_power_help"))
         row = QHBoxLayout()
         self.power_list = QListWidget()
         row.addWidget(self.power_list, 1)
@@ -480,12 +494,13 @@ class EfficiencyEditorDialog(QDialog):
         layout.addLayout(row, 1)
         self.always_label = QLabel()
         self.always_label.setWordWrap(True)
+        self.always_label.setWordWrap(True)
         layout.addWidget(self.always_label)
         self.extra_boxes = {}
         for section in ("startup", "shutdown"):
             group = QGroupBox(self._t(f"eff_{section}"))
             group_layout = QVBoxLayout(group)
-            group_layout.addWidget(QLabel(self._t(f"eff_{section}_help")))
+            group_layout.addWidget(self._note(f"eff_{section}_help"))
             holder = QVBoxLayout()
             group_layout.addLayout(holder)
             add = QPushButton(self._t("eff_add_call"))
@@ -732,7 +747,7 @@ class EfficiencyEditorDialog(QDialog):
         if error:
             text = f"<span style='color:{self._c('error')}'>{error}</span>"
         elif values and mode not in ("none", "fixed"):
-            shown_values = format_number_list(values[:8]) + (" …" if len(values) > 8 else "")
+            shown_values = format_number_list(values[:8], digits=10) + (" …" if len(values) > 8 else "")
             text = self._t("eff_preview_values", n=len(values), values=shown_values)
         else:
             text = ""
