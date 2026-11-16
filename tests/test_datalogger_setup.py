@@ -97,3 +97,11 @@ def test_nplc_and_impedance_calls_only_when_supported():
 def test_plain_channels_send_no_extra_calls():
     names = [n for n, _ in datalogger_calls([ch("a", 101)], supports=lambda c: True)]
     assert not any("nplc" in n or "impedance" in n for n in names)
+
+
+def test_an_rtd_sends_its_nominal_resistance_only_when_the_model_has_the_call():
+    channels = [ch("t", 101, "TEMP", probe_type="RTD", sensor_type="85", rtd_ohms=1000)]
+    calls = datalogger_calls(channels, supports=lambda call: True)
+    assert ("set_rtd_resistance", {"ohms": 1000.0, "channels": "101"}) in calls
+    without = datalogger_calls(channels, supports=lambda call: call != "set_rtd_resistance")
+    assert "set_rtd_resistance" not in [name for name, _ in without]

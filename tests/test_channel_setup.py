@@ -578,3 +578,51 @@ def test_the_library_gives_the_probes_sensors_and_integration_times_of_a_model()
     # the library lists none (the integration times depend on the library version, not tested)
     daq = options_of(library.commands(library.resolve_model_id("DAQ970A")))
     assert daq.probes["FTHermistor"] == ["2252", "5000", "10000"]
+
+
+# ---- RTD nominal resistance: PT100 and PT1000 ------------------------------------------------
+def test_an_rtd_can_carry_its_nominal_resistance():
+    s = settings_of(temp(101, probe_type="RTD", sensor_type="85", rtd_ohms=1000))
+    assert s.rtd_ohms == 1000.0
+    assert settings_of(temp(101, probe_type="RTD", sensor_type="85")).rtd_ohms is None
+    with pytest.raises(ChannelSetupError, match="only for an RTD"):
+        settings_of(temp(101, probe_type="TCouple", sensor_type="K", rtd_ohms=1000))
+    with pytest.raises(ChannelSetupError, match="above 0"):
+        settings_of(temp(101, probe_type="RTD", sensor_type="85", rtd_ohms=0))
+    wrong = temp(101, probe_type="THERmistor", sensor_type="5000", rtd_ohms=100)
+    assert any("RTD" in p for p in channel_setup.channel_problems(wrong))
+
+
+def test_the_rtd_resistance_is_set_right_after_the_configure_of_its_channels():
+    calls = config_calls(settings(
+        temp(101, probe_type="RTD", sensor_type="85", rtd_ohms=1000, nplc=20),
+        temp(102, probe_type="FRTD", sensor_type="85", rtd_ohms=100),
+    ))  # fmt: skip
+    assert calls == [
+        ("configure_temperature", {"probe_type": "RTD", "type": "85", "resolution": "DEF",
+                                   "channels": "101"}),
+        ("set_rtd_resistance", {"ohms": 1000.0, "channels": "101"}),
+        ("set_temperature_nplc", {"plcs": 20.0, "channels": "101"}),
+        ("configure_temperature", {"probe_type": "FRTD", "type": "85", "resolution": "DEF",
+                                   "channels": "102"}),
+        ("set_frtd_resistance", {"ohms": 100.0, "channels": "102"}),
+    ]  # fmt: skip
+
+
+def test_a_model_without_the_resistance_call_is_refused_with_a_sentence():
+    s = settings(temp(101, probe_type="RTD", sensor_type="85", rtd_ohms=1000))
+    assert check_settings(s, lambda call: True) == []
+    problems = check_settings(s, lambda call: call != "set_rtd_resistance")
+    assert len(problems) == 1 and "nominal resistance" in problems[0]
+    # an RTD that does not ask for it needs no such call
+    plain = settings(temp(101, probe_type="RTD", sensor_type="85"))
+    assert check_settings(plain, lambda call: call != "set_rtd_resistance") == []
+
+
+def test_the_library_offers_pt100_and_pt1000_to_the_models_that_can_set_them():
+    library = Library.load(LIBRARY)
+    for model in ("34970A", "DAQ970A"):
+        options = options_of(library.commands(library.resolve_model_id(model)))
+        assert options.rtd_ohms["RTD"] == [100.0, 1000.0]
+        assert options.rtd_ohms["FRTD"] == [100.0, 1000.0]
+    assert options_of(None).rtd_ohms == {}

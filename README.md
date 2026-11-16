@@ -345,6 +345,7 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
   - [ ] scan list and channel functions
   - [ ] per-channel range, integration time and input impedance
   - [ ] temperature channels: probe (thermocouple, RTD, thermistor), sensor type and integration time
+    - [ ] RTD as PT100 and PT1000 (nominal resistance)
   - [ ] guided zero with shorted inputs (before a measurement starts)
 - [ ] RF signal generator panel (AM, FM, PM and pulse modulation)
 
