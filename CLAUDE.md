@@ -84,6 +84,7 @@ Strings are stored in `frontend/lang/<locale>.json` (`it`, `en`, `fr`, `es`, `de
 * **Copyright header** on every new source file (`.py`, `.c`, `.h`, `.rs`, `.sh`, `.bat`, `.qss`): run `python scripts/add_copyright_headers.py FILE...`. `tests/test_copyright_headers.py` fails otherwise.
 * **Tests** for new code; the docs are kept in sync by tests (`tests/test_docs.py`): public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, relative links must work.
 * **Pull requests** go to `main`. Do not stack a pull request on the branch of another one: when the first is merged the second ends up in the old branch and not in `main`.
+* **Test status list**: the "Software test status" section of `README.md` lists the features not yet tested on real hardware. A new feature goes there unchecked, in its category, with sub-items for its parts. Check a box only after a run on the real instrument, with the model written next to it; a simulated run does not count.
 
 ---
 

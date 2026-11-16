@@ -307,6 +307,73 @@ Check the `examples/` directory for sample configurations:
 - `test-dcdc-project/` — DC-DC converter efficiency measurement setup
 - `Test_scpi/` — Basic SCPI communication examples
 
+## Software test status
+
+What still has to be tested **on real hardware** (or was only partly tested). A box is checked
+only when the feature was run on the real instrument, not when only the simulated bench passed;
+write the instrument model next to the checked item. A feature with sub-items is checked only when
+all of them are. Software only: the status of the library is in `Instruments_LIB`.
+
+### Instrument connection
+
+- [ ] USB-GPIB adapter (Agilent/Keysight 82357B) through the GPIB adapter tool
+  - [ ] on Windows (Connection Expert output)
+  - [ ] on Linux (kernel and `linux-gpib` setup)
+- [ ] LAN (LXI), USB-TMC and serial connections from the instrument editor
+- [ ] Serial settings overridden per instrument (baud, parity, stop bits, flow control)
+
+### Remote control panel
+
+- [ ] Power supply and electronic load control
+- [ ] Oscilloscope settings from a `.was` file
+- [ ] Datalogger from an `.inst` file
+  - [ ] scan list and channel functions
+  - [ ] per-channel range, integration time and input impedance
+  - [ ] guided zero with shorted inputs (before a measurement starts)
+- [ ] RF signal generator panel (AM, FM, PM and pulse modulation)
+
+### Measurements
+
+- [ ] Efficiency sweep (power supply and electronic load)
+- [ ] Line and load regulation (multimeter, datalogger)
+- [ ] Ripple and noise
+- [ ] RF with a VNA
+  - [ ] S-parameters and return loss
+  - [ ] filter, amplifier, attenuator, antenna
+  - [ ] cable with de-embedding of cables and pads
+  - [ ] time domain (TDR), fault position along a cable
+- [ ] Bode plot with a generator and a scope (bandwidth, phase and gain margin)
+- [ ] Time log of a variable
+- [ ] Resistive-load efficiency
+  - [ ] manual selection of the resistors
+  - [ ] switch box or datalogger multiplexer
+  - [ ] output shunt reading and the safety check on every reading
+- [ ] Golden sample comparison and cable trend
+- [ ] Wiring diagrams shown before each run
+- [ ] Results saved in `runs/` (JSON Lines) and exported to CSV (and Touchstone for RF)
+
+### Projects and data
+
+- [ ] Project files `.json`, `.inst`, `.eff`, `.was`, `.cbl`, `.flt`: create, edit and reopen
+- [ ] PostgreSQL storage of the measurement data (encrypted connection password)
+  - [ ] with a real server (`OLA_TEST_POSTGRES`)
+- [ ] Cable and device registry with labels
+
+### Tools
+
+- [ ] Pulse Generator on an electronic load (current, peak and average power limits)
+- [ ] Hex/Dec/Bin converter
+- [ ] Instrument library manager (add an instrument to the library)
+- [ ] Hardware benchmark (`benchmarks/bench_hardware.py`) on the lab power supply
+- [ ] Interactive instrument shell (`scripts/instrument_shell.py`) and dry run (`scripts/dry_run_call.py`)
+
+### Interface, languages and installation
+
+- [ ] Layout on high-DPI and scaled displays (Windows and Linux)
+- [ ] The five languages (it, en, fr, es, de) in every window
+- [ ] Packages: Windows installer and zip, `.deb`, `.rpm`, tar.gz, Arch
+- [ ] Application and self-test on a clean Windows machine
+
 ## Future features
 
 Things that are planned but not started. They are deliberately left for later, when the measurements work

@@ -564,7 +564,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
 
 ## 9b. Progress status
 
-- ✅ **Datalogger channel settings** (`ola/channel_setup.py`, `docs/datalogger-channels.md`): per-channel range, integration time (PLC), offset zero with guided shorted inputs, input impedance; applied at measurement start without changing the modules. Tested on a simulated 34970A only; DAQ970A/973A library entries still lack the calls.
+- ✅ **Datalogger channel settings** (`ola/channel_setup.py`, `docs/datalogger-channels.md`): per-channel range, integration time (PLC), offset zero with guided shorted inputs, input impedance; applied at measurement start without changing the modules. Library entries: 34970A/34972A and DAQ970A/973A. Tested on a simulated 34970A only.
 - ✅ **Rust transport** (`native/`): TCP (`TCP_NODELAY`), serial, IEEE 488.2 blocks,
   timeouts with deadline, GIL released, `TRN-xxx` errors. 13 Rust tests; complete `///` documentation
   (`#![warn(missing_docs)]`, no warnings).
