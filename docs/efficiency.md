@@ -39,7 +39,8 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
      "set": {"instrument": "psu1", "call": "set_voltage", "args": {"channel_number": 1}},
      "sweep": {"values": [9, 12, 15]},
      "reads": {"psu": {"instrument": "psu1", "call": "read_voltage", "args": {"channel_number": 1}},
-               "daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "101"}}},
+               "daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "101"}}},
      "verify": {"read": "daq", "tol_rel": 0.01, "tol_abs": 0.02},
      "limits": {"min": 5, "max": 20},
      "output": {"on": {"instrument": "psu1", "call": "output_on"},
@@ -52,9 +53,11 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
                 "state": {"instrument": "psu2", "call": "output_state_query"},
                 "mode": "always_on"}},
     {"name": "iin",
-     "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "102"}, "scale": 10}}},
+     "reads": {"daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "102"}, "scale": 10}}},
     {"name": "vout",
-     "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "103"}}}}
+     "reads": {"daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "103"}}}}
   ],
   "timing": {"settle_s": 8, "samples": 5, "interval_s": 10, "cooldown_s": 600},
   "power_order": ["vin", "iout"],
@@ -71,6 +74,11 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
 The names (`vin`, `vout`, `vaux`...) are yours. The `call` names are those of the instrument library, so the
 same file works with any supply, load or data logger the library knows. The instruments (`psu1`, `daq1`...)
 are the names of the instruments of the project.
+
+The data logger of the example is a Keysight 34972A: its reading of a voltage is `measure_dc_voltage`, with
+the arguments `range`, `resolution` and `channels` (`AUTO` lets the instrument choose). `read_ch` exists only
+in the simulated laboratory used by the tests. For another model, look at the calls of its entry in the
+instrument library (`Instruments_LIB/TESTING.md` explains how they are written).
 
 ### A parameter
 
