@@ -1006,6 +1006,15 @@ class RemoteControlTab(QWidget):
                         'panel': controls,
                     })
                     total_enabled_channels += controls.channels
+                elif inst_type in ['rf_signal_generator', 'rf_signal_generators']:
+                    power_instruments.append({
+                        'inst': inst,
+                        'enabled_channels': [],
+                        'channel_count': 1,
+                        'panel': self._rf_generator_controls(inst),
+                        'panel_kind': 'rf',
+                    })
+                    total_enabled_channels += 1
 
             print("\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
             print(f"Strumenti validi: {len(power_instruments)}")
@@ -1242,17 +1251,25 @@ class RemoteControlTab(QWidget):
 
                 conn_btn.clicked.connect(handle_connect_clicked)
 
-                if inst_info.get('panel') is not None:  # a function generator: its own panel
-                    from frontend.ui.FunctionGeneratorPanel import FunctionGeneratorPanel
+                if inst_info.get('panel') is not None:  # a generator: its own panel
                     inst_group = QGroupBox(f"{inst.get('instance_name','')} ({inst.get('model','')})")
                     inst_vbox = QVBoxLayout()
                     inst_vbox.addWidget(conn_btn)
-                    panel = FunctionGeneratorPanel(
-                        inst_info['panel'],
-                        lambda number, call, i=inst, **args: self.run_call(
-                            i, None, call, channel_number=number, **args),
-                        self._t,
-                    )
+                    if inst_info.get('panel_kind') == 'rf':
+                        from frontend.ui.RfGeneratorPanel import RfGeneratorPanel
+                        panel = RfGeneratorPanel(
+                            inst_info['panel'],
+                            lambda call, i=inst, **args: self.run_call(i, None, call, **args),
+                            self._t,
+                        )
+                    else:
+                        from frontend.ui.FunctionGeneratorPanel import FunctionGeneratorPanel
+                        panel = FunctionGeneratorPanel(
+                            inst_info['panel'],
+                            lambda number, call, i=inst, **args: self.run_call(
+                                i, None, call, channel_number=number, **args),
+                            self._t,
+                        )
                     inst_vbox.addWidget(panel)
                     inst_group.setLayout(inst_vbox)
                     best_column_idx = column_loads.index(min(column_loads))
@@ -1357,6 +1374,17 @@ class RemoteControlTab(QWidget):
         if not model_id:
             return FunctionGeneratorControls()
         return function_generator_controls(library, model_id)
+
+    def _rf_generator_controls(self, inst):
+        """What the panel of an RF signal generator shows (ola.rf_controls): only the calls its
+        model defines in the library; nothing if the model is not in the library."""
+        from ola.rf_controls import RfControls, rf_controls
+        library = self.instruments_manager.get_library() if self.instruments_manager else None
+        model_key = inst.get('model_id', inst.get('model', ''))
+        model_id = library.resolve_model_id(model_key) if library else None
+        if not model_id:
+            return RfControls()
+        return rf_controls(library, model_id)
 
     def _format_channel_title(self, inst, ch):
         """Build the channel group box title, including the manual-instrument badge when applicable."""
