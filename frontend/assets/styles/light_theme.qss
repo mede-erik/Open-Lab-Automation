@@ -240,10 +240,33 @@ QGroupBox {
     padding-top: 10px;
 }
 
+/* a group box with a tick needs room for it above the frame */
+QGroupBox[checkable="true"] {
+    margin-top: 24px;
+    padding-top: 14px;
+}
+
 QGroupBox::title {
     subcontrol-origin: margin;
+    subcontrol-position: top left;
     left: 10px;
-    padding: 0 5px 0 5px;
+    padding: 3px 5px;  /* taller than the 16 px tick, or the tick is cut */
+}
+
+/* the tick of a group box that can be switched on and off: drawn like the one of a check box (the
+   native one was cut by the margin of the title) */
+QGroupBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #7d8a97;
+    border-radius: 2px;
+    background-color: #ffffff;
+}
+
+QGroupBox::indicator:checked {
+    background-color: #2271b3;
+    border: 1px solid #2271b3;
+    image: url("@ICONS@/check_light.svg");
 }
 
 /* Text edit styling */
@@ -294,7 +317,7 @@ QCheckBox {
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
-    border: 1px solid #bdc3c7;
+    border: 1px solid #7d8a97;
     border-radius: 2px;
     background-color: #ffffff;
 }
@@ -313,7 +336,7 @@ QRadioButton {
 QRadioButton::indicator {
     width: 16px;
     height: 16px;
-    border: 1px solid #bdc3c7;
+    border: 1px solid #7d8a97;
     border-radius: 8px;
     background-color: #ffffff;
 }

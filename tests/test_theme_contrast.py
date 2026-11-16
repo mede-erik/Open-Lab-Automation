@@ -81,3 +81,14 @@ def test_selected_rows_are_readable(theme):
         fg = colour(body, "color") or colour(table["QWidget"], "color")
         background = colour(body, "background-color")
         assert contrast(fg, background) >= TEXT_MIN - 0.01, f"{theme}: {selector}"
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_ticks_have_a_visible_border(theme):
+    """The border of the empty tick of a check box, a radio button or a group box is on the
+    window colour: at least 3:1 (it was 1.8:1 in the light theme, so an empty tick looked open)."""
+    table = rules(theme)
+    window_bg = colour(table["QWidget"], "background-color")
+    for selector in ("QCheckBox::indicator", "QRadioButton::indicator", "QGroupBox::indicator"):
+        border = re.search(r"border:\s*1px solid (#[0-9a-fA-F]{3,6})", table[selector]).group(1)
+        assert contrast(border, window_bg) >= HANDLE_MIN, f"{theme}: {selector}"

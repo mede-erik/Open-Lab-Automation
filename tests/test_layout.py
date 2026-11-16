@@ -163,3 +163,42 @@ def test_number_list_shown_without_floating_point_noise():
     values = [0.2, 0.4, 0.2 + 0.2 + 0.2, 0.8, 1.0]
     assert format_number_list(values, digits=10) == "0.2, 0.4, 0.6, 0.8, 1"
     assert "0.6000000000000001" in format_number_list(values)  # editing keeps the exact value
+
+
+@pytest.mark.gui
+@pytest.mark.parametrize(
+    "theme, border", [("dark_theme.qss", "#8b949e"), ("light_theme.qss", "#7d8a97")]
+)
+def test_group_box_tick_is_not_cut(qtbot, theme, border):
+    """The tick of a group box that can be switched on and off was cut at the top (the title was
+    lower than the tick): the pixels of its border must make a whole square, top edge included."""
+    _qt()
+    from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QVBoxLayout, QWidget
+
+    text = open(os.path.join(STYLES, theme), encoding="utf-8").read()
+    text = text.replace("@ICONS@", ICONS.replace("\\", "/"))
+    window = QWidget()
+    window.setStyleSheet(text)
+    box = QGroupBox("Limits")
+    box.setCheckable(True)
+    box.setChecked(False)
+    QVBoxLayout(box).addWidget(QLabel("inside"))
+    QVBoxLayout(window).addWidget(box)
+    qtbot.addWidget(window)
+    window.resize(300, 140)
+    window.show()
+    QApplication.processEvents()
+
+    image = box.grab().toImage()
+    wanted = int(border.lstrip("#"), 16)
+    found = [
+        (x, y)
+        for y in range(0, 40)
+        for x in range(0, 70)
+        if image.pixelColor(x, y).rgb() & 0xFFFFFF == wanted
+    ]
+    assert found, "no pixel of the tick border"
+    xs, ys = [p[0] for p in found], [p[1] for p in found]
+    assert max(xs) - min(xs) >= 14 and max(ys) - min(ys) >= 14, (min(xs), max(xs), min(ys), max(ys))
+    top_edge = [x for x, y in found if y == min(ys)]
+    assert len(top_edge) >= 10, "the top edge of the tick is not painted"
