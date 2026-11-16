@@ -574,6 +574,8 @@ def test_the_library_gives_the_probes_sensors_and_integration_times_of_a_model()
     assert options.probes["RTD"] == ["85", "91"]
     assert options.probes["THERmistor"] == ["2252", "5000", "10000"]
     assert options.temp_nplc == options.nplc
-    # the DAQ970A library entry lists no temperature integration time: none is offered
+    # the DAQ970A has its own temperature integration times and sensor types
     daq = options_of(library.commands(library.resolve_model_id("DAQ970A")))
-    assert daq.temp_nplc == [] and daq.probes["FTHermistor"] == ["2252", "5000", "10000"]
+    assert daq.temp_nplc and "100" in daq.temp_nplc
+    assert daq.probes["FTHermistor"] == ["2252", "5000", "10000"]
+    assert daq.probes["TCouple"] == ["B", "E", "J", "K", "N", "R", "S", "T"]
