@@ -768,3 +768,8 @@ def test_time_log_example_in_the_docs_is_valid_and_runs():
     assert old.validate() == [], old.validate()
     for name in ("duration_s", "samples", "t_s", "instruments", "sources", "interval_s"):
         assert name in text, name
+    scan = re.search(r"```json datalogger\.tlg\n(.*?)```", text, re.S)
+    assert scan, "the datalogger scan example is missing in docs/time-log.md"
+    scan_params = _json.loads(scan.group(1))
+    scan_module = default_registry(user_dir="/nonexistent").create("time_log", scan_params)
+    assert scan_module.validate() == []

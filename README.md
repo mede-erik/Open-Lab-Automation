@@ -359,6 +359,10 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
   - [ ] time domain (TDR), fault position along a cable
 - [ ] Bode plot with a generator and a scope (bandwidth, phase and gain margin)
 - [ ] Time log of a variable
+  - [ ] several instruments, each at its own interval, one table per instrument
+  - [ ] datalogger read with one scan of all its channels
+  - [ ] supply readings (internal voltage and current) next to the other instruments
+  - [ ] editor of the sources, with the calls of the library
 - [ ] Resistive-load efficiency
   - [ ] manual selection of the resistors
   - [ ] switch box or datalogger multiplexer

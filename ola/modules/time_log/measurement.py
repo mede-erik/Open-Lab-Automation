@@ -17,6 +17,17 @@ Parameters, one entry per instrument (the format of the current version)::
          "readings": [{"name": "v", "call": "read_voltage"},
                       {"name": "i", "call": "read_current"}]}]}
 
+A datalogger can be read **all its channels together**: such a source has ``"scan": true`` and
+its ``channels`` (the settings of the ``.inst`` file: ``channel_id``, ``meas_type``, optional
+``range``, ``resolution``, ``probe_type``, ``sensor_type``) instead of ``readings``. The datalogger
+is configured once at the start of the run, and each sample is one scan (``read_scan``) whose values
+go to the channels in channel-number order::
+
+        {"name": "daq", "instrument": "daq", "interval_s": 600, "scan": true,
+         "channels": [{"name": "temp1", "channel_id": "101", "meas_type": "TEMP",
+                       "probe_type": "TCouple", "sensor_type": "K"},
+                      {"name": "vout", "channel_id": "103", "meas_type": "VOLT:DC"}]}
+
 Each source is written to its own table (the table is named after the source). A source ends
 after its ``samples``, or when the next sample would fall after ``duration_s``; without
 ``duration_s`` every source needs ``samples``.
@@ -40,6 +51,7 @@ was recorded stays).
 import time
 from typing import Any, Dict, List, Optional
 
+from ola.datalogger_setup import DataloggerSetupError, datalogger_calls, scan_order
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 
 RESERVED_NAMES = ("points", "t_s")  # "points" is the main table of the results, "t_s" the time
@@ -102,6 +114,11 @@ class TimeLog(Measurement):
                     f"source {name!r}: give samples, or duration_s for the log "
                     "(otherwise the log would never end)"
                 )
+            if s.get("scan") is True:
+                self._scan_problems(s, name, problems)
+                continue
+            if "channels" in s:
+                problems.append(f"source {name!r}: 'channels' is for a scan ('scan': true)")
             readings = s.get("readings")
             if not isinstance(readings, list) or not readings:
                 problems.append(f"source {name!r}: readings must be a non-empty list")
@@ -120,6 +137,28 @@ class TimeLog(Measurement):
                     problems.append(
                         f"source {name!r}, reading {r['name']!r}: 'args' must be an object"
                     )
+
+    def _scan_problems(self, s: Dict[str, Any], name: str, problems: List[str]) -> None:
+        """A datalogger read as one scan: its channels must be configurable and not repeated."""
+        if "readings" in s:
+            problems.append(f"source {name!r}: a scan has 'channels', not 'readings'")
+        channels = s.get("channels")
+        if not isinstance(channels, list) or not channels:
+            problems.append(f"source {name!r}: channels must be a non-empty list")
+            return
+        names = set()
+        for j, ch in enumerate(channels):
+            if not isinstance(ch, dict) or not isinstance(ch.get("name"), str) or not ch["name"]:
+                problems.append(f"source {name!r}, channel {j}: needs a 'name' (text)")
+                continue
+            if ch["name"] == "t_s" or ch["name"] in names:
+                problems.append(f"source {name!r}: channel name {ch['name']!r} is not usable")
+            names.add(ch["name"])
+        try:
+            order = scan_order([c for c in channels if isinstance(c, dict)])
+            datalogger_calls(order)  # the same checks as the datalogger of the remote control
+        except (DataloggerSetupError, TypeError, ValueError) as exc:
+            problems.append(f"source {name!r}: {exc}")
 
     def _channel_problems(self, p: Dict[str, Any], duration: Any, problems: List[str]) -> None:
         """The earlier format: one interval and one stop for all the channels."""
@@ -154,23 +193,35 @@ class TimeLog(Measurement):
         ``(name, instrument, call, args)``."""
         p = self.params
         if "sources" in p:
-            return [
-                {
+            plan = []
+            for s in p["sources"]:
+                group = {
                     "table": s["name"],
                     "interval": float(s["interval_s"]),
                     "samples": s.get("samples"),
-                    "readings": [
+                    "instrument": s["instrument"],
+                    "readings": [],
+                    "scan": None,
+                }
+                if s.get("scan") is True:
+                    order = scan_order(list(s["channels"]))
+                    group["scan"] = {
+                        "setup": datalogger_calls(order),
+                        "names": [c["name"] for c in order],
+                    }
+                else:
+                    group["readings"] = [
                         (r["name"], s["instrument"], r["call"], r.get("args", {}))
                         for r in s["readings"]
-                    ],
-                }
-                for s in p["sources"]
-            ]
+                    ]
+                plan.append(group)
+            return plan
         return [
             {
                 "table": "points",
                 "interval": float(p["interval_s"]),
                 "samples": p.get("samples"),
+                "scan": None,
                 "readings": [
                     (ch["name"], ch["instrument"], ch["call"], ch.get("args", {}))
                     for ch in p["channels"]
@@ -183,6 +234,17 @@ class TimeLog(Measurement):
         by_name = {h.name: h for h in ctx.instruments("instruments")}
         self._groups = self._plan()
         for group in self._groups:
+            if group["scan"] is not None:
+                if group["instrument"] not in by_name:
+                    raise MeasurementError(
+                        f"source {group['table']!r}: instrument {group['instrument']!r} is not "
+                        f"bound (bound: {sorted(by_name)})"
+                    )
+                group["scan_handle"] = by_name[group["instrument"]]
+                for call, args in group["scan"]["setup"]:  # configured once, before the run
+                    group["scan_handle"].call(call, **args)
+                group["handles"] = []
+                continue
             readers = []
             for name, instrument, call, args in group["readings"]:
                 if instrument not in by_name:
@@ -215,6 +277,19 @@ class TimeLog(Measurement):
             return True
         return duration is not None and state["k"] * group["interval"] > duration
 
+    @staticmethod
+    def _scan(group: Dict[str, Any]) -> Dict[str, Any]:
+        """One scan of the datalogger: its values go to the channels in channel-number order."""
+        readings = group["scan_handle"].call("read_scan")
+        names = group["scan"]["names"]
+        if not isinstance(readings, (list, tuple)) or len(readings) < len(names):
+            got = len(readings) if isinstance(readings, (list, tuple)) else type(readings).__name__
+            raise MeasurementError(
+                f"source {group['table']!r}: the datalogger gave {got} readings for "
+                f"{len(names)} channels"
+            )
+        return dict(zip(names, readings))
+
     def run(self, ctx: MeasurementContext) -> None:
         """Take each source's samples at its own interval until every source is finished."""
         duration = self.params.get("duration_s")
@@ -235,6 +310,8 @@ class TimeLog(Measurement):
             ctx.checkpoint()
             values = {}
             t_sample = time.monotonic() - t0  # when the acquisition of this sample starts
+            if group["scan"] is not None:
+                values.update(self._scan(group))
             for name, handle, call, args in group["handles"]:
                 values[name] = handle.call(call, **args)
             values["t_s"] = t_sample

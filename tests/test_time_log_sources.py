@@ -21,8 +21,10 @@ def registry(tmp_path):
 
 
 def source(name, instrument, interval, readings, **extra):
-    return {"name": name, "instrument": instrument, "interval_s": interval, "readings": readings,
-            **extra}
+    entry = {"name": name, "instrument": instrument, "interval_s": interval, **extra}
+    if readings is not None:
+        entry["readings"] = readings
+    return entry
 
 
 def volts(name="vout"):
@@ -163,3 +165,94 @@ def test_the_tables_reach_the_run_file(registry, tmp_path):
     data = read_run(writer.path)
     assert len(data["tables"]["dmm"]) == 3 and len(data["tables"]["daq"]) == 6
     assert data["points"] == []
+
+
+# ----- a datalogger read as one scan -------------------------------------------------------------
+SCAN_CHANNELS = [
+    {"name": "vout", "channel_id": "103", "meas_type": "VOLT:DC"},
+    {"name": "temp1", "channel_id": "101", "meas_type": "TEMP", "probe_type": "TCouple",
+     "sensor_type": "K"},
+]
+
+
+def scan_source(samples=3, interval=0.02, **extra):
+    entry = {"name": "daq", "instrument": "daq", "interval_s": interval, "scan": True,
+             "channels": SCAN_CHANNELS, "samples": samples}
+    entry.update(extra)
+    return entry
+
+
+def scan_source_without_readings(**extra):
+    return scan_source(**extra)
+
+
+def daq(scan_values=(20.5, 5.0)):
+    return FakeHandle("daq", {"read_scan": lambda: list(scan_values)})
+
+
+def test_a_datalogger_scan_is_configured_once_and_read_once_per_sample(registry):
+    handle = daq()
+    p = {"sources": [scan_source(samples=3)]}
+    runner = run_to_end(Runner(registry.create("time_log", p), {"instruments": [handle]}))
+    assert runner.state is RunState.FINISHED, runner.error
+    names = [c[0] for c in handle.calls]
+    assert names.count("read_scan") == 3
+    assert names.count("select_channels") == 1  # the scan list: once, before the first sample
+    assert names.index("select_channels") < names.index("read_scan")
+    assert handle.calls[names.index("select_channels")][1] == {"channels": "101,103"}
+    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
+    assert len(rows) == 3
+    # the readings go to the channels in channel-number order: 101 (temp1) first, then 103 (vout)
+    assert rows[0]["temp1"] == 20.5 and rows[0]["vout"] == 5.0
+
+
+def test_the_scan_gives_fewer_readings_than_channels_stops_with_a_clear_message(registry):
+    handle = FakeHandle("daq", {"read_scan": lambda: [20.5]})
+    p = {"sources": [scan_source(samples=2)]}
+    runner = run_to_end(Runner(registry.create("time_log", p), {"instruments": [handle]}))
+    assert runner.state is RunState.FAILED
+    assert "1 readings for 2 channels" in runner.error["message"]
+
+
+def test_a_scan_has_channels_and_no_readings(registry):
+    problems = registry.create(
+        "time_log", {"sources": [scan_source_without_readings(channels=[])]}
+    ).validate()
+    assert any("channels must be a non-empty list" in p for p in problems), problems
+    problems = registry.create(
+        "time_log", {"sources": [scan_source(
+            readings=[{"name": "x", "call": "read_voltage"}])]}
+    ).validate()
+    assert any("'channels', not 'readings'" in p for p in problems), problems
+    plain = source("dmm", "dmm1", 1, volts(), channels=SCAN_CHANNELS, samples=2)
+    assert any("is for a scan" in p for p in registry.create(
+        "time_log", {"sources": [plain]}).validate())
+
+
+def test_a_scan_channel_the_datalogger_cannot_configure_is_refused(registry):
+    bad = [{"name": "x", "channel_id": "103", "meas_type": "NOPE"}]
+    problems = registry.create(
+        "time_log", {"sources": [scan_source_without_readings(channels=bad)]}
+    ).validate()
+    assert any("unknown measurement type" in p for p in problems), problems
+    dup = [{"name": "a", "channel_id": "103", "meas_type": "VOLT:DC"},
+           {"name": "a", "channel_id": "104", "meas_type": "VOLT:DC"}]
+    problems = registry.create(
+        "time_log", {"sources": [scan_source_without_readings(channels=dup)]}
+    ).validate()
+    assert any("channel name 'a' is not usable" in p for p in problems), problems
+
+
+def test_a_scan_with_its_own_interval_next_to_a_multimeter(registry):
+    p = {"sources": [
+        scan_source(samples=4, interval=0.02),
+        source("dmm", "dmm1", 0.05, volts(), samples=2),
+    ]}
+    handles = {"instruments": [daq(), FakeHandle("dmm1", {"read_voltage": 5.0})]}
+    runner = run_to_end(Runner(registry.create("time_log", p), handles))
+    assert runner.state is RunState.FINISHED, runner.error
+    rows = points(runner)
+    assert sum(1 for r in rows if r["table"] == "daq") == 4
+    assert sum(1 for r in rows if r["table"] == "dmm") == 2
+    daq_rows = [r["values"] for r in rows if r["table"] == "daq"]
+    assert daq_rows[0]["temp1"] == 20.5 and daq_rows[0]["vout"] == 5.0

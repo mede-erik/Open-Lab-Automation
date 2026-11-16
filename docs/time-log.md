@@ -51,6 +51,32 @@ A datalogger reads its channels with the calls that take the channel in `args` (
 The `instrument` of a source must be one of the instruments chosen in the editor: if it is not, the run does not start and says which
 ones are bound.
 
+### A datalogger read with one scan
+
+A datalogger can be read **all its channels together**: a source with `"scan": true` has `channels` instead of `readings`. The
+channels are the ones of the instrument file (`channel_id`, `meas_type`, optional `range`, `resolution`, `probe_type`,
+`sensor_type`). The datalogger is configured once at the start of the run, and every sample is one scan whose values go to the
+channels in channel-number order. The same channel checks as the remote control tab apply, so a channel the datalogger cannot
+configure is refused before the run starts.
+
+```json datalogger.tlg
+{
+  "sources": [
+    {"name": "daq", "instrument": "daq", "interval_s": 600, "samples": 500, "scan": true,
+     "channels": [
+       {"name": "temp1", "channel_id": "101", "meas_type": "TEMP", "probe_type": "TCouple", "sensor_type": "K"},
+       {"name": "vout", "channel_id": "103", "meas_type": "VOLT:DC", "range": "10"}]}
+  ]
+}
+```
+
+### The editor
+
+The time log has its own editor, opened by the Measurements tab. It lists the sources, one for each instrument of the file, and for
+the selected one it shows the name, the instrument, the interval, the samples and either the readings (the calls offered are those
+of the instrument's model in the library) or, for a datalogger scan, its channels. The duration is at the top. **Save** asks the
+time-log module whether the file is valid, and shows the problems instead of saving if it is not.
+
 ### The earlier format
 
 A file with `channels` and a single `interval_s` is still read, as before: all the channels are sampled together at that interval
@@ -80,6 +106,5 @@ The window of the connections ([`wiring.md`](wiring.md)) lists the sources, in o
 
 ## Not done yet
 
-Reading several channels of the same datalogger is one call for each channel, not one call for all (a datalogger scan reads them
-one by one). A limit or an alarm on a value, and a log that continues across a stop, are not there. The editor of the file is
-still the generic one (the parameters as JSON): a dedicated editor for the sources comes next.
+A limit or an alarm on a value, and a log that continues across a stop, are not there. The readings of a source are not
+checked against the instrument's limits before the run.
