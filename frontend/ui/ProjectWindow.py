@@ -57,6 +57,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from frontend.ui.layout_utils import FlowLayout
 from frontend.ui.efficiency_widgets import text_color
 from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
@@ -268,7 +269,7 @@ class ProjectWindow(QMainWindow):
         self.table.itemDoubleClicked.connect(lambda _i: self.edit_measurement())
         root.addWidget(self.table, 3)
 
-        row = QHBoxLayout()
+        row = FlowLayout()  # the buttons go on a new line when the window is narrow
         self.buttons: Dict[str, QPushButton] = {}
         for key, handler in (
             ("prj_new", self.new_measurement),
@@ -287,7 +288,6 @@ class ProjectWindow(QMainWindow):
         self.bench_check = QCheckBox(self._t("prj_bench"))
         self.bench_check.setToolTip(self._t("prj_bench_tip"))
         row.addWidget(self.bench_check)
-        row.addStretch(1)
         root.addLayout(row)
 
         root.addWidget(QLabel(self._t("prj_runs")))
@@ -310,6 +310,26 @@ class ProjectWindow(QMainWindow):
         row.addWidget(self.compare_btn)
         row.addStretch(1)
         root.addLayout(row)
+
+    def retranslate(self) -> None:
+        """Show the window again in the language of the application (it was changed while the
+        window is open). The state is in the session, not in the widgets, so the window is built
+        again and filled from the session."""
+        lang = getattr(self.translator, "current_lang", None)
+        if lang:
+            for catalog in (self.tr_, self.wir_, self.cal_):
+                catalog.set_language(lang)
+        self.app_t = (self.translator or Translator()).t
+        bench = self.bench_check.isChecked()
+        self.menuBar().clear()
+        self._build_ui()  # a new central widget: the old one is deleted by Qt
+        self.bench_check.setChecked(bench)
+        self.setWindowTitle(
+            f"{self._t('prj_title')} - {self.session.project.name}"
+            if self.session is not None
+            else self._t("prj_title")
+        )
+        self._refresh()
 
     # ================================================================ the project
     def set_project(self, project: Project) -> None:

@@ -9,6 +9,9 @@ from PyQt6.QtCore import Qt, QSettings
 
 logger = logging.getLogger('frontend.ui.SettingsDialog')
 
+# The languages are shown by their own name, whatever the language of the application
+LANGUAGE_NAMES = {'it': 'Italiano', 'en': 'English', 'fr': 'Français', 'es': 'Español', 'de': 'Deutsch'}
+
 # =========================
 # SettingsDialog
 # =========================
@@ -55,10 +58,13 @@ class SettingsDialog(QDialog):
         # Load available languages from the translator
         self.lang_combo.clear()
         if self.translator and hasattr(self.translator, 'available_langs'):
-            self.lang_combo.addItems(self.translator.available_langs)
+            # each language by its own name ("Italiano"), the code is the data of the item
+            for code in sorted(self.translator.available_langs):
+                self.lang_combo.addItem(LANGUAGE_NAMES.get(code, code), code)
             if hasattr(self.translator, 'current_lang'):
-                self.lang_combo.setCurrentText(self.translator.current_lang)
-        self.lang_combo.currentTextChanged.connect(self.change_language)
+                self._select_language(self.translator.current_lang)
+        self.lang_combo.currentIndexChanged.connect(
+            lambda _index: self.change_language(self.lang_combo.currentData()))
         lang_layout.addWidget(self.lang_label)
         lang_layout.addWidget(self.lang_combo)
         layout.addLayout(lang_layout)
@@ -88,6 +94,12 @@ class SettingsDialog(QDialog):
         self.setLayout(layout)
         self.load_settings()
         self.toggle_advanced_naming(self.adv_naming_checkbox.isChecked())
+
+    def _select_language(self, code):
+        """Select the language ``code`` in the combo box (nothing if it is not there)."""
+        index = self.lang_combo.findData(code)
+        if index >= 0:
+            self.lang_combo.setCurrentIndex(index)
 
     def toggle_advanced_naming(self, state):
         """
@@ -149,7 +161,7 @@ class SettingsDialog(QDialog):
         adv_inst = settings.value('advanced_naming_inst', False, type=bool)
         adv_eff = settings.value('advanced_naming_eff', False, type=bool)
         adv_was = settings.value('advanced_naming_was', False, type=bool)
-        self.lang_combo.setCurrentText(lang)
+        self._select_language(lang)
         
         # Set theme combo based on loaded theme
         for i in range(self.theme_combo.count()):

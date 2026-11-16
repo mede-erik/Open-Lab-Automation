@@ -78,8 +78,12 @@ def format_number_list(values: Sequence[float]) -> str:
 def text_color(kind: str, widget: Optional[QWidget] = None) -> str:
     """Colour of a coloured *text* (``error``, ``warning``, ``ok``, ``muted``) that is readable on
     the current theme: brighter on a dark background, darker on a light one."""
-    palette = (widget or QApplication.instance()).palette()
-    dark = palette.window().color().lightness() < 128
+    app = QApplication.instance()
+    declared = app.property("ola_dark_theme") if app is not None else None  # see main_window
+    if declared is not None:
+        dark = bool(declared)
+    else:  # no theme was applied: the palette decides
+        dark = (widget or app).palette().window().color().lightness() < 128
     light_theme = {"error": "#c62828", "warning": "#b26a00", "ok": "#2e7d32", "muted": "#666666"}
     dark_theme = {"error": "#ff6b6b", "warning": "#ffb74d", "ok": "#81c784", "muted": "#a0a0a0"}
     return (dark_theme if dark else light_theme)[kind]

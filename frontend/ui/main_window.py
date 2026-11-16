@@ -18,6 +18,7 @@ import logging
 
 logger = logging.getLogger('frontend.ui.main_window')
 from PyQt6.QtWidgets import (
+    QApplication,
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, 
     QPushButton, QHBoxLayout, QComboBox, QFileDialog, QListWidget, 
     QListWidgetItem, QInputDialog, QLineEdit, QMessageBox, QMenu,
@@ -80,6 +81,10 @@ class MainWindow(QMainWindow):
         self.logger.debug("MainWindow.__init__ started.")
         # Initialize translator early
         self.translator = Translator()
+        # The saved language is applied now, before any tab is built: the tabs read the language
+        # when they are created (the Measurements tab stayed English because it was built first)
+        self.translator.set_language(
+            QSettings('LabAutomation', 'App').value('language', self.translator.current_lang))
         self.logger.debug("Translator initialized.")
         super().__init__()
         self.db = None
@@ -155,13 +160,14 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(self.project_files_list)
         self.splitter.addWidget(self.tabs)
         
-        # Set initial sizes for the splitter
-        # Sidebar takes 1/7, main area 6/7
-        total_width = self.size().width()
-        sidebar_width = int(total_width / 7)
-        main_width = total_width - sidebar_width
-        self.splitter.setSizes([sidebar_width, main_width])
-        
+        # The file list is narrow, the tabs take the rest; the border can be moved. (The sizes were
+        # computed from the window before it was shown, 1/7 of a 640 px window: names were cut.)
+        self.project_files_list.setMinimumWidth(150)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([220, 1000])
+
         main_layout.addWidget(self.splitter)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
@@ -479,6 +485,11 @@ class MainWindow(QMainWindow):
                     icons_dir = os.path.join(os.path.dirname(styles_dir), 'icons').replace('\\', '/')
                     stylesheet = stylesheet.replace('@ICONS@', icons_dir)
                     self.setStyleSheet(stylesheet)
+                    # The themes are style sheets, so the Qt palette does not say whether the
+                    # background is dark: the code that picks a text colour reads this instead
+                    app = QApplication.instance()
+                    if app is not None:
+                        app.setProperty('ola_dark_theme', theme_filename.startswith('dark'))
                     logger.info(f"Theme '{theme_filename}' applied ({len(stylesheet)} chars)")
             else:
                 logger.warning(f"Theme file not found: {theme_path}, using defaults")
@@ -512,6 +523,9 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, self.translator.t('remote_control'))
         self.init_menu()
         self.remote_tab.update_translation(self.translator)
+        # the Measurements tab: its texts and its tab title
+        self.project_tab.retranslate()
+        self.tabs.setTabText(self.tabs.indexOf(self.project_tab), self.project_tab.tr_.t('prj_tab'))
         self.logger.debug("UI translations updated.")
 
     def initialize_database_connection(self):

@@ -130,3 +130,27 @@ def test_remote_control_tab_scrolls_instead_of_growing(qtbot):
     scroll = tab.findChild(QScrollArea)
     assert scroll is not None and scroll.widgetResizable()
     assert tab.minimumSizeHint().height() < 400
+
+
+@pytest.mark.gui
+def test_flow_layout_wraps_when_narrow(qtbot):
+    """A row of buttons goes on more lines when there is no room (a longer language, a larger
+    display scale), and stays on one line when there is."""
+    _qt()
+    from PyQt6.QtWidgets import QPushButton, QWidget
+    from frontend.ui.layout_utils import FlowLayout
+
+    box = QWidget()
+    qtbot.addWidget(box)
+    flow = FlowLayout(box, spacing=10)
+    for index in range(6):
+        button = QPushButton(f"button {index}")
+        button.setFixedSize(100, 30)
+        flow.addWidget(button)
+    assert flow.heightForWidth(700) == 30  # 6 x 100 + 5 x 10 = 650: one line
+    assert flow.heightForWidth(250) == 3 * 30 + 2 * 10  # two buttons a line: three lines
+    assert flow.minimumSize().width() == 100  # it can be as narrow as one button
+    box.resize(250, 200)
+    box.show()
+    positions = {flow.itemAt(i).geometry().y() for i in range(flow.count())}
+    assert len(positions) == 3

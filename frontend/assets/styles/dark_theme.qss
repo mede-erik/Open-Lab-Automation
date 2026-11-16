@@ -95,7 +95,7 @@ QPushButton:pressed {
 
 QPushButton:disabled {
     background-color: #2a2a2a;
-    color: #666;
+    color: #959595;
     border: 1px solid #444;
 }
 
@@ -106,6 +106,7 @@ QLineEdit {
     border: 1px solid #666;
     padding: 4px 8px;
     border-radius: 4px;
+    placeholder-text-color: #a8a8a8;
 }
 
 QLineEdit:focus {
@@ -135,7 +136,8 @@ QComboBox::down-arrow {
 QComboBox QAbstractItemView {
     background-color: #3c3c3c;
     color: #f0f0f0;
-    selection-background-color: #4a9eff;
+    selection-background-color: #2f6fbd;
+    selection-color: #ffffff;
 }
 
 /* List widget styling */
@@ -151,7 +153,8 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background-color: #4a9eff;
+    background-color: #2f6fbd;
+    color: #ffffff;
 }
 
 QListWidget::item:hover {
@@ -172,7 +175,8 @@ QTableWidget::item {
 }
 
 QTableWidget::item:selected {
-    background-color: #4a9eff;
+    background-color: #2f6fbd;
+    color: #ffffff;
 }
 
 QHeaderView::section {
@@ -190,13 +194,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: #555;
+    background: #8b949e;
     border-radius: 7px;
     min-height: 20px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #666;
+    background: #aab2bd;
 }
 
 QScrollBar::add-line:vertical,
@@ -211,13 +215,13 @@ QScrollBar:horizontal {
 }
 
 QScrollBar::handle:horizontal {
-    background: #555;
+    background: #8b949e;
     border-radius: 7px;
     min-width: 20px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: #666;
+    background: #aab2bd;
 }
 
 QScrollBar::add-line:horizontal,

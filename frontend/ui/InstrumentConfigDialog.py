@@ -43,7 +43,8 @@ class InstrumentConfigDialog(QDialog):
 
     def __init__(self, inst_file_path, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
-        self.translator = Translator()
+        # the language of the application (a Translator of its own would always be English)
+        self.translator = getattr(parent, 'translator', None) or Translator()
         self.setWindowTitle(self.translator.t('inst_dialog_title'))
         self.inst_file_path = inst_file_path
         self.load_instruments = load_instruments
