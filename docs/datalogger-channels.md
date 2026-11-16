@@ -53,8 +53,14 @@ model (`configure_temperature`):
 | Key | Values | Note |
 |---|---|---|
 | `probe_type` | `TCouple` (thermocouple), `RTD` (2-wire), `FRTD` (4-wire), `THERmistor` | `FTHermistor` on the DAQ970A/973A |
-| `sensor_type` | a thermocouple letter (`B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`); an RTD type (`85` = PT385, `91` = PT3916); a thermistor resistance at 25 °C (`2252`, `5000`, `10000`) | the list depends on the probe; the library may restrict it |
+| `sensor_type` | a thermocouple letter (`B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`); an RTD alpha (`85` = 0.00385, `91` = 0.00391; the nominal resistance, 100 or 1000 Ω, is set by a separate command, see below); a thermistor resistance at 25 °C (`2252`, `5000`, `10000`) | the list depends on the probe; the library may restrict it |
 
 The integration time of a temperature channel is `set_temperature_nplc`, so it can match the voltage
 channels or make the reading faster. Range, input impedance and zero do not apply to temperature.
 The DAQ970A/973A library entries list no temperature integration time yet, so none is offered there.
+
+### PT100 and PT1000
+
+On the 34970A the RTD type is the platinum alpha (`85` = 0.00385, `91` = 0.00391), not the
+nominal resistance. The nominal resistance is set with `TEMP:TRAN:RTD:RES:REF` (default 100 Ω, so a
+PT1000 needs 1000 Ω). The library has no call for it yet, so the software cannot set a PT1000.

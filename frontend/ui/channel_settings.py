@@ -140,12 +140,13 @@ class SettingsCells:
     @staticmethod
     def _sensor_text(probe: str, sensor: str) -> str:
         """The sensor as a person names it: a thermocouple letter, the RTD's alpha, the
-        thermistor's resistance at 25 degrees."""
+        thermistor's resistance at 25 degrees. The nominal resistance of an RTD (100 or 1000
+        ohms) is not a sensor type: the library does not give a call for it yet."""
         kind = canonical_probe(probe)
         if kind == "THERmistor":
             return f"{sensor} Ω"
-        if kind in ("RTD", "FRTD"):
-            return {"85": "PT385", "91": "PT3916"}.get(sensor, sensor)
+        if kind in ("RTD", "FRTD"):  # the alpha of the platinum element, as the manual gives it
+            return {"85": "α 0.00385", "91": "α 0.00391"}.get(sensor, sensor)
         return sensor
 
     def _fill_nplc(self, current: Any, integration: List[str]) -> None:
