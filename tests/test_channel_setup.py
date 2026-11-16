@@ -197,9 +197,16 @@ def test_what_the_library_gives_a_model_to_choose_from():
     assert options.ranges["VOLT:DC"] == ["0.1", "1", "10", "100", "300"]
     assert options.ranges["CURR:DC"] == ["0.01", "0.1", "1"]
     assert options.zero and options.impedance
-    for model in ("DAQ970A", "DAQ973A"):
-        daq = options_of(library.commands(library.resolve_model_id(model)))
-        assert "100" in daq.nplc and "VOLT:DC" in daq.ranges and daq.zero and daq.impedance
+    daq = options_of(library.commands(library.resolve_model_id("DAQ970A")))  # its own lists
+    plcs = ["0.001", "0.002", "0.006", "0.02", "0.06", "0.2", "1", "2", "10", "20", "100", "200"]
+    assert daq.nplc == plcs
+    assert daq.ranges["VOLT:DC"] == ["0.1", "1", "10", "100", "300"]
+    assert daq.ranges["CURR:DC"] == ["1e-06", "1e-05", "0.0001", "0.001", "0.01", "0.1", "1"]
+    assert daq.ranges["RES"][0] == "100" and daq.ranges["RES"][-1] == "1000000000"
+    assert daq.zero and daq.impedance
+    # a model of another kind has none of them
+    empty = options_of(library.commands(library.resolve_model_id("DL_Agilent_3499A")))
+    assert (empty.nplc, empty.ranges, empty.zero, empty.impedance) == ([], {}, False, False)
     assert options_of(None).zero is False
 
 
