@@ -113,3 +113,20 @@ def test_inst_dialog_editor_is_not_squeezed(qtbot, tmp_path, monkeypatch):
         assert viewport.width() >= dialog.editor_widget.minimumSizeHint().width(), row
         assert dialog.list_widget.width() < dialog.width() // 2, row
         assert dialog.width() <= screen.width() and dialog.height() <= screen.height()
+
+
+@pytest.mark.gui
+@pytest.mark.skipif(LIBRARY_PATH is None, reason="instrument library not available")
+def test_remote_control_tab_scrolls_instead_of_growing(qtbot):
+    """With many instruments the tab used to be taller than the screen, and its content set the
+    minimum height of the whole window: now it scrolls."""
+    _qt()
+    from PyQt6.QtWidgets import QScrollArea
+    from frontend.core.LoadInstruments import LoadInstruments
+    from frontend.ui.RemoteControlTab import RemoteControlTab
+
+    tab = RemoteControlTab(LoadInstruments())
+    qtbot.addWidget(tab)
+    scroll = tab.findChild(QScrollArea)
+    assert scroll is not None and scroll.widgetResizable()
+    assert tab.minimumSizeHint().height() < 400

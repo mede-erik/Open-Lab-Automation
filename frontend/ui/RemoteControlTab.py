@@ -15,7 +15,7 @@ except (ImportError, ValueError) as e:
     logging.getLogger('frontend.ui.RemoteControlTab').warning(f"PyVISA not available: {e}")
 
 logger = logging.getLogger('frontend.ui.RemoteControlTab')
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider, QScrollArea, QFrame
 from PyQt6.QtCore import QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
 from ola.call_errors import CallNotSupportedError
@@ -130,7 +130,17 @@ class RemoteControlTab(QWidget):
         self.channels_layout.addLayout(self.left_column)
         self.channels_layout.addLayout(self.right_column)
         self.main_layout.addStretch()
-        self.setLayout(self.main_layout)
+        # The content scrolls: with many instruments it is taller than the screen, and without a
+        # scroll area it would set a minimum height for the whole window
+        content = QWidget()
+        content.setLayout(self.main_layout)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(content)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
         self.current_channel_widgets = []  # Stores references to current channel widgets
         # Initialize VISA resource manager with lazy loading to avoid segmentation fault
         self.rm = None
