@@ -133,10 +133,11 @@ def test_was_applier_parsing():
     assert RemoteControlTab._extract_channel_number('C4') == 4
     assert RemoteControlTab._extract_channel_number('3') == 3
     assert RemoteControlTab._extract_channel_number(None) is None
-    assert RemoteControlTab._parse_voltage_value('2V') == 2.0
-    assert RemoteControlTab._parse_voltage_value('100mV') == 0.1
-    assert RemoteControlTab._parse_voltage_value('0.5') == 0.5
-    assert RemoteControlTab._parse_voltage_value('zzz') is None
+    from ola.was_calls import parse_voltage_value
+    assert parse_voltage_value('2V') == 2.0
+    assert parse_voltage_value('100mV') == 0.1
+    assert parse_voltage_value('0.5') == 0.5
+    assert parse_voltage_value('zzz') is None
 
 
 def test_resolve_model_commands_override_remove_patch():

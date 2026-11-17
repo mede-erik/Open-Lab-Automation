@@ -56,19 +56,19 @@ class RemoteControlTab(QWidget):
             self.logger = Logger()
             self.logger.info("RemoteControlTab initialization started")
         except Exception as e:
-            print(f"Impossibile inizializzare logger: {e}")
+            print(f"The logger cannot be started: {e}")
             self.logger = None
 
         # Initialize error handler
         self.error_handler = ErrorHandler()
 
         if self.instruments_manager is None:
-            msg = "ATTENZIONE: RemoteControlTab inizializzato senza LoadInstruments"
+            msg = "WARNING: RemoteControlTab started without LoadInstruments"
             print(msg)
             if self.logger:
                 self.logger.error(msg)
         else:
-            msg = f"RemoteControlTab inizializzato con LoadInstruments: {type(self.instruments_manager)}"
+            msg = f"RemoteControlTab started with LoadInstruments: {type(self.instruments_manager)}"
             print(msg)
             if self.logger:
                 self.logger.info(msg)
@@ -81,34 +81,34 @@ class RemoteControlTab(QWidget):
         # Pulsante oscilloscopio con icona
         self.osc_btn = QPushButton()
         osc_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/oscilloscope.png')
-        print(f"[RemoteControlTab] Cercando icona oscilloscopio: {osc_icon_path}")
+        print(f"[RemoteControlTab] looking for the oscilloscope icon: {osc_icon_path}")
         if os.path.exists(osc_icon_path):
             from PyQt6.QtGui import QIcon
             from PyQt6.QtCore import QSize
             icon = QIcon(osc_icon_path)
             self.osc_btn.setIcon(icon)
             self.osc_btn.setIconSize(QSize(48, 48))  # Icona 48px dentro pulsante 64px
-            print(f"[RemoteControlTab] Icona oscilloscopio caricata: {osc_icon_path}")
+            print(f"[RemoteControlTab] oscilloscope icon loaded: {osc_icon_path}")
         else:
             self.osc_btn.setText('OSC')
-            print("[RemoteControlTab] Icona oscilloscopio non trovata, usando testo")
+            print("[RemoteControlTab] oscilloscope icon not found, using text")
         self.osc_btn.setFixedSize(64, 64)
         self.osc_btn.clicked.connect(self._configure_oscilloscope_from_was)
         top_layout.addWidget(self.osc_btn)
         # Pulsante reload con icona
         self.reload_btn = QPushButton()
         refresh_icon_path = os.path.join(os.path.dirname(__file__), '../assets/icons/refresh.png')
-        print(f"[RemoteControlTab] Cercando icona refresh: {refresh_icon_path}")
+        print(f"[RemoteControlTab] looking for the refresh icon: {refresh_icon_path}")
         if os.path.exists(refresh_icon_path):
             from PyQt6.QtGui import QIcon
             from PyQt6.QtCore import QSize
             icon = QIcon(refresh_icon_path)
             self.reload_btn.setIcon(icon)
             self.reload_btn.setIconSize(QSize(48, 48))  # Icona 48px dentro pulsante 64px
-            print(f"[RemoteControlTab] Icona refresh caricata: {refresh_icon_path}")
+            print(f"[RemoteControlTab] refresh icon loaded: {refresh_icon_path}")
         else:
             self.reload_btn.setText('↻')
-            print("[RemoteControlTab] Icona refresh non trovata, usando testo")
+            print("[RemoteControlTab] refresh icon not found, using text")
         self.reload_btn.setFixedSize(64, 64)
         self.reload_btn.clicked.connect(self._reload_instruments_from_mainwindow)
         top_layout.addWidget(self.reload_btn)
@@ -161,7 +161,7 @@ class RemoteControlTab(QWidget):
         if parent is not None and hasattr(parent, 'reload_remote_tab_instruments'):
             parent.reload_remote_tab_instruments()
         else:
-            print("[RemoteControlTab] MainWindow con reload_remote_tab_instruments non trovato.")
+            print("[RemoteControlTab] no MainWindow with reload_remote_tab_instruments.")
 
     def _configure_oscilloscope_from_was(self):
         """Configura l'oscilloscopio con i parametri dal file .was del progetto corrente."""
@@ -171,24 +171,24 @@ class RemoteControlTab(QWidget):
             parent = parent.parent()
 
         if parent is None or not hasattr(parent, 'current_project_data'):
-            print("[RemoteControlTab] MainWindow non trovato o progetto non caricato.")
+            print("[RemoteControlTab] no MainWindow, or no project loaded.")
             return
 
         if not parent.current_project_dir or not parent.current_project_data:
-            print("[RemoteControlTab] Nessun progetto attivo.")
+            print("[RemoteControlTab] no project open.")
             return
 
         # Trova il primo file .was nel progetto
         was_files = parent.current_project_data.get('was_files', [])
         if not was_files:
-            print("[RemoteControlTab] Nessun file .was trovato nel progetto.")
+            print("[RemoteControlTab] no .was file in the project.")
             return
 
         was_file = was_files[0]  # Usa il primo file .was
         was_path = os.path.join(parent.current_project_dir, was_file)
 
         if not os.path.exists(was_path):
-            print(f"[RemoteControlTab] File .was non trovato: {was_path}")
+            print(f"[RemoteControlTab] .was file not found: {was_path}")
             return
 
         try:
@@ -196,38 +196,38 @@ class RemoteControlTab(QWidget):
             with open(was_path, 'r', encoding='utf-8') as f:
                 was_data = json.load(f)
 
-            print(f"[RemoteControlTab] Configurazione oscilloscopio da: {was_file}")
-            print(f"[RemoteControlTab] Parametri caricati: {list(was_data.keys())}")
+            print(f"[RemoteControlTab] oscilloscope settings from: {was_file}")
+            print(f"[RemoteControlTab] parameters loaded: {list(was_data.keys())}")
 
             # Qui puoi implementare la logica per inviare i comandi SCPI all'oscilloscopio
             # Esempio: configurazione timebase, canali, trigger, ecc.
             self._apply_oscilloscope_settings(was_data)
 
         except Exception as e:
-            print(f"[RemoteControlTab] Errore durante caricamento file .was: {e}")
+            print(f"[RemoteControlTab] reading the .was file failed: {e}")
 
     def _apply_oscilloscope_settings(self, was_data):
         """Applica le impostazioni dell'oscilloscopio tramite comandi SCPI."""
         # Trova gli oscilloscopi negli strumenti caricati
         if not hasattr(self, 'visa_connections'):
-            print("[RemoteControlTab] Nessuna connessione VISA attiva.")
+            print("[RemoteControlTab] no VISA connection open.")
             return
 
         # Carica gli oscilloscopi dal file .inst del progetto corrente
         oscilloscopes = self._get_project_oscilloscopes()
         if not oscilloscopes:
-            print("[RemoteControlTab] Nessun oscilloscopio trovato nel progetto.")
+            print("[RemoteControlTab] no oscilloscope in the project.")
             return
 
-        print(f"[RemoteControlTab] Trovati {len(oscilloscopes)} oscilloscopi nel progetto.")
+        print(f"[RemoteControlTab] {len(oscilloscopes)} oscilloscopes in the project.")
 
         for osc_inst in oscilloscopes:
             try:
                 self._configure_single_oscilloscope(osc_inst, was_data)
             except Exception as e:
-                print(f"[RemoteControlTab] Errore configurazione oscilloscopio {osc_inst.get('instance_name', 'N/A')}: {e}")
+                print(f"[RemoteControlTab] setting up the oscilloscope failed: {osc_inst.get('instance_name', 'N/A')}: {e}")
 
-        print("[RemoteControlTab] Configurazione oscilloscopi completata.")
+        print("[RemoteControlTab] oscilloscopes set up.")
 
     def _get_project_oscilloscopes(self):
         """Recupera gli oscilloscopi dal file .inst del progetto corrente."""
@@ -252,21 +252,21 @@ class RemoteControlTab(QWidget):
 
             # Filtra solo gli oscilloscopi (gestisce sia 'oscilloscope' che 'oscilloscopes')
             oscilloscopes = []
-            print("[RemoteControlTab] Analisi strumenti nel file .inst:")
+            print("[RemoteControlTab] instruments of the .inst file:")
             for idx, inst in enumerate(inst_data.get('instruments', [])):
                 inst_type = inst.get('instrument_type', '')
                 inst_name = inst.get('instance_name', 'N/A')
-                print(f"  [{idx}] {inst_name} - Tipo: '{inst_type}'")
+                print(f"  [{idx}] {inst_name} - type: '{inst_type}'")
 
                 # Gestisce sia 'oscilloscope' che 'oscilloscopes'
                 if inst_type in ['oscilloscope', 'oscilloscopes']:
                     oscilloscopes.append(inst)
-                    print(f"    → Oscilloscopio trovato: {inst_name}")
+                    print(f"    → oscilloscope: {inst_name}")
 
-            print(f"[RemoteControlTab] Oscilloscopi trovati: {len(oscilloscopes)}")
+            print(f"[RemoteControlTab] oscilloscopes found: {len(oscilloscopes)}")
             return oscilloscopes
         except Exception as e:
-            print(f"[RemoteControlTab] Errore lettura file .inst: {e}")
+            print(f"[RemoteControlTab] reading the .inst file failed: {e}")
             return []
 
     def _configure_single_oscilloscope(self, osc_inst, was_data):
@@ -275,22 +275,22 @@ class RemoteControlTab(QWidget):
         osc_model = osc_inst.get('model', '')
         visa_addr = osc_inst.get('visa_address', '')
 
-        print(f"[RemoteControlTab] Configurazione oscilloscopio: {osc_name} ({osc_model})")
+        print(f"[RemoteControlTab] setting up the oscilloscope: {osc_name} ({osc_model})")
 
         if not visa_addr:
-            print(f"[RemoteControlTab] Indirizzo VISA mancante per {osc_name}")
+            print(f"[RemoteControlTab] no VISA address for {osc_name}")
             return
 
         # Modello nella libreria (id, codice modello o nome)
         library = self.instruments_manager.get_library() if self.instruments_manager else None
         model_id = library.resolve_model_id(osc_inst.get('model_id', osc_model)) if library else None
         if not model_id:
-            print(f"[RemoteControlTab] Modello {osc_model} non trovato nella libreria")
+            print(f"[RemoteControlTab] model {osc_model} not in the library")
             return
 
         # Connessione VISA
         if not self._ensure_visa_initialized():
-            print("[RemoteControlTab] VISA non inizializzato")
+            print("[RemoteControlTab] VISA not started")
             return
 
         try:
@@ -302,14 +302,14 @@ class RemoteControlTab(QWidget):
                 self._configure_serial(instr, visa_addr, osc_inst)
                 self.visa_connections[visa_addr] = instr
 
-            print(f"[RemoteControlTab] Connesso a {osc_name} su {visa_addr}")
+            print(f"[RemoteControlTab] connected to {osc_name} at {visa_addr}")
 
             # Applica le impostazioni dal file .was
             executor = self._get_instrument_executor(visa_addr, instr, osc_name)
             self._apply_was_settings_to_oscilloscope(executor, library, model_id, was_data)
 
         except Exception as e:
-            print(f"[RemoteControlTab] Errore connessione a {osc_name}: {e}")
+            print(f"[RemoteControlTab] connection failed: {osc_name}: {e}")
 
     def _configure_serial(self, instr, visa_addr, inst):
         """
@@ -332,7 +332,7 @@ class RemoteControlTab(QWidget):
         from ola.serial_config import apply_serial_settings
         try:
             apply_serial_settings(instr, cfg)
-            print(f"[RemoteControlTab] Seriale {visa_addr}: {cfg}")
+            print(f"[RemoteControlTab] serial {visa_addr}: {cfg}")
         except (ValueError, AttributeError) as exc:
             if self.logger:
                 self.logger.error(f"Serial settings for {visa_addr} not applied: {exc}")
@@ -388,24 +388,18 @@ class RemoteControlTab(QWidget):
                     print(f"[RemoteControlTab] {name} {args}")
 
             if failed:
-                print(f"[RemoteControlTab] Configurazione completata con {len(failed)} chiamate non eseguite")
+                print(f"[RemoteControlTab] settings applied, {len(failed)} calls not done")
             else:
-                print("[RemoteControlTab] Configurazione completata con successo")
+                print("[RemoteControlTab] settings applied")
 
         except Exception as e:
-            print(f"[RemoteControlTab] Errore durante applicazione impostazioni: {e}")
+            print(f"[RemoteControlTab] applying the settings failed: {e}")
 
     @staticmethod
     def _extract_channel_number(ch_ref):
         """Channel number of 'CH1', 'CHAN1', 'C1', '1' (None if absent)."""
         from ola.was_calls import extract_channel_number
         return extract_channel_number(ch_ref)
-
-    @staticmethod
-    def _parse_voltage_value(value):
-        """Volts from '2V', '2', '0.5V', '100mV' (None if not parsable)."""
-        from ola.was_calls import parse_voltage_value
-        return parse_voltage_value(value)
 
     def _ensure_visa_initialized(self):
         """
@@ -418,31 +412,31 @@ class RemoteControlTab(QWidget):
         self._visa_init_attempted = True
 
         if not PYVISA_AVAILABLE or pyvisa is None:
-            print("PyVISA non disponibile")
+            print("PyVISA not available")
             return False
 
         try:
-            print("Inizializzazione lazy del VISA resource manager...")
+            print("starting the VISA resource manager...")
             # Prova prima con backend sicuro @py
             try:
                 self.rm = pyvisa.ResourceManager('@py')
-                print("✓ VISA resource manager inizializzato con backend @py")
+                print("✓ VISA resource manager started with the @py backend")
                 return True
             except Exception as e:
-                print(f"Backend @py fallito: {e}")
+                print(f"@py backend failed: {e}")
                 # Fallback al backend di default
                 try:
                     self.rm = pyvisa.ResourceManager()
-                    print("✓ VISA resource manager inizializzato con backend di default")
+                    print("✓ VISA resource manager started with the default backend")
                     return True
                 except Exception as e2:
-                    print(f"Backend di default fallito: {e2}")
+                    print(f"default backend failed: {e2}")
 
         except Exception as e:
-            print(f"✗ Errore inizializzazione VISA: {e}")
+            print(f"✗ starting VISA failed: {e}")
 
         self.rm = None
-        print("Controllo strumenti disabilitato - problemi con PyVISA")
+        print("instrument control disabled: PyVISA problems")
         return False
 
     def safe_retry_connection(self, inst, btn, timer_key):
@@ -480,7 +474,7 @@ class RemoteControlTab(QWidget):
             if not self._ensure_visa_initialized():
                 btn.setStyleSheet('border: 2px solid orange;')
                 btn.setChecked(False)
-                btn.setToolTip("VISA non disponibile")
+                btn.setToolTip(self._t("rc_visa_missing"))
                 self.connection_retry_counts.pop(timer_key, None)
                 return
 
@@ -610,7 +604,7 @@ class RemoteControlTab(QWidget):
         from PyQt6.QtCore import QThread, pyqtSignal as Signal, QObject
 
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Connection Diagnostics - {visa_address}")
+        dialog.setWindowTitle(f"{self._t('rc_diagnostics_title')} - {visa_address}")
         dialog.setMinimumSize(600, 400)
 
         layout = QVBoxLayout(dialog)
@@ -626,7 +620,7 @@ class RemoteControlTab(QWidget):
         layout.addWidget(text_area)
 
         # Close button
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self._t("close"))
         close_btn.clicked.connect(dialog.close)
         layout.addWidget(close_btn)
 
@@ -738,14 +732,14 @@ class RemoteControlTab(QWidget):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit
 
         dialog = QDialog(self)
-        dialog.setWindowTitle("Connection Error")
+        dialog.setWindowTitle(self._t("rc_connection_error"))
         dialog.setMinimumWidth(500)
 
         layout = QVBoxLayout()
 
         # Error icon and title
         title_layout = QHBoxLayout()
-        title_label = QLabel("❌ Connection Failed")
+        title_label = QLabel("❌ " + self._t("rc_connection_failed"))
         set_class(title_label, "error")
         title_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         title_layout.addWidget(title_label)
@@ -762,11 +756,11 @@ class RemoteControlTab(QWidget):
         # Buttons
         button_layout = QHBoxLayout()
 
-        diagnose_btn = QPushButton("🔍 Run Diagnostics")
+        diagnose_btn = QPushButton("🔍 " + self._t("rc_run_diagnostics"))
         diagnose_btn.clicked.connect(lambda: [dialog.accept(), self.show_connection_diagnostics(visa_address)])
         diagnose_btn.setStyleSheet("background-color: #1976d2; color: white; padding: 8px;")
 
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(self._t("close"))
         close_btn.clicked.connect(dialog.reject)
         close_btn.setStyleSheet("padding: 8px;")
 
@@ -825,7 +819,7 @@ class RemoteControlTab(QWidget):
         Load instruments from the specified .inst file and create corresponding UI controls.
         :param inst_file_path: Path to the .inst file to load.
         """
-        msg = f"load_instruments chiamato con path: {inst_file_path}"
+        msg = f"load_instruments called with path: {inst_file_path}"
         print(msg)
         if self.logger:
             self.logger.info(msg)
@@ -898,10 +892,10 @@ class RemoteControlTab(QWidget):
                 inst_data = json.load(f)
 
             # DEBUG: Stampa tutti gli strumenti caricati
-            print(f"\n=== DEBUG: Strumenti caricati da {inst_file_path} ===")
+            print(f"\n=== DEBUG: instruments loaded from {inst_file_path} ===")
             for idx, inst in enumerate(inst_data.get('instruments', [])):
-                print(f"  [{idx}] {inst.get('instance_name', 'N/A')} - Tipo: {inst.get('instrument_type', 'N/A')}")
-                print(f"       Canali: {len(inst.get('channels', []))}")
+                print(f"  [{idx}] {inst.get('instance_name', 'N/A')} - type: {inst.get('instrument_type', 'N/A')}")
+                print(f"       channels: {len(inst.get('channels', []))}")
                 for ch_idx, ch in enumerate(inst.get('channels', [])):
                     print(f"         [{ch_idx}] {ch.get('name', 'N/A')} - Enabled: {ch.get('enabled', False)}")
             print("=" * 50 + "\n")
@@ -922,7 +916,7 @@ class RemoteControlTab(QWidget):
                         is_enabled = ch.get('enabled', True)  # Solo canali abilitati
                         if is_enabled:
                             self.meas_vars.append((inst, ch))
-                            print(f"    → Canale misura aggiunto: {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
+                            print(f"    → measurement channel added: {inst.get('instance_name', 'N/A')} - {ch.get('name', 'N/A')}")
 
             if self.meas_vars:
                 # Crea un layout a griglia per le misure
@@ -1046,9 +1040,9 @@ class RemoteControlTab(QWidget):
                     })
                     total_enabled_channels += 1
 
-            print("\n=== DEBUG: Analisi strumenti per layout ottimizzato ===")
-            print(f"Strumenti validi: {len(power_instruments)}")
-            print(f"Totale canali abilitati: {total_enabled_channels}")
+            print("\n=== DEBUG: instruments for the layout ===")
+            print(f"valid instruments: {len(power_instruments)}")
+            print(f"enabled channels: {total_enabled_channels}")
 
             # Ordina gli strumenti dal più grande al più piccolo per un miglior bilanciamento
             power_instruments.sort(key=lambda x: x['channel_count'], reverse=True)
@@ -1056,7 +1050,7 @@ class RemoteControlTab(QWidget):
             for i, inst_info in enumerate(power_instruments):
                 inst_name = inst_info['inst'].get('instance_name', 'N/A')
                 channel_count = inst_info['channel_count']
-                print(f"  -> Strumento ordinato [{i}]: {inst_name} ({channel_count} canali)")
+                print(f"  -> instrument [{i}]: {inst_name} ({channel_count} channels)")
 
             # Determina il numero di colonne necessarie
             if total_enabled_channels <= 4:
@@ -1071,10 +1065,10 @@ class RemoteControlTab(QWidget):
                 self.third_column = QVBoxLayout()
                 self.channels_layout.addLayout(self.third_column)
 
-            print(f"Layout scelto: {num_columns} colonne per {total_enabled_channels} canali totali")
+            print(f"layout: {num_columns} columns for {total_enabled_channels} channels")
 
             # --- Then, for each power supply/electronic load, create a group per instrument ---
-            print("\n=== DEBUG: Creazione controlli alimentatori/carichi ===")
+            print("\n=== DEBUG: controls of supplies and loads ===")
             columns = [self.left_column, self.right_column]
             if num_columns >= 3:
                 columns.append(self.third_column)
@@ -1094,10 +1088,10 @@ class RemoteControlTab(QWidget):
                 enabled_channels = inst_info['enabled_channels']
                 channel_count = inst_info['channel_count']
 
-                print(f"Elaborazione strumento: {inst.get('instance_name', 'N/A')} - {channel_count} canali")
+                print(f"instrument: {inst.get('instance_name', 'N/A')} - {channel_count} channels")
 
                 # --- Pulsante di connessione per strumento ---
-                conn_btn = QPushButton(f"Connect {inst.get('instance_name','')}")
+                conn_btn = QPushButton(self._t("rc_connect", name=inst.get('instance_name', '')))
                 conn_btn.setCheckable(True)
                 conn_btn.setStyleSheet('QPushButton { font-weight: bold; padding: 5px; }')
                 # Manual instruments have no remote/VISA control: hide the connect button
@@ -1310,7 +1304,7 @@ class RemoteControlTab(QWidget):
                 # Strategia di layout per strumento con molti canali (>3)
                 if channel_count > 3:
                     # Crea sotto-colonne per questo strumento
-                    print(f"  → Strumento con {channel_count} canali: creazione sotto-colonne")
+                    print(f"  → instrument with {channel_count} channels: sub-columns")
                     inst_main_group = QGroupBox(self._instrument_title(inst))
                     inst_main_layout = QVBoxLayout()
                     inst_main_layout.addWidget(conn_btn)
@@ -1350,7 +1344,7 @@ class RemoteControlTab(QWidget):
                     columns[best_column_idx].addWidget(inst_main_group)
                     column_loads[best_column_idx] += channel_count
 
-                    print(f"  ✓ Strumento con sotto-colonne aggiunto alla colonna {best_column_idx + 1}")
+                    print(f"  ✓ instrument with sub-columns added to column {best_column_idx + 1}")
 
                 else:
                     # Strumento normale: crea groupbox standard
@@ -1371,12 +1365,12 @@ class RemoteControlTab(QWidget):
                     columns[best_column_idx].addWidget(inst_group)
                     column_loads[best_column_idx] += channel_count
 
-                    print(f"  ✓ Strumento aggiunto alla colonna {best_column_idx + 1} (carico: {column_loads[best_column_idx]})")
+                    print(f"  ✓ instrument added to column {best_column_idx + 1} (load: {column_loads[best_column_idx]})")
 
-            print("\n=== Distribuzione finale ===")
+            print("\n=== final layout ===")
             for i, load in enumerate(column_loads):
-                print(f"Colonna {i+1}: {load} canali")
-            print(f"Totale widget canali creati: {len(self.current_channel_widgets)}")
+                print(f"column {i+1}: {load} channels")
+            print(f"channel widgets created: {len(self.current_channel_widgets)}")
             print("=" * 50 + "\n")
 
             # Aggiungi stretch alle colonne per allineamento in alto
@@ -1388,7 +1382,7 @@ class RemoteControlTab(QWidget):
             self._add_vna_panels(inst_data.get('instruments', []), inst_file_path)
 
         except Exception as e:
-            error_msg = f"ERRORE in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
+            error_msg = f"ERROR in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
             print(error_msg)
             if self.logger:
                 self.logger.error(error_msg)
@@ -1516,7 +1510,7 @@ class RemoteControlTab(QWidget):
 
     def _report_call_error(self, title, exc):
         """Print and log the error of a call."""
-        print(f"ERRORE: {title}: {exc}")
+        print(f"ERROR: {title}: {exc}")
         if self.logger:
             self.logger.error(f"{title}: {exc}")
 
@@ -1550,7 +1544,7 @@ class RemoteControlTab(QWidget):
         :param ch: Dati del canale
         :return: QGroupBox contenente i controlli del canale
         """
-        print(f"      → Creazione controlli per canale {ch.get('name', 'N/A')}")
+        print(f"      → controls of channel {ch.get('name', 'N/A')}")
         is_manual = inst.get('is_manual', False)
         if self._is_load(inst) and not is_manual:  # a library load: modes, readings, protections
             from frontend.ui.ElectronicLoadPanel import ElectronicLoadPanel
@@ -1585,15 +1579,15 @@ class RemoteControlTab(QWidget):
         # Voltage set with limits
         hbox_v = QHBoxLayout()
         max_voltage = ch.get('max_voltage', 30.0)  # Valore di default
-        voltage_label = QLabel(f'Voltage (V) [0-{max_voltage}]:')
+        voltage_label = QLabel(self._t("rc_voltage_range", max=max_voltage))
         hbox_v.addWidget(voltage_label)
         v_edit = QLineEdit()
-        v_edit.setPlaceholderText(f'Max: {max_voltage}V')
+        v_edit.setPlaceholderText(self._t("rc_max", value=f"{max_voltage}V"))
         # Validazione input voltaggio
         from PyQt6.QtGui import QDoubleValidator
         v_validator = QDoubleValidator(0.0, max_voltage, 3)
         v_edit.setValidator(v_validator)
-        set_v_btn = QPushButton('Set')
+        set_v_btn = QPushButton(self._t("rc_set"))
         set_v_btn.clicked.connect(lambda _, i=inst, c=ch, e=v_edit: self.set_voltage(i, c, e))
         hbox_v.addWidget(v_edit)
         hbox_v.addWidget(set_v_btn)
@@ -1602,15 +1596,15 @@ class RemoteControlTab(QWidget):
         # Current set with limits
         hbox_c = QHBoxLayout()
         max_current = ch.get('max_current', 10.0)  # Valore di default
-        current_label = QLabel(f'Current (A) [0-{max_current}]:')
+        current_label = QLabel(self._t("rc_current_range", max=max_current))
         hbox_c.addWidget(current_label)
         c_edit = QLineEdit()
-        c_edit.setPlaceholderText(f'Max: {max_current}A')
+        c_edit.setPlaceholderText(self._t("rc_max", value=f"{max_current}A"))
         # Validazione input corrente
         from PyQt6.QtGui import QDoubleValidator
         c_validator = QDoubleValidator(0.0, max_current, 3)
         c_edit.setValidator(c_validator)
-        set_c_btn = QPushButton('Set')
+        set_c_btn = QPushButton(self._t("rc_set"))
         set_c_btn.clicked.connect(lambda _, i=inst, c=ch, e=c_edit: self.set_current(i, c, e))
         hbox_c.addWidget(c_edit)
         hbox_c.addWidget(set_c_btn)
@@ -1620,7 +1614,7 @@ class RemoteControlTab(QWidget):
         hbox_controls = QHBoxLayout()
 
         # Output enable/disable button
-        output_btn = QPushButton('Output: OFF')
+        output_btn = QPushButton(self._t("rc_output_off"))
         output_btn.setCheckable(True)
         output_btn.setChecked(False)
         output_btn.setStyleSheet("""
@@ -1639,7 +1633,7 @@ class RemoteControlTab(QWidget):
 
         # Add a read actual values button (hidden for manual instruments - nothing to read)
         if not is_manual:
-            read_btn = QPushButton('Read Values')
+            read_btn = QPushButton(self._t("rc_read_values"))
             hbox_controls.addWidget(read_btn)
 
         vbox.addLayout(hbox_controls)
@@ -1651,7 +1645,7 @@ class RemoteControlTab(QWidget):
             vbox.addWidget(read_lbl)
 
         group.setLayout(vbox)
-        print(f"    ✓ Widget creato per canale {ch.get('name', 'N/A')} (manuale: {is_manual})")
+        print(f"    ✓ widget of channel {ch.get('name', 'N/A')} (manual: {is_manual})")
         return group
 
     def run_call(self, inst, ch, call, **args):
@@ -1764,38 +1758,38 @@ class RemoteControlTab(QWidget):
         :param inst: Instrument instance data.
         :return: VISA instrument object or None if error (or if instrument is manual).
         """
-        print(f"[DEBUG] get_visa_instrument chiamato per {inst.get('instance_name', 'N/A')}")
+        print(f"[DEBUG] get_visa_instrument for {inst.get('instance_name', 'N/A')}")
 
         # Manual instruments do not use VISA connections
         if inst.get('is_manual', False):
-            print("[DEBUG] Strumento manuale - nessuna connessione VISA necessaria")
+            print("[DEBUG] manual instrument: no VISA connection")
             return None
 
         if not self._ensure_visa_initialized():
-            print("[DEBUG] VISA non inizializzato!")
+            print("[DEBUG] VISA not started!")
             return None
 
         visa_addr = inst.get('visa_address', None)
         print(f"[DEBUG] VISA address: {visa_addr}")
 
         if not visa_addr:
-            print("[DEBUG] VISA address mancante!")
+            print("[DEBUG] no VISA address!")
             return None
 
         if visa_addr in self.visa_connections:
-            print(f"[DEBUG] Connessione esistente trovata per {visa_addr}")
+            print(f"[DEBUG] connection already open for {visa_addr}")
             return self.visa_connections[visa_addr]
 
-        print(f"[DEBUG] Tentativo apertura nuova connessione a {visa_addr}")
+        print(f"[DEBUG] opening a connection to {visa_addr}")
         try:
             instr = self.rm.open_resource(visa_addr)
             self._configure_serial(instr, visa_addr, inst)
             self.visa_connections[visa_addr] = instr
-            print(f"[DEBUG] Connessione aperta con successo: {instr}")
+            print(f"[DEBUG] connection open: {instr}")
             return instr
         except Exception as e:
             error_msg = f'Cannot open {visa_addr}: {e}'
-            print(f"ERRORE-VISA-002: {error_msg}")
+            print(f"ERROR VISA-002: {error_msg}")
             if self.logger:
                 self.logger.error(error_msg, error_code="VISA-002")
             return None
@@ -1807,11 +1801,11 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the voltage value.
         """
-        print(f"[DEBUG] set_voltage chiamato per {inst.get('instance_name', 'N/A')}")
+        print(f"[DEBUG] set_voltage for {inst.get('instance_name', 'N/A')}")
 
         value_str = edit.text().strip()
         if not value_str:
-            print("[RemoteControlTab] Valore voltaggio vuoto")
+            print("[RemoteControlTab] empty voltage value")
             return
 
         try:
@@ -1820,17 +1814,17 @@ class RemoteControlTab(QWidget):
 
             # Validazione limiti
             if value_float < 0:
-                print(f"[RemoteControlTab] Voltaggio negativo non consentito: {value_float}V")
+                print(f"[RemoteControlTab] negative voltage refused: {value_float}V")
                 return
             elif value_float > max_voltage:
-                print(f"[RemoteControlTab] Voltaggio {value_float}V supera il limite massimo di {max_voltage}V")
+                print(f"[RemoteControlTab] voltage {value_float}V above the limit of {max_voltage}V")
                 return
 
         except ValueError:
-            print(f"[RemoteControlTab] Valore voltaggio non valido: '{value_str}'")
+            print(f"[RemoteControlTab] invalid voltage value: '{value_str}'")
             return
 
-        print(f"[DEBUG] Valore validato: {value_float}V")
+        print(f"[DEBUG] value checked: {value_float}V")
 
         # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
@@ -1844,17 +1838,17 @@ class RemoteControlTab(QWidget):
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERROR: get_visa_instrument gave None!")
             return
 
-        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
+        print(f"[DEBUG] VISA instrument: {instr}")
 
         try:
             self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
-            print(f"[RemoteControlTab] Voltaggio impostato: {value_float}V per {inst.get('instance_name', 'N/A')}")
+            print(f"[RemoteControlTab] voltage set: {value_float}V on {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Voltage Error: {str(e)}'
-            print(f"ERRORE: {error_msg}")
+            print(f"ERROR: {error_msg}")
             if self.logger:
                 self.logger.error(error_msg)
 
@@ -1865,11 +1859,11 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param edit: QLineEdit widget containing the current value.
         """
-        print(f"[DEBUG] set_current chiamato per {inst.get('instance_name', 'N/A')}")
+        print(f"[DEBUG] set_current for {inst.get('instance_name', 'N/A')}")
 
         value_str = edit.text().strip()
         if not value_str:
-            print("[RemoteControlTab] Valore corrente vuoto")
+            print("[RemoteControlTab] empty current value")
             return
 
         try:
@@ -1878,17 +1872,17 @@ class RemoteControlTab(QWidget):
 
             # Validazione limiti
             if value_float < 0:
-                print(f"[RemoteControlTab] Corrente negativa non consentita: {value_float}A")
+                print(f"[RemoteControlTab] negative current refused: {value_float}A")
                 return
             elif value_float > max_current:
-                print(f"[RemoteControlTab] Corrente {value_float}A supera il limite massimo di {max_current}A")
+                print(f"[RemoteControlTab] current {value_float}A above the limit of {max_current}A")
                 return
 
         except ValueError:
-            print(f"[RemoteControlTab] Valore corrente non valido: '{value_str}'")
+            print(f"[RemoteControlTab] invalid current value: '{value_str}'")
             return
 
-        print(f"[DEBUG] Valore validato: {value_float}A")
+        print(f"[DEBUG] value checked: {value_float}A")
 
         # A manual instrument asks the operator (popup) and continues after OK
         if inst.get('is_manual', False):
@@ -1902,17 +1896,17 @@ class RemoteControlTab(QWidget):
 
         instr = self.get_visa_instrument(inst)
         if not instr:
-            print("[DEBUG] ERRORE: get_visa_instrument ha restituito None!")
+            print("[DEBUG] ERROR: get_visa_instrument gave None!")
             return
 
-        print(f"[DEBUG] Strumento VISA ottenuto: {instr}")
+        print(f"[DEBUG] VISA instrument: {instr}")
 
         try:
             self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
-            print(f"[RemoteControlTab] Corrente impostata: {value_float}A per {inst.get('instance_name', 'N/A')}")
+            print(f"[RemoteControlTab] current set: {value_float}A on {inst.get('instance_name', 'N/A')}")
         except Exception as e:
             error_msg = f'Set Current Error: {str(e)}'
-            print(f"ERRORE: {error_msg}")
+            print(f"ERROR: {error_msg}")
             if self.logger:
                 self.logger.error(error_msg)
 
@@ -1928,7 +1922,7 @@ class RemoteControlTab(QWidget):
         instr = self.get_visa_instrument(inst)
         if not instr:
             button.setChecked(False)
-            button.setText('Output: OFF')
+            button.setText(self._t("rc_output_off"))
             return
 
         self._toggle_output_attempt(instr, inst, ch, button, checked, attempt=1, max_attempts=2)
@@ -1980,10 +1974,10 @@ class RemoteControlTab(QWidget):
     def _toggle_output_success(self, inst, ch, button, checked):
         """Aggiorna UI dopo toggle riuscito."""
         if checked:
-            button.setText('Output: ON')
+            button.setText(self._t("rc_output_on"))
             button.setStyleSheet('background-color: #1e7e34; color: white; font-weight: bold;')
         else:
-            button.setText('Output: OFF')
+            button.setText(self._t("rc_output_off"))
             button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
         if self.logger:
             self.logger.info(f"Output {'abilitato' if checked else 'disabilitato'} "
@@ -1992,13 +1986,13 @@ class RemoteControlTab(QWidget):
     def _toggle_output_failed(self, inst, ch, button, checked):
         """Mostra errore e resetta UI dopo fallimento del toggle."""
         from PyQt6.QtWidgets import QMessageBox
-        error_title = "Errore attivazione output"
-        error_text = (f"Impossibile {'abilitare' if checked else 'disabilitare'} l'output "
-                      f"del canale {ch.get('name', 'N/A')} dello strumento "
-                      f"{inst.get('instance_name', 'N/A')}.")
+        error_title = self._t("rc_output_error_title")
+        error_text = self._t(
+            "rc_output_on_failed" if checked else "rc_output_off_failed",
+            channel=ch.get('name', 'N/A'), instrument=inst.get('instance_name', 'N/A'))
         QMessageBox.critical(self, error_title, error_text)
         button.setChecked(not checked)
-        button.setText('Output: ON' if not checked else 'Output: OFF')
+        button.setText(self._t("rc_output_on") if not checked else self._t("rc_output_off"))
         button.setStyleSheet('')
 
     def _toggle_output_manual(self, inst, ch, button, checked):
@@ -2013,10 +2007,10 @@ class RemoteControlTab(QWidget):
             button.setChecked(not checked)
             return
         if checked:
-            button.setText('Output: ON')
+            button.setText(self._t("rc_output_on"))
             button.setStyleSheet('background-color: #1e7e34; color: white; font-weight: bold;')
         else:
-            button.setText('Output: OFF')
+            button.setText(self._t("rc_output_off"))
             button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
 
     def read_actual(self, inst, ch, label):
@@ -2033,7 +2027,7 @@ class RemoteControlTab(QWidget):
             c = self.run_call(inst, ch, 'read_current')
             label.setText(f'V: {v:.6g}  I: {c:.6g}')
         except Exception as e:
-            label.setText(f'Error: {e}')
+            label.setText(f"{self._t('error')}: {e}")
 
     def refresh_measurements_manual(self):
         """Refresh measurements manually (called by button)."""
@@ -2061,11 +2055,11 @@ class RemoteControlTab(QWidget):
             if inst_type in ['multimeter', 'multimeters', 'datalogger', 'dataloggers']:
                 # Per multimetri e datalogger usa l'unità specifica dal canale
                 unit = ch.get('unit', 'V')
-                print(f"[DEBUG] {inst_type} - Unità da campo 'unit': {unit} per {var_name}")
+                print(f"[DEBUG] {inst_type} - unit from 'unit': {unit} for {var_name}")
             else:
                 # Per altri strumenti usa il default o unit_of_measure
                 unit = ch.get('unit_of_measure', 'V')
-                print(f"[DEBUG] {inst_type} - Unità da 'unit_of_measure': {unit} per {var_name}")
+                print(f"[DEBUG] {inst_type} - unit from 'unit_of_measure': {unit} for {var_name}")
 
             attenuation = ch.get('attenuation', 1.0)  # Default nessuna attenuazione
 
@@ -2169,9 +2163,9 @@ class RemoteControlTab(QWidget):
 
         except Exception as e:
             if self.logger:
-                self.logger.error(f"Errore durante la pulizia delle risorse: {e}")
+                self.logger.error(f"releasing the resources failed: {e}")
             else:
-                print(f"Errore durante la pulizia delle risorse: {e}")
+                print(f"releasing the resources failed: {e}")
 
         # Chiama il metodo padre
         super().closeEvent(a0)

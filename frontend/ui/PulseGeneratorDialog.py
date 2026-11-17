@@ -20,14 +20,13 @@ from PyQt6.QtWidgets import (
     QComboBox, QPushButton, QLabel, QGroupBox,
     QRadioButton, QDoubleSpinBox, QMessageBox, QWidget
 )
-from PyQt6.QtCore import Qt
 import json
 import os
 import numpy as np
 
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
-from frontend.core.errorhandler import ErrorHandler, ErrorCode
+from frontend.core.errorhandler import ErrorHandler
 from ola.pulse_power import check_pulse_power, max_amplitude, max_base_level, max_duty
 from frontend.ui.theme_utils import set_class
 

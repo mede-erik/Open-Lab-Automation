@@ -2,9 +2,8 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-import sys
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTreeWidget, QTreeWidgetItem, QSplitter, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
+                             QTreeWidget, QTreeWidgetItem, QSplitter,
                              QTextEdit, QLabel, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtWidgets import QHeaderView, QTreeWidgetItemIterator
@@ -153,19 +152,15 @@ class InstrumentLibraryDialog(QDialog):
             dialog = AddInstrumentDialog(self.load_instruments, self.translator, self)
         
         if dialog and dialog.exec() == QDialog.DialogCode.Accepted:
-            # Ricarica la libreria strumenti
+            # reload the library, then show the new instrument in the tree
             try:
-                import os
                 from frontend.core.LoadInstruments import get_library_path
                 library_path = get_library_path()
                 if not self.load_instruments.load_instruments(library_path):
                     raise ValueError(library_path)
-                from PyQt6.QtWidgets import QMessageBox
-                QMessageBox.information(self, self.translator.get("success", "Successo"), self.translator.get("instrument_added_success", "Strumento aggiunto con successo alla libreria!"))
+                QMessageBox.information(self, self._t("success"), self._t("instrument_added_success"))
             except Exception as e:
-                from PyQt6.QtWidgets import QMessageBox
-                QMessageBox.warning(self, self.translator.get("warning", "Attenzione"), f"{self.translator.get('reload_library_warning', 'Strumento aggiunto ma errore nel ricaricamento:')}\n{str(e)}")
-            # Aggiorna la vista ad albero
+                QMessageBox.warning(self, self._t("warning"), f"{self._t('ilb_reload_failed')}\n{e}")
             self.populate_tree()
 
     def populate_tree(self):
@@ -175,8 +170,6 @@ class InstrumentLibraryDialog(QDialog):
         if not self.load_instruments or not hasattr(self.load_instruments, 'instruments'):
             return
             
-        instruments_data = self.load_instruments.instruments
-        
         # Ottieni tutti i tipi disponibili
         instrument_types = self.load_instruments.get_all_types()
         
@@ -194,7 +187,7 @@ class InstrumentLibraryDialog(QDialog):
             for series in series_list:
                 # Crea nodo per la serie
                 series_item = QTreeWidgetItem(type_item)
-                series_name = series.get('series_name', series.get('series_id', 'Serie sconosciuta'))
+                series_name = series.get('series_name', series.get('series_id', self._t('ilb_unknown_series')))
                 series_item.setText(0, series_name)
                 series_item.setText(1, self._t("ilb_node_series"))
                 series_item.setData(0, 256, {"type": "series", "data": series})  # 256 = Qt.UserRole
@@ -204,12 +197,10 @@ class InstrumentLibraryDialog(QDialog):
                 for model in models:
                     # Crea nodo per il modello
                     model_item = QTreeWidgetItem(series_item)
-                    model_name = model.get('name', model.get('model', 'Modello sconosciuto'))
+                    model_name = model.get('name', model.get('model', self._t('ilb_unknown_model')))
                     # Aggiungi etichetta "[Sperimentale]" se è un modello sperimentale
                     if model.get('experimental', False):
-                        t = getattr(self.translator, 't', None) if self.translator is not None else None
-                        _ = t if callable(t) else (lambda s: s)
-                        model_name += f" [{_('experimental_instrument')}]"
+                        model_name += f" [{self._t('experimental_instrument')}]"
                     model_item.setText(0, model_name)
                     model_item.setText(1, self._t("ilb_node_model"))
                     
@@ -246,14 +237,9 @@ class InstrumentLibraryDialog(QDialog):
         self.populate_tree()
 
     def get_display_name_for_type(self, type_name):
-        """Converte il nome interno del tipo in un nome visualizzabile"""
-        type_names = {
-            'power_supplies': 'Alimentatori',
-            'dataloggers': 'Datalogger', 
-            'oscilloscopes': 'Oscilloscopi',
-            'electronic_loads': 'Carichi Elettronici'
-        }
-        return type_names.get(type_name, type_name.replace('_', ' ').title())
+        """The name of an instrument type in the language of the application."""
+        shown = self._t(type_name)
+        return shown if shown != type_name else type_name.replace('_', ' ').title()
 
     def on_item_selected(self, item, column):
         """Gestisce la selezione di un elemento nell'albero"""
@@ -274,134 +260,99 @@ class InstrumentLibraryDialog(QDialog):
             self.show_model_details(item_data["data"])
 
     def show_type_details(self, type_key):
-        """Mostra i dettagli di un tipo di strumento"""
-        # Usa il filtro corrente (checkbox) per mostrare i dettagli coerenti
+        """The series of an instrument type (with the filter of the experimental checkbox)."""
+        t = self._t
         series_list = self.load_instruments.get_visible_series(type_key, self.show_experimental) or []
         total_models = sum(len(series.get('models', [])) for series in series_list)
-        
-        details = f"""TIPO DI STRUMENTO: {self.get_display_name_for_type(type_key)}
-        
-Numero di serie: {len(series_list) if series_list else 0}
-Numero totale di modelli: {total_models}
-
-Serie disponibili:
-"""
+        lines = [
+            f"{t('ilb_d_type').upper()}: {self.get_display_name_for_type(type_key)}",
+            "",
+            f"{t('ilb_d_series_count')}: {len(series_list)}",
+            f"{t('ilb_d_models_total')}: {total_models}",
+            "",
+            f"{t('ilb_d_series_list')}:",
+        ]
         for series in series_list:
-            series_name = series.get('series_name', 'Serie senza nome')
-            model_count = len(series.get('models', []))
-            details += f"• {series_name} ({model_count} modelli)\n"
-            
-        self.details_text.setPlainText(details)
+            name = series.get('series_name', t('ilb_unnamed_series'))
+            count = t('ilb_d_models').format(count=len(series.get('models', [])))
+            lines.append(f"• {name} ({count})")
+        self.details_text.setPlainText("\n".join(lines) + "\n")
 
     def show_series_details(self, series_data):
-        """Mostra i dettagli di una serie"""
-        series_name = series_data.get('series_name', 'Serie senza nome')
-        series_id = series_data.get('series_id', 'N/A')
+        """The models and the common commands of a series."""
+        t = self._t
         models = series_data.get('models', [])
-        
-        details = f"""SERIE: {series_name}
-        
-ID Serie: {series_id}
-Numero di modelli: {len(models)}
-
-Comandi SCPI comuni:
-"""
-        
-        common_commands = series_data.get('common_scpi_commands', {})
-        for cmd_name, cmd_value in common_commands.items():
-            details += f"• {cmd_name}: {self._format_scpi_command(cmd_value)}\n"
-            
+        lines = [
+            f"{t('ilb_d_series').upper()}: {series_data.get('series_name', t('ilb_unnamed_series'))}",
+            "",
+            f"{t('ilb_d_series_id')}: {series_data.get('series_id', 'N/A')}",
+            f"{t('ilb_d_models_count')}: {len(models)}",
+            "",
+            f"{t('ilb_d_common_commands')}:",
+        ]
+        for cmd_name, cmd_value in series_data.get('common_scpi_commands', {}).items():
+            lines.append(f"• {cmd_name}: {self._format_scpi_command(cmd_value)}")
         if models:
-            details += f"\nModelli nella serie:\n"
+            lines += ["", f"{t('ilb_d_models_in_series')}:"]
             for model in models:
-                model_name = model.get('name', 'Modello senza nome')
-                capabilities = model.get('capabilities', {})
-                channels = capabilities.get('number_of_channels', 'N/A')
-                details += f"• {model_name} ({channels} canali)\n"
-                
-        self.details_text.setPlainText(details)
+                channels = model.get('capabilities', {}).get('number_of_channels', 'N/A')
+                name = model.get('name', t('ilb_unnamed_model'))
+                lines.append(f"• {name} ({t('ilb_d_channels').format(count=channels)})")
+        self.details_text.setPlainText("\n".join(lines) + "\n")
 
     def show_model_details(self, model_data):
-        """Mostra i dettagli completi di un modello"""
-        name = model_data.get('name', 'Modello senza nome')
-        manufacturer = model_data.get('manufacturer', 'N/A')
-        model_id = model_data.get('id', 'N/A')
-        
-        details = f"""MODELLO: {name}
-        
-Produttore: {manufacturer}
-ID Modello: {model_id}
-Documentazione: {model_data.get('documentation_path', 'N/A')}
-
-"""
-        
-        # Capabilities
+        """Everything the library says about a model."""
+        t = self._t
+        yes_no = {True: t('ilb_yes'), False: t('ilb_no')}
+        lines = [
+            f"{t('ilb_d_model').upper()}: {model_data.get('name', t('ilb_unnamed_model'))}",
+            "",
+            f"{t('ilb_d_manufacturer')}: {model_data.get('manufacturer', 'N/A')}",
+            f"{t('ilb_d_model_id')}: {model_data.get('id', 'N/A')}",
+            f"{t('ilb_d_documentation')}: {model_data.get('documentation_path', 'N/A')}",
+            "",
+        ]
         capabilities = model_data.get('capabilities', {})
         if capabilities:
-            details += "CARATTERISTICHE:\n"
-            num_channels = capabilities.get('number_of_channels', 'N/A')
-            details += f"• Numero di canali: {num_channels}\n"
-            
-            if 'read_voltage' in capabilities:
-                details += f"• Lettura tensione: {'Sì' if capabilities['read_voltage'] else 'No'}\n"
-            if 'read_current' in capabilities:
-                details += f"• Lettura corrente: {'Sì' if capabilities['read_current'] else 'No'}\n"
-                
-            # Dettagli canali
-            channels = capabilities.get('channels', [])
+            lines.append(f"{t('ilb_d_capabilities').upper()}:")
             number_of_channels = capabilities.get('number_of_channels', 0)
-            
-            # Gestisce sia il caso di lista che di numero intero
+            lines.append(f"• {t('ilb_d_channel_count')}: {capabilities.get('number_of_channels', 'N/A')}")
+            if 'read_voltage' in capabilities:
+                lines.append(f"• {t('ilb_d_reads_voltage')}: {yes_no[bool(capabilities['read_voltage'])]}")
+            if 'read_current' in capabilities:
+                lines.append(f"• {t('ilb_d_reads_current')}: {yes_no[bool(capabilities['read_current'])]}")
+            channels = capabilities.get('channels', [])
             if isinstance(channels, list) and channels:
-                details += f"\nCanali disponibili ({len(channels)}):\n"
+                lines += ["", f"{t('ilb_d_channels_available').format(count=len(channels))}:"]
                 for i, channel in enumerate(channels):
                     if isinstance(channel, dict):
                         ch_id = channel.get('channel_id', f'CH{i+1}')
-                        ch_label = channel.get('label', 'N/A')
-                        details += f"• {ch_id}: {ch_label}\n"
+                        lines.append(f"• {ch_id}: {channel.get('label', 'N/A')}")
             elif isinstance(channels, int) and channels > 0:
-                details += f"\nNumero di canali: {channels}\n"
-            elif number_of_channels > 0:
-                details += f"\nNumero di canali: {number_of_channels}\n"
-        
-        # Interfacce supportate
-        interface_info = model_data.get('interface', {})
-        connection_types = interface_info.get('supported_connection_types', [])
+                lines += ["", f"{t('ilb_d_channel_count')}: {channels}"]
+            elif isinstance(number_of_channels, int) and number_of_channels > 0:
+                lines += ["", f"{t('ilb_d_channel_count')}: {number_of_channels}"]
+        connection_types = model_data.get('interface', {}).get('supported_connection_types', [])
         if connection_types:
-            details += f"\nInterfacce supportate:\n"
+            lines += ["", f"{t('ilb_d_interfaces')}:"]
             for conn in connection_types:
-                conn_type = conn.get('type', 'N/A')
-                example = conn.get('address_format_example', 'N/A')
-                details += f"• {conn_type}: {example}\n"
-        
-        # Comandi SCPI specifici
+                lines.append(f"• {conn.get('type', 'N/A')}: {conn.get('address_format_example', 'N/A')}")
         scpi_commands = model_data.get('scpi_commands', {})
         if scpi_commands:
-            details += f"\nComandi SCPI specifici del modello:\n"
+            lines += ["", f"{t('ilb_d_model_commands')}:"]
             for cmd_name, cmd_value in scpi_commands.items():
-                details += f"• {cmd_name}: {self._format_scpi_command(cmd_value)}\n"
-                
-        # Note aggiuntive
+                lines.append(f"• {cmd_name}: {self._format_scpi_command(cmd_value)}")
         notes = model_data.get('notes', '')
         if notes:
-            details += f"\nNote:\n{notes}\n"
-            
-        self.details_text.setPlainText(details)
-
-    def load_instrument_library(self):
-        # Usa self.load_instruments per accedere ai dati
-        return self.load_instruments
-
-    def save_instrument_library(self):
-        # Se serve salvare, usa i metodi di LoadInstruments
-        pass
+            lines += ["", f"{t('ilb_d_notes')}:", str(notes)]
+        self.details_text.setPlainText("\n".join(lines) + "\n")
 
     def _format_scpi_command(self, command_def):
         """Formatta un comando SCPI per la visualizzazione, compatibile con vecchio formato."""
         if isinstance(command_def, str):
             return command_def
         if command_def is None:
-            return "not supported"
+            return self._t("ilb_not_supported")
         if not isinstance(command_def, dict):
             return "N/A"
         if 'patch' in command_def and 'set' not in command_def and 'query' not in command_def:

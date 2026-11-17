@@ -77,14 +77,6 @@ class HexDecConverterDialog(QDialog):
         self.dec_edit.textEdited.connect(lambda t: self._on_edited(t, 10, self.dec_edit))
         self.bin_edit.textEdited.connect(lambda t: self._on_edited(t, 2, self.bin_edit))
 
-    def convert_hex_to_dec(self, hex_value):
-        """Converte una stringa esadecimale in stringa decimale."""
-        return str(parse_int(hex_value, 16))
-
-    def convert_dec_to_hex(self, dec_value):
-        """Converte una stringa decimale in stringa esadecimale (con prefisso 0x)."""
-        return format_hex(parse_int(dec_value, 10))
-
     def _on_edited(self, text, base, source):
         """Aggiorna gli altri campi quando l'utente modifica uno di essi."""
         if self._updating:

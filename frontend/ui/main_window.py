@@ -255,13 +255,13 @@ class MainWindow(QMainWindow):
         help_menu.addAction(info_action)
         
         # Tools menu
-        tools_menu = menubar.addMenu(self.translator.t('tools') if hasattr(self.translator, 't') else 'Tools')
+        tools_menu = menubar.addMenu(self.translator.t('tools'))
         
-        manage_lib_action = QAction(self.translator.t('manage_instrument_library') if hasattr(self.translator, 't') else 'Gestisci libreria strumenti', self)
+        manage_lib_action = QAction(self.translator.t('manage_instrument_library'), self)
         manage_lib_action.triggered.connect(self.open_instrument_library_dialog)
         tools_menu.addAction(manage_lib_action)
         
-        hexdec_action = QAction("Convertitore Hex/Dec", self)
+        hexdec_action = QAction(self.translator.t('hex_dec_converter'), self)
         hexdec_action.triggered.connect(self.open_hexdec_converter)
         tools_menu.addAction(hexdec_action)
         
@@ -288,7 +288,7 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(gpib_action)
         
         # Pulse Generator Tool
-        pulse_gen_action = QAction(self.translator.t('pulse_generator_tool') if hasattr(self.translator, 't') else 'Pulse Generator', self)
+        pulse_gen_action = QAction(self.translator.t('pulse_generator_tool'), self)
         pulse_gen_action.triggered.connect(self.open_pulse_generator)
         tools_menu.addAction(pulse_gen_action)
         
@@ -817,8 +817,8 @@ class MainWindow(QMainWindow):
             self.logger.error(f"Error saving project JSON: {e}")
             QMessageBox.critical(
                 self,
-                self.translator.t('error') if self.translator else 'Error',
-                f"Failed to save project: {str(e)}"
+                self.translator.t('error'),
+                f"{self.translator.t('mw_project_save_failed')}\n{e}"
             )
 
     def delete_file(self, item):
@@ -843,12 +843,8 @@ class MainWindow(QMainWindow):
         # Conferma eliminazione
         reply = QMessageBox.question(
             self,
-            self.translator.t('delete_file') if self.translator else 'Delete File',
-            f"Do you want to delete '{file_name}' from the project?\n\n"
-            f"Choose:\n"
-            f"- Yes: Remove from project list only\n"
-            f"- No: Cancel\n"
-            f"- Discard: Remove from project AND delete file from disk",
+            self.translator.t('delete_file'),
+            self.translator.t('mw_delete_file_question').format(file=file_name),
             QMessageBox.StandardButton.Yes | 
             QMessageBox.StandardButton.No | 
             QMessageBox.StandardButton.Discard,
@@ -892,8 +888,8 @@ class MainWindow(QMainWindow):
                         self.logger.info(f"Deleted file from disk: {file_path}")
                         QMessageBox.information(
                             self,
-                            self.translator.t('success') if self.translator else 'Success',
-                            f"File '{file_name}' removed from project and deleted from disk"
+                            self.translator.t('success'),
+                            self.translator.t('mw_file_removed_deleted').format(file=file_name)
                         )
                     else:
                         self.logger.warning(f"File not found on disk: {file_path}")
@@ -901,14 +897,14 @@ class MainWindow(QMainWindow):
                     self.logger.error(f"Error deleting file from disk: {e}")
                     QMessageBox.warning(
                         self,
-                        self.translator.t('error') if self.translator else 'Error',
-                        f"File removed from project but could not delete from disk:\n{str(e)}"
+                        self.translator.t('error'),
+                        f"{self.translator.t('mw_file_not_deleted')}\n{e}"
                     )
             else:
                 QMessageBox.information(
                     self,
-                    self.translator.t('success') if self.translator else 'Success',
-                    f"File '{file_name}' removed from project"
+                    self.translator.t('success'),
+                    self.translator.t('mw_file_removed').format(file=file_name)
                 )
             
             # Aggiorna la lista dei file
@@ -917,8 +913,8 @@ class MainWindow(QMainWindow):
             self.logger.warning(f"File '{file_name}' not found in project data")
             QMessageBox.warning(
                 self,
-                self.translator.t('warning') if self.translator else 'Warning',
-                f"File '{file_name}' not found in project"
+                self.translator.t('warning'),
+                self.translator.t('mw_file_not_in_project').format(file=file_name)
             )
         
     def open_settings(self):
@@ -969,7 +965,7 @@ class MainWindow(QMainWindow):
             dlg.exec()
         elif fname.endswith('.inst'):
             if self.load_instruments is None:
-                QMessageBox.warning(self, "Strumenti", "Libreria strumenti non caricata. Impossibile modificare il file .inst.")
+                QMessageBox.warning(self, self.translator.t('instrument_library'), self.translator.t('mw_library_not_loaded'))
                 return
             dlg = InstrumentConfigDialog(file_path, self.load_instruments, self)
             dlg.exec()
@@ -1062,8 +1058,8 @@ class MainWindow(QMainWindow):
         if not self.current_project_dir:
             QMessageBox.warning(
                 self,
-                self.translator.t('warning') if hasattr(self.translator, 't') else 'Warning',
-                self.translator.t('no_project_open') if hasattr(self.translator, 't') else 'Please open a project first.'
+                self.translator.t('warning'),
+                self.translator.t('no_project_open')
             )
             return
         
@@ -1079,8 +1075,8 @@ class MainWindow(QMainWindow):
             self.logger.error(f"Error opening pulse generator: {e}")
             QMessageBox.critical(
                 self,
-                self.translator.t('error') if hasattr(self.translator, 't') else 'Error',
-                f"Error opening pulse generator: {str(e)}"
+                self.translator.t('error'),
+                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}"
             )
     
     def open_database_config(self):
