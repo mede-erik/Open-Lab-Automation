@@ -11,12 +11,24 @@
      "description": "Instruments read during the log"}
   ],
   "params_schema": {
-    "interval_s": {"type": "number", "min": 0.001, "unit": "s", "required": true},
     "duration_s": {"type": "number", "min": 0, "unit": "s", "required": false,
-                   "description": "stop after this time (or use 'samples')"},
+                   "description": "the whole log: no sample is taken after it (without it every source needs 'samples')"},
+    "sources": {"type": "list", "required": false,
+                "item": {"name": "string (the table of its results: not 'points' nor 't_s')",
+                         "instrument": "string (an instrument of the run)",
+                         "interval_s": "number >= 0.001, the time between two samples",
+                         "samples": "integer >= 1 (optional with duration_s)",
+                         "readings": [{"name": "string (not 't_s')", "call": "string",
+                                       "args": "object (optional)"}],
+                         "scan": "true: a datalogger read as one scan, with 'channels' instead of 'readings'",
+                         "channels": "scan only: [{name, channel_id, meas_type, range?, resolution?, probe_type?, sensor_type?}]"},
+                "description": "one entry per instrument, each at its own interval (the current format)"},
+    "interval_s": {"type": "number", "min": 0.001, "unit": "s", "required": false,
+                   "description": "earlier format: the one interval of all the channels"},
     "samples": {"type": "integer", "min": 1, "required": false,
-                "description": "stop after this many samples (or use 'duration_s')"},
-    "channels": {"type": "list", "required": true,
+                "description": "earlier format: stop after this many samples (or use 'duration_s')"},
+    "channels": {"type": "list", "required": false,
+                 "description": "earlier format: the channels of the single interval",
                  "item": {"name": "string", "instrument": "string", "call": "string",
                           "args": "object (optional)"}}
   }

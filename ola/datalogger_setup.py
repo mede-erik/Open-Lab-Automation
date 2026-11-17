@@ -121,7 +121,11 @@ def _setting_calls(
 
     wanted = []
     for ch in enabled:
-        if ch.get("nplc") in (None, "") and ch.get("impedance") in (None, ""):
+        if (
+            ch.get("nplc") in (None, "")
+            and ch.get("impedance") in (None, "")
+            and ch.get("rtd_ohms") in (None, "")
+        ):
             continue
         parsed = settings_of(ch)
         if parsed is not None:

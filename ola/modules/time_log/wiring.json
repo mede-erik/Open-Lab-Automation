@@ -2,6 +2,22 @@
   "steps": [
     {
       "text": {
+        "en": "Connect «{s.name}» to {s.instrument}, a sample every {s.interval_s} s.",
+        "it": "Collega «{s.name}» a {s.instrument}, una misura ogni {s.interval_s} s.",
+        "fr": "Connectez «{s.name}» à {s.instrument}, une mesure toutes les {s.interval_s} s.",
+        "es": "Conecte «{s.name}» a {s.instrument}, una medida cada {s.interval_s} s.",
+        "de": "«{s.name}» mit {s.instrument} verbinden, eine Messung alle {s.interval_s} s."
+      },
+      "when": "s.instrument",
+      "foreach": [
+        [
+          "sources",
+          "s"
+        ]
+      ]
+    },
+    {
+      "text": {
         "en": "Connect «{c.name}» to {c.instrument}, channel {c.args.channels}.",
         "it": "Collega «{c.name}» a {c.instrument}, canale {c.args.channels}.",
         "fr": "Connectez «{c.name}» à {c.instrument}, voie {c.args.channels}.",

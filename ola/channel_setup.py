@@ -64,8 +64,9 @@ class Function:
     configure: str
     measure: str
     nplc: str
-    range_call: str
+    range_call: Optional[str]  # None for temperature: the probe and the sensor are set instead
     impedance: Optional[str] = None  # DC voltage only
+    zero: bool = True  # False where a zero with the inputs shorted has no meaning (temperature)
 
 
 FUNCTIONS: Dict[str, Function] = {
@@ -85,7 +86,25 @@ FUNCTIONS: Dict[str, Function] = {
         "FRES", "configure_fresistance", "measure_fresistance", "set_fresistance_nplc",
         "set_fresistance_range",
     ),
+    "TEMP": Function(
+        "TEMP", "configure_temperature", "measure_temperature", "set_temperature_nplc",
+        None, zero=False,
+    ),
 }  # fmt: skip
+TEMPERATURE = "TEMP"
+# The sensors of each probe, as the Keysight instruments name them. The library lists the ones a
+# model accepts; a sensor it does not list is not offered. RTD 85 and 91 are the PT385 and PT3916.
+PROBE_SENSORS: Dict[str, Tuple[str, ...]] = {
+    "TCouple": ("B", "E", "J", "K", "N", "R", "S", "T"),
+    "RTD": ("85", "91"),
+    "FRTD": ("85", "91"),
+    "THERmistor": ("2252", "5000", "10000"),
+}
+PROBE_ALIASES = {"FTHERMISTOR": "THERmistor"}  # the DAQ970A/973A name of the thermistor probe
+# The nominal resistance of an RTD (a separate setting from its alpha): the call of each probe, and
+# the two values the editor offers, PT100 and PT1000.
+RTD_CALLS = {"RTD": "set_rtd_resistance", "FRTD": "set_frtd_resistance"}
+RTD_OHMS = (100.0, 1000.0)
 ALIASES = {"DC_V": "VOLT:DC", "DC_A": "CURR:DC"}
 MEASURE_CALLS = {f.measure: f for f in FUNCTIONS.values()}
 KEYS = ("range", "nplc", "zero", "impedance")  # the settings a channel of the file can carry
@@ -165,18 +184,59 @@ class ChannelSettings:
     nplc: Optional[Union[float, str]] = None
     zero: bool = False
     impedance: str = ""
+    probe: str = ""  # temperature only: the probe (TCouple, RTD, FRTD, THERmistor)
+    sensor: str = ""  # temperature only: the thermocouple letter or the RTD or thermistor type
+    rtd_ohms: Optional[float] = None  # RTD only: its nominal resistance; None: the instrument's own
 
     @property
     def configured(self) -> bool:
         """True if the channel asks for anything beyond the defaults (the others are read as
         before, by the measurement's own call)."""
-        return self.range != "AUTO" or self.nplc is not None or self.zero or bool(self.impedance)
+        return (
+            self.range != "AUTO" or self.nplc is not None or self.zero or bool(self.impedance)
+            or bool(self.probe)
+        )  # fmt: skip
 
     @property
     def label(self) -> str:
         """``103`` or ``103 (shunt in)``: how a message names the channel."""
         named = self.name and self.name != str(self.number)
         return f"{self.number} ({self.name})" if named else str(self.number)
+
+
+def canonical_probe(name: Any) -> Optional[str]:
+    """The probe name as the table of sensors writes it (any letter case), or None if unknown."""
+    text = str(name or "").strip().upper()
+    if text in PROBE_ALIASES:
+        return PROBE_ALIASES[text]
+    return next((p for p in PROBE_SENSORS if p.upper() == text), None)
+
+
+def parse_sensor(channel: Mapping[str, Any]) -> Tuple[str, str]:
+    """The probe and the sensor of a temperature channel, or ``ChannelSetupError``."""
+    probe = str(channel.get("probe_type") or "").strip()
+    sensor = str(channel.get("sensor_type") or "").strip()
+    if not probe or not sensor:
+        raise ChannelSetupError("a temperature channel needs its probe type and its sensor type")
+    return probe, sensor
+
+
+def parse_rtd_ohms(value: Any, probe: str = "RTD") -> Optional[float]:
+    """The nominal resistance of an RTD (100 for a PT100, 1000 for a PT1000): None when not given
+    (the instrument keeps its own). ``ChannelSetupError`` for a probe that is not an RTD or a value
+    that is not a number above 0."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if canonical_probe(probe) not in RTD_CALLS:
+        raise ChannelSetupError("the nominal resistance is only for an RTD")
+    if isinstance(value, str):
+        try:
+            value = float(value.strip().replace(",", "."))
+        except ValueError:
+            raise ChannelSetupError(f"the nominal resistance {value!r} is not a number") from None
+    if not _number(value) or value <= 0:
+        raise ChannelSetupError(f"the nominal resistance must be above 0 ohms, not {value!r}")
+    return float(value)
 
 
 def settings_of(channel: Mapping[str, Any]) -> Optional[ChannelSettings]:
@@ -189,14 +249,23 @@ def settings_of(channel: Mapping[str, Any]) -> Optional[ChannelSettings]:
     number = channel_number(dict(channel))
     name = str(channel.get("name") or number)
     try:
+        temperature = function.name == TEMPERATURE
+        probe, sensor = parse_sensor(channel) if temperature else ("", "")
+        rtd_ohms = parse_rtd_ohms(channel.get("rtd_ohms"), probe) if temperature else None
+        zero = bool(channel.get("zero", False))
+        if zero and not function.zero:
+            raise ChannelSetupError("the zero is not available for this function")
         return ChannelSettings(
             number,
             name,
             function,
-            parse_range(channel.get("range")),
+            "AUTO" if temperature else parse_range(channel.get("range")),
             parse_nplc(channel.get("nplc")),
-            bool(channel.get("zero", False)),
+            zero,
             parse_impedance(channel.get("impedance")),
+            probe,
+            sensor,
+            rtd_ohms,
         )
     except ChannelSetupError as exc:
         raise ChannelSetupError(f"channel {number} ({name}): {exc}") from None
@@ -222,8 +291,19 @@ def channel_problems(channel: Mapping[str, Any]) -> List[str]:
     if function is None:
         if any(channel.get(k) not in (None, "", False) for k in ("nplc", "zero", "impedance")):
             found.append("this function has no integration time, zero or input impedance setting")
-    elif channel.get("impedance") not in (None, "") and function.impedance is None:
-        found.append("the input impedance is only for DC voltage")
+    else:
+        if channel.get("impedance") not in (None, "") and function.impedance is None:
+            found.append("the input impedance is only for DC voltage")
+        if channel.get("zero") and not function.zero:
+            found.append("the zero is not available for this function")
+        if function.name == TEMPERATURE:
+            try:
+                probe, _sensor = parse_sensor(channel)
+                parse_rtd_ohms(channel.get("rtd_ohms"), probe)
+            except ChannelSetupError as exc:
+                found.append(str(exc))
+        elif channel.get("rtd_ohms") not in (None, ""):
+            found.append("the nominal resistance is only for an RTD")
     return found
 
 
@@ -269,6 +349,11 @@ def check_settings(
                 problems.append(f"channel {s.label}: the input impedance is only for DC voltage")
             elif not supports(s.function.impedance):
                 problems.append(f"channel {s.label}: this model has no input impedance setting")
+        rtd_call = RTD_CALLS.get(canonical_probe(s.probe) or "", "")
+        if s.rtd_ohms is not None and not supports(rtd_call):
+            problems.append(
+                f"channel {s.label}: this model has no nominal resistance setting for an RTD"
+            )
         if s.zero:
             for call in ("null_offset", "set_scale_state"):
                 if not supports(call):
@@ -280,9 +365,18 @@ def check_settings(
 def _group(settings: Sequence[ChannelSettings]) -> Dict[tuple, List[int]]:
     groups: Dict[tuple, List[int]] = {}
     for s in settings:
-        key = (s.function.name, s.range, s.nplc, s.impedance)
+        key = (s.function.name, s.range, s.nplc, s.impedance, s.probe, s.sensor, s.rtd_ohms)
         groups.setdefault(key, []).append(s.number)
     return groups
+
+
+def _rtd_call(probe: str, rtd_ohms: Optional[float], channels: str) -> List[Call]:
+    """The call that sets the nominal resistance of the RTD channels (none for another probe, or
+    when the file does not give one)."""
+    call = RTD_CALLS.get(canonical_probe(probe) or "")
+    if call is None or rtd_ohms is None:
+        return []
+    return [(call, {"ohms": rtd_ohms, "channels": channels})]
 
 
 def _extras(function: Function, nplc: Any, impedance: str, channels: str) -> List[Call]:
@@ -300,10 +394,15 @@ def config_calls(settings: Sequence[ChannelSettings]) -> List[Call]:
     the same function and settings, ``configure_*`` (the range; ``configure`` puts everything else
     back to the default, so it comes first), then the integration time and the input impedance."""
     calls: List[Call] = []
-    for (name, rng, nplc, impedance), numbers in _group(settings).items():
+    for (name, rng, nplc, impedance, probe, sensor, rtd), numbers in _group(settings).items():
         function = FUNCTIONS[name]
         text = ",".join(str(n) for n in sorted(numbers))
-        calls.append((function.configure, {"range": rng, "resolution": "DEF", "channels": text}))
+        if name == TEMPERATURE:
+            args = {"probe_type": probe, "type": sensor, "resolution": "DEF", "channels": text}
+        else:
+            args = {"range": rng, "resolution": "DEF", "channels": text}
+        calls.append((function.configure, args))
+        calls += _rtd_call(probe, rtd, text)
         calls += _extras(function, nplc, impedance, text)
     return calls
 
@@ -315,9 +414,10 @@ def extra_calls(
     sends the ``configure_*`` itself (the remote control). With ``supports``, a call the model has
     not is left out."""
     calls: List[Call] = []
-    for (name, _rng, nplc, impedance), numbers in _group(settings).items():
+    for (name, _rng, nplc, impedance, probe, _sensor, rtd), numbers in _group(settings).items():
         text = ",".join(str(n) for n in sorted(numbers))
-        for call in _extras(FUNCTIONS[name], nplc, impedance, text):
+        both = _rtd_call(probe, rtd, text) + _extras(FUNCTIONS[name], nplc, impedance, text)
+        for call in both:
             if supports is None or supports(call[0]):
                 calls.append(call)
     return calls
@@ -500,6 +600,9 @@ class ModelOptions:
     ranges: Dict[str, List[str]] = field(default_factory=dict)  # function -> fixed ranges
     zero: bool = False  # the model can zero a channel (null_offset and scaling)
     impedance: bool = False  # the model has the input impedance setting
+    temp_nplc: List[str] = field(default_factory=list)  # the integration times for temperature
+    probes: Dict[str, List[str]] = field(default_factory=dict)  # probe -> its sensors
+    rtd_ohms: Dict[str, List[float]] = field(default_factory=dict)  # RTD probe -> nominal ohms
 
 
 def _values(commands: Mapping[str, Any], call: str, parameter: str) -> List[str]:
@@ -515,11 +618,26 @@ def options_of(commands: Optional[Mapping[str, Any]]) -> ModelOptions:
     options = ModelOptions()
     options.nplc = _values(commands, "set_voltage_nplc", "plcs")
     for function in FUNCTIONS.values():
+        if function.range_call is None:
+            continue
         found = _values(commands, function.range_call, "range")
         if found:
             options.ranges[function.name] = found
     options.zero = all(call in commands for call in ("null_offset", "set_scale_state"))
     options.impedance = "input_impedance_auto" in commands
+    options.temp_nplc = _values(commands, "set_temperature_nplc", "plcs")
+    listed = [t for t in _values(commands, "configure_temperature", "type")]
+    for probe in _values(commands, "configure_temperature", "probe_type"):
+        if probe.upper() == "DEF":
+            continue
+        known = PROBE_SENSORS.get(canonical_probe(probe) or "", ())
+        sensors = [t for t in known if not listed or t in listed]
+        options.probes[probe] = sensors
+        call = RTD_CALLS.get(canonical_probe(probe) or "")
+        if call and call in commands:
+            wanted = _values(commands, call, "ohms")
+            offered = [o for o in RTD_OHMS if not wanted or any(float(w) == o for w in wanted)]
+            options.rtd_ohms[probe] = offered
     return options
 
 

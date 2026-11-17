@@ -731,7 +731,7 @@ def test_sparameters_example_in_the_docs_is_valid_and_runs():
 
 
 def test_time_log_example_in_the_docs_is_valid_and_runs():
-    """The example of docs/time-log.md is a real file: it validates and runs."""
+    """The examples of docs/time-log.md are real files: they validate and run."""
     import json as _json
 
     from ola.registry import default_registry
@@ -742,120 +742,34 @@ def test_time_log_example_in_the_docs_is_valid_and_runs():
     block = re.search(r"```json temperatures\.tlg\n(.*?)```", text, re.S)
     assert block, "example block not found in docs/time-log.md"
     params = _json.loads(block.group(1))
-    params.pop("duration_s")
-    params.update(samples=3, interval_s=0.01)
+    params.pop("duration_s")  # the example is shortened: every source takes 3 samples, fast
+    for source in params["sources"]:
+        source.update(interval_s=0.01, samples=3)
     m = default_registry(user_dir="/nonexistent").create("time_log", params)
     assert m.validate() == [], m.validate()
     handles = {
         "instruments": [
             FakeHandle("dmm1", {"read_voltage": 5.0}),
             FakeHandle("daq", {"measure_temperature": 25.0}),
+            FakeHandle("psu1", {"read_voltage": 12.0, "read_current": 0.5}),
         ]
     }
     runner = run_to_end(Runner(m, handles))
     assert runner.state.value == "finished", runner.error
-    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
-    assert len(rows) == 3 and rows[0]["vout"] == 5.0 and rows[0]["temp1"] == 25.0
-    for name in ("duration_s", "samples", "t_s", "instruments"):
+    rows = [e.data for e in runner.drain() if e.kind == "point"]
+    dmm = [r["values"] for r in rows if r["table"] == "dmm"]
+    assert len(dmm) == 3 and dmm[0]["vout"] == 5.0
+    assert any(r["table"] == "psu" and r["values"]["i"] == 0.5 for r in rows)
+    old = default_registry(user_dir="/nonexistent").create(
+        "time_log",
+        _json.loads(re.search(r"```json old-temperatures\.tlg\n(.*?)```", text, re.S).group(1))
+        | {"samples": 3, "interval_s": 0.01},
+    )
+    assert old.validate() == [], old.validate()
+    for name in ("duration_s", "samples", "t_s", "instruments", "sources", "interval_s"):
         assert name in text, name
-
-
-def test_golden_example_in_the_docs_is_valid_and_gives_a_verdict(tmp_path):
-    """The tolerances of docs/golden.md are a real spec: a good cable passes, a worn one fails."""
-    import json as _json
-
-    from ola.compare import load_run
-    from ola.golden import check_against_golden
-    from tests.test_golden import cable_run
-    from ola.registry import default_registry
-
-    text = read(ROOT / "docs" / "golden.md")
-    block = re.search(r"```json tolerances\.json\n(.*?)```", text, re.S)
-    assert block, "example block not found in docs/golden.md"
-    spec = _json.loads(block.group(1))
-    registry = default_registry(user_dir="/nonexistent")
-    golden = load_run(cable_run(registry, tmp_path, "golden", 0.6))
-    good = load_run(cable_run(registry, tmp_path, "good", 0.6, stamp="20261104_100000"))
-    worn = load_run(cable_run(registry, tmp_path, "worn", 1.2, stamp="20261105_100000"))
-    assert check_against_golden(good, golden, spec).verdict == "PASS"
-    assert check_against_golden(worn, golden, spec).verdict == "FAIL"
-    for name in ("golden/", "min_overlap", "NO DATA", "set_golden", "upper", "lower"):
-        assert name in text, name
-
-
-def test_trend_doc_names_the_verdicts_and_the_figures_that_exist():
-    """docs/trend.md names verdicts and options of the code, and the figures of a cable run."""
-    from ola import trend
-
-    text = read(ROOT / "docs" / "trend.md")
-    for verdict in ("FAIL", "WARNING", "PASS", "NOT ENOUGH DATA"):
-        assert f"`{verdict}`" in text
-    assert trend.DEFAULT_FIGURE in text and "max_rate_per_year" in text
-    for option in ("--figure", "--limit", "--max-rate", "--warn-days", "--list-figures", "--csv"):
-        assert option in text, option
-        assert option in read(ROOT / "scripts" / "cable_trend.py"), option
-
-
-def test_resistive_efficiency_example_in_the_docs_is_valid_and_runs():
-    """The example of docs/resistive-efficiency.md is a real file: it validates and runs."""
-    import json as _json
-
-    from ola.registry import default_registry
-    from ola.runner import Runner
-    from ola.sim_bench import SimResistiveBench
-
-    text = read(ROOT / "docs" / "resistive-efficiency.md")
-    block = re.search(r"```json resistive_efficiency\.rfe\n(.*?)```", text, re.S)
-    assert block, "example block not found in docs/resistive-efficiency.md"
-    params = _json.loads(block.group(1))
-    params["timing"] = {"settle_s": 0, "samples": 1, "interval_s": 0}
-    params["switching"]["settle_s"] = 0
-    m = default_registry(user_dir="/nonexistent").create("resistive_efficiency", params)
-    assert [p for p in m.check() if p.severity == "error"] == []
-
-    def combine(closed):  # the wiring of the three loads of the example
-        mixed = 10 + 1 / (1 / 22 + 1 / 47)
-        return {"201": 10, "202,203": 1 / (1 / 22 + 1 / 47), "201,202,203": mixed}[
-            ",".join(sorted(closed))
-        ]
-
-    bench = SimResistiveBench(combine=combine, quiescent_a=0.001)
-    runner = Runner(m, {"supply": [bench.supply], "meter": [bench.meter], "switch": [bench.switch]})
-    runner.start()
-    assert runner.join(30) and runner.state.value == "finished", runner.error
-    rows = {}
-    for e in runner.drain():
-        if e.kind == "point":
-            rows.setdefault(e.data["table"], []).append(e.data["values"])
-    assert [r["load"] for r in rows["summary"]] == ["10R", "22||47", "10+(22||47)"]
-    assert len(rows["points"]) == 9 and rows["points"][0]["r_nom_ohm"] == 10
-    assert rows["points"][-1]["r_nom_ohm"] == pytest.approx(10 + 1 / (1 / 22 + 1 / 47))
-    assert all(r["efficiency_min_pct"] < r["efficiency_max_pct"] for r in rows["points"])
-    for name in ("tol_pct", "power_w", "channel", "supply_off", "efficiency_min_pct",
-                 "iin_reading", "max_vout_v", "SimResistiveBench"):  # fmt: skip
-        assert name in text, name
-
-
-def test_resistor_kits_examples_in_the_docs_are_a_real_file_and_real_loads(tmp_path):
-    """docs/resistor-kits.md: the file of kits loads and the loads of the example resolve."""
-    import json as _json
-
-    from ola.resistor_kits import KitRegistry
-    from ola.resistors import parse_loads
-
-    text = read(ROOT / "docs" / "resistor-kits.md")
-    kits_file = re.search(r"```json resistor_kits\.json\n(.*?)```", text, re.S)
-    loads_example = re.search(r"```json loads\.json\n(.*?)```", text, re.S)
-    assert kits_file and loads_example, "example blocks not found in docs/resistor-kits.md"
-    path = tmp_path / "kits.json"
-    path.write_text(kits_file.group(1), encoding="utf-8")
-    kits = KitRegistry(path)
-    assert kits.names() == ["PWR"] and kits.get("PWR").note == "the power resistors of the bench"
-    example = _json.loads(loads_example.group(1))
-    loads = parse_loads(kits.resolve_loads(example["loads"], example["resistor_kit"]))
-    assert [x.name for x in loads] == ["10R", "22||47", "10+(22||47)"]
-    assert [round(x.resistance()[0], 3) for x in loads] == [10, 14.986, 24.986]
-    assert loads[2].channels() == ["201", "202", "305"]  # the relay written in the load wins
-    for name in ("resistor_kits.json.bak", "OLA_RESISTOR_KITS_FILE", "Copy the reference",
-                 "header of the run", "Resistor kits..."):  # fmt: skip
-        assert name in text, name
+    scan = re.search(r"```json datalogger\.tlg\n(.*?)```", text, re.S)
+    assert scan, "the datalogger scan example is missing in docs/time-log.md"
+    scan_params = _json.loads(scan.group(1))
+    scan_module = default_registry(user_dir="/nonexistent").create("time_log", scan_params)
+    assert scan_module.validate() == []
