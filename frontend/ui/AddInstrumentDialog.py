@@ -111,18 +111,18 @@ class AddInstrumentDialog(QDialog):
             self.save_to_library()
             super().accept()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save instrument: {str(e)}")
+            QMessageBox.critical(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {e}")
 
     def validate_input(self):
         """Validate user input"""
         if not self.model_name_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Model name is required")
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_name_required"))
             return False
         if not self.manufacturer_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Manufacturer is required")
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("manufacturer_required"))
             return False
         if not self.model_id_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Model ID is required")
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_id_required"))
             return False
         return True
 

@@ -2,16 +2,17 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-import json
 import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLabel, QLineEdit, QDialogButtonBox, QWidget, QFormLayout
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton
-from PyQt6.QtCore import Qt, QSettings
+from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QMessageBox
 from frontend.core import gpib_settings
 from frontend.core.LoadInstruments import LoadInstruments
+from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
 from ola.gpib_adapter import FAMILY_PROLOGIX, FAMILY_VISA, GpibError
+from frontend.ui.theme_utils import set_class
 
 logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 
@@ -19,20 +20,26 @@ logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 class AddressEditorDialog(QDialog):
     def __init__(self, instrument, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Address Editor")
+        lang = QSettings('LabAutomation', 'App').value('language', '', type=str) or None
+        # the language of the application: the one of the window that opens the editor
+        self.translator = getattr(parent, 'translator', None) or Translator(default_lang=lang or 'en')
+        self.setWindowTitle(self._t("addr_title"))
         self.instrument = instrument
         self.load_instruments = load_instruments
         # the .inst file keeps the address as visa_address: show it when the editor opens
         self.address = instrument.get('visa_address', instrument.get('address', ''))
         self.conn_type = None
+        self.address_type = None  # the connection type of the address, see type_of_address
         self.fields = {}
         self.templates = self.get_templates_for_instrument()
         # GPIB: the adapters configured in Tools > GPIB adapters (GPIB0, GPIB1, Prologix...)
         self.gpib_adapters = gpib_settings.adapters_or_default()
         self.adapter_combo = None
-        lang = QSettings('LabAutomation', 'App').value('language', '', type=str) or None
         self.gpib_tr = CatalogTranslator("gpib", lang=lang)
         self.init_ui()
+
+    def _t(self, key):
+        return str(self.translator.t(key))
 
     def get_templates_for_instrument(self):
         t = self.instrument.get('instrument_type', self.instrument.get('type', '')).lower()
@@ -98,7 +105,7 @@ class AddressEditorDialog(QDialog):
         self.conn_combo = QComboBox()
         self.conn_combo.addItems(list(self.templates.keys()))
         self.conn_combo.currentTextChanged.connect(self.on_conn_type_changed)
-        form.addRow("Tipo connessione", self.conn_combo)
+        form.addRow(self._t("connection_type"), self.conn_combo)
         # Placeholder per campi dinamici
         self.fields_widget = QWidget()
         self.fields_layout = QFormLayout(self.fields_widget)
@@ -109,11 +116,17 @@ class AddressEditorDialog(QDialog):
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
-        # Un indirizzo GPIB/Prologix esistente apre direttamente il tipo GPIB
-        if self.is_gpib_address(self.address):
-            gpib_type = next((k for k in self.templates if self.is_gpib_type(k)), None)
-            if gpib_type:
-                self.conn_combo.setCurrentText(gpib_type)
+        # an existing address opens the editor on its own connection type
+        self.address_type = self.type_of_address(self.address)
+        if self.address_type:
+            self.conn_combo.setCurrentText(self.address_type)
+        elif self.address:
+            # the library lists no connection of this kind for the model: say so, and keep the
+            # address unless a field is filled in
+            note = QLabel("⚠️ " + self._t("addr_not_in_library").format(address=self.address))
+            note.setWordWrap(True)
+            set_class(note, "warning")
+            layout.insertWidget(0, note)
         # Mostra campi iniziali
         self.on_conn_type_changed(self.conn_combo.currentText())
 
@@ -121,6 +134,28 @@ class AddressEditorDialog(QDialog):
     def is_gpib_address(address):
         a = (address or '').strip().upper()
         return a.startswith('GPIB') or a.startswith('PROLOGIX::')
+
+    def type_of_address(self, address):
+        """The connection type of the list that builds ``address`` (None if none does: the first
+        type is shown, and the address is kept until a field is filled in)."""
+        a = (address or '').strip().upper()
+        if not a:
+            return None
+        if self.is_gpib_address(a):
+            return next((k for k in self.templates if self.is_gpib_type(k)), None)
+        for name, template in self.templates.items():
+            if a == 'DWF' and (template or '').upper().startswith('DWF'):
+                return name  # a Digilent device with no serial: the first one found
+            prefix = (template or '').split('{', 1)[0].upper()
+            if not prefix:
+                continue
+            if a.startswith(prefix) and (
+                ('::INST0::' in a) == ('::INST0::' in template.upper())
+                and ('::HISLIP' in a) == ('::HISLIP' in template.upper())
+                and a.endswith('::SOCKET') == template.upper().endswith('::SOCKET')
+            ):
+                return name
+        return None
 
     def is_gpib_type(self, conn_type):
         template = self.templates.get(conn_type, '') or ''
@@ -144,12 +179,10 @@ class AddressEditorDialog(QDialog):
             edit = QLineEdit()
             
             # Aggiungi suggerimenti per campi specifici
+            t = self._t
             if param == 'com_port':
-                edit.setPlaceholderText("Windows: 3 (per COM3)  -  Linux: /dev/ttyUSB0")
-                edit.setToolTip(
-                    "Windows: il numero della porta COM (3 per COM3). "
-                    "Linux e macOS: il dispositivo, per esempio /dev/ttyUSB0 o /dev/ttyACM0."
-                )
+                edit.setPlaceholderText(t("addr_com_port_placeholder"))
+                edit.setToolTip(t("addr_com_port_tip"))
                 try:  # suggest the ports that are present
                     from PyQt6.QtWidgets import QCompleter
                     from serial.tools import list_ports
@@ -157,23 +190,20 @@ class AddressEditorDialog(QDialog):
                 except Exception:
                     pass  # pyserial missing: the port is typed by hand
             elif param == 'ip':
-                edit.setPlaceholderText("es: 192.168.1.100")
-                edit.setToolTip("Indirizzo IP dello strumento")
+                edit.setPlaceholderText(t("addr_example").format(example="192.168.1.100"))
+                edit.setToolTip(t("addr_ip_tip"))
             elif param == 'gpib_addr':
-                edit.setPlaceholderText("es: 7")
-                edit.setToolTip("Indirizzo GPIB (1-30)")
+                edit.setPlaceholderText(t("addr_example").format(example="7"))
+                edit.setToolTip(t("addr_gpib_tip"))
             elif param == 'vendor_id':
-                edit.setPlaceholderText("es: 0x0957")
-                edit.setToolTip("Vendor ID USB in formato hex")
+                edit.setPlaceholderText(t("addr_example").format(example="0x0957"))
+                edit.setToolTip(t("addr_vendor_tip"))
             elif param == 'product_id':
-                edit.setPlaceholderText("es: 0x2007")
-                edit.setToolTip("Product ID USB in formato hex")
+                edit.setPlaceholderText(t("addr_example").format(example="0x2007"))
+                edit.setToolTip(t("addr_product_tip"))
             elif param == 'serial' and conn_type == 'WAVEFORMS':
-                edit.setPlaceholderText("vuoto: il primo dispositivo trovato")
-                edit.setToolTip(
-                    "Numero seriale del dispositivo Digilent (senza il prefisso SN:). "
-                    "Lascialo vuoto per usare il primo dispositivo collegato."
-                )
+                edit.setPlaceholderText(t("addr_dwf_placeholder"))
+                edit.setToolTip(t("addr_dwf_tip"))
                 try:  # suggest the devices WaveForms sees now
                     from PyQt6.QtWidgets import QCompleter
                     from ola.drivers.waveforms import DwfApi, load_library
@@ -183,14 +213,17 @@ class AddressEditorDialog(QDialog):
                 except Exception:
                     pass  # the WaveForms runtime is not installed or sees nothing
             elif param == 'serial':
-                edit.setPlaceholderText("es: MY12345678")
-                edit.setToolTip("Numero seriale del dispositivo")
+                edit.setPlaceholderText(t("addr_example").format(example="MY12345678"))
+                edit.setToolTip(t("addr_serial_tip"))
             elif param == 'port':
-                edit.setPlaceholderText("es: 5025")
-                edit.setToolTip("Porta TCP per connessione socket")
-            
+                edit.setPlaceholderText(t("addr_example").format(example="5025"))
+                edit.setToolTip(t("addr_port_tip"))
+
             self.fields[param] = edit
-            self.fields_layout.addRow(param.replace('_', ' ').title(), edit)
+            label = self._t(f"addr_field_{param}")
+            if label == f"addr_field_{param}":  # a field of a template of the library
+                label = param.replace('_', ' ').title()
+            self.fields_layout.addRow(label, edit)
         
         # GPIB: scelta dell'adattatore e degli strumenti trovati sul bus
         self.adapter_combo = None
@@ -199,9 +232,10 @@ class AddressEditorDialog(QDialog):
 
         # Aggiungi info speciali per comunicazione seriale
         if conn_type in ['SERIAL', 'USB-SERIAL']:
-            info_label = QLabel("⚠️ Comunicazione seriale: Assicurarsi che i parametri seriali siano corretti (9600 baud, 8N1)")
+            info_label = QLabel("⚠️ " + self._t("addr_serial_warning"))
             info_label.setWordWrap(True)
-            info_label.setStyleSheet("color: orange; font-size: 10px; margin: 5px;")
+            set_class(info_label, "warning")
+            info_label.setStyleSheet("font-size: 10px; margin: 5px;")
             self.fields_layout.addRow(info_label)
         
         # Se già presente un indirizzo, prova a precompilare i campi
@@ -290,6 +324,9 @@ class AddressEditorDialog(QDialog):
                 match = re.search(r'TCPIP0::([^:]+)::', self.address)
                 if match and 'ip' in self.fields:
                     self.fields['ip'].setText(match.group(1))
+                socket = re.search(r'TCPIP0::[^:]+::(\d+)::SOCKET', self.address, re.I)
+                if socket and 'port' in self.fields:
+                    self.fields['port'].setText(socket.group(1))
             
             # Per indirizzi GPIB (qualsiasi scheda GPIBn o adattatore Prologix)
             elif self.is_gpib_address(self.address):
@@ -320,6 +357,8 @@ class AddressEditorDialog(QDialog):
             return self.address
             
         vals = {k: self.fields[k].text() for k in self.fields}
+        if self.address and not self.address_type and not any(v.strip() for v in vals.values()):
+            return self.address  # an address the library does not list for the model: unchanged
         
         try:
             # Validazione speciale per campi seriali
@@ -329,23 +368,21 @@ class AddressEditorDialog(QDialog):
                     vals['com_port'] = serial_port_value(vals['com_port'])
                 except ValueError:
                     QMessageBox.warning(
-                        self, "Errore validazione",
-                        "Porta seriale non valida: usa il numero della porta COM (es: 3 per COM3) "
-                        "oppure il dispositivo (es: /dev/ttyUSB0)")
+                        self, self._t("addr_invalid_title"), self._t("addr_invalid_port"))
                     return None
             
             # Validazione per GPIB
             elif self.is_gpib_type(self.conn_type) and 'gpib_addr' in vals:
                 gpib_addr = vals['gpib_addr'].strip()
                 if not gpib_addr.isdigit() or not (1 <= int(gpib_addr) <= 30):
-                    QMessageBox.warning(self, "Errore validazione", 
-                                      "L'indirizzo GPIB deve essere un numero tra 1 e 30")
+                    QMessageBox.warning(
+                        self, self._t("addr_invalid_title"), self._t("addr_invalid_gpib"))
                     return None
                 if self.gpib_adapter is not None:
                     try:
                         addr = self.gpib_adapter.address(int(gpib_addr))
                     except GpibError as exc:
-                        QMessageBox.warning(self, "Errore validazione", str(exc))
+                        QMessageBox.warning(self, self._t("addr_invalid_title"), str(exc))
                         return None
                     logger.debug(f"Generated address: {addr}")
                     return addr
@@ -361,5 +398,5 @@ class AddressEditorDialog(QDialog):
             
         except Exception as e:
             logger.error(f"Address format error: {e}")
-            QMessageBox.warning(self, "Errore", f"Errore nella formattazione dell'indirizzo: {e}")
+            QMessageBox.warning(self, self._t("error"), f"{self._t('addr_format_error')} {e}")
             return None

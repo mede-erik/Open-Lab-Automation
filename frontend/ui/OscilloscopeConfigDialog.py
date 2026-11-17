@@ -2,11 +2,11 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-import json
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, 
-                              QCheckBox, QLineEdit, QDialogButtonBox, QLabel,
-                              QSizePolicy, QHeaderView)
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget,
+                             QCheckBox, QLineEdit, QDialogButtonBox, QLabel)
 from PyQt6.QtGui import QDoubleValidator
+from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
+from frontend.ui.theme_utils import set_class
 
 class OscilloscopeConfigDialog(QDialog):
     """
@@ -16,10 +16,14 @@ class OscilloscopeConfigDialog(QDialog):
     """
     def __init__(self, instrument, translator=None, parent=None, load_instruments=None):
         super().__init__(parent)
+        if translator is None:
+            from frontend.core.Translator import Translator
+            translator = Translator()
         self.translator = translator
-        self.setWindowTitle(self.translator.t('oscilloscope_channel_config') if self.translator else "Configurazione Canali Oscilloscopio")
+        self.setWindowTitle(self.translator.t('oscilloscope_channel_config'))
         self.instrument = instrument
         self.load_instruments = load_instruments
+        resize_to_screen(self, 640, 380)
         
         # --- Sync channels with capabilities ---
         capabilities = instrument.get('capabilities', {})
@@ -66,10 +70,10 @@ class OscilloscopeConfigDialog(QDialog):
         # Tabella canali
         self.table = QTableWidget(len(self.channels), 4)
         headers = [
-            self.translator.t('enable') if self.translator else "Abilita",
-            self.translator.t('channel_id') if self.translator else "ID Canale",
-            self.translator.t('signal_name') if self.translator else "Nome Segnale",
-            self.translator.t('probe_attenuation') if self.translator else "Attenuazione Sonda"
+            self.translator.t('enable'),
+            self.translator.t('channel_id'),
+            self.translator.t('signal_name'),
+            self.translator.t('probe_attenuation')
         ]
         self.table.setHorizontalHeaderLabels(headers)
         
@@ -87,7 +91,7 @@ class OscilloscopeConfigDialog(QDialog):
             
             # Colonna 2: Nome Segnale (editabile)
             name_edit = QLineEdit(ch.get('name', f'CH{row+1}'))
-            name_edit.setPlaceholderText(self.translator.t('signal_name_placeholder') if self.translator else "es: Vout, Gate_Signal")
+            name_edit.setPlaceholderText(self.translator.t('signal_name_placeholder'))
             name_edit.textChanged.connect(lambda val, r=row: self.on_name_changed(r, val))
             self.table.setCellWidget(row, 2, name_edit)
             
@@ -98,25 +102,18 @@ class OscilloscopeConfigDialog(QDialog):
             probe_edit.textChanged.connect(lambda val, r=row: self.on_probe_changed(r, val))
             self.table.setCellWidget(row, 3, probe_edit)
         
-        self.table.resizeColumnsToContents()
-        # Configurazione ridimensionamento tabella per adattarsi al dialog
-        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # ID canale
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Nome segnale
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Attenuazione
-        
+        fit_table_to_rows(self.table, fixed_columns=(0, 1))
         layout.addWidget(self.table)
         
         # Info label
         info_label = QLabel(
-            self.translator.t('oscilloscope_config_info') if self.translator else 
-            "Configura i canali abilitati e i nomi dei segnali. La scala volt/div si imposta nel file .was."
+            self.translator.t('oscilloscope_config_info')
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: gray; font-size: 10px; padding: 5px;")
+        set_class(info_label, "muted")
+        info_label.setStyleSheet("font-size: 10px;")
         layout.addWidget(info_label)
+        layout.addStretch(1)  # the extra height goes below the table, not between its parts
         
         # Pulsanti OK/Annulla
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)

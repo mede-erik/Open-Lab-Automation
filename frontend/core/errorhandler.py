@@ -23,6 +23,15 @@ from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
+def _translator():
+    """The translations of the language chosen in the settings (English if none)."""
+    from PyQt6.QtCore import QSettings
+    from frontend.core.Translator import Translator
+
+    lang = QSettings('LabAutomation', 'App').value('language', 'en', type=str) or 'en'
+    return Translator(default_lang=lang)
+
+
 class ErrorCode(Enum):
     """Standardized error codes for the application"""
     
@@ -323,25 +332,22 @@ class ErrorHandler(QObject):
             technical_message: Technical details for support
         """
         try:
+            t = _translator().t
             msg_box = QMessageBox()
             msg_box.setIcon(QMessageBox.Icon.Critical)
-            msg_box.setWindowTitle("Error")
-            
+            msg_box.setWindowTitle(t("error"))
+
             # Construct the message
+            full_message = user_message
             if error_code:
-                full_message = f"{user_message}\\n\\nError Code: {error_code}"
-                if technical_message:
-                    full_message += f"\\nDetails: {technical_message}"
-            else:
-                full_message = user_message
-                if technical_message:
-                    full_message += f"\\nDetails: {technical_message}"
-            
+                full_message += f"\n\n{t('err_code')}: {error_code}"
+            if technical_message:
+                full_message += f"\n{t('err_details')}: {technical_message}"
             msg_box.setText(full_message)
-            
+
             if error_code:
-                msg_box.setInformativeText("Please contact support with the error code if the problem persists.")
-            
+                msg_box.setInformativeText(t("err_contact_support"))
+
             msg_box.exec()
         except Exception as e:
             logging.getLogger('frontend.core.errorhandler').error(

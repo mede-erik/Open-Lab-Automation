@@ -4,10 +4,14 @@
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
 import json
+import logging
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QFormLayout, QRadioButton, QButtonGroup,
                              QWidget, QScrollArea, QCheckBox, QMessageBox)
+
+logger = logging.getLogger('frontend.ui.DataloggerInstrumentDialog')
+
 
 class DataloggerInstrumentDialog(QDialog):
     """Dialog specifico per la configurazione di datalogger"""
@@ -21,7 +25,7 @@ class DataloggerInstrumentDialog(QDialog):
         
     def init_ui(self):
         """Inizializza l'interfaccia utente"""
-        self.setWindowTitle(self.translator.get("datalogger_config", "Configurazione Datalogger"))
+        self.setWindowTitle(self.translator.t("datalogger_config"))
         self.setModal(True)
         self.resize(600, 700)
         
@@ -31,13 +35,13 @@ class DataloggerInstrumentDialog(QDialog):
         layout = QVBoxLayout()
         
         # === SEZIONE SERIE ===
-        series_group = QGroupBox(self.translator.get("series_group", "Serie di Appartenenza"))
+        series_group = QGroupBox(self.translator.t("series_group"))
         series_layout = QVBoxLayout()
         
         # Radio buttons per scegliere se usare serie esistente o crearne una nuova
         self.series_button_group = QButtonGroup()
-        self.existing_series_radio = QRadioButton(self.translator.get("existing_series", "Usa serie esistente"))
-        self.new_series_radio = QRadioButton(self.translator.get("new_series", "Crea nuova serie"))
+        self.existing_series_radio = QRadioButton(self.translator.t("existing_series"))
+        self.new_series_radio = QRadioButton(self.translator.t("new_series"))
         self.existing_series_radio.setChecked(True)
         
         self.series_button_group.addButton(self.existing_series_radio, 0)
@@ -55,12 +59,12 @@ class DataloggerInstrumentDialog(QDialog):
         new_series_layout = QFormLayout()
         self.new_series_id = QLineEdit()
         self.new_series_name = QLineEdit()
-        new_series_layout.addRow(self.translator.get("series_id", "ID Serie:"), self.new_series_id)
-        new_series_layout.addRow(self.translator.get("series_name", "Nome Serie:"), self.new_series_name)
+        new_series_layout.addRow(self.translator.t("series_id"), self.new_series_id)
+        new_series_layout.addRow(self.translator.t("series_name"), self.new_series_name)
         self.new_series_widget.setLayout(new_series_layout)
         self.new_series_widget.setEnabled(False)
         
-        series_layout.addWidget(QLabel(self.translator.get("existing_series_label", "Serie esistente:")))
+        series_layout.addWidget(QLabel(self.translator.t("existing_series_label")))
         series_layout.addWidget(self.existing_series_combo)
         series_layout.addWidget(self.new_series_widget)
         
@@ -71,22 +75,22 @@ class DataloggerInstrumentDialog(QDialog):
         layout.addWidget(series_group)
         
         # === SEZIONE INFORMAZIONI MODELLO ===
-        model_group = QGroupBox(self.translator.get("model_info", "Informazioni Modello"))
+        model_group = QGroupBox(self.translator.t("model_info"))
         model_layout = QFormLayout()
         
         self.model_name = QLineEdit()
         self.manufacturer = QLineEdit()
         self.model_id = QLineEdit()
         
-        model_layout.addRow(self.translator.get("model_name_label", "Nome Modello:"), self.model_name)
-        model_layout.addRow(self.translator.get("manufacturer_label", "Produttore:"), self.manufacturer)
-        model_layout.addRow(self.translator.get("model_id_label", "ID Modello:"), self.model_id)
+        model_layout.addRow(self.translator.t("model_name_label"), self.model_name)
+        model_layout.addRow(self.translator.t("manufacturer_label"), self.manufacturer)
+        model_layout.addRow(self.translator.t("model_id_label"), self.model_id)
         
         model_group.setLayout(model_layout)
         layout.addWidget(model_group)
         
         # === SEZIONE CAPACITÀ ACQUISIZIONE ===
-        capabilities_group = QGroupBox(self.translator.get("acquisition_capabilities", "Capacità di Acquisizione"))
+        capabilities_group = QGroupBox(self.translator.t("acquisition_capabilities"))
         capabilities_layout = QFormLayout()
         
         self.num_channels = QSpinBox()
@@ -106,25 +110,25 @@ class DataloggerInstrumentDialog(QDialog):
         self.internal_memory.setValue(50)
         self.internal_memory.setSuffix(" kpoints")
         
-        capabilities_layout.addRow(self.translator.get("num_channels_dl", "Numero Canali:"), self.num_channels)
-        capabilities_layout.addRow(self.translator.get("sample_rate_max", "Sample Rate Max:"), self.max_sample_rate)
-        capabilities_layout.addRow(self.translator.get("internal_memory", "Memoria Interna:"), self.internal_memory)
+        capabilities_layout.addRow(self.translator.t("num_channels_dl"), self.num_channels)
+        capabilities_layout.addRow(self.translator.t("sample_rate_max"), self.max_sample_rate)
+        capabilities_layout.addRow(self.translator.t("internal_memory"), self.internal_memory)
         
         capabilities_group.setLayout(capabilities_layout)
         layout.addWidget(capabilities_group)
         
         # === SEZIONE TIPI DI MISURA ===
-        measurements_group = QGroupBox(self.translator.get("measurement_types", "Tipi di Misura Supportati"))
+        measurements_group = QGroupBox(self.translator.t("measurement_types"))
         measurements_layout = QVBoxLayout()
         
         # Checkboxes per i tipi di misura
-        self.voltage_dc_checkbox = QCheckBox(self.translator.get("voltage_dc", "Tensione DC"))
-        self.voltage_ac_checkbox = QCheckBox(self.translator.get("voltage_ac", "Tensione AC"))
-        self.current_dc_checkbox = QCheckBox(self.translator.get("current_dc", "Corrente DC"))
-        self.current_ac_checkbox = QCheckBox(self.translator.get("current_ac", "Corrente AC"))
-        self.temperature_checkbox = QCheckBox(self.translator.get("temperature", "Temperatura"))
-        self.resistance_checkbox = QCheckBox(self.translator.get("resistance", "Resistenza"))
-        self.frequency_checkbox = QCheckBox(self.translator.get("frequency", "Frequenza"))
+        self.voltage_dc_checkbox = QCheckBox(self.translator.t("voltage_dc"))
+        self.voltage_ac_checkbox = QCheckBox(self.translator.t("voltage_ac"))
+        self.current_dc_checkbox = QCheckBox(self.translator.t("current_dc"))
+        self.current_ac_checkbox = QCheckBox(self.translator.t("current_ac"))
+        self.temperature_checkbox = QCheckBox(self.translator.t("temperature"))
+        self.resistance_checkbox = QCheckBox(self.translator.t("resistance"))
+        self.frequency_checkbox = QCheckBox(self.translator.t("frequency"))
         
         # Imposta alcuni default
         self.voltage_dc_checkbox.setChecked(True)
@@ -143,13 +147,13 @@ class DataloggerInstrumentDialog(QDialog):
         layout.addWidget(measurements_group)
         
         # === SEZIONE SORGENTI TRIGGER ===
-        trigger_group = QGroupBox(self.translator.get("trigger_sources", "Sorgenti Trigger"))
+        trigger_group = QGroupBox(self.translator.t("trigger_sources"))
         trigger_layout = QVBoxLayout()
         
-        self.trigger_bus_checkbox = QCheckBox(self.translator.get("bus_software", "BUS (Software)"))
-        self.trigger_ext_checkbox = QCheckBox(self.translator.get("external", "Esterno"))
-        self.trigger_imm_checkbox = QCheckBox(self.translator.get("immediate", "Immediato"))
-        self.trigger_timer_checkbox = QCheckBox(self.translator.get("timer", "Timer"))
+        self.trigger_bus_checkbox = QCheckBox(self.translator.t("bus_software"))
+        self.trigger_ext_checkbox = QCheckBox(self.translator.t("external"))
+        self.trigger_imm_checkbox = QCheckBox(self.translator.t("immediate"))
+        self.trigger_timer_checkbox = QCheckBox(self.translator.t("timer"))
         
         # Imposta alcuni default
         self.trigger_bus_checkbox.setChecked(True)
@@ -164,14 +168,14 @@ class DataloggerInstrumentDialog(QDialog):
         layout.addWidget(trigger_group)
         
         # === SEZIONE INTERFACCE ===
-        interface_group = QGroupBox(self.translator.get("supported_interfaces", "Interfacce Supportate"))
+        interface_group = QGroupBox(self.translator.t("supported_interfaces"))
         interface_layout = QVBoxLayout()
         
         # Checkboxes per le interfacce
-        self.usb_checkbox = QCheckBox(self.translator.get("usb_tmc", "USB-TMC"))
-        self.ethernet_checkbox = QCheckBox(self.translator.get("ethernet_lxi", "Ethernet/LXI"))
-        self.serial_checkbox = QCheckBox(self.translator.get("rs232_485", "RS-232/RS-485"))
-        self.gpib_checkbox = QCheckBox(self.translator.get("gpib", "GPIB"))
+        self.usb_checkbox = QCheckBox(self.translator.t("usb_tmc"))
+        self.ethernet_checkbox = QCheckBox(self.translator.t("ethernet_lxi"))
+        self.serial_checkbox = QCheckBox(self.translator.t("rs232_485"))
+        self.gpib_checkbox = QCheckBox(self.translator.t("gpib"))
         
         interface_layout.addWidget(self.usb_checkbox)
         interface_layout.addWidget(self.ethernet_checkbox)
@@ -182,15 +186,15 @@ class DataloggerInstrumentDialog(QDialog):
         layout.addWidget(interface_group)
         
         # === SEZIONE DOCUMENTAZIONE ===
-        docs_group = QGroupBox(self.translator.get("documentation_group", "Documentazione"))
+        docs_group = QGroupBox(self.translator.t("documentation_group"))
         docs_layout = QFormLayout()
         
         self.documentation_path = QLineEdit()
         self.notes = QTextEdit()
         self.notes.setMaximumHeight(100)
         
-        docs_layout.addRow(self.translator.get("documentation_path_label", "Percorso Documentazione:"), self.documentation_path)
-        docs_layout.addRow(self.translator.get("notes_label", "Note:"), self.notes)
+        docs_layout.addRow(self.translator.t("documentation_path_label"), self.documentation_path)
+        docs_layout.addRow(self.translator.t("notes_label"), self.notes)
         
         docs_group.setLayout(docs_layout)
         layout.addWidget(docs_group)
@@ -198,10 +202,10 @@ class DataloggerInstrumentDialog(QDialog):
         # === PULSANTI ===
         button_layout = QHBoxLayout()
         
-        cancel_button = QPushButton(self.translator.get("cancel", "Annulla"))
+        cancel_button = QPushButton(self.translator.t("cancel"))
         cancel_button.clicked.connect(self.reject)
         
-        save_button = QPushButton(self.translator.get("save_instrument", "Salva Strumento"))
+        save_button = QPushButton(self.translator.t("save_instrument"))
         save_button.clicked.connect(self.save_instrument)
         save_button.setDefault(True)
         
@@ -226,11 +230,11 @@ class DataloggerInstrumentDialog(QDialog):
             self.existing_series_combo.clear()
             
             for series in series_list:
-                series_name = series.get('series_name', series.get('series_id', 'Serie sconosciuta'))
+                series_name = series.get('series_name', series.get('series_id', self.translator.t('ilb_unknown_series')))
                 self.existing_series_combo.addItem(series_name, series)
                 
         except Exception as e:
-            print(f"Errore nel caricamento serie esistenti: {e}")
+            logger.warning("Loading the existing series failed: %s", e)
             
     def toggle_series_controls(self, checked):
         """Abilita/disabilita i controlli per serie esistenti/nuove"""
@@ -251,13 +255,13 @@ class DataloggerInstrumentDialog(QDialog):
             if self.existing_series_radio.isChecked():
                 selected_series = self.existing_series_combo.currentData()
                 if not selected_series:
-                    QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("select_existing_series", "Seleziona una serie esistente."))
+                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("select_existing_series"))
                     return
                 target_series_id = selected_series.get('series_id')
             else:
                 target_series_id = self.new_series_id.text().strip()
                 if not target_series_id or not self.new_series_name.text().strip():
-                    QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("complete_new_series_fields", "Completa tutti i campi per la nuova serie."))
+                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("complete_new_series_fields"))
                     return
             
             # Crea l'entry del nuovo strumento
@@ -267,20 +271,20 @@ class DataloggerInstrumentDialog(QDialog):
             success = self.save_to_library(instrument_data, target_series_id)
             
             if success:
-                QMessageBox.information(self, self.translator.get("success", "Successo"), self.translator.get("datalogger_added", "Datalogger aggiunto con successo!"))
+                QMessageBox.information(self, self.translator.t("success"), self.translator.t("datalogger_added"))
                 self.accept()
                 
         except Exception as e:
-            QMessageBox.critical(self, self.translator.get("error", "Errore"), f"{self.translator.get('save_instrument_error', 'Errore nel salvare lo strumento:')} {str(e)}")
+            QMessageBox.critical(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {str(e)}")
             
     def validate_input(self):
         """Valida l'input dell'utente"""
         if not self.model_name.text().strip():
-            QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("model_name_required", "Il nome del modello è obbligatorio."))
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_name_required"))
             return False
             
         if not self.manufacturer.text().strip():
-            QMessageBox.warning(self, self.translator.get("error", "Errore"), self.translator.get("manufacturer_required", "Il produttore è obbligatorio."))
+            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("manufacturer_required"))
             return False
             
         return True
@@ -471,7 +475,7 @@ class DataloggerInstrumentDialog(QDialog):
                         break
                         
                 if not found:
-                    raise Exception(f"Serie {target_series_id} non trovata")
+                    raise ValueError(f"{self.translator.t('ilb_series_not_found')}: {target_series_id}")
                     
             # Salva la libreria aggiornata
             with open(library_path, 'w', encoding='utf-8') as f:
@@ -480,5 +484,5 @@ class DataloggerInstrumentDialog(QDialog):
             return True
             
         except Exception as e:
-            print(f"Errore nel salvare nella libreria: {e}")
+            logger.error("Saving to the library failed: %s", e)
             return False

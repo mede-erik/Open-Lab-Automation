@@ -5,8 +5,8 @@
 import json
 import logging
 logger = logging.getLogger(__name__)
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QMessageBox
+from frontend.ui.theme_utils import set_class
 
 # =========================
 # WasFileDialog
@@ -25,8 +25,8 @@ class WasFileDialog(QDialog):
         :param parent: Widget genitore.
         """
         super().__init__(parent)
-        from PyQt6.QtWidgets import (QLineEdit, QFormLayout, QVBoxLayout, QHBoxLayout, 
-                                      QLabel, QTextEdit, QPushButton, QGroupBox, QComboBox, QCheckBox)
+        from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
+                                      QPushButton)
         self.translator = translator
         self.file_path = file_path
         self.project_data = project_data
@@ -118,7 +118,7 @@ class WasFileDialog(QDialog):
                     })
             return scopes
         except Exception as e:
-            print(f"Errore nel caricamento file .inst: {e}")
+            logging.getLogger(__name__).warning("Reading the instrument file failed: %s", e)
             return []
 
     def get_oscilloscope_channels(self, instance_name=None):
@@ -167,7 +167,7 @@ class WasFileDialog(QDialog):
             # Nessun oscilloscopio configurato - mostra canali di default
             info_label = QLabel(self.translator.t('no_oscilloscope_configured'))
             info_label.setWordWrap(True)
-            info_label.setStyleSheet("color: orange; padding: 5px;")
+            set_class(info_label, "warning")
             group_layout.addWidget(info_label)
 
         self.channels_group_layout = group_layout

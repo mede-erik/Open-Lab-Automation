@@ -5,6 +5,7 @@
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QLabel
 from frontend.core.Translator import Translator
+from frontend.ui.theme_utils import set_class
 
 
 def parse_int(text, base):
@@ -69,20 +70,12 @@ class HexDecConverterDialog(QDialog):
         self.layout.addLayout(form)
 
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #c0392b;")
+        set_class(self.status_label, "error")
         self.layout.addWidget(self.status_label)
 
         self.hex_edit.textEdited.connect(lambda t: self._on_edited(t, 16, self.hex_edit))
         self.dec_edit.textEdited.connect(lambda t: self._on_edited(t, 10, self.dec_edit))
         self.bin_edit.textEdited.connect(lambda t: self._on_edited(t, 2, self.bin_edit))
-
-    def convert_hex_to_dec(self, hex_value):
-        """Converte una stringa esadecimale in stringa decimale."""
-        return str(parse_int(hex_value, 16))
-
-    def convert_dec_to_hex(self, dec_value):
-        """Converte una stringa decimale in stringa esadecimale (con prefisso 0x)."""
-        return format_hex(parse_int(dec_value, 10))
 
     def _on_edited(self, text, base, source):
         """Aggiorna gli altri campi quando l'utente modifica uno di essi."""

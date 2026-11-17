@@ -4,11 +4,15 @@
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
 import json
+import logging
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
                              QButtonGroup, QWidget, QScrollArea, QCheckBox,
                              QMessageBox)
+
+logger = logging.getLogger('frontend.ui.PowerSupplyInstrumentDialog')
+
 
 class PowerSupplyInstrumentDialog(QDialog):
     """Dialog specifico per la configurazione di alimentatori"""
@@ -175,11 +179,11 @@ class PowerSupplyInstrumentDialog(QDialog):
             self.existing_series_combo.clear()
             
             for series in series_list:
-                series_name = series.get('series_name', series.get('series_id', 'Serie sconosciuta'))
+                series_name = series.get('series_name', series.get('series_id', self.translator.t('ilb_unknown_series')))
                 self.existing_series_combo.addItem(series_name, series)
                 
         except Exception as e:
-            print(f"Errore nel caricamento serie esistenti: {e}")
+            logger.warning("Loading the existing series failed: %s", e)
             
     def toggle_series_controls(self, checked):
         """Abilita/disabilita i controlli per serie esistenti/nuove"""
@@ -411,7 +415,7 @@ class PowerSupplyInstrumentDialog(QDialog):
                         break
                         
                 if not found:
-                    raise Exception(f"Serie {target_series_id} non trovata")
+                    raise ValueError(f"{self.translator.t('ilb_series_not_found')}: {target_series_id}")
                     
             # Salva la libreria aggiornata
             with open(library_path, 'w', encoding='utf-8') as f:
@@ -420,5 +424,5 @@ class PowerSupplyInstrumentDialog(QDialog):
             return True
             
         except Exception as e:
-            print(f"Errore nel salvare nella libreria: {e}")
+            logger.error("Saving to the library failed: %s", e)
             return False

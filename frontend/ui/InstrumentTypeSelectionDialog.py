@@ -36,14 +36,11 @@ class InstrumentTypeSelectionDialog(QDialog):
 
         # ComboBox for type selection (chiavi singolari, come get_all_types())
         self.type_combo = QComboBox()
-        self.type_combo.addItem("Alimentatore", "power_supply")
-        self.type_combo.addItem("Datalogger", "datalogger")
-        self.type_combo.addItem("Oscilloscopio", "oscilloscope")
-        self.type_combo.addItem("Carico Elettronico", "electronic_load")
-        self.type_combo.addItem("Multimetro", "multimeter")
+        for kind in ("power_supply", "datalogger", "oscilloscope", "electronic_load", "multimeter"):
+            self.type_combo.addItem(self.translator.t(kind), kind)
 
         # Connect signal to update description
-        self.type_combo.currentTextChanged.connect(self.update_description)
+        self.type_combo.currentIndexChanged.connect(self.update_description)
 
         type_layout.addWidget(QLabel(self.translator.t("instrument_type_label")))
         type_layout.addWidget(self.type_combo)
@@ -80,17 +77,8 @@ class InstrumentTypeSelectionDialog(QDialog):
         
     def update_description(self):
         """Aggiorna la descrizione in base al tipo selezionato"""
-        descriptions = {
-            "Alimentatore": self.translator.t("power_supply_desc"),
-            "Datalogger": self.translator.t("datalogger_desc"),
-            "Oscilloscopio": self.translator.t("oscilloscope_desc"),
-            "Carico Elettronico": self.translator.t("electronic_load_desc"),
-            "Multimetro": self.translator.t("multimeter_desc")
-        }
-        
-        current_text = self.type_combo.currentText()
-        description = descriptions.get(current_text, "Descrizione non disponibile.")
-        self.description_text.setPlainText(description)
+        kind = self.type_combo.currentData() or ""
+        self.description_text.setPlainText(self.translator.t(f"{kind}_desc"))
         
     def accept_selection(self):
         """Accetta la selezione e chiude il dialog"""
