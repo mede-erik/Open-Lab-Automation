@@ -136,14 +136,13 @@ def test_settings_the_model_refuses_are_listed(app, shown, project, monkeypatch)
     assert len(executor.calls) > 1  # the other settings were still tried
 
 
-def test_settings_applied_are_confirmed(app, shown, project, monkeypatch):
+def test_when_everything_is_applied_no_window_appears(app, shown, project, monkeypatch):
     folder, data = project
     tab = make_tab(app, folder, data)
     executor = Executor()
     reachable(tab, monkeypatch, executor)
     tab._configure_oscilloscope_from_was()
-    assert executor.calls
-    assert shown == [("information", "OSC: the settings of osc1.was were applied.")]
+    assert executor.calls and shown == []  # the result is seen on the oscilloscope
 
 
 def test_the_report_is_translated(app, shown, project):

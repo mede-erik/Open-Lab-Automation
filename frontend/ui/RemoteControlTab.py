@@ -165,9 +165,9 @@ class RemoteControlTab(QWidget):
 
     def _configure_oscilloscope_from_was(self):
         """Apply the oscilloscope settings of the project (its first .was file) to every
-        oscilloscope of the instrument file, then say what happened in a window: what was
-        applied, or why not (no project, no .was, an unreachable instrument, settings the
-        model refused...)."""
+        oscilloscope of the instrument file. A window appears only if something went wrong (no
+        project, no .was, an unreachable instrument, settings the model refused...): when it
+        works the settings are seen on the oscilloscope itself."""
         self._scope_report = []
         try:
             self._configure_oscilloscopes()
@@ -185,13 +185,9 @@ class RemoteControlTab(QWidget):
     def _show_scope_report(self):
         from PyQt6.QtWidgets import QMessageBox
         report = getattr(self, '_scope_report', [])
-        if not report:
-            return
-        text = "\n".join(line for _severity, line in report)
-        if any(severity != "ok" for severity, _line in report):
-            QMessageBox.warning(self, self._t("rc_scope_title"), text)
-        else:
-            QMessageBox.information(self, self._t("rc_scope_title"), text)
+        problems = [line for severity, line in report if severity != "ok"]
+        if problems:  # nothing to say when everything was applied
+            QMessageBox.warning(self, self._t("rc_scope_title"), "\n".join(problems))
 
     def _configure_oscilloscopes(self):
         parent = self.parent()
