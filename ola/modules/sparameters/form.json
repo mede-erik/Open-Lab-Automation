@@ -1,0 +1,287 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Instrument",
+        "it": "Strumento",
+        "fr": "Instrument",
+        "es": "Instrumento",
+        "de": "Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, calibrated for this sweep at the connectors of the device.",
+            "it": "L'analizzatore di reti, calibrato per questo sweep ai connettori del dispositivo.",
+            "fr": "L'analyseur de réseau, calibré pour ce balayage aux connecteurs du dispositif.",
+            "es": "El analizador de redes, calibrado para este barrido en los conectores del dispositivo.",
+            "de": "Der Netzwerkanalysator, für diesen Sweep an den Anschlüssen des Messobjekts kalibriert."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1G",
+            "it": "es. 1G",
+            "fr": "p. ex. 1G",
+            "es": "p. ej. 1G",
+            "de": "z. B. 1G"
+          }
+        },
+        {
+          "path": "points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "Linear spacing, at least 2.",
+            "it": "Spaziatura lineare, almeno 2.",
+            "fr": "Espacement linéaire, au moins 2.",
+            "es": "Espaciado lineal, al menos 2.",
+            "de": "Linearer Abstand, mindestens 2."
+          }
+        },
+        {
+          "path": "sparameters",
+          "kind": "multichoice",
+          "label": {
+            "en": "S-parameters",
+            "it": "Parametri S",
+            "fr": "Paramètres S",
+            "es": "Parámetros S",
+            "de": "S-Parameter"
+          },
+          "help": {
+            "en": "Read from one sweep. S21 and S12 need both ports connected.",
+            "it": "Letti da un solo sweep. S21 e S12 richiedono entrambe le porte collegate.",
+            "fr": "Lus sur un seul balayage. S21 et S12 demandent les deux ports connectés.",
+            "es": "Leídos de un solo barrido. S21 y S12 necesitan ambos puertos conectados.",
+            "de": "Aus einem Sweep gelesen. S21 und S12 brauchen beide Tore angeschlossen."
+          },
+          "choices": [
+            {
+              "value": "S11",
+              "label": "S11"
+            },
+            {
+              "value": "S21",
+              "label": "S21"
+            },
+            {
+              "value": "S12",
+              "label": "S12"
+            },
+            {
+              "value": "S22",
+              "label": "S22"
+            }
+          ]
+        },
+        {
+          "path": "if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional, for the models that have it. Narrower = less noise, slower.",
+            "it": "Facoltativa, per i modelli che la hanno. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative, pour les modèles qui l'ont. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional, para los modelos que lo tienen. Más estrecho = menos ruido, más lento.",
+            "de": "Optional, für Modelle, die sie haben. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Source power",
+            "it": "Potenza della sorgente",
+            "fr": "Puissance de la source",
+            "es": "Potencia de la fuente",
+            "de": "Quellenleistung"
+          },
+          "help": {
+            "en": "Optional, for the models that have it.",
+            "it": "Facoltativa, per i modelli che la hanno.",
+            "fr": "Facultative, pour les modèles qui l'ont.",
+            "es": "Opcional, para los modelos que la tienen.",
+            "de": "Optional, für Modelle, die sie haben."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Repetitions",
+        "it": "Ripetizioni",
+        "fr": "Répétitions",
+        "es": "Repeticiones",
+        "de": "Wiederholungen"
+      },
+      "fields": [
+        {
+          "path": "sweeps",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps",
+            "it": "Sweep",
+            "fr": "Balayages",
+            "es": "Barridos",
+            "de": "Sweeps"
+          },
+          "help": {
+            "en": "How many sweeps: each one gives its own curves (to watch a device drift, for example).",
+            "it": "Quanti sweep: ognuno dà le sue curve (per seguire la deriva di un dispositivo, per esempio).",
+            "fr": "Combien de balayages : chacun donne ses courbes (pour suivre la dérive d'un dispositif, par exemple).",
+            "es": "Cuántos barridos: cada uno da sus curvas (para seguir la deriva de un dispositivo, por ejemplo).",
+            "de": "Wie viele Sweeps: jeder liefert eigene Kurven (z. B. um die Drift eines Messobjekts zu verfolgen)."
+          }
+        },
+        {
+          "path": "interval_s",
+          "kind": "number",
+          "unit": "s",
+          "label": {
+            "en": "Interval",
+            "it": "Intervallo",
+            "fr": "Intervalle",
+            "es": "Intervalo",
+            "de": "Intervall"
+          },
+          "help": {
+            "en": "Time between the starts of two sweeps; 0 = one after the other.",
+            "it": "Tempo tra gli inizi di due sweep; 0 = uno dopo l'altro.",
+            "fr": "Temps entre les débuts de deux balayages ; 0 = l'un après l'autre.",
+            "es": "Tiempo entre los inicios de dos barridos; 0 = uno tras otro.",
+            "de": "Zeit zwischen den Starts zweier Sweeps; 0 = direkt nacheinander."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Checks",
+        "it": "Controlli",
+        "fr": "Contrôles",
+        "es": "Controles",
+        "de": "Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Fermati se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Anhalten, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "Otherwise the data are recorded and the log says once that they are not calibrated.",
+            "it": "Altrimenti i dati vengono registrati e il log dice una volta che non sono calibrati.",
+            "fr": "Sinon les données sont enregistrées et le journal indique une fois qu'elles ne sont pas calibrées.",
+            "es": "Si no, los datos se registran y el registro indica una vez que no están calibrados.",
+            "de": "Sonst werden die Daten aufgezeichnet und das Protokoll meldet einmal, dass sie nicht kalibriert sind."
+          }
+        },
+        {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good unit of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un pezzo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (une bonne pièce du même type, gardée depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (una pieza buena del mismo tipo, guardada desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Teil derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"curves\": [{\"trace\": \"S21\", \"view\": \"magnitude_db\", \"tolerance\": 0.5}]} = |S21| within 0.5 dB of the golden one at every frequency of the last sweep.",
+            "it": "{\"curves\": [{\"trace\": \"S21\", \"view\": \"magnitude_db\", \"tolerance\": 0.5}]} = |S21| entro 0,5 dB da quello del campione a ogni frequenza dell'ultimo sweep.",
+            "fr": "{\"curves\": [{\"trace\": \"S21\", \"view\": \"magnitude_db\", \"tolerance\": 0.5}]} = |S21| à 0,5 dB près de l'échantillon à chaque fréquence du dernier balayage.",
+            "es": "{\"curves\": [{\"trace\": \"S21\", \"view\": \"magnitude_db\", \"tolerance\": 0.5}]} = |S21| a menos de 0,5 dB de la muestra en cada frecuencia del último barrido.",
+            "de": "{\"curves\": [{\"trace\": \"S21\", \"view\": \"magnitude_db\", \"tolerance\": 0.5}]} = |S21| innerhalb 0,5 dB vom Referenzmuster bei jeder Frequenz des letzten Sweeps."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -154,7 +154,8 @@ own (`frontend/ui/FormEditorDialog.py`, opened by *Edit* in the project window).
 * `path`: where the value is in `params` (`sweep.start_hz`); for a field of kind `instrument` it is the name of a
   **role**, and the file records the instrument chosen for it (`role_bindings`). A required role with no
   instrument is an error at its field.
-* `kind`: `text`, `number`, `int`, `bool`, `choice`, `numlist` (a list of numbers), `json` (an object typed as
+* `kind`: `text`, `number`, `int`, `bool`, `choice`, `multichoice` (a tick box for each of its `choices`; the
+  value is the list of the ticked ones, in the order of the form, and an empty list when none is), `numlist` (a list of numbers), `json` (an object typed as
   JSON, for what has no field of its own: limits), `instrument`. Numbers can be typed with an SI prefix
   (`433M`, `2.4 GHz`); an empty field means "not given" and removes the key.
 * `label`, `help`, `placeholder`, the `title` of a section and the `label` of a choice are a text or

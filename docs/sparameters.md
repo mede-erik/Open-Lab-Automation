@@ -43,6 +43,13 @@ It makes no judgement: there is no limit and no verdict. For a verdict use the m
 | `power_dbm` | the source power. Only for a model that has it |
 | `require_calibration` | `true` stops the run if the data are not calibrated; `false` (the default) records them and writes **one** warning in the log |
 
+## The editor
+
+*Edit* in the project window opens the window of the module (its `form.json`): the analyzer, the sweep, the S-parameters as
+tick boxes, the IF bandwidth and the power, the number of sweeps and their interval, whether uncalibrated data stop the run,
+and the golden sample. Each problem is shown at its field (a stop frequency below the start, no S-parameter ticked...); an
+interval with a single sweep is only a warning. A new file starts from 1 MHz to 1 GHz, 201 points, `S11`, one sweep.
+
 ## How to measure
 
 1. **Calibrate** the VNA for the sweep you will use, at the plane of the connectors where the device goes. A change of the start,
