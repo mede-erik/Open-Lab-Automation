@@ -830,15 +830,6 @@ class RemoteControlTab(QWidget):
                     if widget:
                         widget.setParent(None)
 
-            # Pulisci la terza colonna se esiste
-            if hasattr(self, 'third_column'):
-                for i in reversed(range(self.third_column.count())):
-                    item = self.third_column.itemAt(i)
-                    if item:
-                        widget = item.widget()
-                        if widget:
-                            widget.setParent(None)
-
             self.current_channel_widgets.clear()
 
             # Clear measurement area
@@ -1042,26 +1033,14 @@ class RemoteControlTab(QWidget):
                 channel_count = inst_info['channel_count']
                 print(f"  -> instrument [{i}]: {inst_name} ({channel_count} channels)")
 
-            # Determina il numero di colonne necessarie
-            if total_enabled_channels <= 4:
-                num_columns = 1
-            elif 5 <= total_enabled_channels <= 8:
-                num_columns = 2
-            else:
-                num_columns = 3
-
-            # Crea colonne aggiuntive se necessarie
-            if num_columns >= 3 and not hasattr(self, 'third_column'):
-                self.third_column = QVBoxLayout()
-                self.channels_layout.addLayout(self.third_column)
-
+            # Two columns, one half of the window each (a third one made the controls too narrow);
+            # a single instrument takes the whole width
+            num_columns = 2 if len(power_instruments) > 1 else 1
             print(f"layout: {num_columns} columns for {total_enabled_channels} channels")
 
             # --- Then, for each power supply/electronic load, create a group per instrument ---
             print("\n=== DEBUG: controls of supplies and loads ===")
-            columns = [self.left_column, self.right_column]
-            if num_columns >= 3:
-                columns.append(self.third_column)
+            columns = [self.left_column, self.right_column][:num_columns]
 
             # Azzera le colonne prima di aggiungere nuovi widget
             for col in columns:

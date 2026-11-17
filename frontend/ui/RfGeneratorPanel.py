@@ -105,7 +105,15 @@ class RfGeneratorPanel(QWidget):
         form = QFormLayout(box)
         w: Dict[str, Any] = {"info": info}
         w["enabled"] = QCheckBox(t("rf_kind_enable"))
-        form.addRow(w["enabled"])
+        outer = form
+        outer.addRow(w["enabled"])
+        # the settings of the modulation are shown only when it is enabled: less room is used
+        details = QWidget()
+        details.setVisible(False)
+        w["enabled"].toggled.connect(details.setVisible)
+        outer.addRow(details)
+        form = QFormLayout(details)  # every setting below goes into the part that shows
+        form.setContentsMargins(0, 0, 0, 0)
         if info.sources:
             w["source"] = QComboBox()
             for name in info.sources:

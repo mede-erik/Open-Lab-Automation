@@ -276,3 +276,16 @@ def test_the_remote_control_tab_shows_the_panel_of_an_rf_generator(app, tmp_path
     timer = getattr(tab, "measurement_timer", None)
     if timer is not None:
         timer.stop()
+
+
+@pytest.mark.gui
+def test_the_settings_of_a_modulation_show_only_when_it_is_enabled(app):
+    """The fields of a modulation take room: they are shown when its tick is set, not before."""
+    panel, _sent = make()
+    panel.show()
+    am = panel.kinds["AM"]
+    assert not am["source"].isVisibleTo(panel) and not am["apply"].isVisibleTo(panel)
+    am["enabled"].setChecked(True)
+    assert am["source"].isVisibleTo(panel) and am["apply"].isVisibleTo(panel)
+    am["enabled"].setChecked(False)
+    assert not am["source"].isVisibleTo(panel)
