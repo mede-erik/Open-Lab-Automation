@@ -42,6 +42,7 @@ class TracePlot(QWidget):
         self.xlabel = self.ylabel = ""
         self.x_unit = ""  # unit of x for the tick labels ("Hz": 1 MHz, 2 GHz...)
         self.log_x = False
+        self.empty_text = ""  # shown while there is no data (the panel gives it, translated)
         self._hover: Optional[float] = None
         self._plot = QRectF()
         self.setMouseTracking(True)
@@ -113,7 +114,16 @@ class TracePlot(QWidget):
         metrics = QFontMetrics(self.font())
         bounds = self.ranges()
         if bounds is None:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "-")
+            # no data yet: the empty frame of the chart, with the message inside it
+            frame = self.rect().adjusted(40, 10, -10, -30)
+            painter.setPen(grid)
+            painter.drawRect(frame)
+            muted = QColor(text)
+            muted.setAlpha(150)
+            painter.setPen(muted)
+            painter.drawText(frame.adjusted(12, 12, -12, -12),
+                             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                             self.empty_text)
             return
         xmin, xmax, ymin, ymax = bounds
         if self.log_x:

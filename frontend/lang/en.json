@@ -669,5 +669,6 @@
   "rc_scope_no_answer": "{name}: the oscilloscope does not answer; nothing more was sent.\n{error}",
   "rc_scope_failed": "{name}: the settings could not be applied: {error}",
   "rc_scope_calls_failed": "{name}: {count} settings were not applied:",
-  "rc_scope_done": "{name}: the settings of {file} were applied."
+  "rc_scope_done": "{name}: the settings of {file} were applied.",
+  "vna_plot_empty": "No data yet: sweep the analyzer to see the trace here"
 }
