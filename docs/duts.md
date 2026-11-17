@@ -7,8 +7,27 @@ measurement and can be used for a correction or de-embedding. A DUT is **optiona
 naming one, and then nothing is remembered about it.
 
 The design and the stages are in [`PLAN.md`](../PLAN.md#12-devices-under-test-dut-archive). This page describes what is
-built. The logic is in [`ola/duts.py`](../ola/duts.py) (no Qt). **There is no window yet** and the measurements do not name
-a DUT from the archive yet: the next stage (the efficiency file takes a name typed by hand until then).
+built. The logic is in [`ola/duts.py`](../ola/duts.py) (no Qt); the windows are `DutsDialog`, `DutEditDialog` and
+`DutVersionsDialog` in `frontend/ui/`. **The measurements do not name a DUT from the archive yet** and the antennas and
+filters are still in the registry of components: that is the last step (the efficiency file takes a name typed by hand
+until then).
+
+## The window
+
+*Tools* > **DUT...** (or `python -m frontend.ui.DutsDialog`). The list shows the code, the category, the name, the
+version in use now, what it is, the date and whether the DUT is active or retired; it can be filtered by category and a
+retired DUT can be hidden.
+
+* **New... / Edit...**: the card. A new DUT asks for the category first (it suggests the details) and, if wanted, its first
+  version.
+* **Versions...**: the versions of the selected DUT: add one (free text and an optional note), retire one or bring it back.
+* **Retire / Delete**: a retired DUT stays in the list, greyed, and in its old results; deleting asks first and the code is
+  not given again.
+* **Label...**: the labels of the selected DUTs, with the window of the components ([`assets.md`](assets.md)): the code, a QR
+  code, the name, the version and the key figures of its category (an antenna: frequency range and gain; a filter: type and
+  frequency; a converter: topology, input to output voltage and power). There is no line for the latest measurement yet.
+* **Scan or type a code**: a USB barcode scanner types `OLA:DUT-0001` in the box and the DUT is selected. The code a card had
+  before the move from the components (`ANT-0003`) finds it too.
 
 ## The card
 
@@ -55,4 +74,5 @@ moves them (kinds `antenna`, `filter`, `other`):
 * the archive is written first and the components after, so a stop in the middle loses nothing, and doing it again moves
   only what is left. The registry of components keeps its `.bak`.
 
-Nothing calls it yet: the window of the archive will, the first time it is opened.
+Nothing calls it yet: the last step will, together with the change of the fields of the measurements, so that the
+antennas and filters do not disappear from the components before the measurements can name them in the archive.

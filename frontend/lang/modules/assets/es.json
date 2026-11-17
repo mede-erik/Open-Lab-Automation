@@ -81,6 +81,7 @@
   "lbl_lines": "Líneas",
   "lbl_field_id": "Código (siempre)",
   "lbl_field_name": "Nombre",
+  "lbl_field_version": "Versión",
   "lbl_field_description": "Qué es",
   "lbl_field_specs": "Datos principales",
   "lbl_field_connectors": "Conectores",

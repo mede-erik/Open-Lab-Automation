@@ -39,7 +39,10 @@ from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
 from frontend.ui.GpibAdapterDialog import GpibAdapterDialog
 from frontend.ui.CompareDialog import CompareDialog
 from frontend.ui.AssetsDialog import AssetsDialog
+from frontend.ui.DutsDialog import DutsDialog
 from ola.assets import AssetError, AssetRegistry
+from ola.duts import DutRegistry
+from ola.duts import default_path as default_duts_path
 from ola.measurement import MeasurementError
 from ola.project import Project
 from ola.assets import default_path as default_assets_path
@@ -263,6 +266,11 @@ class MainWindow(QMainWindow):
         assets_action = QAction(CatalogTranslator("assets", self.translator).t("ast_menu"), self)
         assets_action.triggered.connect(self.open_assets_tool)
         tools_menu.addAction(assets_action)
+
+        # DUT: the devices under test (antennas, filters, converters...), with codes and versions
+        duts_action = QAction(CatalogTranslator("duts", self.translator).t("dut_menu"), self)
+        duts_action.triggered.connect(self.open_duts_tool)
+        tools_menu.addAction(duts_action)
         
         # Kits of resistors (the power resistors of the bench, used in many measurements)
         resistors_action = QAction(
@@ -816,6 +824,20 @@ class MainWindow(QMainWindow):
 
         self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
         self._assets_tool.show()
+
+    def open_duts_tool(self):
+        """Open the DUT window (the archive of the devices under test: cards, versions, labels)."""
+        try:
+            registry = DutRegistry()
+        except AssetError as exc:
+            self.logger.error(f"DUT archive not available: {exc}")
+            text = CatalogTranslator("duts", self.translator).t(
+                "dut_open_failed", error=f"{default_duts_path()} ({exc})"
+            )
+            QMessageBox.warning(self, "Open Lab Automation", text)
+            return
+        self._duts_tool = DutsDialog(registry, self.translator, self)
+        self._duts_tool.show()
 
     def open_resistor_kits_tool(self):
         """Open the window of the kits of resistors."""

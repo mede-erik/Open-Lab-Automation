@@ -81,6 +81,7 @@
   "lbl_lines": "Righe",
   "lbl_field_id": "Codice (sempre)",
   "lbl_field_name": "Nome",
+  "lbl_field_version": "Versione",
   "lbl_field_description": "Che cos'è",
   "lbl_field_specs": "Dati principali",
   "lbl_field_connectors": "Connettori",

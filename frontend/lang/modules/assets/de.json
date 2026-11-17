@@ -81,6 +81,7 @@
   "lbl_lines": "Zeilen",
   "lbl_field_id": "Code (immer)",
   "lbl_field_name": "Name",
+  "lbl_field_version": "Version",
   "lbl_field_description": "Was es ist",
   "lbl_field_specs": "Kenndaten",
   "lbl_field_connectors": "Stecker",

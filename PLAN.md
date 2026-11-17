@@ -1028,8 +1028,17 @@ tool groups by them.
 1. This plan, and the distinction between components and DUT in the documents.
 2. ✅ `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests (2026-11-17,
    [`docs/duts.md`](docs/duts.md)). Nothing calls the migration yet: the window of stage 3 will.
-3. The window of the archive (create, edit, retire, versions), and the fields of the modules that name a DUT; the card and the
-   version in the header of the run; antenna and filter leave the registry of components.
+3. The window of the archive and the fields of the modules that name a DUT, in two steps:
+   * ✅ **3a** the window *Tools > DUT* (`DutsDialog`, `DutEditDialog`, `DutVersionsDialog`): create, edit, retire, delete, versions,
+     scan of a code, labels with the version and the key figures of the category (2026-11-17, [`docs/duts.md`](docs/duts.md)). It
+     only adds: nothing is moved yet.
+   * **3b** the fields of the modules (`device`, `filter`) take a DUT code and, if wanted, a version; the card and the version go in
+     the header of the run (and the latest measurement on the label, the history of a DUT); the migration is called; antenna,
+     filter and generic leave the registry of components. All together, so that the antennas do not disappear from the
+     components before the modules can name them in the archive.
+   * Not moved: `amplifier` and `tdr` (their `device` is a component, an amplifier or a cable, that the module characterises), as
+     `cable` and `attenuator`. The `device` of `bode`, `regulation`, `ripple`, `resistive_efficiency`, `return_loss`, `antenna` and
+     the `filter` of `filter` are the DUT.
 4. Variants of a run.
 5. Labels for DUTs, reusing the label system of the components (see below).
 
