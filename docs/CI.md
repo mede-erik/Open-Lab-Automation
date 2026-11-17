@@ -13,7 +13,6 @@ replaced by simulated transports, fake TCP instruments on `localhost` and pseudo
 | **Lint and translations** | `scripts/check_translations.py`; `flake8` on `ola/ tests/ scripts/`; syntax errors and undefined names everywhere; style report of the legacy code | yes (the legacy report does not) |
 | **Tests (Python 3.12 / 3.13)** | `pytest` on the whole suite with coverage; JUnit and coverage XML are uploaded as artifacts | yes |
 | **Native transport (Rust)** | `cargo test`; builds the `ola_native` wheel with maturin and runs `pytest tests` with the native transport (serial/pty tests included); `rustfmt`/`clippy` are reported only | yes (fmt/clippy no) |
-| **Project database (PostgreSQL)** | `tests/test_project_database.py` against a PostgreSQL 16 service container | yes |
 | **Against Instruments_LIB main** | the suite with the library moved from the pinned submodule commit to `Instruments_LIB` `main`: shows what the next submodule update will break | no (informational) |
 
 The library repository (`Instruments_LIB`) has its own workflow: library data checks,
@@ -49,7 +48,6 @@ tests the `.deb`/`.rpm` in Docker containers; the Windows job needs Inno Setup 6
 | Command-line tools (`check_translations`, `dry_run_call`, `instrument_shell --sim`) run as subprocesses | `tests/test_scripts_cli.py` |
 | Packaging files: versions agree (`pyproject.toml`, `appinfo.json`, `PKGBUILD`), the build recipes name files that exist, the version of a release comes from the tag | `tests/test_packaging.py` |
 | GUI smoke tests: every window/dialog is built and shown offscreen with the example project, without error boxes; the main window opens a project | `tests/test_gui_smoke.py` |
-| PostgreSQL measurement storage | `tests/test_project_database.py` |
 
 Some checks keep an explicit list of **known gaps** (for example a model used by an example
 project that is not in the library yet). The test fails both when a new gap appears and when a
@@ -63,8 +61,6 @@ pip install -r requirements.txt
 QT_QPA_PLATFORM=offscreen pytest            # whole suite
 pytest tests/test_library_integrity.py     # only the library checks
 pytest -m "not gui"                         # without the Qt widgets
-OLA_TEST_POSTGRES="host=127.0.0.1 port=5432 user=postgres password=postgres" \
-    pytest tests/test_project_database.py   # with a PostgreSQL server
 OLA_LIBRARY=/path/to/instruments_lib.json pytest tests/test_library_integrity.py  # another library file
 ```
 
@@ -82,9 +78,7 @@ libfontconfig1 libxcb-cursor0` (installed by the CI).
    * `sudo` without a password **or** the packages above plus `gcc` and `make` already installed
      (the setup step installs them when it can, otherwise it prints a warning);
    * internet access for `actions/setup-python` (downloads Python 3.12/3.13), pip, crates.io and
-     the Rust toolchain;
-   * **Docker** for the PostgreSQL job. Without Docker set the variable `CI_SKIP_POSTGRES` to
-     `true` and the job is skipped.
+     the Rust toolchain.
 4. For a public repository GitHub recommends not running pull requests from forks on
    self-hosted runners (*Settings → Actions → General → Fork pull request workflows*).
 

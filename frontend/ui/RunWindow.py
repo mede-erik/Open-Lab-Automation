@@ -248,7 +248,6 @@ class RunWindow(QWidget):
         self._axes_chosen = False
         self._traces_dirty = False
         self._pending_view = None  # a view the measurement asks to open with ("smith")
-        self._traces_checked: dict = {}  # trace name -> shown
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
         self._bench_view = None  # the Benchmark tab, added when the report arrives
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))

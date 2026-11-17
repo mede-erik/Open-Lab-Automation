@@ -31,7 +31,6 @@ ROOT = Path(__file__).resolve().parent.parent
 LIST = ROOT / "docs" / "wiring-images.md"
 MARK = "OLA-PLACEHOLDER"
 WIDTH, HEIGHT = 1600, 800
-EXTENSIONS = (".svg", ".png", ".jpg", ".jpeg", ".webp")
 FIELDS = {
     "File": "file",
     "Folder": "folder",

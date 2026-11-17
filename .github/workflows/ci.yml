@@ -154,40 +154,6 @@ jobs:
       - name: Python tests with the native transport
         run: python -m pytest tests -ra --timeout=120
 
-  postgres:
-    # Measurement storage (frontend/core/ProjectDatabaseManager.py) against a real server.
-    # Service containers need Docker on the runner: while the self-hosted runner has no Docker
-    # set the repository variable CI_SKIP_POSTGRES to "true". The job is skipped only for the
-    # trusted authors (the ones who run on the self-hosted runner); on GitHub-hosted runners
-    # Docker is always there, so it keeps running for everybody else.
-    name: Project database (PostgreSQL)
-    if: vars.CI_SKIP_POSTGRES != 'true' || !contains(fromJSON(vars.CI_TRUSTED_ACTORS || '[]'), github.actor)
-    runs-on: ${{ contains(fromJSON(vars.CI_TRUSTED_ACTORS || '[]'), github.actor) && fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') || 'ubuntu-latest' }}
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      OLA_TEST_POSTGRES: "host=127.0.0.1 port=5432 user=postgres password=postgres"
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: ./.github/actions/setup-ola
-        with:
-          python-version: "3.12"
-
-      - name: Database tests
-        run: python -m pytest tests/test_project_database.py -ra --timeout=120
-
   library-main:
     # Early warning: the application against the newest library on Instruments_LIB main
     # (the submodule is pinned; this shows what will break at the next submodule update).

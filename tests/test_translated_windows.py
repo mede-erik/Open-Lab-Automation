@@ -6,7 +6,7 @@
 
 Found going through the windows with the interface in Italian: the Measurements tab was built
 before the saved language was applied (so it stayed English), the instrument-file dialog made a
-translator of its own (always English), and the database dialog had no translations at all.
+translator of its own (always English).
 """
 
 import os
@@ -105,25 +105,6 @@ def test_instrument_file_dialog_uses_the_language_of_the_application(qtbot, tmp_
         assert dialog.translator.t("inst_add") != english.t("inst_add")
     finally:
         stop_timers(main)
-
-
-@pytest.mark.parametrize("lang", ["en", "it", "fr", "es", "de"])
-def test_database_dialog_is_translated(qtbot, lang):
-    from frontend.core.Translator import Translator
-    from frontend.ui.database_config_dialog import DatabaseConfigDialog
-
-    translator = Translator()
-    translator.set_language(lang)
-    dialog = DatabaseConfigDialog(translator=translator)
-    qtbot.addWidget(dialog)
-    assert dialog.windowTitle() == translator.t("dbc_title")
-    assert dialog.save_btn.text() == translator.t("dbc_save")
-    assert dialog.status_label.text() == translator.t("dbc_not_tested")
-    if lang != "en":
-        english = Translator()
-        english.set_language("en")
-        assert dialog.windowTitle() != english.t("dbc_title")
-        assert dialog.test_btn.text() != english.t("dbc_test_btn")
 
 
 def test_language_box_shows_the_names_of_the_languages(qtbot):

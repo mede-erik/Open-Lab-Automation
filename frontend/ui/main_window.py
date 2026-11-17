@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, 
     QPushButton, QHBoxLayout, QComboBox, QFileDialog, QListWidget, 
     QListWidgetItem, QInputDialog, QLineEdit, QMessageBox, QMenu,
-    QFormLayout, QSplitter
+    QSplitter
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QSettings
@@ -32,7 +32,6 @@ from frontend.ui.ProjectWindow import ProjectWindow, not_connected
 from frontend.ui.connector_setup import default_library_path, make_connector
 from frontend.ui.SettingsDialog import SettingsDialog
 from frontend.core.Translator import Translator
-from frontend.ui.EffFileDialog import EffFileDialog
 from frontend.ui.WasFileDialog import WasFileDialog
 from frontend.ui.InstrumentConfigDialog import InstrumentConfigDialog
 from frontend.ui.InstrumentLibraryDialog import InstrumentLibraryDialog
@@ -46,10 +45,9 @@ from ola.project import Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
-from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
-from frontend.core.errorhandler import ErrorHandler, ErrorCode, ValidationError
+from frontend.core.errorhandler import ErrorHandler
 from frontend.core.tools import read_json, save_json
 class MainWindow(QMainWindow):
     def reload_remote_tab_instruments(self):
@@ -87,8 +85,6 @@ class MainWindow(QMainWindow):
             QSettings('LabAutomation', 'App').value('language', self.translator.current_lang))
         self.logger.debug("Translator initialized.")
         super().__init__()
-        self.db = None
-        self.db_manager = None
         # Initialize error handler
         self.error_handler = ErrorHandler()
         self.logger.debug("ErrorHandler initialized.")
@@ -104,9 +100,6 @@ class MainWindow(QMainWindow):
             
         self.setWindowTitle(self.appinfo.get('app_name', 'Lab Automation'))
         
-        # Initialize database connection
-        self.logger.debug("Initializing database connection...")
-        self.initialize_database_connection()
         
         # Initialize LoadInstruments with error handling
         self.logger.debug("Initializing LoadInstruments...")
@@ -242,10 +235,6 @@ class MainWindow(QMainWindow):
         settings_action.triggered.connect(self.open_settings)
         settings_menu.addAction(settings_action)
         
-        # Database configuration action
-        database_action = QAction(self.translator.t('database_configuration'), self)
-        database_action.triggered.connect(self.open_database_config)
-        settings_menu.addAction(database_action)
         
         # Help menu
         help_menu = menubar.addMenu(self.translator.t('help'))
@@ -359,11 +348,8 @@ class MainWindow(QMainWindow):
                 "created_at": now,
                 "last_opened": now,
                 "project_name": project_name.strip(),
-                "eff_files": [],
                 "inst_file": inst_file,
-                "was_files": [],
-                "control_variables": [],
-                "measure_variables": []
+                "was_files": []
             }
             
             # Save project file
@@ -498,22 +484,6 @@ class MainWindow(QMainWindow):
             logger.error(f"Error loading theme file {theme_filename}: {e}")
             self.setStyleSheet("")
     
-    def set_dark_theme(self):
-        """
-        Set the application to dark theme using the dark_theme.qss file.
-        (Legacy method, now uses load_theme_file)
-        """
-        self.logger.debug("Setting dark theme (legacy method).")
-        self.load_theme_file('dark_theme.qss')
-
-    def set_light_theme(self):
-        """
-        Set the application to light theme using the light_theme.qss file.
-        (Legacy method, now uses load_theme_file)
-        """
-        self.logger.debug("Setting light theme (legacy method).")
-        self.load_theme_file('light_theme.qss')
-
     def update_translations(self):
         """
         Update the UI texts and menus according to the current language.
@@ -527,40 +497,6 @@ class MainWindow(QMainWindow):
         self.project_tab.retranslate()
         self.tabs.setTabText(self.tabs.indexOf(self.project_tab), self.project_tab.tr_.t('prj_tab'))
         self.logger.debug("UI translations updated.")
-
-    def initialize_database_connection(self):
-        """
-        Initialize database connection on application startup.
-        """
-        try:
-            # Drop the plain-text password stored by the old (removed) DatabaseDialog
-            QSettings('LabAutomation', 'App').remove('db_password')
-
-            # Load the configuration saved (with encrypted password) by DatabaseConfigDialog
-            from frontend.core.database_config import get_database_config_manager
-            config_manager = get_database_config_manager()
-            if os.path.exists(config_manager.config_file) or config_manager._find_old_config():
-                self.logger.debug(f"Found database config file: {config_manager.config_file}")
-                config = config_manager.load_config()
-                params = config_manager.get_connection_params(config)
-
-                from frontend.core.database import DatabaseManager
-                self.db_manager = DatabaseManager(**params)
-
-                # Test connection silently
-                self.logger.debug("Testing database connection silently...")
-                if self.db_manager.test_connection():
-                    self.logger.info("Database connection established on startup")
-                else:
-                    self.logger.warning("Database connection test failed on startup")
-                    self.db_manager = None
-            else:
-                self.logger.debug("No database configuration found. Skipping DB initialization.")
-
-        except Exception as e:
-            self.logger.error(f"Failed to initialize database connection: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Failed to initialize database connection")
-            self.db_manager = None
 
     def _open_project_path(self, path):
         """Open a project file in both views: the Project menu and file list (this window) and the
@@ -604,15 +540,12 @@ class MainWindow(QMainWindow):
         session = self.project_tab.session
         if session is not None:  # the measurements of the project (every type)
             files += [m.file for m in session.project.measurements]
-        for f in self.current_project_data.get('eff_files', []) + self.current_project_data.get('was_files', []):
-            if f not in files:  # files of the first format that are not measurements
+        for f in self.current_project_data.get('was_files', []):
+            if f not in files:  # oscilloscope settings: plain files of the project
                 files.append(f)
         for f in files:
             item = QListWidgetItem(f)
             self.project_files_list.addItem(item)
-        
-        # Aggiorna le variabili del progetto dagli strumenti
-        self.update_project_variables()
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
         if hasattr(self, 'remote_tab') and inst_file:
@@ -626,95 +559,6 @@ class MainWindow(QMainWindow):
             else:
                 self.logger.warning(f"Instruments file not found: {inst_path}")
     
-    def update_project_variables(self):
-        """
-        Aggiorna le variabili di controllo e misura del progetto basandosi sui canali degli strumenti.
-        
-        Le variabili di controllo derivano da:
-        - Alimentatori (power_supplies)
-        - Carichi elettronici (electronic_loads)
-        
-        Le variabili di misura derivano da:
-        - Multimetri (multimeters)
-        - Oscilloscopi (oscilloscopes)
-        - Datalogger (dataloggers)
-        """
-        if not self.current_project_dir or not self.current_project_data:
-            return
-        
-        inst_file = self.current_project_data.get('inst_file')
-        if not inst_file:
-            self.logger.debug("No instruments file in project, skipping variable update")
-            return
-        
-        inst_path = os.path.join(self.current_project_dir, inst_file)
-        if not os.path.exists(inst_path):
-            self.logger.warning(f"Instruments file not found: {inst_path}")
-            return
-        
-        try:
-            # Carica i dati degli strumenti
-            inst_data = read_json(inst_path)
-            instruments = inst_data.get('instruments', [])
-            
-            # Strumenti che forniscono variabili di controllo (possono essere impostati)
-            control_instrument_types = [
-                'power_supply', 'power_supplies', 'alimentatore', 'alimentatori',
-                'electronic_load', 'electronic_loads', 'carico_elettronico', 'carichi_elettronici'
-            ]
-            
-            # Strumenti che forniscono variabili di misura (vengono letti)
-            measure_instrument_types = [
-                'multimeter', 'multimeters', 'multimetro', 'multimetri',
-                'oscilloscope', 'oscilloscopes', 'oscilloscopio', 'oscilloscopi',
-                'datalogger', 'dataloggers'
-            ]
-            
-            control_variables = []
-            measure_variables = []
-            
-            # Estrai le variabili dai canali degli strumenti
-            for instrument in instruments:
-                inst_type = instrument.get('instrument_type', '').lower()
-                channels = instrument.get('channels', [])
-                
-                for channel in channels:
-                    if not channel.get('enabled', True):
-                        continue  # Salta canali disabilitati
-                    
-                    channel_name = channel.get('name', '').strip()
-                    if not channel_name:
-                        continue  # Salta canali senza nome
-                    
-                    # Determina se è una variabile di controllo o di misura
-                    if inst_type in control_instrument_types:
-                        if channel_name not in control_variables:
-                            control_variables.append(channel_name)
-                            self.logger.debug(f"Added control variable: {channel_name} from {inst_type}")
-                    
-                    elif inst_type in measure_instrument_types:
-                        if channel_name not in measure_variables:
-                            measure_variables.append(channel_name)
-                            self.logger.debug(f"Added measure variable: {channel_name} from {inst_type}")
-            
-            # Aggiorna il progetto solo se ci sono modifiche
-            current_control = set(self.current_project_data.get('control_variables', []))
-            current_measure = set(self.current_project_data.get('measure_variables', []))
-            new_control = set(control_variables)
-            new_measure = set(measure_variables)
-            
-            if current_control != new_control or current_measure != new_measure:
-                self.current_project_data['control_variables'] = control_variables
-                self.current_project_data['measure_variables'] = measure_variables
-                self.save_project_json()
-                
-                self.logger.info(f"Updated project variables - Control: {control_variables}, Measure: {measure_variables}")
-            else:
-                self.logger.debug("Project variables unchanged")
-        
-        except Exception as e:
-            self.logger.error(f"Error updating project variables: {e}", exc_info=True)
-        
     def add_project_file(self):
         """Add a new file to the project: a measurement of any type, or oscilloscope settings."""
         from PyQt6.QtWidgets import QDialog
@@ -804,8 +648,7 @@ class MainWindow(QMainWindow):
             if not isinstance(on_disk, dict):
                 on_disk = {}
             self.current_project_data['last_opened'] = datetime.now().isoformat()
-            for key in ('last_opened', 'inst_file', 'eff_files', 'was_files',
-                        'control_variables', 'measure_variables'):
+            for key in ('last_opened', 'inst_file', 'was_files'):
                 if key in self.current_project_data:
                     on_disk[key] = self.current_project_data[key]
             with open(path, 'w', encoding='utf-8') as f:
@@ -861,14 +704,8 @@ class MainWindow(QMainWindow):
         # Rimuovi dalla lista appropriata
         removed = False
         
-        # Controlla se è un file .eff
-        if file_name in self.current_project_data.get('eff_files', []):
-            self.current_project_data['eff_files'].remove(file_name)
-            removed = True
-            self.logger.info(f"Removed '{file_name}' from eff_files")
-        
-        # Controlla se è un file .was
-        elif file_name in self.current_project_data.get('was_files', []):
+        # oscilloscope settings (.was)
+        if file_name in self.current_project_data.get('was_files', []):
             self.current_project_data['was_files'].remove(file_name)
             removed = True
             self.logger.info(f"Removed '{file_name}' from was_files")
@@ -929,41 +766,16 @@ class MainWindow(QMainWindow):
             self.settings_dialog = SettingsDialog(self, self.translator)
         self.settings_dialog.show()
         
-    def open_db_settings(self):
-        """Open the database settings dialog to configure database connection parameters."""
-        try:
-            from frontend.ui.database_config_dialog import DatabaseConfigDialog
-            dlg = DatabaseConfigDialog(self)
-            dlg.exec()
-        except ImportError as e:
-            QMessageBox.warning(
-                self, 
-                "Database Settings", 
-                f"Database configuration not available. Missing dependencies: {e}\\n\\nInstall psycopg2 to enable database features."
-            )
-        
-    def show_database_config(self):
-        """Show database configuration dialog."""
-        try:
-            # Qui puoi implementare una finestra di configurazione avanzata del database
-            QMessageBox.information(self, "Database Config", "Funzione di configurazione avanzata non ancora implementata.")
-        except Exception as e:
-            self.logger.error(f"Error showing database config: {e}", exc_info=True)
-            QMessageBox.warning(self, "Database Config", f"Errore: {e}")
-        
     def edit_project_file(self, item):
-        """Open a configuration dialog for the selected file based on its type (.eff, .was, .inst)."""
+        """Open the editor of the selected file: a measurement, the oscilloscope settings (.was) or
+        the instruments (.inst)."""
         if not self.current_project_dir:
             return
         fname = item.text()
         file_path = os.path.join(self.current_project_dir, fname)
         if self.project_tab.edit_file(fname):  # a measurement: the editor of its type
             return
-        if fname.endswith('.eff'):
-            # Passa i dati del progetto corrente alla dialog per le variabili
-            dlg = EffFileDialog(file_path, self.translator, self.current_project_data, self)
-            dlg.exec()
-        elif fname.endswith('.was'):
+        if fname.endswith('.was'):
             # Passa i dati del progetto per recuperare i canali dell'oscilloscopio
             dlg = WasFileDialog(file_path, self.translator, self.current_project_data, self)
             dlg.exec()
@@ -1083,40 +895,6 @@ class MainWindow(QMainWindow):
                 f"Error opening pulse generator: {str(e)}"
             )
     
-    def open_database_config(self):
-        """
-        Open database configuration dialog.
-        Allows user to configure PostgreSQL connection.
-        """
-        self.logger.debug("Opening database configuration dialog.")
-        try:
-            dialog = DatabaseConfigDialog(self)
-            result = dialog.exec()
-            
-            if result == QDialog.DialogCode.Accepted:
-                # Reload database configuration
-                self.logger.info("Database configuration saved, reinitializing connection...")
-                self.initialize_database_connection()
-                
-                # Test connection and show result
-                if self.db_manager and self.db_manager.test_connection():
-                    QMessageBox.information(
-                        self, 
-                        self.translator.t('database_configuration'),
-                        self.translator.t('database_connected_successfully')
-                    )
-                    self.logger.info("Database connected successfully")
-                else:
-                    QMessageBox.warning(
-                        self, 
-                        self.translator.t('database_configuration'),
-                        self.translator.t('database_connection_failed')
-                    )
-                    self.logger.warning("Database connection test failed")
-        except Exception as e:
-            self.logger.error(f"Error opening database configuration: {e}", exc_info=True, error_code="UI-002")
-            self.error_handler.handle_error(e, "Error opening database configuration")
-        
     def show_file_context_menu(self, pos):
         """Show context menu for project files."""
         item = self.project_files_list.itemAt(pos)

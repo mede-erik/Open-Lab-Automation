@@ -113,10 +113,7 @@ class MeasurementFile:
 DISK_KEYS = (
     "calibrations",
     "last_opened",
-    "eff_files",
     "was_files",
-    "control_variables",
-    "measure_variables",
 )
 
 

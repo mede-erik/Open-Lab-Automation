@@ -9,7 +9,7 @@ All error codes follow the standardized format:
 ```
 
 Where:
-- **RESOURCE**: 3-4 letter abbreviation identifying the resource/component (e.g., VISA, FILE, DB, NET, VALID)
+- **RESOURCE**: 3-4 letter abbreviation identifying the resource/component (e.g., VISA, FILE, NET, VALID)
 - **XXX**: Three-digit progressive number uniquely identifying the error within that resource
 
 ## Format in Logs
@@ -322,69 +322,6 @@ User input validation errors.
 **Log Example**:
 ```
 [10:44:00] ERROR-VALID-006-Invalid date format: 32/13/2025 (expected: DD/MM/YYYY)
-```
-
----
-
-## DB - Database Errors (DB-XXX)
-
-Errors related to database access.
-
-### DB-001: Database Connection Error
-**Description**: Unable to connect to database  
-**Common Cause**:
-- Database server not running
-- Incorrect credentials
-- Incorrect database address
-
-**Solution**:
-1. Verify that the database is active
-2. Check username/password
-3. Verify connection string
-4. Check database firewall
-
-**Log Example**:
-```
-[10:45:00] ERROR-DB-001-Cannot connect to database at localhost:5432
-```
-
----
-
-### DB-002: Database Query Error
-**Description**: Error during query execution  
-**Common Cause**:
-- Malformed SQL query
-- Non-existent table
-- Insufficient permissions
-
-**Solution**:
-1. Verify SQL syntax
-2. Check that tables/columns exist
-3. Verify database user permissions
-
-**Log Example**:
-```
-[10:46:00] ERROR-DB-002-Query failed: SELECT * FROM non_existing_table
-```
-
----
-
-### DB-003: Database Timeout
-**Description**: Timeout during database operation  
-**Common Cause**:
-- Query too complex
-- Overloaded database
-- Slow connection
-
-**Solution**:
-1. Optimize query
-2. Increase connection timeout
-3. Add indexes to tables
-4. Check database load
-
-**Log Example**:
-```
-[10:47:00] ERROR-DB-003-Database query timeout after 30s
 ```
 
 ---
@@ -1959,195 +1896,6 @@ Errors related to data acquisition and processing.
 
 ---
 
-## PJDB - Project Database Errors (PJDB-XXX)
-
-Errors related to PostgreSQL project database operations.
-
-### PJDB-001: Project Database Connection Failed
-**Description**: Cannot connect to PostgreSQL project database  
-**Common Cause**:
-- PostgreSQL server not running
-- Wrong connection parameters
-- Network error
-- Firewall blocking
-
-**Solution**:
-1. Verify PostgreSQL service running
-2. Check host, port, credentials
-3. Test network connection
-4. Configure firewall rules
-
-**Log Example**:
-```
-[14:00:00] ERROR-PJDB-001-Connection failed to PostgreSQL at localhost:5432
-```
-
----
-
-### PJDB-002: Project Database Not Specified
-**Description**: Project database name not specified  
-**Common Cause**:
-- Missing database name in config
-- Project not fully initialized
-- Configuration error
-- Database selection missing
-
-**Solution**:
-1. Specify database name in project
-2. Complete project initialization
-3. Check configuration file
-4. Select database from list
-
-**Log Example**:
-```
-[14:01:00] ERROR-PJDB-002-Database name not specified for project
-```
-
----
-
-### PJDB-003: Project Database Query Error
-**Description**: Error executing database query  
-**Common Cause**:
-- SQL syntax error
-- Table doesn't exist
-- Column not found
-- Permission denied
-
-**Solution**:
-1. Verify SQL syntax
-2. Check table exists
-3. Validate column names
-4. Check user permissions
-
-**Log Example**:
-```
-[14:02:00] ERROR-PJDB-003-Query error: table 'measurements' does not exist
-```
-
----
-
-### PJDB-004: Project Database Table Not Found
-**Description**: Required database table not found  
-**Common Cause**:
-- Database not initialized
-- Table creation failed
-- Wrong database selected
-- Schema migration incomplete
-
-**Solution**:
-1. Initialize database schema
-2. Create missing tables
-3. Verify correct database
-4. Run migration scripts
-
-**Log Example**:
-```
-[14:03:00] ERROR-PJDB-004-Table 'efficiency_data' not found
-```
-
----
-
-### PJDB-005: Project Database Timeout
-**Description**: Database operation timeout  
-**Common Cause**:
-- Query too complex
-- Large data set
-- Database overloaded
-- Network latency
-
-**Solution**:
-1. Optimize query
-2. Reduce data set size
-3. Increase timeout value
-4. Check database load
-
-**Log Example**:
-```
-[14:04:00] ERROR-PJDB-005-Query timeout after 30 seconds
-```
-
----
-
-### PJDB-006: Project Database Schema Error
-**Description**: Database schema error or mismatch  
-**Common Cause**:
-- Schema version mismatch
-- Missing schema elements
-- Incorrect data types
-- Migration failed
-
-**Solution**:
-1. Update schema to match version
-2. Run schema migration
-3. Verify data types
-4. Recreate database if necessary
-
-**Log Example**:
-```
-[14:05:00] ERROR-PJDB-006-Schema mismatch: expected v2.0, found v1.5
-```
-
----
-
-### PJDB-007: Project Database Data Integrity Error
-**Description**: Data integrity constraint violation  
-**Common Cause**:
-- Foreign key violation
-- Unique constraint violation
-- NULL in required field
-- Invalid data type
-
-**Solution**:
-1. Fix foreign key references
-2. Ensure unique values
-3. Provide required fields
-4. Use correct data types
-
-**Log Example**:
-```
-[14:06:00] ERROR-PJDB-007-Integrity error: foreign key constraint violation
-```
-
----
-
-### PJDB-008: Project Database Read Data Error
-**Description**: Reading the rows of a project database table failed  
-**Common Cause**:
-- Table missing or renamed
-- Connection lost while reading
-- Insufficient privileges on the table
-
-**Solution**:
-1. Check that the table exists in the project database
-2. Check the connection and try again
-3. Check the database user's privileges
-
-**Log Example**:
-```
-[14:07:00] ERROR-PJDB-008-Error reading data from 'measurements': connection closed
-```
-
----
-
-### PJDB-009: Project Database Delete Error
-**Description**: Deleting the project database failed (or no database name is set for the project)  
-**Common Cause**:
-- Project database name not specified
-- Other sessions are still connected to the database
-- Insufficient privileges to drop the database
-
-**Solution**:
-1. Check that the project has a database name
-2. Close the other connections to the database and try again
-3. Check the database user's privileges
-
-**Log Example**:
-```
-[14:08:00] ERROR-PJDB-009-Error deleting database 'dcdc_test': database is being accessed by other users
-```
-
----
-
 ## SYS - System Errors (SYS-XXX)
 
 System-level errors and resource issues.
@@ -2444,7 +2192,6 @@ To add a new error code:
 | **VISA** | 001-099 | Instrument communication errors |
 | **FILE** | 001-099 | File system errors |
 | **VALID** | 001-099 | Input validation errors |
-| **DB** | 001-099 | Database errors |
 | **NET** | 001-099 | Generic network errors |
 | **UI** | 001-099 | User interface errors |
 | **DL** | 001-099 | Datalogger configuration errors |
@@ -2456,7 +2203,6 @@ To add a new error code:
 | **SCPI** | 001-099 | SCPI command specific errors |
 | **CALL** | 001-099 | Instrument call (planner/executor) errors |
 | **DATA** | 001-099 | Data acquisition/processing errors |
-| **PJDB** | 001-099 | Project database errors |
 | **SYS** | 001-099 | System-level errors |
 | **TRN** | 001-099 | Instrument transport (TCP/serial) errors |
 | **GPIB** | 001-099 | GPIB adapter errors (configuration, driver, bus scan) |
@@ -2477,7 +2223,7 @@ To add a new error code:
   - Added **LIB** category (8 codes): Instrument library errors
   - Added **SCPI** category (7 codes): SCPI command specific errors
   - Added **DATA** category (8 codes): Data acquisition/processing errors
-  - Added **PJDB** category (9 codes): Project database errors
+  - Added **PJDB** category (9 codes): Project database errors (removed in November 2026 with the PostgreSQL storage)
   - Added **SYS** category (7 codes): System-level errors
   - Total: **99 error codes** covering comprehensive error scenarios
   - All new exception classes added to errorhandler.py

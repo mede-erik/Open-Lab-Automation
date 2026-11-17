@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
                              QButtonGroup, QWidget, QScrollArea, QCheckBox,
                              QMessageBox)
-from PyQt6.QtCore import Qt
 
 class PowerSupplyInstrumentDialog(QDialog):
     """Dialog specifico per la configurazione di alimentatori"""

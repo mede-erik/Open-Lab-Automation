@@ -66,9 +66,10 @@ def test_codes_count_up_per_kind(registry):
 
 
 def test_every_kind_has_a_prefix_and_suggests_attributes():
-    from ola.assets import KINDS, PREFIX_KIND
+    from ola.assets import KINDS
 
-    assert {v["prefix"] for v in KINDS.values()} == set(PREFIX_KIND)
+    prefixes = [v["prefix"] for v in KINDS.values()]
+    assert all(prefixes) and len(prefixes) == len(set(prefixes))
     assert [n for n, _ in KINDS["cable"]["attributes"]] == ["cable_type", "connectors", "length_m"]
 
 

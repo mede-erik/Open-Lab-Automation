@@ -104,7 +104,6 @@ def test_global_handler_is_shared():
         eh.LibraryError,
         eh.SCPIError,
         eh.DataError,
-        eh.ProjectDatabaseError,
         eh.SystemError,
     ],
 )

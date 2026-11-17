@@ -40,13 +40,12 @@ Core (frontend/core) ──────────────►  Engine (ola/
 ```
 
 * **Frontend** (`frontend/`) – PyQt6 GUI. Entry points are `frontend/launcher.py` and `frontend/main.py`. UI code lives under `frontend/ui/`; each dialog/window occupies its own file and contains only layout and signal wiring. The main window has the *Remote control* tab and the *Measurements* tab (`ProjectWindow`).
-* **Core Library** (`frontend/core/`) – Validation, error handling, translations, logging, PostgreSQL storage. Key modules:
+* **Core Library** (`frontend/core/`) – Validation, error handling, translations, logging. Key modules:
   * `LoadInstruments.py` – Reads `Instruments_LIB/instruments_lib.json` for the GUI (`get_library_path()` gives its location).
   * `validator.py` – Central validation functions; raises `ValidationError` on failure.
   * `errorhandler.py` – Standardised `[RESOURCE-XXX]` error-code system and UI presentation.
   * `tools.py` – Stateless helpers (file I/O, CSV export, network diagnostics).
   * `Translator.py` – Internationalisation: `translator.t(key)`; translation files live in `frontend/lang/`.
-  * `ProjectDatabaseManager.py`, `database_config.py` – PostgreSQL storage of the results; the connection settings are saved with an encrypted password.
   * `logger.py` – Structured logging used throughout the app.
 * **Engine** (`ola/`, `native/`) – Qt-free: instrument library and call planner, step executor, transport (Rust or pure Python, pyvisa for USB-TMC/GPIB/VXI-11, serial, Prologix GPIB adapters), drivers (Analog Discovery, LiteVNA), measurement runner and the measurement modules in `ola/modules/`. Tests are in `tests/`. The description is in the section *Engine (`ola/` and `native/`)* of `README.md` and in `docs/engine.md`; do not duplicate it here.
 * **Instrument library** (`Instruments_LIB/`) – A separate repository used as a git submodule: models, call schemas (`schema/`), test guide (`TESTING.md`). Changes to it are made in that repository, then a pull request here moves the submodule pointer.

@@ -72,7 +72,6 @@ KINDS: Dict[str, Dict[str, Any]] = {
     "adapter": {"prefix": "ADP", "attributes": [("connectors", "")]},
     "other": {"prefix": "DUT", "attributes": []},
 }
-PREFIX_KIND = {v["prefix"]: k for k, v in KINDS.items()}
 ASSET_GROUPS = (
     "cable",
     "device",

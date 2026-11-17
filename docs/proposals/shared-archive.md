@@ -36,11 +36,8 @@ already made, and the registry of cables and devices. The software has two modes
 | Calibrations belong to one serial number | A shared calibration is never applied to the wrong apparatus. |
 | `OLA_ASSETS_FILE` | The registry can already be moved to a shared folder. |
 
-Legacy, to be decided when the archive is built: `frontend/core/ProjectDatabaseManager.py`,
-`database.py`, `models.py`, `database_config.py` and the *Database configuration* dialog are the old
-PostgreSQL storage of the **efficiency** flow. The program still tries to connect at startup if a
-configuration exists, but the new engine (`ola/`) does not use it, so it plays no part in this
-proposal. Its encrypted-credentials code could be reused by a future server backend.
+The old PostgreSQL storage of the **efficiency** flow (`ProjectDatabaseManager.py` and the
+*Database configuration* dialog) was removed in November 2026: the new engine never used it.
 
 ## 2. What is missing
 
@@ -175,5 +172,4 @@ registry in the archive.
   reachable must fail with a clear sentence and lose nothing.
 - **Archive version**: `archive.json` carries `format_version` so an old program refuses a newer archive
   instead of damaging it.
-- **Legacy PostgreSQL code**: keep untouched for now; decide to remove it or to reuse it for a server
-  backend when phase 6 comes.
+- **Legacy PostgreSQL code**: removed (November 2026); a server backend, if one comes, starts anew.

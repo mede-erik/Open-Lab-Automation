@@ -12,10 +12,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QLocale, QSize, QTimer
 from PyQt6.QtGui import QAction, QDoubleValidator
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
 from frontend.core.Translator import Translator
-from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
-from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
-from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
 from frontend.ui.DataloggerSlotConfigDialog import DataloggerSlotConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.ui.layout_utils import clamp_to_screen, fit_table_to_rows, resize_to_screen

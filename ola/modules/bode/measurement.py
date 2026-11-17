@@ -216,12 +216,6 @@ def snap_up(value: float) -> float:
     return 10 * decade
 
 
-def wrap_deg(angle: float) -> float:
-    """An angle in degrees brought to -180 .. 180."""
-    a = (angle + 180.0) % 360.0 - 180.0
-    return 180.0 if a == -180.0 and angle > 0 else a
-
-
 def unwrap_deg(phases: Sequence[float], start_deg: float = 0.0) -> List[float]:
     """Phases in degrees made continuous along the frequency: no step above 180 degrees between
     neighbours, and the first one within 180 degrees of ``start_deg``."""

@@ -232,8 +232,8 @@ to reach an instrument: the application gives it `connect(name) -> handle` (an o
 instruments are not connected and sends nothing; an instrument that cannot be reached is named in the message.
 
 **In the main window.** `frontend/ui/main_window.py` shows the project window as the *Measurements* tab (it replaces
-the old "Avvia Efficienza - in arrivo" placeholder). The old project flow of the main window (`eff_files`, left
-list) is untouched and still works on its own format.
+the old "Avvia Efficienza - in arrivo" placeholder). The left list of the main window shows the files of the
+project (instruments, oscilloscope settings and the measurements); its old `.eff` editor was removed.
 
 ## Connecting the instruments
 
