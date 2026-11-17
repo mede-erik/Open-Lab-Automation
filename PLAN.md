@@ -927,6 +927,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   (`allow_user_code`), discovering it does not. Documented in `docs/measurement-modules.md`.
 - ❓ **Freeze `api_version` 1** (`Measurement` / `ctx` interface): to be done before promising compatibility to modules written by others.
 - ❓ **Languages**: each module carries its own optional `lang/` (proposal).
+- ❓ **DUT archive** (devices under test: antennas, filters, converters, generic): designed in §12, to be built in stages.
 - ❓ **Package signing**: postponed until the repository moves to the Open Lab Instruments organization; the publisher identity and the CI set-up depend on it (§11).
 
 
@@ -978,3 +979,54 @@ Whatever is chosen: use an RFC 3161 **timestamp** (the signature stays valid aft
 5. Add the signing steps (above) to the workflow and to `build_package.py`; create the GPG key for `SHA256SUMS`.
 6. Try on a pre-release tag (`vX.Y.Z-rc1`) and check the result on a clean Windows machine (signature details of the file, SmartScreen).
 7. Say how to verify the packages in `packaging/README.md`, and remove the "not signed" notes from `AGENTS.md`, `CLAUDE.md` and `packaging/README.md`.
+
+
+## 12. Devices under test (DUT archive)
+
+Decided with the user (2026-11-17). Two different things were mixed under one name, "cables and devices".
+
+**Components** (`ola/assets.py`, the window *Tools > Cables and devices*): cables, low-noise amplifiers, attenuators and
+adapters. They are **not instruments**: they are not in the `.inst` file and are not a role of a module. They sit in the signal
+path and **have an effect on the measurement**, so a measurement can name them and use them for a **correction or
+de-embedding** (`correction.*`, `ola/fixtures.py`). They have a code (`CBL-0042`), a card, a label and a history. They stay as
+they are. The same object can be a component in one measurement (the cable taken out by de-embedding) and the device under
+test in another (the cable measured by the `cable` module): the role depends on the use, so the cable module keeps its card.
+
+**DUT** (device under test): what is tested **in that measurement**. It is **optional**: an efficiency run, or any other
+measurement, can be made without naming one, and then nothing is remembered about it. A DUT is **not** part of the set-up of a
+measurement, so it does not belong in the registry of components.
+
+### The archive
+
+* **Categories**: antenna, filter, converter, generic.
+* **Code**: `DUT-0001`, the same four-digit form as the components, never used again; plus a **name** chosen by the user to
+  recognise it (`Pippo`), a description and the details of its category.
+* **Versions**: a DUT has versions (a board revision, a new design). A measurement names the code and, if wanted, the version. The
+  header of a run keeps the card and the version of that day, as it does for a component, so the history of a DUT follows it.
+* **File**: one JSON file for all projects, like the registry of components: `~/.open_lab_automation/duts.json`, or the file
+  named by `OLA_DUTS_FILE`; written atomically, the previous one kept as `.bak`.
+* **Where it is named**: the `device` field of the modules that have one (`bode`, `regulation`, `ripple`, `resistive_efficiency`,
+  `return_loss`, `amplifier`, `antenna`) and `filter.asset_id` of `filter` move from the registry of components to the archive.
+  The `device` of an efficiency file is today a name typed by hand (`{"name": ...}`) and later accepts a DUT code.
+* **Migration**: the antenna and filter cards (and the generic `DUT` ones) of the registry of components pass to the archive the
+  first time it is opened, with their data; the registry file is saved first (`.bak`). The runs already made keep the card that
+  they saved in their header.
+
+### Same DUT, different set-up (to plan, not decided)
+
+The same DUT, in the same version, is often measured more than once with a small change between the runs: a component changed in the
+bill of materials (`R100 = 100 ohm`), a fan switched on or off. These are **variants of a run**, not new versions. The idea:
+a few values written with the measurement (`{"R100": "100 ohm", "fan": "on"}`), saved in the header of the run and shown next to the
+results, so the runs of a DUT can be compared by variant. Open: where they are entered (the measurement file, the start of the
+run, the version of the DUT), a list of the names already used so they are written the same way, and whether the comparison
+tool groups by them.
+
+### Stages
+
+1. This plan, and the distinction between components and DUT in the documents.
+2. `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests.
+3. The window of the archive (create, edit, retire, versions), and the fields of the modules that name a DUT; the card and the
+   version in the header of the run; antenna and filter leave the registry of components.
+4. Variants of a run.
+5. Open: labels for DUTs (probably the same label system as the components), the name of the window of the components.
+

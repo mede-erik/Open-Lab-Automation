@@ -405,6 +405,8 @@ and the software reaches a beta state. The detailed plan (in Italian) is in [`PL
   (and Touchstone for RF traces).
 - **Measurement templates**: ready-made measurement files to choose from *New measurement* (line and load
   regulation, I-V curve...) for the measurements that are a variation of an existing module.
+- **DUT archive**: the devices under test (antennas, filters, converters, generic), each with a code, a name
+  and versions, kept apart from the cables, attenuators and adapters of the registry. Designed in `PLAN.md` (section 12).
 - **More measurement modules**: load transient, battery discharge. See the table in `PLAN.md`.
 - **Instruments without SCPI**: the LiteVNA67 (text commands on a serial port) and the Analog Discovery 2/3
   (driver system).
