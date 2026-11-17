@@ -654,5 +654,6 @@
   "rc_read_values": "Leggi valori",
   "rc_output_error_title": "Errore dell'uscita",
   "rc_output_on_failed": "Impossibile abilitare l'uscita del canale {channel} dello strumento {instrument}.",
-  "rc_output_off_failed": "Impossibile disabilitare l'uscita del canale {channel} dello strumento {instrument}."
+  "rc_output_off_failed": "Impossibile disabilitare l'uscita del canale {channel} dello strumento {instrument}.",
+  "pulse_peak": "Picco"
 }
