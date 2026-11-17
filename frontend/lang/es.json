@@ -655,6 +655,7 @@
   "rc_output_error_title": "Error de la salida",
   "rc_output_on_failed": "No se pudo activar la salida del canal {channel} de {instrument}.",
   "rc_output_off_failed": "No se pudo desactivar la salida del canal {channel} de {instrument}.",
+  "pulse_peak": "Pico",
   "rc_scope_title": "Ajustes del osciloscopio",
   "rc_scope_no_project": "Abra primero un proyecto: los ajustes vienen de su archivo .was.",
   "rc_scope_no_was": "El proyecto no tiene archivo de ajustes del osciloscopio (.was): añada uno.",

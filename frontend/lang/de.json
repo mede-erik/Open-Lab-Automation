@@ -654,6 +654,7 @@
   "rc_output_error_title": "Fehler am Ausgang",
   "rc_output_on_failed": "Der Ausgang von Kanal {channel} von {instrument} konnte nicht eingeschaltet werden.",
   "rc_output_off_failed": "Der Ausgang von Kanal {channel} von {instrument} konnte nicht ausgeschaltet werden.",
+  "pulse_peak": "Spitze",
   "rc_scope_title": "Oszilloskop-Einstellungen",
   "rc_scope_no_project": "Zuerst ein Projekt öffnen: die Einstellungen kommen aus seiner .was-Datei.",
   "rc_scope_no_was": "Das Projekt hat keine Oszilloskop-Einstellungsdatei (.was): zuerst eine hinzufügen.",

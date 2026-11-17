@@ -654,6 +654,7 @@
   "rc_output_error_title": "Erreur de la sortie",
   "rc_output_on_failed": "La sortie du canal {channel} de {instrument} n'a pas pu être activée.",
   "rc_output_off_failed": "La sortie du canal {channel} de {instrument} n'a pas pu être désactivée.",
+  "pulse_peak": "Crête",
   "rc_scope_title": "Réglages de l'oscilloscope",
   "rc_scope_no_project": "Ouvrez d'abord un projet : les réglages viennent de son fichier .was.",
   "rc_scope_no_was": "Le projet n'a pas de fichier de réglages de l'oscilloscope (.was) : ajoutez-en un.",

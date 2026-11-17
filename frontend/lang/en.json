@@ -654,6 +654,7 @@
   "rc_output_error_title": "Output error",
   "rc_output_on_failed": "The output of channel {channel} of {instrument} could not be switched on.",
   "rc_output_off_failed": "The output of channel {channel} of {instrument} could not be switched off.",
+  "pulse_peak": "Peak",
   "rc_scope_title": "Oscilloscope settings",
   "rc_scope_no_project": "Open a project first: the settings come from its .was file.",
   "rc_scope_no_was": "The project has no oscilloscope settings file (.was): add one first.",
