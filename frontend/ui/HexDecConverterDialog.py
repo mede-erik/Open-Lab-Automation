@@ -5,6 +5,7 @@
 from PyQt6.QtCore import QSettings
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QLineEdit, QLabel
 from frontend.core.Translator import Translator
+from frontend.ui.theme_utils import set_class
 
 
 def parse_int(text, base):
@@ -69,7 +70,7 @@ class HexDecConverterDialog(QDialog):
         self.layout.addLayout(form)
 
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #c0392b;")
+        set_class(self.status_label, "error")
         self.layout.addWidget(self.status_label)
 
         self.hex_edit.textEdited.connect(lambda t: self._on_edited(t, 16, self.hex_edit))

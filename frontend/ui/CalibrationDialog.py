@@ -48,11 +48,11 @@ from ola import inst_file
 from ola import vna_calibration_flow as flow
 from ola.call_errors import CallError
 from ola.vna_calibration import CalKit
+from frontend.ui.theme_utils import set_class
 
 log = logging.getLogger(__name__)
 
 PAGE_SETTINGS, PAGE_STEPS, PAGE_DONE = 0, 1, 2
-ERROR_STYLE = "color: #b00020;"
 
 
 class _Job(QThread):
@@ -154,7 +154,7 @@ class CalibrationDialog(QDialog):
 
         layout.addWidget(self._kit_group())
         self.settings_error = QLabel()
-        self.settings_error.setStyleSheet(ERROR_STYLE)
+        set_class(self.settings_error, "error")
         self.settings_error.setWordWrap(True)
         layout.addWidget(self.settings_error)
         layout.addStretch(1)
@@ -360,7 +360,7 @@ class CalibrationDialog(QDialog):
         ):
             button.setEnabled(not busy)
         if busy:
-            self.step_status.setStyleSheet("")
+            set_class(self.step_status, "")
             self.step_status.setText(status)
 
     def _begin(self) -> None:
@@ -436,7 +436,7 @@ class CalibrationDialog(QDialog):
 
     def _measure_failed(self, exc: Exception) -> None:
         """The standard stays to be measured again."""
-        self.step_status.setStyleSheet(ERROR_STYLE)
+        set_class(self.step_status, "error")
         self.step_status.setText(self._t("cal_error", error=exc) + "\n" + self._t("cal_retry"))
         self.measure_button.setEnabled(True)
 

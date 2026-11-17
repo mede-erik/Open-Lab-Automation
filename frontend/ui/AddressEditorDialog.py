@@ -12,6 +12,7 @@ from frontend.core import gpib_settings
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.ui.module_translator import CatalogTranslator
 from ola.gpib_adapter import FAMILY_PROLOGIX, FAMILY_VISA, GpibError
+from frontend.ui.theme_utils import set_class
 
 logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 
@@ -201,7 +202,8 @@ class AddressEditorDialog(QDialog):
         if conn_type in ['SERIAL', 'USB-SERIAL']:
             info_label = QLabel("⚠️ Comunicazione seriale: Assicurarsi che i parametri seriali siano corretti (9600 baud, 8N1)")
             info_label.setWordWrap(True)
-            info_label.setStyleSheet("color: orange; font-size: 10px; margin: 5px;")
+            set_class(info_label, "warning")
+            info_label.setStyleSheet("font-size: 10px; margin: 5px;")
             self.fields_layout.addRow(info_label)
         
         # Se già presente un indirizzo, prova a precompilare i campi

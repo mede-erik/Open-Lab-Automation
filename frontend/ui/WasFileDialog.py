@@ -7,6 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QMessageBox
 from PyQt6.QtCore import Qt
+from frontend.ui.theme_utils import set_class
 
 # =========================
 # WasFileDialog
@@ -167,7 +168,7 @@ class WasFileDialog(QDialog):
             # Nessun oscilloscopio configurato - mostra canali di default
             info_label = QLabel(self.translator.t('no_oscilloscope_configured'))
             info_label.setWordWrap(True)
-            info_label.setStyleSheet("color: orange; padding: 5px;")
+            set_class(info_label, "warning")
             group_layout.addWidget(info_label)
 
         self.channels_group_layout = group_layout

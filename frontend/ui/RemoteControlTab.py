@@ -25,6 +25,7 @@ from ola.manual_instrument import manual_handle_from_inst
 from ola.datalogger_setup import signature as datalogger_signature
 from ola.multimeter_setup import accepts_from, measured_channel, multimeter_calls
 from ola.multimeter_setup import signature as multimeter_signature
+from frontend.ui.theme_utils import set_class
 
 
 # =========================
@@ -745,7 +746,8 @@ class RemoteControlTab(QWidget):
         # Error icon and title
         title_layout = QHBoxLayout()
         title_label = QLabel("❌ Connection Failed")
-        title_label.setStyleSheet("font-size: 14pt; font-weight: bold; color: #d32f2f;")
+        set_class(title_label, "error")
+        title_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         title_layout.addWidget(title_label)
         title_layout.addStretch()
         layout.addLayout(title_layout)
@@ -1979,7 +1981,7 @@ class RemoteControlTab(QWidget):
         """Aggiorna UI dopo toggle riuscito."""
         if checked:
             button.setText('Output: ON')
-            button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+            button.setStyleSheet('background-color: #1e7e34; color: white; font-weight: bold;')
         else:
             button.setText('Output: OFF')
             button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')
@@ -2012,7 +2014,7 @@ class RemoteControlTab(QWidget):
             return
         if checked:
             button.setText('Output: ON')
-            button.setStyleSheet('background-color: #28a745; color: white; font-weight: bold;')
+            button.setStyleSheet('background-color: #1e7e34; color: white; font-weight: bold;')
         else:
             button.setText('Output: OFF')
             button.setStyleSheet('background-color: #dc3545; color: white; font-weight: bold;')

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetIte
                               QCheckBox, QLineEdit, QDialogButtonBox, QLabel,
                               QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
+from frontend.ui.theme_utils import set_class
 
 class OscilloscopeConfigDialog(QDialog):
     """
@@ -115,7 +116,8 @@ class OscilloscopeConfigDialog(QDialog):
             "Configura i canali abilitati e i nomi dei segnali. La scala volt/div si imposta nel file .was."
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: gray; font-size: 10px; padding: 5px;")
+        set_class(info_label, "muted")
+        info_label.setStyleSheet("font-size: 10px;")
         layout.addWidget(info_label)
         
         # Pulsanti OK/Annulla

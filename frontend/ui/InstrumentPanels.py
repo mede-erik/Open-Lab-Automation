@@ -33,9 +33,9 @@ from PyQt6.QtWidgets import (
 
 from ola import inst_file as inst
 from ola.vna_calibration_flow import parse_frequency
+from frontend.ui.theme_utils import set_class
 
 BAD_STYLE = "border: 1px solid #b00020;"
-HINT_STYLE = "color: #555;"
 
 
 def _mark(field: QLineEdit, ok: bool) -> None:
@@ -121,7 +121,7 @@ class NetworkAnalyzerPanel(QWidget):
         layout = QVBoxLayout(group)
         hint = QLabel(self._range_hint())
         hint.setWordWrap(True)
-        hint.setStyleSheet(HINT_STYLE)
+        set_class(hint, "muted")
         layout.addWidget(hint)
         form = QFormLayout()
         sweep = self.entry["sweep"]
@@ -220,7 +220,7 @@ class SerialPanel(QGroupBox):
         layout = QVBoxLayout(self)
         hint = QLabel(self.t("inst_serial_hint"))
         hint.setWordWrap(True)
-        hint.setStyleSheet(HINT_STYLE)
+        set_class(hint, "muted")
         layout.addWidget(hint)
         form = QFormLayout()
         values = {**self.defaults, **(entry.get("serial") or {})}

@@ -29,6 +29,7 @@ from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
 from frontend.core.errorhandler import ErrorHandler, ErrorCode
 from ola.pulse_power import check_pulse_power, max_amplitude, max_base_level, max_duty
+from frontend.ui.theme_utils import set_class
 
 # Logical calls the Pulse Generator needs from an electronic load (see schema/electronic_load.json).
 # A model that does not define all of them cannot be used here: there is no generic fallback.
@@ -110,7 +111,8 @@ class PulseGeneratorDialog(QDialog):
 
         self.instrument_info_label = QLabel("")
         self.instrument_info_label.setWordWrap(True)
-        self.instrument_info_label.setStyleSheet("color: #666; font-size: 10px;")
+        set_class(self.instrument_info_label, "muted")
+        self.instrument_info_label.setStyleSheet("font-size: 10px;")
         inst_layout.addRow(self.instrument_info_label)
 
         inst_group.setLayout(inst_layout)
@@ -219,7 +221,8 @@ class PulseGeneratorDialog(QDialog):
 
         # Status
         self.status_label = QLabel(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_stopped')}")
-        self.status_label.setStyleSheet("font-weight: bold; color: #c00;")
+        set_class(self.status_label, "error")
+        self.status_label.setStyleSheet("font-weight: bold;")
         left_layout.addWidget(self.status_label)
 
         left_layout.addStretch()
@@ -382,7 +385,8 @@ class PulseGeneratorDialog(QDialog):
                 self.instrument_info_label.setText(
                     f"❌ {self.translator.t('pulse_not_supported')}"
                 )
-                self.instrument_info_label.setStyleSheet("color: #c00; font-weight: bold;")
+                set_class(self.instrument_info_label, "error")
+                self.instrument_info_label.setStyleSheet("font-weight: bold;")
                 return
 
             # Update UI with capabilities (nuovo formato: capabilities.channels[] o flat)
@@ -408,7 +412,8 @@ class PulseGeneratorDialog(QDialog):
                 f"{shown(max_power, 'W')}"
             )
             self.instrument_info_label.setText(info_text)
-            self.instrument_info_label.setStyleSheet("color: #0a0; font-weight: bold;")
+            set_class(self.instrument_info_label, "ok")
+            self.instrument_info_label.setStyleSheet("font-weight: bold;")
 
             # Enable start button
             self.start_button.setEnabled(True)
@@ -740,7 +745,8 @@ class PulseGeneratorDialog(QDialog):
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
             self.status_label.setText(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_running')}")
-            self.status_label.setStyleSheet("font-weight: bold; color: #0a0;")
+            set_class(self.status_label, "ok")
+            self.status_label.setStyleSheet("font-weight: bold;")
 
             QMessageBox.information(
                 self,
@@ -774,7 +780,8 @@ class PulseGeneratorDialog(QDialog):
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
             self.status_label.setText(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_stopped')}")
-            self.status_label.setStyleSheet("font-weight: bold; color: #c00;")
+            set_class(self.status_label, "error")
+            self.status_label.setStyleSheet("font-weight: bold;")
 
             QMessageBox.information(
                 self,
