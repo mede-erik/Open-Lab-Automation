@@ -771,16 +771,15 @@ class _Checker:
 
 
 def _check_device(c: "_Checker", device: Any) -> None:
-    """The converter under test, if the file names one: ``{"asset_id": "DUT-0001"}``, a card of the
-    registry of cables and devices (``ola.assets``). The card is saved with the results."""
+    """The converter under test, if the file names one: ``{"name": "Boost 12 V to 5 V"}``, written
+    by hand. Not a card of the registry: a device under test is kept in the file only, until the
+    database of devices under test exists."""
     if device is None:
         return
-    from .assets import normalize_code  # imported here: the spec module needs no registry
-
-    if not isinstance(device, dict) or set(device) - {"asset_id"}:
-        c.error("device", "the device is {\"asset_id\": \"DUT-0001\"}: the code of a card")
-    elif normalize_code(str(device.get("asset_id") or "")) is None:
-        c.error("device.asset_id", "not a code (it looks like DUT-0001)")
+    if not isinstance(device, dict) or set(device) - {"name"}:
+        c.error("device", 'the device is {"name": "..."}: a name written by hand')
+    elif not isinstance(device.get("name", ""), str):
+        c.error("device.name", "the name must be text")
 
 
 def _analyse(

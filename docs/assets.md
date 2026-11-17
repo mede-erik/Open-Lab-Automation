@@ -72,4 +72,5 @@ a label without the QR code still works.
 
 Editable label templates (they will share the template system of the HTML report planned for the beta) and reading a QR
 code with a camera (a USB scanner works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
-names its converter under test (`"device"` in the `.eff` file, see [efficiency.md](efficiency.md)).
+names its converter under test as a name typed by hand (see [efficiency.md](efficiency.md)); the devices under
+test will have their own database later, not this registry.
