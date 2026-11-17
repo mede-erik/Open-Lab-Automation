@@ -164,70 +164,72 @@ class RemoteControlTab(QWidget):
             print("[RemoteControlTab] no MainWindow with reload_remote_tab_instruments.")
 
     def _configure_oscilloscope_from_was(self):
-        """Configura l'oscilloscopio con i parametri dal file .was del progetto corrente."""
+        """Apply the oscilloscope settings of the project (its first .was file) to every
+        oscilloscope of the instrument file, then say what happened in a window: what was
+        applied, or why not (no project, no .was, an unreachable instrument, settings the
+        model refused...)."""
+        self._scope_report = []
+        try:
+            self._configure_oscilloscopes()
+        finally:
+            self._show_scope_report()
+
+    def _scope_note(self, severity, key, **values):
+        """One line of the report of the oscilloscope settings ("ok", "warning" or "error")."""
+        text = self._t(key, **values)
+        self._scope_report.append((severity, text))
+        print(f"[RemoteControlTab] {text}")
+        if self.logger and severity != "ok":
+            self.logger.warning(text)
+
+    def _show_scope_report(self):
+        from PyQt6.QtWidgets import QMessageBox
+        report = getattr(self, '_scope_report', [])
+        if not report:
+            return
+        text = "\n".join(line for _severity, line in report)
+        if any(severity != "ok" for severity, _line in report):
+            QMessageBox.warning(self, self._t("rc_scope_title"), text)
+        else:
+            QMessageBox.information(self, self._t("rc_scope_title"), text)
+
+    def _configure_oscilloscopes(self):
         parent = self.parent()
-        # Cerca il MainWindow nella gerarchia
         while parent is not None and not hasattr(parent, 'current_project_dir'):
             parent = parent.parent()
-
-        if parent is None or not hasattr(parent, 'current_project_data'):
-            print("[RemoteControlTab] no MainWindow, or no project loaded.")
+        if (parent is None or not getattr(parent, 'current_project_dir', None)
+                or not getattr(parent, 'current_project_data', None)):
+            self._scope_note("error", "rc_scope_no_project")
             return
-
-        if not parent.current_project_dir or not parent.current_project_data:
-            print("[RemoteControlTab] no project open.")
-            return
-
-        # Trova il primo file .was nel progetto
         was_files = parent.current_project_data.get('was_files', [])
         if not was_files:
-            print("[RemoteControlTab] no .was file in the project.")
+            self._scope_note("error", "rc_scope_no_was")
             return
-
-        was_file = was_files[0]  # Usa il primo file .was
+        was_file = was_files[0]  # the first .was file of the project
         was_path = os.path.join(parent.current_project_dir, was_file)
-
         if not os.path.exists(was_path):
-            print(f"[RemoteControlTab] .was file not found: {was_path}")
+            self._scope_note("error", "rc_scope_was_missing", file=was_file)
             return
-
         try:
-            # Carica i parametri dal file .was
             with open(was_path, 'r', encoding='utf-8') as f:
                 was_data = json.load(f)
-
-            print(f"[RemoteControlTab] oscilloscope settings from: {was_file}")
-            print(f"[RemoteControlTab] parameters loaded: {list(was_data.keys())}")
-
-            # Qui puoi implementare la logica per inviare i comandi SCPI all'oscilloscopio
-            # Esempio: configurazione timebase, canali, trigger, ecc.
-            self._apply_oscilloscope_settings(was_data)
-
-        except Exception as e:
-            print(f"[RemoteControlTab] reading the .was file failed: {e}")
-
-    def _apply_oscilloscope_settings(self, was_data):
-        """Applica le impostazioni dell'oscilloscopio tramite comandi SCPI."""
-        # Trova gli oscilloscopi negli strumenti caricati
-        if not hasattr(self, 'visa_connections'):
-            print("[RemoteControlTab] no VISA connection open.")
+        except (OSError, ValueError) as e:
+            self._scope_note("error", "rc_scope_was_unreadable", file=was_file, error=e)
             return
+        self._apply_oscilloscope_settings(was_data, was_file)
 
-        # Carica gli oscilloscopi dal file .inst del progetto corrente
+    def _apply_oscilloscope_settings(self, was_data, was_file=""):
+        """Apply the settings to every oscilloscope of the instrument file."""
         oscilloscopes = self._get_project_oscilloscopes()
         if not oscilloscopes:
-            print("[RemoteControlTab] no oscilloscope in the project.")
+            self._scope_note("error", "rc_scope_none")
             return
-
-        print(f"[RemoteControlTab] {len(oscilloscopes)} oscilloscopes in the project.")
-
         for osc_inst in oscilloscopes:
+            name = osc_inst.get('instance_name', 'N/A')
             try:
-                self._configure_single_oscilloscope(osc_inst, was_data)
+                self._configure_single_oscilloscope(osc_inst, was_data, was_file)
             except Exception as e:
-                print(f"[RemoteControlTab] setting up the oscilloscope failed: {osc_inst.get('instance_name', 'N/A')}: {e}")
-
-        print("[RemoteControlTab] oscilloscopes set up.")
+                self._scope_note("error", "rc_scope_failed", name=name, error=e)
 
     def _get_project_oscilloscopes(self):
         """Recupera gli oscilloscopi dal file .inst del progetto corrente."""
@@ -269,47 +271,46 @@ class RemoteControlTab(QWidget):
             print(f"[RemoteControlTab] reading the .inst file failed: {e}")
             return []
 
-    def _configure_single_oscilloscope(self, osc_inst, was_data):
-        """Configura un singolo oscilloscopio con i parametri dal file .was."""
+    def _configure_single_oscilloscope(self, osc_inst, was_data, was_file=""):
+        """Connect to one oscilloscope and apply the settings; every problem goes in the report."""
         osc_name = osc_inst.get('instance_name', 'N/A')
-        osc_model = osc_inst.get('model', '')
+        osc_model = osc_inst.get('model', '') or osc_inst.get('model_id', '')
         visa_addr = osc_inst.get('visa_address', '')
-
-        print(f"[RemoteControlTab] setting up the oscilloscope: {osc_name} ({osc_model})")
-
-        if not visa_addr:
-            print(f"[RemoteControlTab] no VISA address for {osc_name}")
+        if osc_inst.get('is_manual'):
+            self._scope_note("warning", "rc_scope_manual", name=osc_name)
             return
-
-        # Modello nella libreria (id, codice modello o nome)
+        if not visa_addr:
+            self._scope_note("error", "rc_scope_no_address", name=osc_name)
+            return
         library = self.instruments_manager.get_library() if self.instruments_manager else None
         model_id = library.resolve_model_id(osc_inst.get('model_id', osc_model)) if library else None
         if not model_id:
-            print(f"[RemoteControlTab] model {osc_model} not in the library")
+            self._scope_note("error", "rc_scope_no_model", name=osc_name, model=osc_model)
             return
-
-        # Connessione VISA
         if not self._ensure_visa_initialized():
-            print("[RemoteControlTab] VISA not started")
+            self._scope_note("error", "rc_scope_visa", name=osc_name)
             return
-
         try:
-            # Connetti all'oscilloscopio
             if visa_addr in self.visa_connections:
                 instr = self.visa_connections[visa_addr]
             else:
                 instr = self.rm.open_resource(visa_addr)
                 self._configure_serial(instr, visa_addr, osc_inst)
                 self.visa_connections[visa_addr] = instr
-
-            print(f"[RemoteControlTab] connected to {osc_name} at {visa_addr}")
-
-            # Applica le impostazioni dal file .was
-            executor = self._get_instrument_executor(visa_addr, instr, osc_name)
-            self._apply_was_settings_to_oscilloscope(executor, library, model_id, was_data)
-
         except Exception as e:
-            print(f"[RemoteControlTab] connection failed: {osc_name}: {e}")
+            self._scope_note(
+                "error", "rc_scope_connect_failed", name=osc_name, address=visa_addr, error=e)
+            return
+        executor = self._get_instrument_executor(visa_addr, instr, osc_name)
+        failed = self._apply_was_settings_to_oscilloscope(executor, library, model_id, was_data)
+        if failed is None:
+            return  # the connection broke: already in the report
+        if failed:
+            self._scope_note("warning", "rc_scope_calls_failed", name=osc_name, count=len(failed))
+            for exc in failed[:10]:
+                self._scope_report.append(("warning", f"  • {exc}"))
+        else:
+            self._scope_note("ok", "rc_scope_done", name=osc_name, file=was_file)
 
     def _configure_serial(self, instr, visa_addr, inst):
         """
@@ -358,42 +359,35 @@ class RemoteControlTab(QWidget):
         return entry[1]
 
     def _apply_was_settings_to_oscilloscope(self, executor, library, model_id, was_data):
-        """
-        Applica le impostazioni del file .was con chiamate logiche (stesse per ogni
-        marca): il pianificatore le traduce nei comandi del modello, l'esecutore li invia.
-        Una chiamata non supportata o non gestita dal modello viene segnalata (CALL-xxx)
-        e le altre impostazioni vengono applicate comunque.
-        """
-        from ola.call_errors import CallError
+        """Apply the settings of the .was file with logical calls (the same for every brand):
+        the planner turns them into the commands of the model, the executor sends them. A call
+        the model does not support or refuses (CALL-xxx) is skipped and the others are applied.
+        Returns the calls that failed, or None if the instrument did not answer at all (the
+        report says why)."""
+        from ola.call_errors import CallError, StepFailedError
         from ola.call_planner import plan_call
         from ola.was_calls import oscilloscope_calls_from_was
 
         failed = []
-
-        def call(name, **args):
+        name_of = getattr(executor, 'name', '')
+        for name, args in oscilloscope_calls_from_was(was_data):
             try:
                 executor.run(plan_call(library, model_id, name, args))
-                return True
-            except CallError as exc:
+                print(f"[RemoteControlTab] {name} {args}")
+            except StepFailedError as exc:
+                # the instrument did not answer (timeout, connection lost): the other settings
+                # would only wait for the same timeout
+                self._scope_note("error", "rc_scope_no_answer", name=name_of, error=exc)
+                return None
+            except CallError as exc:  # a setting the model has not got or does not accept
                 failed.append(exc)
                 print(f"[RemoteControlTab] {exc}")
                 if self.logger:
                     self.logger.error(str(exc))
-                return False
-
-        try:
-            # Impostazioni del .was -> chiamate logiche, nell'ordine di applicazione
-            for name, args in oscilloscope_calls_from_was(was_data):
-                if call(name, **args):
-                    print(f"[RemoteControlTab] {name} {args}")
-
-            if failed:
-                print(f"[RemoteControlTab] settings applied, {len(failed)} calls not done")
-            else:
-                print("[RemoteControlTab] settings applied")
-
-        except Exception as e:
-            print(f"[RemoteControlTab] applying the settings failed: {e}")
+            except Exception as exc:
+                self._scope_note("error", "rc_scope_failed", name=name_of, error=exc)
+                return None
+        return failed
 
     @staticmethod
     def _extract_channel_number(ch_ref):

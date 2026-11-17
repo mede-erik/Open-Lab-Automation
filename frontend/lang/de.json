@@ -653,5 +653,20 @@
   "rc_read_values": "Werte lesen",
   "rc_output_error_title": "Fehler am Ausgang",
   "rc_output_on_failed": "Der Ausgang von Kanal {channel} von {instrument} konnte nicht eingeschaltet werden.",
-  "rc_output_off_failed": "Der Ausgang von Kanal {channel} von {instrument} konnte nicht ausgeschaltet werden."
+  "rc_output_off_failed": "Der Ausgang von Kanal {channel} von {instrument} konnte nicht ausgeschaltet werden.",
+  "rc_scope_title": "Oszilloskop-Einstellungen",
+  "rc_scope_no_project": "Zuerst ein Projekt öffnen: die Einstellungen kommen aus seiner .was-Datei.",
+  "rc_scope_no_was": "Das Projekt hat keine Oszilloskop-Einstellungsdatei (.was): zuerst eine hinzufügen.",
+  "rc_scope_was_missing": "Die Datei {file} ist nicht im Projektordner.",
+  "rc_scope_was_unreadable": "Die Datei {file} kann nicht gelesen werden: {error}",
+  "rc_scope_none": "Die Gerätedatei enthält kein Oszilloskop.",
+  "rc_scope_manual": "{name}: manuelles Gerät, von Hand einstellen.",
+  "rc_scope_no_address": "{name}: keine Adresse in der Gerätedatei.",
+  "rc_scope_no_model": "{name}: das Modell {model} ist nicht in der Gerätebibliothek.",
+  "rc_scope_visa": "{name}: VISA ist nicht verfügbar, das Oszilloskop ist nicht erreichbar.",
+  "rc_scope_connect_failed": "{name}: keine Verbindung zu {address}. Prüfen, ob es eingeschaltet und angeschlossen ist, und seine Adresse.\n{error}",
+  "rc_scope_no_answer": "{name}: das Oszilloskop antwortet nicht; es wurde nichts weiter gesendet.\n{error}",
+  "rc_scope_failed": "{name}: die Einstellungen konnten nicht übernommen werden: {error}",
+  "rc_scope_calls_failed": "{name}: {count} Einstellungen wurden nicht übernommen:",
+  "rc_scope_done": "{name}: die Einstellungen von {file} wurden übernommen."
 }

@@ -653,5 +653,20 @@
   "rc_read_values": "Lire les valeurs",
   "rc_output_error_title": "Erreur de la sortie",
   "rc_output_on_failed": "La sortie du canal {channel} de {instrument} n'a pas pu être activée.",
-  "rc_output_off_failed": "La sortie du canal {channel} de {instrument} n'a pas pu être désactivée."
+  "rc_output_off_failed": "La sortie du canal {channel} de {instrument} n'a pas pu être désactivée.",
+  "rc_scope_title": "Réglages de l'oscilloscope",
+  "rc_scope_no_project": "Ouvrez d'abord un projet : les réglages viennent de son fichier .was.",
+  "rc_scope_no_was": "Le projet n'a pas de fichier de réglages de l'oscilloscope (.was) : ajoutez-en un.",
+  "rc_scope_was_missing": "Le fichier {file} n'est pas dans le dossier du projet.",
+  "rc_scope_was_unreadable": "Le fichier {file} ne peut pas être lu : {error}",
+  "rc_scope_none": "Le fichier des instruments ne contient aucun oscilloscope.",
+  "rc_scope_manual": "{name} : instrument manuel, réglez-le à la main.",
+  "rc_scope_no_address": "{name} : aucune adresse dans le fichier des instruments.",
+  "rc_scope_no_model": "{name} : le modèle {model} n'est pas dans la bibliothèque d'instruments.",
+  "rc_scope_visa": "{name} : VISA n'est pas disponible, l'oscilloscope est injoignable.",
+  "rc_scope_connect_failed": "{name} : connexion impossible à {address}. Vérifiez qu'il est allumé et connecté, et son adresse.\n{error}",
+  "rc_scope_no_answer": "{name} : l'oscilloscope ne répond pas ; rien d'autre n'a été envoyé.\n{error}",
+  "rc_scope_failed": "{name} : les réglages n'ont pas pu être appliqués : {error}",
+  "rc_scope_calls_failed": "{name} : {count} réglages n'ont pas été appliqués :",
+  "rc_scope_done": "{name} : les réglages de {file} ont été appliqués."
 }
