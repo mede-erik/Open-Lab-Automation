@@ -1001,8 +1001,10 @@ measurement, so it does not belong in the registry of components.
 * **Categories**: antenna, filter, converter, generic.
 * **Code**: `DUT-0001`, the same four-digit form as the components, never used again; plus a **name** chosen by the user to
   recognise it (`Pippo`), a description and the details of its category.
-* **Versions**: a DUT has versions (a board revision, a new design). A measurement names the code and, if wanted, the version. The
+* **Versions**: a DUT has versions (a board revision, a new design). The version is **free text** (`rev A`, `RFB`, `V01`): the
+  user writes it as it is used in the lab, with no numbering imposed. A measurement names the code and, if wanted, the version. The
   header of a run keeps the card and the version of that day, as it does for a component, so the history of a DUT follows it.
+* **Window**: the list of the DUTs is in the window called **DUT** (menu *Tools*), apart from the window of the components.
 * **File**: one JSON file for all projects, like the registry of components: `~/.open_lab_automation/duts.json`, or the file
   named by `OLA_DUTS_FILE`; written atomically, the previous one kept as `.bak`.
 * **Where it is named**: the `device` field of the modules that have one (`bode`, `regulation`, `ripple`, `resistive_efficiency`,
@@ -1028,5 +1030,16 @@ tool groups by them.
 3. The window of the archive (create, edit, retire, versions), and the fields of the modules that name a DUT; the card and the
    version in the header of the run; antenna and filter leave the registry of components.
 4. Variants of a run.
-5. Open: labels for DUTs (probably the same label system as the components), the name of the window of the components.
+5. Labels for DUTs, reusing the label system of the components (see below).
+
+### Labels for DUTs
+
+Decided: the DUTs get labels, **with the code of the label system of the components** (`ola/labels.py`, `LabelDialog`, QR
+`OLA:DUT-0001`, PDF and sheets), not a second one. What exists, checked on `main` (2026-11-17): the labels of the components are
+built, tested and documented ([`docs/assets.md`](docs/assets.md)); the layout reads a card (code, name, description, serial,
+owner, notes, date, the details of its kind, the last measurement), so a DUT card with the same fields needs no new layout.
+To do for the DUTs: a **version** line, a **category** line (what a DUT of each category shows, the way `specs_text` does for the
+components), the last measurement of a DUT taken from its runs (by code and version), and the button *Label...* in the DUT window.
+**Still to define**: which lines a DUT label shows by default, and the sizes. Editable label templates, and reading the QR code with
+a camera (a USB scanner types the code and works), are not done for the components either: they come with the report templates.
 
