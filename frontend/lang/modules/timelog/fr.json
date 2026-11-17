@@ -18,14 +18,14 @@
   "tlg_col_args": "Arguments (JSON)",
   "tlg_add_reading": "Ajouter une lecture",
   "tlg_remove_row": "Supprimer la ligne",
-  "tlg_channels": "Canaux de l'enregistreur (comme dans le fichier des instruments)",
+  "tlg_channels": "Canaux de l'enregistreur (du fichier des instruments) : cochez ceux à enregistrer",
   "tlg_col_channel": "Canal",
-  "tlg_col_type": "Mesure",
-  "tlg_col_range": "Calibre",
-  "tlg_col_probe": "Sonde",
-  "tlg_col_sensor": "Capteur",
-  "tlg_add_channel": "Ajouter un canal",
   "tlg_save": "Enregistrer",
   "tlg_cancel": "Annuler",
-  "tlg_problem": "• {text}"
+  "tlg_problem": "• {text}",
+  "tlg_channels_pick": "Choisissez l'enregistreur ci-dessus : ses canaux viennent du fichier des instruments.",
+  "tlg_channels_none": "Cet instrument n'a aucun canal activé dans le fichier des instruments : définissez-les d'abord dans l'éditeur des instruments.",
+  "tlg_all": "Tous",
+  "tlg_none": "Aucun",
+  "tlg_channel_missing": "(n'est plus dans le fichier des instruments)"
 }

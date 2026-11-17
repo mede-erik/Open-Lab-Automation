@@ -13,6 +13,7 @@ library, so a call that the model does not have cannot be chosen.
 import json
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -23,6 +24,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -31,12 +33,8 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.module_translator import CatalogTranslator
+from ola.datalogger_setup import scan_channels
 from ola.project import MeasurementFile
-
-DATALOGGER_TYPES = (
-    "VOLT:DC", "VOLT:AC", "CURR:DC", "CURR:AC", "RES", "FRES", "FREQ", "PER", "TEMP",
-)
-TEMPERATURE_TYPE = "TEMP"
 
 
 def _text(edit: QLineEdit) -> str:
@@ -152,19 +150,20 @@ class TimeLogEditorDialog(QDialog):
         form.addRow(self.readings_label, self.readings)
         form.addRow(self._row_widget(self.readings_add, self.readings_del))
 
+        # the channels of a datalogger are the ones defined in the instrument file: ticked here,
+        # never typed (their settings are copied from the file)
         self.channels_label = QLabel(self._t("tlg_channels"))
-        self.channels = QTableWidget(0, 6)
+        self.channels = QListWidget()
         self.channels.itemChanged.connect(lambda _item: self._store())
-        self.channels.setHorizontalHeaderLabels([
-            self._t("tlg_col_name"), self._t("tlg_col_channel"), self._t("tlg_col_type"),
-            self._t("tlg_col_range"), self._t("tlg_col_probe"), self._t("tlg_col_sensor"),
-        ])
-        self.channels_add = QPushButton(self._t("tlg_add_channel"))
-        self.channels_add.clicked.connect(lambda: self._add_row(self.channels))
-        self.channels_del = QPushButton(self._t("tlg_remove_row"))
-        self.channels_del.clicked.connect(lambda: self._remove_row(self.channels))
+        self.channels_hint = QLabel("")
+        self.channels_hint.setWordWrap(True)
+        self.channels_all = QPushButton(self._t("tlg_all"))
+        self.channels_all.clicked.connect(lambda: self._tick_channels(True))
+        self.channels_none = QPushButton(self._t("tlg_none"))
+        self.channels_none.clicked.connect(lambda: self._tick_channels(False))
         form.addRow(self.channels_label, self.channels)
-        form.addRow(self._row_widget(self.channels_add, self.channels_del))
+        form.addRow(self.channels_hint)
+        form.addRow(self._row_widget(self.channels_all, self.channels_none))
         body.addWidget(self.detail, 2)
         root.addLayout(body, 1)
 
@@ -243,24 +242,72 @@ class TimeLogEditorDialog(QDialog):
              "" if r.get("channel") is None else str(r["channel"]), _dump(r.get("args"))]
             for r in source.get("readings", [])
         ])
-        self._fill_rows(self.channels, [
-            [c.get("name", ""), c.get("channel_id", ""), c.get("meas_type", "VOLT:DC"),
-             c.get("range", ""), c.get("probe_type", ""), c.get("sensor_type", "")]
-            for c in source.get("channels", [])
-        ])
+        self._fill_channels(source.get("instrument", ""), source.get("channels"))
         self._loading = False
-        self._scan_toggled(self.scan_check.isChecked())
+        self._show_scan_controls(self.scan_check.isChecked())
         self._instrument_changed()
 
-    def _scan_toggled(self, scan: bool) -> None:
+    def _show_scan_controls(self, scan: bool) -> None:
+        """A scan shows the channels of the file, otherwise the readings are listed."""
         for widget in (self.readings_label, self.readings, self.readings_add, self.readings_del):
             widget.setVisible(not scan)
-        for widget in (self.channels_label, self.channels, self.channels_add, self.channels_del):
+        for widget in (self.channels_label, self.channels, self.channels_hint,
+                       self.channels_all, self.channels_none):
             widget.setVisible(scan)
+
+    def _scan_toggled(self, scan: bool) -> None:
+        """The person ticked or unticked the scan: start from all the channels of the file."""
+        self._show_scan_controls(scan)
+        if scan and not self._loading:
+            self._fill_channels(self.instrument_combo.currentData() or "", None)
+        self._store()
+
+    def _fill_channels(self, instrument: str, saved: Optional[List[Mapping[str, Any]]]) -> None:
+        """List the channels the instrument file defines for this datalogger, ticked if they are
+        in ``saved`` (all of them when nothing was saved yet). A saved channel that the file no
+        longer has stays in the list, marked, so it is not lost without being seen."""
+        entry = self.instruments.get(instrument)
+        available = scan_channels(entry) if entry else []
+        wanted = {str(c.get("channel_id")) for c in saved} if saved else None
+        self.channels.blockSignals(True)
+        self.channels.clear()
+        for channel in available:
+            self._channel_item(channel, wanted is None or channel["channel_id"] in wanted, "")
+        known = {c["channel_id"] for c in available}
+        for channel in saved or []:
+            if str(channel.get("channel_id")) not in known:
+                self._channel_item(dict(channel), True, self._t("tlg_channel_missing"))
+        self.channels.blockSignals(False)
+        self._channels_for = instrument
+        if not instrument:
+            self.channels_hint.setText(self._t("tlg_channels_pick"))
+        elif not self.channels.count():
+            self.channels_hint.setText(self._t("tlg_channels_none"))
+        else:
+            self.channels_hint.setText("")
+
+    def _channel_item(self, channel: Dict[str, Any], checked: bool, note: str) -> None:
+        label = f"{channel.get('name', '?')}  —  {channel.get('channel_id', '?')}  "
+        label += f"({channel.get('meas_type', '')})"
+        item = QListWidgetItem(f"{label}  {note}".rstrip())
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        item.setData(Qt.ItemDataRole.UserRole, channel)
+        self.channels.addItem(item)
+
+    def _tick_channels(self, checked: bool) -> None:
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        self.channels.blockSignals(True)
+        for row in range(self.channels.count()):
+            self.channels.item(row).setCheckState(state)
+        self.channels.blockSignals(False)
         self._store()
 
     def _instrument_changed(self, *_args) -> None:
         """The calls offered for a reading are the readings of the chosen instrument's model."""
+        instrument = self.instrument_combo.currentData() or ""
+        if not self._loading and instrument != getattr(self, "_channels_for", None):
+            self._fill_channels(instrument, None)  # another datalogger: its channels
         entry = self.instruments.get(self.instrument_combo.currentData() or "")
         offered = list(self.calls_of(entry)) if entry else []
         self._readable = {getattr(r, "name", str(r)): r for r in offered}
@@ -305,13 +352,6 @@ class TimeLogEditorDialog(QDialog):
         row = table.rowCount()
         table.insertRow(row)
         values = values or [""] * table.columnCount()
-        if table is self.channels:
-            combo = QComboBox()
-            combo.addItems(DATALOGGER_TYPES)
-            combo.setCurrentText(values[2] or "VOLT:DC")
-            combo.currentTextChanged.connect(lambda _t: self._store())
-            table.setCellWidget(row, 2, combo)
-            values = [values[0], values[1], None, values[3], values[4], values[5]]
         if table is self.readings:
             combo = QComboBox()
             combo.setEditable(True)
@@ -351,15 +391,9 @@ class TimeLogEditorDialog(QDialog):
             for row in range(self.readings.rowCount())
         ]
         source["channels"] = [
-            _drop_empty({
-                "name": self._cell(self.channels, row, 0),
-                "channel_id": self._cell(self.channels, row, 1),
-                "meas_type": self._combo(self.channels, row, 2),
-                "range": self._cell(self.channels, row, 3),
-                "probe_type": self._cell(self.channels, row, 4),
-                "sensor_type": self._cell(self.channels, row, 5),
-            })
-            for row in range(self.channels.rowCount())
+            dict(self.channels.item(row).data(Qt.ItemDataRole.UserRole))
+            for row in range(self.channels.count())
+            if self.channels.item(row).checkState() == Qt.CheckState.Checked
         ]
         self.source_list.blockSignals(True)
         item = self.source_list.item(self._current)
@@ -371,13 +405,6 @@ class TimeLogEditorDialog(QDialog):
     def _cell(table: QTableWidget, row: int, column: int) -> str:
         item = table.item(row, column)
         return item.text().strip() if item is not None else ""
-
-    @staticmethod
-    def _combo(table: QTableWidget, row: int, column: int) -> str:
-        widget = table.cellWidget(row, column)
-        if isinstance(widget, QComboBox):
-            return widget.currentText().strip()
-        return ""
 
     # ----- the parameters and the file -------------------------------------------------------
     def params(self) -> Dict[str, Any]:
@@ -462,7 +489,3 @@ def _clean_source(source: Mapping[str, Any]) -> Dict[str, Any]:
     else:
         out["readings"] = list(source.get("readings", []))
     return out
-
-
-def _drop_empty(values: Mapping[str, str]) -> Dict[str, str]:
-    return {k: v for k, v in values.items() if v}

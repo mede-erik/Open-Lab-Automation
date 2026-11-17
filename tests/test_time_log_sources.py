@@ -256,3 +256,22 @@ def test_a_scan_with_its_own_interval_next_to_a_multimeter(registry):
     assert sum(1 for r in rows if r["table"] == "dmm") == 2
     daq_rows = [r["values"] for r in rows if r["table"] == "daq"]
     assert daq_rows[0]["temp1"] == 20.5 and daq_rows[0]["vout"] == 5.0
+
+
+def test_a_channel_attenuation_divides_its_scan_value(registry):
+    channels = [
+        {"name": "vin", "channel_id": "102", "meas_type": "VOLT:DC", "attenuation": 10.0},
+        {"name": "vout", "channel_id": "103", "meas_type": "VOLT:DC"},
+    ]
+    handle = daq(scan_values=(120.0, 5.0))
+    p = {"sources": [scan_source(samples=1, channels=channels)]}
+    runner = run_to_end(Runner(registry.create("time_log", p), {"instruments": [handle]}))
+    assert runner.state is RunState.FINISHED, runner.error
+    row = [e.data["values"] for e in runner.drain() if e.kind == "point"][0]
+    assert row["vin"] == 12.0 and row["vout"] == 5.0
+
+
+def test_a_channel_attenuation_must_be_positive(registry):
+    channels = [{"name": "vin", "channel_id": "102", "meas_type": "VOLT:DC", "attenuation": 0}]
+    problems = registry.create("time_log", {"sources": [scan_source(channels=channels)]}).validate()
+    assert any("attenuation" in p for p in problems)

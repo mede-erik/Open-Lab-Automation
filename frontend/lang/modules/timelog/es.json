@@ -18,14 +18,14 @@
   "tlg_col_args": "Argumentos (JSON)",
   "tlg_add_reading": "Añadir lectura",
   "tlg_remove_row": "Quitar fila",
-  "tlg_channels": "Canales del registrador (como en el archivo de instrumentos)",
+  "tlg_channels": "Canales del registrador (del archivo de instrumentos): marque los que se registran",
   "tlg_col_channel": "Canal",
-  "tlg_col_type": "Medida",
-  "tlg_col_range": "Rango",
-  "tlg_col_probe": "Sonda",
-  "tlg_col_sensor": "Sensor",
-  "tlg_add_channel": "Añadir canal",
   "tlg_save": "Guardar",
   "tlg_cancel": "Cancelar",
-  "tlg_problem": "• {text}"
+  "tlg_problem": "• {text}",
+  "tlg_channels_pick": "Elija el registrador arriba: sus canales vienen del archivo de instrumentos.",
+  "tlg_channels_none": "Este instrumento no tiene canales habilitados en el archivo de instrumentos: defínalos primero en el editor de instrumentos.",
+  "tlg_all": "Todos",
+  "tlg_none": "Ninguno",
+  "tlg_channel_missing": "(ya no está en el archivo de instrumentos)"
 }

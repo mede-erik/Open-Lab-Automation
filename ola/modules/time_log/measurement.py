@@ -25,7 +25,9 @@ gets it as ``channel_number``; a multichannel load has the channel selected firs
 
 A datalogger can be read **all its channels together**: such a source has ``"scan": true`` and
 its ``channels`` (the settings of the ``.inst`` file: ``channel_id``, ``meas_type``, optional
-``range``, ``resolution``, ``probe_type``, ``sensor_type``) instead of ``readings``. The datalogger
+``range``, ``resolution``, ``probe_type``, ``sensor_type``, ``attenuation``...) instead of
+``readings``. The editor copies them from the ``.inst`` file; a reading is divided by the
+``attenuation`` of its channel. The datalogger
 is configured once at the start of the run, and each sample is one scan (``read_scan``) whose values
 go to the channels in channel-number order::
 
@@ -164,6 +166,11 @@ class TimeLog(Measurement):
             if ch["name"] == "t_s" or ch["name"] in names:
                 problems.append(f"source {name!r}: channel name {ch['name']!r} is not usable")
             names.add(ch["name"])
+            attenuation = ch.get("attenuation")
+            if attenuation is not None and not _number(attenuation, 1e-12):
+                problems.append(
+                    f"source {name!r}, channel {ch['name']!r}: attenuation must be a number > 0"
+                )
         try:
             order = scan_order([c for c in channels if isinstance(c, dict)])
             datalogger_calls(order)  # the same checks as the datalogger of the remote control
@@ -218,6 +225,7 @@ class TimeLog(Measurement):
                     group["scan"] = {
                         "setup": datalogger_calls(order),
                         "names": [c["name"] for c in order],
+                        "attenuation": [float(c.get("attenuation") or 1.0) for c in order],
                     }
                 else:
                     group["readings"] = [
@@ -317,7 +325,12 @@ class TimeLog(Measurement):
                 f"source {group['table']!r}: the datalogger gave {got} readings for "
                 f"{len(names)} channels"
             )
-        return dict(zip(names, readings))
+        # the value at the input of a divider or a shunt is divided by its attenuation, as the
+        # remote control tab does
+        return {
+            name: value / att if att != 1.0 and isinstance(value, (int, float)) else value
+            for name, value, att in zip(names, readings, group["scan"]["attenuation"])
+        }
 
     def run(self, ctx: MeasurementContext) -> None:
         """Take each source's samples at its own interval until every source is finished."""

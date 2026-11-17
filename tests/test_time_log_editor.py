@@ -16,11 +16,25 @@ from ola.project import MeasurementFile  # noqa: E402
 from ola.readings import Readable  # noqa: E402
 from ola.registry import default_registry  # noqa: E402
 
+from PyQt6.QtCore import Qt  # noqa: E402
+
 pytestmark = pytest.mark.gui
 
 INSTRUMENTS = {
     "dmm1": {"instance_name": "dmm1", "model_id": "MTR_Agilent_34401A"},
-    "daq": {"instance_name": "daq", "model_id": "DL_Agilent_34970A"},
+    "daq": {
+        "instance_name": "daq", "model_id": "DL_Agilent_34970A",
+        "slots": [{"slot_number": 1, "channels": [
+            {"enabled": True, "name": "vout", "channel_id": "103", "slot_number": 1,
+             "meas_type": "VOLT:DC", "attenuation": 10.0, "range": "10", "unit": "V"},
+            {"enabled": True, "name": "temp1", "channel_id": "101", "slot_number": 1,
+             "meas_type": "TEMP", "probe_type": "TCouple", "sensor_type": "K"},
+            {"enabled": False, "name": "CH5", "channel_id": "105", "slot_number": 1,
+             "meas_type": "VOLT:DC"},
+        ]}],
+    },
+    "empty": {"instance_name": "empty", "model_id": "DL_Agilent_34970A",
+              "slots": [{"slot_number": 1, "channels": []}]},
     "psu": {"instance_name": "psu", "model_id": "PSU_OWON_ODP3033"},
     "load": {"instance_name": "load", "model_id": "EL_Keysight_EL4913A"},
 }
@@ -93,7 +107,11 @@ def test_the_calls_offered_are_those_of_the_chosen_instrument(app, tmp_path, reg
     assert [combo.itemData(i) for i in range(combo.count())] == ["read_voltage", "read_current"]
 
 
-def test_a_datalogger_scan_saves_its_channels_and_no_readings(app, tmp_path, registry):
+def channel_names(dialog):
+    return [dialog.channels.item(r).text().split("  ")[0] for r in range(dialog.channels.count())]
+
+
+def test_a_datalogger_scan_lists_the_channels_of_the_instrument_file(app, tmp_path, registry):
     dialog, path = make(tmp_path, registry)
     dialog._add_source()
     dialog.name_edit.setText("daq")
@@ -101,15 +119,65 @@ def test_a_datalogger_scan_saves_its_channels_and_no_readings(app, tmp_path, reg
     dialog.interval_edit.setText("600")
     dialog.samples_edit.setText("3")
     dialog.scan_check.setChecked(True)
-    dialog._add_row(dialog.channels, ["temp1", "101", "TEMP", "", "TCouple", "K"])
-    dialog._add_row(dialog.channels, ["vout", "103", "VOLT:DC", "10", "", ""])
+    # the enabled channels of the file, in channel-number order: nothing to type
+    assert channel_names(dialog) == ["temp1", "vout"]
+    assert all(dialog.channels.item(r).checkState() == Qt.CheckState.Checked
+               for r in range(dialog.channels.count()))
     assert dialog.save()
     source = saved(path)["sources"][0]
     assert source["scan"] is True and "readings" not in source
-    assert source["channels"][0] == {"name": "temp1", "channel_id": "101", "meas_type": "TEMP",
-                                     "probe_type": "TCouple", "sensor_type": "K"}
-    assert source["channels"][1] == {"name": "vout", "channel_id": "103", "meas_type": "VOLT:DC",
-                                     "range": "10"}
+    assert [c["channel_id"] for c in source["channels"]] == ["101", "103"]
+    # the settings of the file are copied: the probe, the range, the attenuation of the divider
+    probe = source["channels"][0]
+    assert probe["probe_type"] == "TCouple" and probe["sensor_type"] == "K"
+    assert source["channels"][1]["range"] == "10" and source["channels"][1]["attenuation"] == 10.0
+    assert "enabled" not in source["channels"][0]
+
+
+def test_only_the_ticked_channels_are_logged(app, tmp_path, registry):
+    dialog, path = make(tmp_path, registry)
+    dialog._add_source()
+    dialog.name_edit.setText("daq")
+    dialog.instrument_combo.setCurrentIndex(dialog.instrument_combo.findData("daq"))
+    dialog.interval_edit.setText("600")
+    dialog.samples_edit.setText("3")
+    dialog.scan_check.setChecked(True)
+    dialog.channels.item(0).setCheckState(Qt.CheckState.Unchecked)  # temp1
+    assert dialog.save()
+    assert [c["name"] for c in saved(path)["sources"][0]["channels"]] == ["vout"]
+    dialog._tick_channels(False)
+    assert not dialog.save()  # no channel at all: the module says so
+    assert "channels must be a non-empty list" in dialog.problems.text()
+    dialog._tick_channels(True)
+    assert dialog.save() and len(saved(path)["sources"][0]["channels"]) == 2
+
+
+def test_the_channels_follow_the_instrument_and_say_when_there_are_none(app, tmp_path, registry):
+    dialog, _ = make(tmp_path, registry)
+    dialog._add_source()
+    dialog.scan_check.setChecked(True)
+    assert dialog.channels.count() == 0 and "Choose" in dialog.channels_hint.text()
+    dialog.instrument_combo.setCurrentIndex(dialog.instrument_combo.findData("empty"))
+    assert dialog.channels.count() == 0 and "no enabled channel" in dialog.channels_hint.text()
+    dialog.instrument_combo.setCurrentIndex(dialog.instrument_combo.findData("daq"))
+    assert dialog.channels.count() == 2 and dialog.channels_hint.text() == ""
+
+
+def test_a_saved_channel_that_the_file_no_longer_has_stays_visible(app, tmp_path, registry):
+    params = {"duration_s": 60, "sources": [{
+        "name": "daq", "instrument": "daq", "interval_s": 600, "scan": True,
+        "channels": [{"name": "old", "channel_id": "110", "meas_type": "VOLT:DC"},
+                     {"name": "temp1", "channel_id": "101", "meas_type": "TEMP",
+                      "probe_type": "TCouple", "sensor_type": "K"}]}]}
+    dialog, path = make(tmp_path, registry, params=params)
+    names = [dialog.channels.item(r).text() for r in range(dialog.channels.count())]
+    assert len(names) == 3 and "not in the instrument file" in names[2]
+    # temp1 is ticked, vout (in the file, not saved) is not, the missing one is kept ticked
+    states = [dialog.channels.item(r).checkState() == Qt.CheckState.Checked
+              for r in range(dialog.channels.count())]
+    assert states == [True, False, True]
+    assert dialog.save()
+    assert sorted(c["channel_id"] for c in saved(path)["sources"][0]["channels"]) == ["101", "110"]
 
 
 def test_an_invalid_source_is_not_saved_and_the_problems_are_shown(app, tmp_path, registry):
@@ -144,12 +212,12 @@ def test_switching_sources_keeps_what_was_typed(app, tmp_path, registry):
 def test_the_duration_and_the_sources_of_a_file_are_shown(app, tmp_path, registry):
     params = {"duration_s": 3600, "sources": [
         {"name": "daq", "instrument": "daq", "interval_s": 600, "scan": True,
-         "channels": [{"name": "t", "channel_id": "101", "meas_type": "TEMP",
+         "channels": [{"name": "temp1", "channel_id": "101", "meas_type": "TEMP",
                        "probe_type": "TCouple", "sensor_type": "K"}]}]}
     dialog, path = make(tmp_path, registry, params=params)
     assert dialog.duration_edit.text() == "3600"
     assert dialog.source_list.count() == 1 and dialog.scan_check.isChecked()
-    assert dialog.channels.rowCount() == 1 and dialog.channels.item(0, 0).text() == "t"
+    assert channel_names(dialog) == ["temp1", "vout"]
     dialog.duration_edit.setText("")
     dialog.samples_edit.setText("5")  # without a duration the source needs its own samples
     dialog.save()

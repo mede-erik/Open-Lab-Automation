@@ -367,6 +367,7 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
   - [ ] readings inside a supply (voltage and current of a channel) and an electronic load (voltage, current and power)
   - [ ] multichannel load: the channel selected before each reading
   - [ ] editor of the sources, with the calls of the library
+  - [ ] datalogger channels ticked from the instrument file (with attenuation)
 - [ ] Resistive-load efficiency
   - [ ] manual selection of the resistors
   - [ ] switch box or datalogger multiplexer

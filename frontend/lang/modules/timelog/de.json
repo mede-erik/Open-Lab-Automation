@@ -18,14 +18,14 @@
   "tlg_col_args": "Argumente (JSON)",
   "tlg_add_reading": "Messwert hinzufügen",
   "tlg_remove_row": "Zeile entfernen",
-  "tlg_channels": "Kanäle des Datenloggers (wie in der Gerätedatei)",
+  "tlg_channels": "Kanäle des Datenloggers (aus der Gerätedatei): die zu protokollierenden ankreuzen",
   "tlg_col_channel": "Kanal",
-  "tlg_col_type": "Messung",
-  "tlg_col_range": "Bereich",
-  "tlg_col_probe": "Fühler",
-  "tlg_col_sensor": "Sensor",
-  "tlg_add_channel": "Kanal hinzufügen",
   "tlg_save": "Speichern",
   "tlg_cancel": "Abbrechen",
-  "tlg_problem": "• {text}"
+  "tlg_problem": "• {text}",
+  "tlg_channels_pick": "Oben den Datenlogger wählen: seine Kanäle stammen aus der Gerätedatei.",
+  "tlg_channels_none": "Dieses Gerät hat in der Gerätedatei keinen aktivierten Kanal: zuerst im Geräte-Editor festlegen.",
+  "tlg_all": "Alle",
+  "tlg_none": "Keine",
+  "tlg_channel_missing": "(nicht mehr in der Gerätedatei)"
 }
