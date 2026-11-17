@@ -655,5 +655,20 @@
   "rc_output_error_title": "Error de la salida",
   "rc_output_on_failed": "No se pudo activar la salida del canal {channel} de {instrument}.",
   "rc_output_off_failed": "No se pudo desactivar la salida del canal {channel} de {instrument}.",
-  "pulse_peak": "Pico"
+  "pulse_peak": "Pico",
+  "rc_scope_title": "Ajustes del osciloscopio",
+  "rc_scope_no_project": "Abra primero un proyecto: los ajustes vienen de su archivo .was.",
+  "rc_scope_no_was": "El proyecto no tiene archivo de ajustes del osciloscopio (.was): añada uno.",
+  "rc_scope_was_missing": "El archivo {file} no está en la carpeta del proyecto.",
+  "rc_scope_was_unreadable": "No se puede leer el archivo {file}: {error}",
+  "rc_scope_none": "El archivo de instrumentos no contiene osciloscopios.",
+  "rc_scope_manual": "{name}: instrumento manual, ajústelo a mano.",
+  "rc_scope_no_address": "{name}: ninguna dirección en el archivo de instrumentos.",
+  "rc_scope_no_model": "{name}: el modelo {model} no está en la biblioteca de instrumentos.",
+  "rc_scope_visa": "{name}: VISA no está disponible, no se puede llegar al osciloscopio.",
+  "rc_scope_connect_failed": "{name}: no se puede conectar a {address}. Compruebe que está encendido y conectado, y su dirección.\n{error}",
+  "rc_scope_no_answer": "{name}: el osciloscopio no responde; no se envió nada más.\n{error}",
+  "rc_scope_failed": "{name}: no se pudieron aplicar los ajustes: {error}",
+  "rc_scope_calls_failed": "{name}: {count} ajustes no se aplicaron:",
+  "rc_scope_done": "{name}: se aplicaron los ajustes de {file}."
 }

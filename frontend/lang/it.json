@@ -655,5 +655,20 @@
   "rc_output_error_title": "Errore dell'uscita",
   "rc_output_on_failed": "Impossibile abilitare l'uscita del canale {channel} dello strumento {instrument}.",
   "rc_output_off_failed": "Impossibile disabilitare l'uscita del canale {channel} dello strumento {instrument}.",
-  "pulse_peak": "Picco"
+  "pulse_peak": "Picco",
+  "rc_scope_title": "Impostazioni dell'oscilloscopio",
+  "rc_scope_no_project": "Apri prima un progetto: le impostazioni arrivano dal suo file .was.",
+  "rc_scope_no_was": "Il progetto non ha un file di impostazioni dell'oscilloscopio (.was): aggiungine uno.",
+  "rc_scope_was_missing": "Il file {file} non è nella cartella del progetto.",
+  "rc_scope_was_unreadable": "Impossibile leggere il file {file}: {error}",
+  "rc_scope_none": "Il file degli strumenti non contiene oscilloscopi.",
+  "rc_scope_manual": "{name}: strumento manuale, impostalo a mano.",
+  "rc_scope_no_address": "{name}: nessun indirizzo nel file degli strumenti.",
+  "rc_scope_no_model": "{name}: il modello {model} non è nella libreria strumenti.",
+  "rc_scope_visa": "{name}: VISA non è disponibile, l'oscilloscopio non è raggiungibile.",
+  "rc_scope_connect_failed": "{name}: impossibile collegarsi a {address}. Verifica che sia acceso e collegato, e il suo indirizzo.\n{error}",
+  "rc_scope_no_answer": "{name}: l'oscilloscopio non risponde; non è stato inviato altro.\n{error}",
+  "rc_scope_failed": "{name}: impossibile applicare le impostazioni: {error}",
+  "rc_scope_calls_failed": "{name}: {count} impostazioni non sono state applicate:",
+  "rc_scope_done": "{name}: le impostazioni di {file} sono state applicate."
 }
