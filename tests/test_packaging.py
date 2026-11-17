@@ -155,3 +155,27 @@ def test_workflow_calls_only_existing_build_steps():
     for name in (".github/workflows/package.yml", ".github/workflows/ci.yml"):
         for step in re.findall(r"build_package\.py ([\w-]+)", read(*name.split("/"))):
             assert step in steps, f"{name} calls build_package.py {step}, which does not exist"
+
+
+# ---------------------------------------------------------------- stale runs
+
+
+def test_cancel_stale_runs_on_closed_pull_request_and_deleted_branch():
+    """A closed pull request or a deleted branch cancels its queued and running runs; the
+    workflow needs write permission on the actions to do it."""
+    workflow = read(".github/workflows/cancel-stale.yml")
+    assert "types: [closed]" in workflow
+    assert "delete:" in workflow
+    assert "actions: write" in workflow
+    assert "gh run cancel" in workflow
+    # the run of this workflow is never cancelled by itself
+    assert 'SELF: ${{ github.run_id }}' in workflow
+
+
+def test_nightly_is_built_only_for_the_newest_commit_of_main():
+    """The packages of an older commit of main are not built, and the tests of the same run
+    wait for that decision."""
+    workflow = read(".github/workflows/package.yml")
+    assert "steps.fresh.outputs.current" in workflow
+    assert "needs.meta.outputs.current != 'false'" in workflow
+    assert "commits/main" in workflow

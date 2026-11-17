@@ -1,0 +1,53 @@
+# Copyright (C) 2025-2026 Erik Medeossi
+# This file is part of Open Lab Automation.
+# Licensed under the GNU General Public License v3.0; see the LICENSE file.
+
+name: Cancel stale runs
+
+# A closed pull request, a merged one, or a deleted branch makes the runs of that branch useless.
+# This cancels the ones still queued or running, so that the self-hosted runner does not work
+# through them one after the other. A branch that still has an open pull request is left alone.
+# Runs on GitHub-hosted runners: it must not wait behind the queue it is cleaning.
+
+on:
+  pull_request:
+    types: [closed]
+  delete:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel:
+    name: Cancel the runs of a closed pull request or a deleted branch
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name == 'delete' && github.event.ref_type == 'branch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      BRANCH: ${{ github.event.pull_request.head.ref || github.event.ref }}
+      SELF: ${{ github.run_id }}
+    steps:
+      - name: Cancel the queued and running runs of the branch
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            open="$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq 'length')"
+            if [ "$open" != 0 ]; then
+              echo "$BRANCH still has an open pull request: nothing is cancelled"
+              exit 0
+            fi
+          fi
+          for status in queued in_progress waiting; do
+            gh run list --repo "$REPO" --branch "$BRANCH" --status "$status" --limit 100 \
+              --json databaseId --jq '.[].databaseId' | while read -r id; do
+              # this workflow itself runs on the same branch when the pull request closes
+              if [ "$id" = "$SELF" ]; then continue; fi
+              echo "cancelling run $id ($status) of $BRANCH"
+              gh run cancel "$id" --repo "$REPO" || echo "could not cancel run $id"
+            done
+          done
