@@ -27,5 +27,6 @@
   "ast_kind_generic": "Generic",
   "ast_attr_topology": "Topology",
   "ast_attr_input_voltage": "Input voltage",
-  "ast_attr_output_voltage": "Output voltage"
+  "ast_attr_output_voltage": "Output voltage",
+  "dut_migrated": "{n} card(s) of antennas, filters or generic devices moved from Cables and devices to Tools > DUT. Their results are still found, and the code on a label already stuck on them still works."
 }

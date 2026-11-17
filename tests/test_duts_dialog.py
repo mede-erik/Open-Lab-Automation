@@ -23,6 +23,7 @@ from frontend.ui.DutVersionsDialog import DutVersionsDialog  # noqa: E402
 from frontend.ui.LabelDialog import LabelDialog  # noqa: E402
 from ola.assets import AssetRegistry  # noqa: E402
 from ola.duts import DutRegistry  # noqa: E402
+from tests.legacy_assets import add_legacy  # noqa: E402
 
 pytestmark = pytest.mark.gui
 
@@ -82,7 +83,7 @@ def test_every_string_the_windows_use_exists_in_every_language():
 def test_the_list_shows_code_category_name_and_the_current_version(app, archive):
     d = DutsDialog(archive)
     assert d.table.rowCount() == 3
-    row = [d.table.item(0, c).text() for c in range(7)]
+    row = [d.table.item(0, c).text() for c in range(8)]
     assert row[0] == "DUT-0001" and row[1] == "Converter" and row[2] == "Pippo"
     assert row[3] == "rev A" and row[4] == "boost 12 V to 5 V"
     assert d.table.item(1, 3).text() == ""  # the antenna has no version
@@ -92,7 +93,7 @@ def test_the_list_shows_code_category_name_and_the_current_version(app, archive)
 def test_the_list_can_be_filtered_by_category_and_hides_what_is_retired(app, archive):
     archive.update("DUT-0002", retired=True)
     d = DutsDialog(archive)
-    assert d.table.rowCount() == 3 and d.table.item(1, 6).text() != d.table.item(0, 6).text()
+    assert d.table.rowCount() == 3 and d.table.item(1, 7).text() != d.table.item(0, 7).text()
     d.retired_box.setChecked(False)
     assert [d.table.item(r, 0).text() for r in range(d.table.rowCount())] == [
         "DUT-0001",
@@ -106,7 +107,7 @@ def test_a_scanned_code_selects_the_card_even_if_it_is_hidden_or_an_old_code(
     app, tmp_path, archive
 ):
     components = AssetRegistry(tmp_path / "assets.json")
-    components.create("antenna", "old whip")  # ANT-0001, moved to the archive as DUT-0004
+    add_legacy(components, "antenna", "old whip")  # ANT-0001, moved to the archive as DUT-0004
     archive.migrate_from(components)
     d = DutsDialog(archive)
     d.category_box.setCurrentIndex(d.category_box.findData("filter"))
@@ -127,7 +128,7 @@ def test_retire_and_bring_back(app, archive):
     d.table.selectRow(0)
     assert d.buttons["ast_retire"].isEnabled()
     d.toggle_retired()
-    assert archive.get("DUT-0001").retired and d.table.item(0, 6).text() != "Active"
+    assert archive.get("DUT-0001").retired and d.table.item(0, 7).text() != "Active"
     d.table.selectRow(0)
     d.toggle_retired()
     assert not archive.get("DUT-0001").retired
@@ -241,3 +242,110 @@ def test_the_versions_window_from_the_list_changes_what_the_list_shows(app, arch
     monkeypatch.setattr(versions_module.DutVersionsDialog, "exec", lambda self: 0)
     d.edit_versions()
     assert d.table.item(0, 3).text() == "rev B"
+
+
+# ---- the measurements of a DUT -----------------------------------------------------------------
+def make_run(folder, name, params, cards=None, stamp="20261103_100000"):
+    from ola.runs import RunWriter
+
+    folder.mkdir(exist_ok=True)
+    header = {"run_id": name, "measurement": "return_loss", "params": params}
+    if cards:
+        header["duts"] = cards
+    writer = RunWriter(folder / f"{name}_{stamp}.jsonl", header)
+    writer._write({"kind": "end", "state": "finished", "error": None})
+    writer.close()
+
+
+@pytest.fixture
+def archive_with_runs(tmp_path, archive):
+    runs = tmp_path / "runs"
+    card = archive.get("DUT-0001").snapshot()
+    for stamp in ("20261103_100000", "20261104_100000"):
+        make_run(runs, f"a{stamp}", {"device": {"dut_id": "DUT-0001"}}, {"DUT-0001": card}, stamp)
+    make_run(runs, "b", {"device": {"dut_id": "DUT-0003"}}, stamp="20261105_100000")
+    return archive, runs
+
+
+def test_the_list_counts_the_measurements_of_each_dut(app, archive_with_runs):
+    archive, runs = archive_with_runs
+    d = DutsDialog(archive, run_dirs=[runs])
+    assert [d.table.item(r, 6).text() for r in range(3)] == ["2", "0", "1"]
+    d = DutsDialog(archive, run_dirs=lambda: [runs])  # a function gives the folders now
+    assert d.table.item(0, 6).text() == "2"
+    d = DutsDialog(archive)  # no folders
+    assert d.table.item(0, 6).text() == "0"
+
+
+def test_the_history_lists_the_runs_of_a_dut_without_the_trend(app, archive_with_runs):
+    archive, runs = archive_with_runs
+    d = DutsDialog(archive, run_dirs=[runs])
+    d.table.selectRow(0)
+    d.show_history()
+    tool = d.history_tool
+    assert tool.table.rowCount() == 2 and tool.compare_btn.isEnabled()
+    assert tool.trend_btn.isHidden()  # the trend is the ageing of a cable
+    tool.close()
+
+
+def test_the_label_has_the_latest_measurement_of_the_dut(app, archive_with_runs):
+    archive, runs = archive_with_runs
+    d = DutsDialog(archive, run_dirs=[runs])
+    d.table.selectRow(0)
+    d.make_labels()
+    assert "last_measurement" in d.label_tool.field_boxes
+    d.label_tool.close()
+
+
+def test_deleting_a_dut_that_was_measured_says_so(app, archive_with_runs, monkeypatch):
+    archive, runs = archive_with_runs
+    d = DutsDialog(archive, run_dirs=[runs])
+    asked = []
+
+    def question(parent, title, text, *args, **kwargs):
+        asked.append(text)
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(question))
+    d.table.selectRow(0)
+    d.delete_selected()
+    assert "2" in asked[0] and archive.get("DUT-0001") is not None
+
+
+# ---- at the start of the program ---------------------------------------------------------------
+def test_the_start_moves_the_old_cards_and_tells_it_once(tmp_path, monkeypatch):
+    import logging
+
+    from frontend.ui import main_window as main_module
+
+    monkeypatch.setenv("OLA_DUTS_FILE", str(tmp_path / "duts.json"))
+    components = AssetRegistry(tmp_path / "assets.json")
+    add_legacy(components, "antenna", "old whip")
+    components.create("cable", "RG316")
+    told = []
+    monkeypatch.setattr(
+        QMessageBox, "information", staticmethod(lambda parent, title, text: told.append(text))
+    )
+
+    class Stub:
+        assets, translator, logger = components, None, logging.getLogger("test")
+
+    duts = main_module.MainWindow._open_duts(Stub)
+    assert duts.get("ANT-0001").id == "DUT-0001"  # the label stuck on the antenna still finds it
+    assert [a.id for a in AssetRegistry(components.path).assets] == ["CBL-0001"]
+    assert len(told) == 1 and "1" in told[0]
+    assert main_module.MainWindow._open_duts(Stub) is not None and len(told) == 1  # nothing left
+
+
+def test_a_damaged_archive_does_not_stop_the_program(tmp_path, monkeypatch):
+    import logging
+
+    from frontend.ui import main_window as main_module
+
+    (tmp_path / "duts.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setenv("OLA_DUTS_FILE", str(tmp_path / "duts.json"))
+
+    class Stub:
+        assets, translator, logger = None, None, logging.getLogger("test")
+
+    assert main_module.MainWindow._open_duts(Stub) is None

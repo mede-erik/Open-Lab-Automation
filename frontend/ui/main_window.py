@@ -131,9 +131,11 @@ class MainWindow(QMainWindow):
         # The instruments are reached through the library and the project's .inst file
         # (frontend/ui/connector_setup.py); `not_connected` is the fallback if that is not possible.
         self.assets = self._open_assets()  # the registry of cables and devices (or None)
+        self.duts = self._open_duts()  # the archive of the devices under test (or None)
         self.project_tab = ProjectWindow(
             translator=self.translator,
             assets=self.assets,
+            duts=self.duts,
             connect=not_connected,
             connector_factory=lambda session: make_connector(
                 session, default_library_path(), self.translator, self
@@ -825,18 +827,36 @@ class MainWindow(QMainWindow):
         self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
         self._assets_tool.show()
 
+    def _open_duts(self):
+        """The archive of the devices under test, or None if its file is damaged. The antennas,
+        filters and generic devices that are still cards of the registry of components move to it
+        (``DutRegistry.migrate_from``: keeping their identity and, as an old code, the code on the
+        label already stuck on them)."""
+        try:
+            duts = DutRegistry()
+            moved = duts.migrate_from(self.assets) if self.assets is not None else []
+        except (AssetError, OSError) as exc:
+            self.logger.error(f"DUT archive not available: {exc}")
+            return None
+        if moved:
+            self.logger.info(f"{len(moved)} antenna, filter or generic card(s) moved to the DUTs")
+            text = CatalogTranslator("duts", self.translator).t("dut_migrated", n=len(moved))
+            QMessageBox.information(self, "Open Lab Automation", text)
+        return duts
+
     def open_duts_tool(self):
         """Open the DUT window (the archive of the devices under test: cards, versions, labels)."""
-        try:
-            registry = DutRegistry()
-        except AssetError as exc:
-            self.logger.error(f"DUT archive not available: {exc}")
-            text = CatalogTranslator("duts", self.translator).t(
-                "dut_open_failed", error=f"{default_duts_path()} ({exc})"
-            )
+        if self.duts is None:
+            error = f"{default_duts_path()} (damaged or not readable)"
+            text = CatalogTranslator("duts", self.translator).t("dut_open_failed", error=error)
             QMessageBox.warning(self, "Open Lab Automation", text)
             return
-        self._duts_tool = DutsDialog(registry, self.translator, self)
+
+        def run_dirs():  # the runs folder of the project that is open now
+            session = getattr(self.project_tab, "session", None)
+            return [session.run_dir] if session is not None else []
+
+        self._duts_tool = DutsDialog(self.duts, self.translator, run_dirs, self)
         self._duts_tool.show()
 
     def open_resistor_kits_tool(self):

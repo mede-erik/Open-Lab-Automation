@@ -1032,14 +1032,16 @@ tool groups by them.
    * ✅ **3a** the window *Tools > DUT* (`DutsDialog`, `DutEditDialog`, `DutVersionsDialog`): create, edit, retire, delete, versions,
      scan of a code, labels with the version and the key figures of the category (2026-11-17, [`docs/duts.md`](docs/duts.md)). It
      only adds: nothing is moved yet.
-   * **3b** the fields of the modules (`device`, `filter`) take a DUT code and, if wanted, a version; the card and the version go in
-     the header of the run (and the latest measurement on the label, the history of a DUT); the migration is called; antenna,
-     filter and generic leave the registry of components. All together, so that the antennas do not disappear from the
-     components before the modules can name them in the archive.
+   * ✅ **3b** (2026-11-17, [`docs/duts.md`](docs/duts.md)) the fields of the modules (`device`, `filter`) take a DUT code
+     (`dut_id`) and, if wanted, a version, in two form fields (`dut`, `dut_version`); the card, with its versions, goes in the header of
+     the run (`duts`), the comparison names the run after it, the DUT window has the history and the latest measurement on the label;
+     the migration runs at the start of the program (with a message) and antenna, filter and generic leave the registry of
+     components. A file made before the archive (`asset_id`) keeps working and the editor offers it as a `dut_id`. All together, so
+     that the antennas did not disappear from the components before the modules could name them in the archive.
    * Not moved: `amplifier` and `tdr` (their `device` is a component, an amplifier or a cable, that the module characterises), as
      `cable` and `attenuator`. The `device` of `bode`, `regulation`, `ripple`, `resistive_efficiency`, `return_loss`, `antenna` and
      the `filter` of `filter` are the DUT.
-4. Variants of a run.
+4. Variants of a run, and the efficiency file taking a DUT (`device.dut_id`, `version`) beside the name typed by hand.
 5. Labels for DUTs, reusing the label system of the components (see below).
 
 ### Labels for DUTs

@@ -27,5 +27,6 @@
   "ast_kind_generic": "Allgemein",
   "ast_attr_topology": "Topologie",
   "ast_attr_input_voltage": "Eingangsspannung",
-  "ast_attr_output_voltage": "Ausgangsspannung"
+  "ast_attr_output_voltage": "Ausgangsspannung",
+  "dut_migrated": "{n} Karte(n) von Antennen, Filtern oder allgemeinen Geräten von Kabel und Geräte nach Werkzeuge > DUT verschoben. Ihre Ergebnisse werden weiter gefunden, und der Code eines bereits aufgeklebten Etiketts funktioniert weiter."
 }

@@ -72,7 +72,10 @@ class AssetHistoryDialog(QDialog):
         translator: Any = None,
         parent: Optional[QWidget] = None,
         run_dirs: Sequence[Union[str, Path]] = (),
+        trend: bool = True,
     ):
+        """``trend``: offer the trend of a figure against the date (the ageing of a cable; not
+        for a device under test)."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("assets", translator)
         self._t = self.tr_.t
@@ -107,6 +110,7 @@ class AssetHistoryDialog(QDialog):
         self.trend_btn.clicked.connect(self.show_trend)
         close = QPushButton(self._t("ast_close"))
         close.clicked.connect(self.accept)
+        self.trend_btn.setVisible(trend)
         row_buttons.addWidget(self.trend_btn)
         row_buttons.addWidget(self.compare_btn)
         row_buttons.addWidget(close)

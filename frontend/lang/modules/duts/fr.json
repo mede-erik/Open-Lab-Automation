@@ -27,5 +27,6 @@
   "ast_kind_generic": "Générique",
   "ast_attr_topology": "Topologie",
   "ast_attr_input_voltage": "Tension d'entrée",
-  "ast_attr_output_voltage": "Tension de sortie"
+  "ast_attr_output_voltage": "Tension de sortie",
+  "dut_migrated": "{n} fiche(s) d'antennes, de filtres ou de dispositifs génériques déplacée(s) de Câbles et dispositifs vers Outils > DUT. Leurs résultats se retrouvent, et le code d'une étiquette déjà collée fonctionne encore."
 }

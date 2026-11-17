@@ -11,6 +11,7 @@ import pytest
 from ola.assets import AssetError, AssetRegistry
 from ola.duts import CATEGORIES, Dut, DutRegistry, default_path
 from ola.labels import PRESETS, build_drawing
+from tests.legacy_assets import add_legacy
 
 
 @pytest.fixture
@@ -147,9 +148,9 @@ def test_the_card_saved_with_a_run_has_its_versions(archive):
 # ---- the migration from the components ---------------------------------------------------------
 def test_antennas_filters_and_generic_devices_move_and_the_components_stay(archive, components):
     cable = components.create("cable", "RG316", attributes={"length_m": 1.0})
-    antenna = components.create("antenna", "868 MHz whip")
-    flt = components.create("filter", "SAW 868")
-    other = components.create("other", "Pippo board")
+    antenna = add_legacy(components, "antenna", "868 MHz whip")
+    flt = add_legacy(components, "filter", "SAW 868")
+    other = add_legacy(components, "other", "Pippo board")
     ids = {c.id: c.uid for c in (cable, antenna, flt, other)}
     assert (antenna.id, flt.id, other.id) == ("ANT-0001", "FLT-0001", "DUT-0001")
 
@@ -164,15 +165,15 @@ def test_antennas_filters_and_generic_devices_move_and_the_components_stay(archi
 
 
 def test_a_generic_card_keeps_its_code_and_the_others_get_the_next_ones(archive, components):
-    components.create("antenna", "whip")  # ANT-0001, first in the file
-    components.create("other", "board")  # DUT-0001, already a DUT code
+    add_legacy(components, "antenna", "whip")  # ANT-0001, first in the file
+    add_legacy(components, "other", "board")  # DUT-0001, already a DUT code
     archive.migrate_from(components)
     assert archive.get("DUT-0001").name == "board"  # kept
     assert archive.get("DUT-0002").name == "whip"  # the next number after the highest kept
 
 
 def test_an_old_code_still_finds_the_card_so_a_stuck_label_works(archive, components):
-    antenna = components.create("antenna", "868 MHz whip")
+    antenna = add_legacy(components, "antenna", "868 MHz whip")
     archive.migrate_from(components)
     card = archive.find("OLA:ANT-0001")
     assert card is not None and card.uid == antenna.uid and card.id == "DUT-0001"
@@ -181,9 +182,10 @@ def test_an_old_code_still_finds_the_card_so_a_stuck_label_works(archive, compon
 
 
 def test_the_data_of_the_card_goes_with_it(archive, components):
-    components.create(
-        "filter", "SAW 868", "868 MHz band pass", {"frequency": 868e6}, serial="7", owner="lab"
-    )
+    add_legacy(
+        components, "filter", "SAW 868", "868 MHz band pass", {"frequency": 868e6},
+        serial="7", owner="lab",
+    )  # fmt: skip
     components.update("FLT-0001", retired=True)
     archive.migrate_from(components)
     card = archive.get("DUT-0001")
@@ -192,12 +194,12 @@ def test_the_data_of_the_card_goes_with_it(archive, components):
 
 
 def test_migrating_again_moves_nothing_and_a_stop_in_the_middle_loses_nothing(archive, components):
-    components.create("antenna", "whip")
+    add_legacy(components, "antenna", "whip")
     assert len(archive.migrate_from(components)) == 1
     assert archive.migrate_from(components) == []
     # the archive was written, the components were not (a stop in the middle): the card is
     # in both files, and doing it again only takes it out of the components
-    components.create("filter", "SAW")
+    add_legacy(components, "filter", "SAW")
     first = archive.migrate_from(components)
     assert len(first) == 1
     backup = AssetRegistry(components.path)
@@ -210,7 +212,7 @@ def test_migrating_again_moves_nothing_and_a_stop_in_the_middle_loses_nothing(ar
 
 def test_a_dut_code_taken_by_another_device_is_not_reused(archive, components):
     archive.create("converter", "already here")  # DUT-0001 in the archive
-    components.create("other", "from the components")  # DUT-0001 there too
+    add_legacy(components, "other", "from the components")  # DUT-0001 there too
     archive.migrate_from(components)
     assert archive.get("DUT-0001").name == "already here"
     moved = archive.get("DUT-0002")

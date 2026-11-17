@@ -27,5 +27,6 @@
   "ast_kind_generic": "Generico",
   "ast_attr_topology": "Topologia",
   "ast_attr_input_voltage": "Tensione d'ingresso",
-  "ast_attr_output_voltage": "Tensione d'uscita"
+  "ast_attr_output_voltage": "Tensione d'uscita",
+  "dut_migrated": "{n} scheda/e di antenne, filtri o dispositivi generici spostate da Cavi e dispositivi a Strumenti > DUT. I loro risultati si ritrovano ancora, e il codice di un'etichetta già incollata funziona ancora."
 }

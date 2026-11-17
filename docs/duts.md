@@ -8,9 +8,8 @@ naming one, and then nothing is remembered about it.
 
 The design and the stages are in [`PLAN.md`](../PLAN.md#12-devices-under-test-dut-archive). This page describes what is
 built. The logic is in [`ola/duts.py`](../ola/duts.py) (no Qt); the windows are `DutsDialog`, `DutEditDialog` and
-`DutVersionsDialog` in `frontend/ui/`. **The measurements do not name a DUT from the archive yet** and the antennas and
-filters are still in the registry of components: that is the last step (the efficiency file takes a name typed by hand
-until then).
+`DutVersionsDialog` in `frontend/ui/`. The measurements name their DUT from the archive ([below](#in-a-measurement)); the
+efficiency file still takes a name typed by hand (it will take a DUT together with the variants of a run).
 
 ## The window
 
@@ -23,9 +22,11 @@ retired DUT can be hidden.
 * **Versions...**: the versions of the selected DUT: add one (free text and an optional note), retire one or bring it back.
 * **Retire / Delete**: a retired DUT stays in the list, greyed, and in its old results; deleting asks first and the code is
   not given again.
+* **History...**: the measurements made on the selected DUT, found by its code (and by the codes it had before), with
+  *Compare* ([`compare.md`](compare.md)). The *Measurements* column counts them in the runs folder of the open project.
 * **Label...**: the labels of the selected DUTs, with the window of the components ([`assets.md`](assets.md)): the code, a QR
-  code, the name, the version and the key figures of its category (an antenna: frequency range and gain; a filter: type and
-  frequency; a converter: topology, input to output voltage and power). There is no line for the latest measurement yet.
+  code, the name, the version, the key figures of its category (an antenna: frequency range and gain; a filter: type and
+  frequency; a converter: topology, input to output voltage and power) and the latest measurement.
 * **Scan or type a code**: a USB barcode scanner types `OLA:DUT-0001` in the box and the DUT is selected. The code a card had
   before the move from the components (`ANT-0003`) finds it too.
 
@@ -62,17 +63,37 @@ archive.current_version(dut.id)                                  # "rev B"
 archive.find("OLA:dut-1")                                        # a QR or a scanner gives the code
 ```
 
+## In a measurement
+
+The measurements whose subject is a device under test (`return_loss`, `antenna`, `filter`, `bode`, `regulation`, `ripple`
+and `resistive_efficiency`) take, in `device` (in `filter` for the filter measurement):
+
+| Key | What |
+|---|---|
+| `dut_id` | the code of a DUT of the archive (`DUT-0001`); optional: a measurement can be made without naming one |
+| `version` | the version of that DUT, free text; optional |
+| `label` | the name written in the results; filled from the card when it is empty |
+
+In the editor of each of them there are two fields: **Device under test (DUT archive)**, with the cards (the antenna form
+only offers antennas, the filter form only filters), and **Version of the DUT**, which lists the versions that are not retired
+and puts the one in use now when a DUT is chosen. The version can be typed too: a name the DUT does not have is a warning, not an
+error. `amplifier`, `tdr`, `cable` and `attenuator` do not name a DUT: what they characterise is a component, so their
+`device` stays a code of the registry of components (`asset_id`).
+
+The header of every run keeps the **card of that day** with its versions (`"duts": {"DUT-0001": {...}}`), as it does for the
+components, so a result says which device it was made on and in which version, whatever happens to the card later; the
+comparison tool names the run after it. A file made before the archive names its device with an `asset_id`: it works as it
+did, and the editor offers it again as a `dut_id` once the card has moved (below).
+
 ## Moving the antennas and filters from the components
 
-Until now antennas, filters and the generic `DUT` cards were in the registry of components. `archive.migrate_from(components)`
-moves them (kinds `antenna`, `filter`, `other`):
+Antennas, filters and the generic `DUT` cards used to be in the registry of components. At the start of the program
+`archive.migrate_from(components)` moves them (kinds `antenna`, `filter`, `other`), and a message says how many moved:
 
 * the card keeps its data and its `uid`, so the runs it was measured in still find it;
 * it gets the next `DUT` code, and the code it had goes to `former_codes`: **a label already stuck on the antenna
   (`ANT-0003`) still finds the card**. A card that already has a `DUT` code keeps it, unless the archive has that code for
   another device;
 * the archive is written first and the components after, so a stop in the middle loses nothing, and doing it again moves
-  only what is left. The registry of components keeps its `.bak`.
-
-Nothing calls it yet: the last step will, together with the change of the fields of the measurements, so that the
-antennas and filters do not disappear from the components before the measurements can name them in the archive.
+  only what is left. The registry of components keeps its `.bak`. The registry of components has no antenna, filter or
+  generic kind any more.

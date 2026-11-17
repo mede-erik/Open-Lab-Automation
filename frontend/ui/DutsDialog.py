@@ -20,7 +20,8 @@ Strings: ``frontend/lang/modules/duts/<lang>.json``, then the ones of ``modules/
 """
 
 import sys
-from typing import Any, Dict, List, Optional, Sequence
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
@@ -45,8 +46,10 @@ from frontend.ui.DutEditDialog import DutEditDialog
 from frontend.ui.DutVersionsDialog import DutVersionsDialog
 from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator, ChainedTranslator
-from ola.assets import AssetError, normalize_code
-from ola.duts import CATEGORIES, Dut, DutRegistry
+from ola.assets import AssetError, RunRef, last_measurement_line, normalize_code, runs_of
+from ola.duts import CATEGORIES, Dut, DutRegistry, index_dut_runs
+
+RunDirs = Union[Sequence[Union[str, Path]], Callable[[], Sequence[Union[str, Path]]]]
 
 
 class DutsDialog(QDialog):
@@ -56,9 +59,11 @@ class DutsDialog(QDialog):
         self,
         registry: Optional[DutRegistry] = None,
         translator: Any = None,
+        run_dirs: RunDirs = (),
         parent: Optional[QWidget] = None,
     ):
-        """``registry``: the cards (the default file if omitted; ``AssetError`` if damaged)."""
+        """``registry``: the cards (the default file if omitted; ``AssetError`` if damaged).
+        ``run_dirs``: the runs folders to count and search, or a function that gives them now."""
         super().__init__(parent)
         self.tr_ = ChainedTranslator(
             CatalogTranslator("duts", translator), CatalogTranslator("assets", translator)
@@ -66,11 +71,18 @@ class DutsDialog(QDialog):
         self._t = self.tr_.t
         self.translator = translator
         self.registry = registry if registry is not None else DutRegistry()
+        self._run_dirs = run_dirs
+        self.index: Dict[str, List[RunRef]] = {}
         self._shown: List[Dut] = []
         self.setWindowTitle(self._t("dut_title"))
         self.resize(980, 560)
         self._build_ui()
         self.refresh()
+
+    def run_dirs(self) -> List[Union[str, Path]]:
+        """The runs folders now."""
+        dirs = self._run_dirs() if callable(self._run_dirs) else self._run_dirs
+        return list(dirs)
 
     # ================================================================ building
     def _build_ui(self) -> None:
@@ -94,9 +106,10 @@ class DutsDialog(QDialog):
         top.addWidget(self.category_box)
         top.addWidget(self.retired_box)
         root.addLayout(top)
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 8)
         columns = ("ast_col_code", "dut_col_category", "ast_col_name", "dut_col_version",
-                   "ast_col_description", "ast_col_created", "ast_col_status")  # fmt: skip
+                   "ast_col_description", "ast_col_created", "ast_col_runs",
+                   "ast_col_status")  # fmt: skip
         self.table.setHorizontalHeaderLabels([self._t(c) for c in columns])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -113,6 +126,7 @@ class DutsDialog(QDialog):
             ("ast_retire", self.toggle_retired),
             ("ast_delete", self.delete_selected),
             ("ast_label", self.make_labels),
+            ("ast_history", self.show_history),
         ):
             button = QPushButton(self._t(key))
             button.clicked.connect(lambda _c=False, h=handler: h())
@@ -127,14 +141,16 @@ class DutsDialog(QDialog):
     def refresh(self) -> None:
         """Read the archive again and redraw the table (the selection is kept)."""
         keep = [d.id for d in self.selected()]
+        self.index = index_dut_runs(self.run_dirs())
         category = self.category_box.currentData()
         self._shown = self.registry.list(category, self.retired_box.isChecked())  # type: ignore
         self.table.setRowCount(len(self._shown))
         for row, dut in enumerate(self._shown):
             status = self._t("ast_retired") if dut.retired else self._t("ast_active")
             version = self.registry.current_version(dut.id) or ""
+            runs = runs_of(dut, self.index)
             cells = (dut.id, self._t(f"ast_kind_{dut.kind}"), dut.name, version, dut.description,
-                     dut.created, status)  # fmt: skip
+                     dut.created, str(len(runs)), status)  # fmt: skip
             for col, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 if dut.retired:
@@ -154,7 +170,7 @@ class DutsDialog(QDialog):
     def _update_buttons(self) -> None:
         chosen = self.selected()
         one = len(chosen) == 1
-        for key in ("ast_edit", "ast_delete", "dut_versions"):
+        for key in ("ast_edit", "ast_delete", "dut_versions", "ast_history"):
             self.buttons[key].setEnabled(one)
         self.buttons["ast_retire"].setEnabled(bool(chosen))
         self.buttons["ast_label"].setEnabled(bool(chosen))
@@ -232,6 +248,9 @@ class DutsDialog(QDialog):
             return
         dut = chosen[0]
         text = self._t("dut_confirm_delete", code=dut.id, name=dut.name)
+        used = len(runs_of(dut, self.index))
+        if used:
+            text += "\n" + self._t("ast_confirm_delete_used", n=used)
         if QMessageBox.question(self, self._t("ast_delete"), text) != (
             QMessageBox.StandardButton.Yes
         ):
@@ -249,15 +268,34 @@ class DutsDialog(QDialog):
         chosen = self.selected()
         if not chosen:
             return
-        # the latest measurement of a DUT is not known yet: no line for it
-        self.label_tool = LabelDialog(chosen, self.translator, lambda _dut: "", self)
+
+        def latest(dut: Dut) -> str:
+            runs = runs_of(dut, self.index)
+            return last_measurement_line(runs[-1] if runs else None)
+
+        self.label_tool = LabelDialog(chosen, self.translator, latest, self)
         self.label_tool.show()
+
+    def show_history(self) -> None:
+        """The measurements made on the selected DUT, found by its code (and by the codes it had
+        before), with *Compare*."""
+        from frontend.ui.AssetsDialog import AssetHistoryDialog
+
+        chosen = self.selected()
+        if len(chosen) != 1:
+            return
+        runs = runs_of(chosen[0], self.index)
+        self.history_tool = AssetHistoryDialog(
+            chosen[0], runs, self.translator, self, self.run_dirs(), trend=False
+        )
+        self.history_tool.show()
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    """Open the DUT window (``python -m frontend.ui.DutsDialog``)."""
+    """Open the DUT window (``python -m frontend.ui.DutsDialog [runs folder ...]``)."""
+    argv = list(sys.argv[1:] if argv is None else argv)
     app = QApplication.instance() or QApplication(sys.argv)
-    dialog = DutsDialog()
+    dialog = DutsDialog(run_dirs=argv)
     dialog.show()
     return app.exec()
 

@@ -35,7 +35,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
-from .assets import Asset, AssetError, AssetRegistry, normalize_code
+from .assets import Asset, AssetError, AssetRegistry, RunRef, index_runs, normalize_code
 
 ENV_FILE = "OLA_DUTS_FILE"
 PREFIX = "DUT"  # one sequence of codes for every category: DUT-0001, DUT-0002...
@@ -64,6 +64,10 @@ CATEGORIES: Dict[str, Dict[str, Any]] = {
 
 # the kinds of the registry of components that are devices under test, and the category they get
 MIGRATED_KINDS: Dict[str, str] = {"antenna": "antenna", "filter": "filter", "other": "generic"}
+# where a measurement file names its device under test: ``device`` (or ``filter``) with ``dut_id``
+# (a code of the archive) and ``version`` (free text, optional). A file made before the archive
+# named it with ``asset_id``, a code of the registry of components, and still works.
+DUT_GROUPS = ("device", "filter")
 
 
 def default_path() -> Path:
@@ -264,12 +268,77 @@ class DutRegistry(AssetRegistry):
         return moved
 
 
+def dut_ids_in(params: Mapping[str, Any], legacy: bool = False) -> List[str]:
+    """The codes of the devices under test a measurement file names (``device.dut_id``,
+    ``filter.dut_id``), normalised, without repeats. With ``legacy`` the ``asset_id`` of those
+    groups counts too: the code a file made before the archive used for the same device."""
+    found: List[str] = []
+    for group in DUT_GROUPS:
+        item = params.get(group)
+        if not isinstance(item, Mapping):
+            continue
+        for key in ("dut_id", "asset_id") if legacy else ("dut_id",):
+            value = item.get(key)
+            code = normalize_code(value) if isinstance(value, str) else None
+            if code and code not in found:
+                found.append(code)
+    return found
+
+
+def dut_snapshots_for(params: Mapping[str, Any], registry: Optional[DutRegistry]) -> Dict[str, Any]:
+    """The cards of the devices under test a measurement names, as they are now: ``{code: card}``
+    (the card has its versions). Saved in the header of the run, so the card of that day stays with
+    its results. A code the archive does not have is left out; a file made before the archive
+    names the device with an ``asset_id``, which is found too (also by an old code)."""
+    if registry is None:
+        return {}
+    out: Dict[str, Any] = {}
+    for code in dut_ids_in(params, legacy=True):
+        card = registry.get(code)
+        if card is not None:
+            out[card.id] = card.snapshot()
+    return out
+
+
+def upgrade_params(params: Dict[str, Any], registry: Optional[DutRegistry]) -> bool:
+    """Make a file made before the archive name its device the new way: an ``asset_id`` in
+    ``device`` or ``filter`` that is a card of the archive (moved from the components, an old code
+    works) becomes its ``dut_id``. ``params`` is changed; returns True if anything was."""
+    if registry is None:
+        return False
+    changed = False
+    for group in DUT_GROUPS:
+        item = params.get(group)
+        if not isinstance(item, dict) or item.get("dut_id") or not item.get("asset_id"):
+            continue
+        card = registry.get(str(item["asset_id"]))
+        if card is not None:
+            item["dut_id"] = card.id
+            del item["asset_id"]
+            changed = True
+    return changed
+
+
+def index_dut_runs(run_dirs: Any) -> Dict[str, List[RunRef]]:
+    """``ola.assets.index_runs`` for the devices under test: the runs of the folders grouped by
+    the DUT codes they name (a run made before the archive, with an ``asset_id``, is found by its
+    code, now or before). Use ``ola.assets.runs_of(dut, index)`` to take the runs of one DUT."""
+    return index_runs(
+        run_dirs, ids_in=lambda params: dut_ids_in(params, legacy=True), cards_key="duts"
+    )
+
+
 __all__ = [
     "CATEGORIES",
+    "DUT_GROUPS",
     "Dut",
     "DutRegistry",
     "ENV_FILE",
     "MIGRATED_KINDS",
     "PREFIX",
     "default_path",
+    "dut_ids_in",
+    "dut_snapshots_for",
+    "index_dut_runs",
+    "upgrade_params",
 ]

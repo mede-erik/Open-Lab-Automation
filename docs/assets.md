@@ -1,6 +1,7 @@
 # Cables and devices: codes, cards and labels
 
-Every physical object that is measured (a cable, an antenna, a filter, an amplifier, an attenuator, an adapter...) can have a **code**
+Every **component** of a measurement (a cable, an amplifier, an attenuator, an adapter), the things that sit in the signal path, have an
+effect on the result and can be used for a correction or de-embedding, can have a **code**
 (`CBL-0042`) and a **card** that says what it is. The code is printed on a **label** stuck on the object, with a QR
 code, and is saved in every measurement made on it, so a result always says **which** cable it was made on, and a
 cable has a history. Open it from **Tools > Cables and devices**; from the command line:
@@ -16,13 +17,12 @@ rendered label.
 One JSON file for **all projects** (a cable is used in many): `~/.open_lab_automation/assets.json`, or the file named by
 the environment variable `OLA_ASSETS_FILE` (for example in a shared folder). It holds cards only, not results.
 
-* **Code**: a prefix for the kind and a number: `CBL` cable, `ANT` antenna, `FLT` filter, `AMP` amplifier, `ATT` attenuator, `ADP` adapter,
-  `DUT` any other device. Numbers count up per kind and are **never used again**, not even after a deletion or a restart.
+* **Code**: a prefix for the kind and a number: `CBL` cable, `AMP` amplifier, `ATT` attenuator, `ADP` adapter. Antennas, filters and any
+  other device under test are **not** components: they are in the [DUT archive](duts.md) (`DUT-0001`). Numbers count up per kind and are **never used again**, not even after a deletion or a restart.
   If two people work on separate copies of the file the numbers can clash: share one file.
 * **Identity (`uid`)**: every card also has a `uid`, a random identifier that never changes. The code is what you see and print, but it can change (two registries joined into a shared archive may force a new code, and the old one is kept in `former_codes`). A run saves the card of that day with its `uid`, so the history of a cable follows the `uid`, and two different cables that once had the same code are not mixed. Runs made before the `uid` existed are found by the code (and the former codes). Planned use: `docs/proposals/shared-archive.md`.
 * **Card**: name (required), what it is, manufacturer, serial number, owner, notes, the date it was created, and
-  *details* that depend on the kind (a cable: type, connectors, length; an antenna: frequency range, connector, gain; a
-  filter: type, frequency, connectors; an amplifier: nominal gain, supply; an attenuator: nominal value, tolerance, maximum power and frequency, connectors). A detail that is a measure is stored as a
+  *details* that depend on the kind (a cable: type, connectors, length; an amplifier: nominal gain, supply; an attenuator: nominal value, tolerance, maximum power and frequency, connectors). A detail that is a measure is stored as a
   number (`1.5 m`, `868M` become `1.5` and `868000000`), anything else as text; *Other details* takes `name = value` lines.
 * **Retire** a cable that is no longer used: it stays in the list (greyed) and in its old results, and is not offered for
   new measurements. **Delete** only a card made by mistake: the results that name it keep the code but lose the card
@@ -34,7 +34,8 @@ the environment variable `OLA_ASSETS_FILE` (for example in a shared folder). It 
 
 ## In the measurements
 
-The editors of the cable, return-loss, antenna, amplifier, filter and [attenuator](attenuator.md) measurements have a field **"... from the registry"**:
+The editors of the cable, amplifier and [attenuator](attenuator.md) measurements, and the correction of the others (a cable or a pad taken out of the
+result), have a field **"... from the registry"**. The device under test of the other measurements is a [DUT](duts.md):
 pick the code, type it or scan the label. The name field is filled from the card if it is empty (a name you typed is kept).
 A code that is not in the registry is a warning, not an error; something that is not a code marks the field.
 

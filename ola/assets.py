@@ -17,8 +17,9 @@ measurements made on an object are found by the code that every run of it has sa
     registry.find("OLA:CBL-0001")                    # what a barcode scanner or a QR gives
     history("CBL-0001", [project_dir / "runs"])      # the runs that used this cable
 
-Kinds: ``cable``, ``antenna``, ``filter``, ``amplifier``, ``attenuator``, ``adapter``, ``other``
-(see ``KINDS``).
+Kinds: ``cable``, ``amplifier``, ``attenuator``, ``adapter`` (see ``KINDS``): the components of a
+measurement, which sit in the signal path and can be used for a correction or de-embedding. A device
+under test is not one: it has its own archive (``ola.duts``).
 Reading is forgiving (keys it does not know are kept) and saving is atomic (a power cut never
 leaves a half-written file; the previous version is kept as ``assets.json.bak``).
 """
@@ -47,14 +48,6 @@ KINDS: Dict[str, Dict[str, Any]] = {
         "prefix": "CBL",
         "attributes": [("cable_type", ""), ("connectors", ""), ("length_m", "m")],
     },
-    "antenna": {
-        "prefix": "ANT",
-        "attributes": [("frequency_range", ""), ("connector", ""), ("gain_dbi", "dBi")],
-    },
-    "filter": {
-        "prefix": "FLT",
-        "attributes": [("filter_type", ""), ("frequency", "Hz"), ("connectors", "")],
-    },
     "amplifier": {
         "prefix": "AMP",
         "attributes": [("nominal_gain_db", "dB"), ("supply", ""), ("connectors", "")],
@@ -70,8 +63,9 @@ KINDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "adapter": {"prefix": "ADP", "attributes": [("connectors", "")]},
-    "other": {"prefix": "DUT", "attributes": []},
 }
+# Antennas, filters and the generic ``DUT`` cards used to be kinds of this registry. They are
+# devices under test, in their own archive (``ola.duts``), which moves old cards from here.
 ASSET_GROUPS = (
     "cable",
     "device",
@@ -391,12 +385,19 @@ def _end_state(path: Path) -> str:
     return "interrupted"
 
 
-def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
+def index_runs(
+    run_dirs: Iterable[Union[str, Path]],
+    ids_in: Optional[Any] = None,
+    cards_key: str = "assets",
+) -> Dict[str, List[RunRef]]:
     """Every run file of the folders, grouped by the codes it names: ``{code: [RunRef, ...]}``,
     each list oldest first. One pass over the files (the first line of each), for a table of all
-    the cables with how many times each was measured."""
+    the cables with how many times each was measured. ``ids_in(params)`` gives the codes a run
+    names (``asset_ids_in``, the components) and ``cards_key`` is where its header keeps their
+    cards (``"assets"``); the devices under test pass their own (``ola.duts.index_dut_runs``)."""
     from .compare import run_date
 
+    ids_in = ids_in or asset_ids_in
     out: Dict[str, List[RunRef]] = {}
     for folder in run_dirs:
         folder = Path(folder)
@@ -406,10 +407,10 @@ def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
             header = read_header(path)
             if header is None:
                 continue
-            codes = asset_ids_in(header.get("params") or {})
+            codes = ids_in(header.get("params") or {})
             if not codes:
                 continue
-            cards = header.get("assets") if isinstance(header.get("assets"), dict) else {}
+            cards = header.get(cards_key) if isinstance(header.get(cards_key), dict) else {}
             uids = {
                 code: (cards.get(code) or {}).get("uid") or None
                 for code in codes
