@@ -1026,7 +1026,8 @@ tool groups by them.
 ### Stages
 
 1. This plan, and the distinction between components and DUT in the documents.
-2. `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests.
+2. ✅ `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests (2026-11-17,
+   [`docs/duts.md`](docs/duts.md)). Nothing calls the migration yet: the window of stage 3 will.
 3. The window of the archive (create, edit, retire, versions), and the fields of the modules that name a DUT; the card and the
    version in the header of the run; antenna and filter leave the registry of components.
 4. Variants of a run.

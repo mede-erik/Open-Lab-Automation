@@ -170,10 +170,22 @@ def qr_text(code: str) -> str:
 
 
 class AssetRegistry:
-    """The cards, in a JSON file (see the module docstring)."""
+    """The cards, in a JSON file (see the module docstring).
+
+    The class attributes say what the cards are, so the archive of devices under test
+    (``ola.duts``) is the same machinery with its own cards, kinds and file."""
+
+    card_class = Asset  # what one card is
+    kinds = KINDS  # kind -> the prefix of its codes and the attributes its card suggests
+    title = "registry of cables and devices"  # for the messages
+    what = "cable or device"
+
+    def _default_path(self) -> Path:
+        """The file used when no path is given."""
+        return default_path()
 
     def __init__(self, path: Union[str, Path, None] = None):
-        self.path = Path(path) if path else default_path()
+        self.path = Path(path) if path else self._default_path()
         self.assets: List[Asset] = []
         self.counters: Dict[str, int] = {}  # prefix -> the last number given (never goes back)
         self._extra: Dict[str, Any] = {}
@@ -191,10 +203,10 @@ class AssetRegistry:
         except (OSError, ValueError) as exc:
             raise AssetError(f"cannot read the registry {self.path}: {exc}") from exc
         if not isinstance(raw, dict) or not isinstance(raw.get("assets", []), list):
-            raise AssetError(f"{self.path}: not a registry of cables and devices")
+            raise AssetError(f"{self.path}: not a {self.title}")
         if raw.get("format_version", FORMAT_VERSION) > FORMAT_VERSION:
             raise AssetError(f"{self.path}: made by a newer version of the program")
-        self.assets = [Asset.from_dict(item) for item in raw.get("assets", [])]
+        self.assets = [self.card_class.from_dict(item) for item in raw.get("assets", [])]
         missing_uid = any(not item.get("uid") for item in raw.get("assets", []))
         counters = raw.get("counters", {})
         self.counters = (
@@ -254,17 +266,17 @@ class AssetRegistry:
     ) -> Asset:
         """Add a card with the next code of its kind (``manufacturer``, ``serial``, ``owner`` and
         ``notes`` can be given as keywords). ``AssetError`` for an unknown kind or an empty name."""
-        if kind not in KINDS:
-            raise AssetError(f"unknown kind {kind!r}: use one of {', '.join(KINDS)}")
+        if kind not in self.kinds:
+            raise AssetError(f"unknown kind {kind!r}: use one of {', '.join(self.kinds)}")
         if not name.strip():
             raise AssetError("the name cannot be empty")
         unknown = set(fields) - {"manufacturer", "serial", "owner", "notes"}
         if unknown:
             raise AssetError(f"unknown field(s) {sorted(unknown)}")
-        prefix = KINDS[kind]["prefix"]
+        prefix = self.kinds[kind]["prefix"]
         number = self.counters.get(prefix, 0) + 1
         self.counters[prefix] = number
-        asset = Asset(
+        asset = self.card_class(
             id=f"{prefix}-{number:04d}",
             kind=kind,
             name=name.strip(),
@@ -314,7 +326,7 @@ class AssetRegistry:
     def _need(self, code: str) -> Asset:
         asset = self.get(code)
         if asset is None:
-            raise AssetError(f"no cable or device with the code {code!r}")
+            raise AssetError(f"no {self.what} with the code {code!r}")
         return asset
 
     def choices(self, kind: Optional[str] = None) -> List[str]:
