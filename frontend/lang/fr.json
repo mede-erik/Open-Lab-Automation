@@ -669,5 +669,15 @@
   "dbc_saved": "Configuration enregistrée !\n\nEmplacement : {location}\n\nLe mot de passe est chiffré par sécurité.",
   "dbc_success": "Succès",
   "dbc_error_title": "Erreur",
-  "dbc_save_failed": "Impossible d'enregistrer la configuration : {error}"
+  "dbc_save_failed": "Impossible d'enregistrer la configuration : {error}",
+  "ilb_col_name": "Nom",
+  "ilb_col_type": "Type",
+  "ilb_col_channels": "Voies",
+  "ilb_details_title": "Détails de l'instrument",
+  "ilb_select_hint": "Sélectionnez un instrument pour voir ses détails",
+  "ilb_add_new": "Ajouter un instrument",
+  "ilb_refresh": "Actualiser",
+  "ilb_node_type": "Type",
+  "ilb_node_series": "Série",
+  "ilb_node_model": "Modèle"
 }

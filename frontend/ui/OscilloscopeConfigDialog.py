@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetIte
                               QCheckBox, QLineEdit, QDialogButtonBox, QLabel,
                               QSizePolicy, QHeaderView)
 from PyQt6.QtGui import QDoubleValidator
+from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
 from frontend.ui.theme_utils import set_class
 
 class OscilloscopeConfigDialog(QDialog):
@@ -21,6 +22,7 @@ class OscilloscopeConfigDialog(QDialog):
         self.setWindowTitle(self.translator.t('oscilloscope_channel_config') if self.translator else "Configurazione Canali Oscilloscopio")
         self.instrument = instrument
         self.load_instruments = load_instruments
+        resize_to_screen(self, 640, 380)
         
         # --- Sync channels with capabilities ---
         capabilities = instrument.get('capabilities', {})
@@ -99,15 +101,7 @@ class OscilloscopeConfigDialog(QDialog):
             probe_edit.textChanged.connect(lambda val, r=row: self.on_probe_changed(r, val))
             self.table.setCellWidget(row, 3, probe_edit)
         
-        self.table.resizeColumnsToContents()
-        # Configurazione ridimensionamento tabella per adattarsi al dialog
-        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Checkbox
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # ID canale
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Nome segnale
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Attenuazione
-        
+        fit_table_to_rows(self.table, fixed_columns=(0, 1))
         layout.addWidget(self.table)
         
         # Info label
@@ -119,6 +113,7 @@ class OscilloscopeConfigDialog(QDialog):
         set_class(info_label, "muted")
         info_label.setStyleSheet("font-size: 10px;")
         layout.addWidget(info_label)
+        layout.addStretch(1)  # the extra height goes below the table, not between its parts
         
         # Pulsanti OK/Annulla
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)

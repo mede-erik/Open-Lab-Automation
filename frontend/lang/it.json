@@ -670,5 +670,15 @@
   "dbc_saved": "Configurazione salvata!\n\nPosizione: {location}\n\nLa password è cifrata per sicurezza.",
   "dbc_success": "Operazione riuscita",
   "dbc_error_title": "Errore",
-  "dbc_save_failed": "Impossibile salvare la configurazione: {error}"
+  "dbc_save_failed": "Impossibile salvare la configurazione: {error}",
+  "ilb_col_name": "Nome",
+  "ilb_col_type": "Tipo",
+  "ilb_col_channels": "Canali",
+  "ilb_details_title": "Dettagli strumento",
+  "ilb_select_hint": "Seleziona uno strumento per vedere i dettagli",
+  "ilb_add_new": "Aggiungi nuovo strumento",
+  "ilb_refresh": "Aggiorna",
+  "ilb_node_type": "Tipo",
+  "ilb_node_series": "Serie",
+  "ilb_node_model": "Modello"
 }

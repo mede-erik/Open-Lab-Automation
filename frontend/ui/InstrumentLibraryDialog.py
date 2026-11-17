@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                              QTreeWidget, QTreeWidgetItem, QSplitter, 
                              QTextEdit, QLabel, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, QSettings
+from PyQt6.QtWidgets import QHeaderView, QTreeWidgetItemIterator
+from frontend.ui.layout_utils import resize_to_screen
 from PyQt6.QtWidgets import QWidget 
 from frontend.core.LoadInstruments import LoadInstruments
 
@@ -24,13 +26,20 @@ class InstrumentLibraryDialog(QDialog):
         # Usa translator.t se disponibile, altrimenti lascia la stringa così com'è
         t = getattr(self.translator, 't', None) if self.translator is not None else None
         _ = t if callable(t) else (lambda s: s)
-        self.setWindowTitle(str(_('Instrument Library')))
-        self.setGeometry(100, 100, 900, 600)
+        self.setWindowTitle(str(_('instrument_library')))
+        resize_to_screen(self, 1000, 640)
 
         self.main_layout = QVBoxLayout(self)
         self.setLayout(self.main_layout)
 
         self.init_ui()
+
+    def _t(self, key):
+        """A fixed text of the window in the language of the application (English without one)."""
+        if self.translator is None or not callable(getattr(self.translator, 't', None)):
+            from frontend.core.Translator import Translator
+            self.translator = Translator()
+        return str(self.translator.t(key))
 
     def init_ui(self):
         # Layout principale orizzontale con splitter
@@ -43,13 +52,23 @@ class InstrumentLibraryDialog(QDialog):
         left_widget.setLayout(left_panel)
         
         # Etichetta per la vista ad albero
-        tree_label = QLabel("Libreria Strumenti")
+        tree_label = QLabel(self._t("instrument_library"))
         tree_label.setStyleSheet("font-weight: bold; padding: 5px;")
         left_panel.addWidget(tree_label)
         
         # TreeWidget per mostrare la struttura della libreria
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Nome", "Tipo", "Canali"])
+        self.tree_widget.setHeaderLabels(
+            [self._t("ilb_col_name"), self._t("ilb_col_type"), self._t("ilb_col_channels")]
+        )
+        # the names of the series are long: the first column has a fixed width, they are cut at the end
+        header = self.tree_widget.header()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        self.tree_widget.setColumnWidth(0, 380)
+        self.tree_widget.setTextElideMode(Qt.TextElideMode.ElideRight)
+        for column in (1, 2):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         self.tree_widget.itemClicked.connect(self.on_item_selected)
         left_panel.addWidget(self.tree_widget)
         
@@ -67,9 +86,9 @@ class InstrumentLibraryDialog(QDialog):
         
         # Pulsanti
         button_layout = QHBoxLayout()
-        add_instrument_btn = QPushButton("Aggiungi Nuovo Strumento")
+        add_instrument_btn = QPushButton(self._t("ilb_add_new"))
         add_instrument_btn.clicked.connect(self.add_new_instrument)
-        refresh_btn = QPushButton("Aggiorna")
+        refresh_btn = QPushButton(self._t("ilb_refresh"))
         refresh_btn.clicked.connect(self.populate_tree)
         
         button_layout.addWidget(add_instrument_btn)
@@ -85,20 +104,23 @@ class InstrumentLibraryDialog(QDialog):
         right_widget.setLayout(right_panel)
         
         # Etichetta per i dettagli
-        details_label = QLabel("Dettagli Strumento")
+        details_label = QLabel(self._t("ilb_details_title"))
         details_label.setStyleSheet("font-weight: bold; padding: 5px;")
         right_panel.addWidget(details_label)
         
         # Area di testo per i dettagli
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
-        self.details_text.setPlainText("Seleziona uno strumento per vedere i dettagli")
+        self.details_text.setPlainText(self._t("ilb_select_hint"))
         right_panel.addWidget(self.details_text)
         
         splitter.addWidget(right_widget)
         
         # Imposta le proporzioni del splitter (70% sinistra, 30% destra)
-        splitter.setSizes([500, 300])
+        splitter.setChildrenCollapsible(False)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([600, 400])
         
         # Popola l'albero inizialmente
         self.populate_tree()
@@ -163,7 +185,7 @@ class InstrumentLibraryDialog(QDialog):
             type_item = QTreeWidgetItem(self.tree_widget)
             type_display_name = self.get_display_name_for_type(type_name)
             type_item.setText(0, type_display_name)
-            type_item.setText(1, "Tipo")
+            type_item.setText(1, self._t("ilb_node_type"))
             type_item.setData(0, 256, {"type": "instrument_type", "key": type_name})  # 256 = Qt.UserRole
             
             # Ottieni le serie per questo tipo (con filtraggio per strumenti sperimentali)
@@ -174,7 +196,7 @@ class InstrumentLibraryDialog(QDialog):
                 series_item = QTreeWidgetItem(type_item)
                 series_name = series.get('series_name', series.get('series_id', 'Serie sconosciuta'))
                 series_item.setText(0, series_name)
-                series_item.setText(1, "Serie")
+                series_item.setText(1, self._t("ilb_node_series"))
                 series_item.setData(0, 256, {"type": "series", "data": series})  # 256 = Qt.UserRole
                 
                 # Ottieni i modelli per questa serie
@@ -189,7 +211,7 @@ class InstrumentLibraryDialog(QDialog):
                         _ = t if callable(t) else (lambda s: s)
                         model_name += f" [{_('experimental_instrument')}]"
                     model_item.setText(0, model_name)
-                    model_item.setText(1, "Modello")
+                    model_item.setText(1, self._t("ilb_node_model"))
                     
                     # Numero di canali se disponibile
                     capabilities = model.get('capabilities', {})
@@ -209,6 +231,12 @@ class InstrumentLibraryDialog(QDialog):
         
         # Espandi tutti i nodi di primo livello
         self.tree_widget.expandAll()
+        # the full name of an item that is cut by the column is in its tooltip
+        iterator = QTreeWidgetItemIterator(self.tree_widget)
+        while iterator.value():
+            item = iterator.value()
+            item.setToolTip(0, item.text(0))
+            iterator += 1
 
     def on_experimental_checkbox_toggled(self, state):
         """Gestisce il cambio di stato della checkbox per gli strumenti sperimentali"""

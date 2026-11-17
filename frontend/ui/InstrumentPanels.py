@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from ola import inst_file as inst
 from ola.vna_calibration_flow import parse_frequency
+from frontend.ui.layout_utils import fit_table_to_rows
 from frontend.ui.theme_utils import set_class
 
 BAD_STYLE = "border: 1px solid #b00020;"
@@ -103,8 +104,7 @@ class NetworkAnalyzerPanel(QWidget):
             name = QLineEdit(str(port.get("name", "")))
             name.textChanged.connect(lambda text, p=port: self._set_port(p, "name", text))
             self.table.setCellWidget(row, 2, name)
-        self.table.resizeColumnsToContents()
-        self.table.setMaximumHeight(34 + 30 * max(len(ports), 1))
+        fit_table_to_rows(self.table, fixed_columns=(0, 1))
 
     def _set_port(self, port: Dict[str, Any], key: str, value: Any) -> None:
         port[key] = value

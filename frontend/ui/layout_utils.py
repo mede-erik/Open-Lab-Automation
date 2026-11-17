@@ -9,7 +9,7 @@ fixed size (``resize(1000, 700)``) can leave the screen. These helpers work in l
 every other size in Qt.
 """
 
-from PyQt6.QtCore import QPoint, QRect, QSize, Qt
+from PyQt6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
     QAbstractScrollArea,
@@ -66,24 +66,80 @@ def grow_to_fit(widget: QWidget) -> None:
         widget.resize(size)
 
 
+class _ColumnFitter(QObject):
+    """Sets the width of the columns of a table of widgets (see ``fit_table_to_rows``).
+
+    Every column is at least as wide as its title (the cells hold widgets, so the table cannot size
+    the columns from them, and an equal share cut the long titles of a narrow table); the room that
+    is left is shared by the columns that are not fixed. When there is not enough room the table
+    keeps the sum of the minimum widths, and the scroll area around it scrolls.
+    """
+
+    TITLE_PADDING = 24  # the margins of a title in the header of the themes, and a little air
+
+    def __init__(self, table: QTableWidget, fixed: tuple, min_width: int):
+        super().__init__(table)
+        self.table, self.fixed, self.min_width = table, set(fixed), min_width
+        self._busy = False
+        table.viewport().installEventFilter(self)
+        table.installEventFilter(self)
+
+    def needs(self) -> list:
+        """The least width of every column: its title, and for a free column also ``min_width``."""
+        header = self.table.horizontalHeader()
+        metrics = header.fontMetrics()
+        result = []
+        for column in range(self.table.columnCount()):
+            item = self.table.horizontalHeaderItem(column)
+            text = item.text() if item is not None else ""
+            need = metrics.horizontalAdvance(text) + self.TITLE_PADDING
+            result.append(need if column in self.fixed else max(need, self.min_width))
+        return result
+
+    def apply(self) -> None:
+        if self._busy:
+            return
+        self._busy = True
+        try:
+            needs = self.needs()
+            vertical = self.table.verticalHeader()
+            frame = 2 * self.table.frameWidth() + (vertical.width() if vertical.isVisible() else 0)
+            minimum = sum(needs) + frame
+            if self.table.minimumWidth() != minimum:
+                self.table.setMinimumWidth(minimum)
+            room = self.table.viewport().width() - sum(needs)
+            free = [c for c in range(len(needs)) if c not in self.fixed]
+            share = room // len(free) if free and room > 0 else 0
+            for column, need in enumerate(needs):
+                width = need + (share if column in free else 0)
+                if self.table.columnWidth(column) != width:
+                    self.table.setColumnWidth(column, width)
+        finally:
+            self._busy = False
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.FontChange,
+                            QEvent.Type.StyleChange, QEvent.Type.LayoutRequest):
+            self.apply()
+        return False
+
+
 def fit_table_to_rows(table: QTableWidget, fixed_columns=(0,), min_column_width=80) -> None:
     """Lay out a table whose cells hold widgets (line edits, combo boxes).
 
-    * the columns in ``fixed_columns`` are as wide as their content, the others share the width;
+    * every column is at least as wide as its title; the columns in ``fixed_columns`` keep that
+      width, the others (at least ``min_column_width``) share the room that is left;
     * the table is as tall as its rows, so it has no scroll bar of its own: the window or the
-      scroll area around it scrolls instead (two nested scroll bars are hard to use);
-    * a minimum width keeps the cells readable, the window grows to it (see ``grow_to_fit``).
+      scroll area around it scrolls instead (two nested scroll bars are hard to use), also in the
+      horizontal direction when the window is too narrow for the titles;
+    * the widgets of the cells fill them (see ``widgetcells`` in the themes).
     """
     header = table.horizontalHeader()
-    header.setMinimumSectionSize(min_column_width // 2)
-    columns = table.columnCount()
-    for column in range(columns):
-        mode = (QHeaderView.ResizeMode.ResizeToContents if column in fixed_columns
-                else QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(column, mode)
+    header.setStretchLastSection(False)
+    for column in range(table.columnCount()):
+        header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
     table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    # the widgets fill their cells: no padding around them (see ``widgetcells`` in the themes)
     set_class(table, "widgetcells")
     table.resizeRowsToContents()
     for row in range(table.rowCount()):
@@ -91,7 +147,9 @@ def fit_table_to_rows(table: QTableWidget, fixed_columns=(0,), min_column_width=
     # as tall as the rows (Qt knows the real height of the header once the theme is applied)
     table.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
     table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-    table.setMinimumWidth(columns * min_column_width + table.verticalHeader().sizeHint().width())
+    fitter = _ColumnFitter(table, tuple(fixed_columns), min_column_width)
+    table._column_fitter = fitter  # kept alive with the table
+    fitter.apply()
 
 
 class FlowLayout(QLayout):

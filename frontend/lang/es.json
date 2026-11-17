@@ -670,5 +670,15 @@
   "dbc_saved": "¡Configuración guardada!\n\nUbicación: {location}\n\nLa contraseña se guarda cifrada por seguridad.",
   "dbc_success": "Correcto",
   "dbc_error_title": "Error",
-  "dbc_save_failed": "No se pudo guardar la configuración: {error}"
+  "dbc_save_failed": "No se pudo guardar la configuración: {error}",
+  "ilb_col_name": "Nombre",
+  "ilb_col_type": "Tipo",
+  "ilb_col_channels": "Canales",
+  "ilb_details_title": "Detalles del instrumento",
+  "ilb_select_hint": "Seleccione un instrumento para ver sus detalles",
+  "ilb_add_new": "Añadir instrumento",
+  "ilb_refresh": "Actualizar",
+  "ilb_node_type": "Tipo",
+  "ilb_node_series": "Serie",
+  "ilb_node_model": "Modelo"
 }

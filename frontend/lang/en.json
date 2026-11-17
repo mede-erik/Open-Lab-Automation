@@ -669,5 +669,15 @@
   "dbc_saved": "Configuration saved successfully!\n\nLocation: {location}\n\nPassword is encrypted for security.",
   "dbc_success": "Success",
   "dbc_error_title": "Error",
-  "dbc_save_failed": "Failed to save configuration: {error}"
+  "dbc_save_failed": "Failed to save configuration: {error}",
+  "ilb_col_name": "Name",
+  "ilb_col_type": "Type",
+  "ilb_col_channels": "Channels",
+  "ilb_details_title": "Instrument details",
+  "ilb_select_hint": "Select an instrument to see its details",
+  "ilb_add_new": "Add new instrument",
+  "ilb_refresh": "Refresh",
+  "ilb_node_type": "Type",
+  "ilb_node_series": "Series",
+  "ilb_node_model": "Model"
 }

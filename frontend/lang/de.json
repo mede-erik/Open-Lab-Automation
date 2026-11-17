@@ -669,5 +669,15 @@
   "dbc_saved": "Konfiguration gespeichert!\n\nSpeicherort: {location}\n\nDas Passwort wird aus Sicherheitsgründen verschlüsselt.",
   "dbc_success": "Erfolg",
   "dbc_error_title": "Fehler",
-  "dbc_save_failed": "Die Konfiguration konnte nicht gespeichert werden: {error}"
+  "dbc_save_failed": "Die Konfiguration konnte nicht gespeichert werden: {error}",
+  "ilb_col_name": "Name",
+  "ilb_col_type": "Typ",
+  "ilb_col_channels": "Kanäle",
+  "ilb_details_title": "Details des Geräts",
+  "ilb_select_hint": "Wählen Sie ein Gerät, um seine Details zu sehen",
+  "ilb_add_new": "Neues Gerät hinzufügen",
+  "ilb_refresh": "Aktualisieren",
+  "ilb_node_type": "Typ",
+  "ilb_node_series": "Serie",
+  "ilb_node_model": "Modell"
 }
