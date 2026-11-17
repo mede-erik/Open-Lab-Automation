@@ -16,7 +16,8 @@ except (ImportError, ValueError) as e:
 
 logger = logging.getLogger('frontend.ui.RemoteControlTab')
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, QPushButton, QHBoxLayout, QCheckBox, QSlider, QScrollArea, QFrame
-from PyQt6.QtCore import QTimer, Qt
+from frontend.ui.layout_utils import FlowLayout
+from PyQt6.QtCore import QEvent, QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
 from ola.call_errors import CallNotSupportedError
 from ola.call_errors import ManualActionCancelledError
@@ -75,7 +76,7 @@ class RemoteControlTab(QWidget):
 
         self.main_layout = QVBoxLayout()
         # Layout orizzontale per titolo e pulsante reload
-        top_layout = QHBoxLayout()
+        top_layout = FlowLayout(spacing=6)  # the buttons wrap when the window is narrow
         self.label = QLabel()  # texts: see _retranslate
         top_layout.addWidget(self.label)
         # Pulsante oscilloscopio con icona
@@ -112,7 +113,6 @@ class RemoteControlTab(QWidget):
         self.reload_btn.setFixedSize(64, 64)
         self.reload_btn.clicked.connect(self._reload_instruments_from_mainwindow)
         top_layout.addWidget(self.reload_btn)
-        top_layout.addStretch()
         self.main_layout.addLayout(top_layout)
         self.meas_group = QGroupBox()
         self.meas_layout = QVBoxLayout()
@@ -137,6 +137,10 @@ class RemoteControlTab(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(content)
+        self._scroll = scroll
+        self._instrument_items = []  # (widget, channel count) of the instruments, in order
+        self._column_count = 1
+        scroll.viewport().installEventFilter(self)  # the columns follow the width of the window
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll)
@@ -816,6 +820,7 @@ class RemoteControlTab(QWidget):
 
         try:
             # Clear previous controls - pulisci colonne
+            self._instrument_items = []
             for i in reversed(range(self.left_column.count())):
                 item = self.left_column.itemAt(i)
                 if item:
@@ -901,12 +906,9 @@ class RemoteControlTab(QWidget):
 
             if self.meas_vars:
                 # Crea un layout a griglia per le misure
-                from PyQt6.QtWidgets import QGridLayout
-                meas_grid = QGridLayout()
-
-                row = 0
-                col = 0
-                max_cols = 4  # Massimo 4 misure per riga
+                # The measurements flow: as many per line as the width allows (a grid of four made
+                # the box wider than a half-screen window)
+                meas_grid = FlowLayout(spacing=6)
 
                 for inst, ch in self.meas_vars:
                     # meas_vars only contains datalogger/multimeter channels
@@ -933,13 +935,8 @@ class RemoteControlTab(QWidget):
                         }
                     """)
 
-                    meas_grid.addWidget(label, row, col)
+                    meas_grid.addWidget(label)
                     self.meas_labels[(inst.get('instance_name',''), var_name)] = label
-
-                    col += 1
-                    if col >= max_cols:
-                        col = 0
-                        row += 1
 
                 # Crea un widget contenitore per la griglia
                 meas_widget = QWidget()
@@ -947,7 +944,7 @@ class RemoteControlTab(QWidget):
                 self.meas_layout.addWidget(meas_widget)
 
                 # Add control buttons in horizontal layout
-                control_layout = QHBoxLayout()
+                control_layout = FlowLayout(spacing=6)  # the controls wrap when the window is narrow
 
                 refresh_btn = QPushButton()
                 self.refresh_btn = refresh_btn
@@ -974,7 +971,6 @@ class RemoteControlTab(QWidget):
                 self.interval_value_label = QLabel('2s')
                 control_layout.addWidget(self.interval_value_label)
 
-                control_layout.addStretch()
 
                 control_widget = QWidget()
                 control_widget.setLayout(control_layout)
@@ -1033,25 +1029,19 @@ class RemoteControlTab(QWidget):
                 channel_count = inst_info['channel_count']
                 print(f"  -> instrument [{i}]: {inst_name} ({channel_count} channels)")
 
-            # Two columns, one half of the window each (a third one made the controls too narrow);
-            # a single instrument takes the whole width
-            num_columns = 2 if len(power_instruments) > 1 else 1
-            print(f"layout: {num_columns} columns for {total_enabled_channels} channels")
+            print(f"layout: {total_enabled_channels} channels, the columns follow the width")
 
             # --- Then, for each power supply/electronic load, create a group per instrument ---
             print("\n=== DEBUG: controls of supplies and loads ===")
-            columns = [self.left_column, self.right_column][:num_columns]
-
             # Azzera le colonne prima di aggiungere nuovi widget
-            for col in columns:
+            for col in (self.left_column, self.right_column):
                 while col.count():
                     item = col.takeAt(0)
                     widget = item.widget()
                     if widget:
                         widget.setParent(None)
+            self._instrument_items = []
 
-            # Distribuisci gli strumenti nelle colonne in modo bilanciato
-            column_loads = [0] * num_columns  # Conta canali per colonna
             for inst_info in power_instruments:
                 inst = inst_info['inst']
                 enabled_channels = inst_info['enabled_channels']
@@ -1265,9 +1255,7 @@ class RemoteControlTab(QWidget):
                         )
                     inst_vbox.addWidget(panel)
                     inst_group.setLayout(inst_vbox)
-                    best_column_idx = column_loads.index(min(column_loads))
-                    columns[best_column_idx].addWidget(inst_group)
-                    column_loads[best_column_idx] += channel_count
+                    self._instrument_items.append((inst_group, channel_count))
                     continue
 
                 # Strategia di layout per strumento con molti canali (>3)
@@ -1308,12 +1296,8 @@ class RemoteControlTab(QWidget):
                     inst_main_layout.addLayout(inst_sub_layout)
                     inst_main_group.setLayout(inst_main_layout)
 
-                    # Trova la colonna con meno carico per questo strumento grande
-                    best_column_idx = column_loads.index(min(column_loads))
-                    columns[best_column_idx].addWidget(inst_main_group)
-                    column_loads[best_column_idx] += channel_count
-
-                    print(f"  ✓ instrument with sub-columns added to column {best_column_idx + 1}")
+                    self._instrument_items.append((inst_main_group, channel_count))
+                    print("  ✓ instrument with sub-columns added")
 
                 else:
                     # Strumento normale: crea groupbox standard
@@ -1329,22 +1313,14 @@ class RemoteControlTab(QWidget):
 
                     inst_group.setLayout(inst_vbox)
 
-                    # Trova la colonna con meno carico
-                    best_column_idx = column_loads.index(min(column_loads))
-                    columns[best_column_idx].addWidget(inst_group)
-                    column_loads[best_column_idx] += channel_count
-
-                    print(f"  ✓ instrument added to column {best_column_idx + 1} (load: {column_loads[best_column_idx]})")
+                    self._instrument_items.append((inst_group, channel_count))
+                    print("  ✓ instrument added")
 
             print("\n=== final layout ===")
-            for i, load in enumerate(column_loads):
-                print(f"column {i+1}: {load} channels")
             print(f"channel widgets created: {len(self.current_channel_widgets)}")
             print("=" * 50 + "\n")
 
-            # Aggiungi stretch alle colonne per allineamento in alto
-            for column in columns:
-                column.addStretch()
+            self._arrange_instruments()  # the columns, with a stretch at the top of each
 
             # Network analyzers: their own panel, reached like the measurements do (a LiteVNA
             # is a driver, not a VISA resource)
@@ -1418,6 +1394,43 @@ class RemoteControlTab(QWidget):
             except Exception as exc:
                 logger.debug("closing the VNA connections failed: %s", exc)
         self._vna_connector = None
+
+    # ---- columns of the instruments ----------------------------------------------------------
+    COLUMN_GAP = 24  # room between the two columns and at their edges, beside the widest instrument
+
+    def eventFilter(self, watched, event):
+        """The columns follow the width of the window: a narrow window has one column to scroll
+        down, not two to scroll sideways."""
+        if (watched is getattr(self, '_scroll', None).viewport()
+                and event.type() == QEvent.Type.Resize and self._instrument_items):
+            self._arrange_instruments()
+        return super().eventFilter(watched, event)
+
+    def _two_columns_width(self) -> int:
+        """The least width of the window for two columns: the widest instrument twice, and the gap."""
+        widest = max((w.sizeHint().width() for w, _ in self._instrument_items), default=0)
+        return 2 * widest + self.COLUMN_GAP + self.channels_layout.spacing()
+
+    def _arrange_instruments(self, width=None) -> int:
+        """Put the instruments in one column, or in two (balanced by their channels) when the window
+        is wide enough for two. The widgets are moved, not rebuilt. Returns the number of columns."""
+        for column in (self.left_column, self.right_column):
+            while column.count():
+                column.takeAt(0)  # the stretch goes too; the widgets are placed again below
+        if width is None:
+            width = self._scroll.viewport().width()
+        items = self._instrument_items
+        count = 2 if len(items) > 1 and width >= self._two_columns_width() else 1
+        columns = [self.left_column, self.right_column][:count]
+        loads = [0] * count
+        for widget, channels in items:
+            index = loads.index(min(loads))  # the column with fewer channels
+            columns[index].addWidget(widget)
+            loads[index] += channels
+        for column in columns:
+            column.addStretch()
+        self._column_count = count
+        return count
 
     def _add_vna_panels(self, instruments, inst_file_path):
         """One VnaPanel (sweep, traces, plot, export) per network analyzer of the file, in the
