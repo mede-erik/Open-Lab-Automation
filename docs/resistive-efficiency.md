@@ -59,7 +59,7 @@ end: supply off, relays open
 
 | Field | Meaning |
 |---|---|
-| `device.label`, `device.asset_id` | the converter, and its code in the registry ([`assets.md`](assets.md)) |
+| `device.label`, `device.dut_id`, `device.version` | the converter, and its code and version in the DUT archive ([`duts.md`](duts.md)) |
 | `supply_channel` | the output of a multi-output supply |
 | `vin_v` | the input voltages: `{"values": [...]}` or `{"start", "stop", "points"}`. Each is tried with every load |
 | `loads` | the list of loads (below). The names must be different |

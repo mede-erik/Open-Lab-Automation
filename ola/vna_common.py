@@ -79,15 +79,20 @@ def check_sweep(
 
 
 def check_asset(params: Mapping[str, Any], group: str, out: List[Problem]) -> None:
-    """Check ``params[group]["asset_id"]``, the code of the cable or device from the registry
-    (optional): it must be a code like ``CBL-0042``."""
+    """Check what ``params[group]`` says about the object measured, all optional: ``asset_id``, the
+    code of a component of the registry (``CBL-0042``); ``dut_id``, the code of a device under test
+    of the archive (``DUT-0001``), and its ``version``, free text."""
     from .assets import normalize_code
 
     item = params.get(group)
-    if isinstance(item, dict) and "asset_id" in item:
-        value = item["asset_id"]
+    if not isinstance(item, dict):
+        return
+    for key, example in (("asset_id", "CBL-0042"), ("dut_id", "DUT-0001")):
+        value = item.get(key)
         if value not in (None, "") and not (isinstance(value, str) and normalize_code(value)):
-            out.append(Problem(f"{group}.asset_id", "not a code (it looks like CBL-0042)"))
+            out.append(Problem(f"{group}.{key}", f"not a code (it looks like {example})"))
+    if item.get("version") not in (None, "") and not isinstance(item["version"], str):
+        out.append(Problem(f"{group}.version", "the version must be text"))
 
 
 def apply_correction(

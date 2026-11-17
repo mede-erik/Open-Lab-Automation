@@ -42,7 +42,7 @@ At least one of the two tests is needed; both can be in one run (the line test f
 
 | Field | Meaning |
 |---|---|
-| `device.label`, `device.asset_id`, `device.nominal_v` | the converter, its code in the registry ([`assets.md`](assets.md)) and its output voltage (the regulation in % refers to it) |
+| `device.label`, `device.dut_id`, `device.version`, `device.nominal_v` | the converter, its code and version in the DUT archive ([`duts.md`](duts.md)) and its output voltage (the regulation in % refers to it) |
 | `supply_channel` | the output channel of the supply (for a supply with several outputs) |
 | `output_reading` | how the output voltage is read: `call` (`measure_dc_voltage`), `args`, and `scale` / `offset` (the voltage is `reading * scale + offset`: a 1/2 divider has `scale` 2) |
 | `input_reading` | the same for the input voltage **at the converter**; `role` can be `supply` to take the supply's own reading. Without it the setpoint is the input voltage |

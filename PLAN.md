@@ -1026,10 +1026,22 @@ tool groups by them.
 ### Stages
 
 1. This plan, and the distinction between components and DUT in the documents.
-2. `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests.
-3. The window of the archive (create, edit, retire, versions), and the fields of the modules that name a DUT; the card and the
-   version in the header of the run; antenna and filter leave the registry of components.
-4. Variants of a run.
+2. ✅ `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests (2026-11-17,
+   [`docs/duts.md`](docs/duts.md)). Nothing calls the migration yet: the window of stage 3 will.
+3. The window of the archive and the fields of the modules that name a DUT, in two steps:
+   * ✅ **3a** the window *Tools > DUT* (`DutsDialog`, `DutEditDialog`, `DutVersionsDialog`): create, edit, retire, delete, versions,
+     scan of a code, labels with the version and the key figures of the category (2026-11-17, [`docs/duts.md`](docs/duts.md)). It
+     only adds: nothing is moved yet.
+   * ✅ **3b** (2026-11-17, [`docs/duts.md`](docs/duts.md)) the fields of the modules (`device`, `filter`) take a DUT code
+     (`dut_id`) and, if wanted, a version, in two form fields (`dut`, `dut_version`); the card, with its versions, goes in the header of
+     the run (`duts`), the comparison names the run after it, the DUT window has the history and the latest measurement on the label;
+     the migration runs at the start of the program (with a message) and antenna, filter and generic leave the registry of
+     components. A file made before the archive (`asset_id`) keeps working and the editor offers it as a `dut_id`. All together, so
+     that the antennas did not disappear from the components before the modules could name them in the archive.
+   * Not moved: `amplifier` and `tdr` (their `device` is a component, an amplifier or a cable, that the module characterises), as
+     `cable` and `attenuator`. The `device` of `bode`, `regulation`, `ripple`, `resistive_efficiency`, `return_loss`, `antenna` and
+     the `filter` of `filter` are the DUT.
+4. Variants of a run, and the efficiency file taking a DUT (`device.dut_id`, `version`) beside the name typed by hand.
 5. Labels for DUTs, reusing the label system of the components (see below).
 
 ### Labels for DUTs

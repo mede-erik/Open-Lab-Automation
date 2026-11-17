@@ -35,6 +35,7 @@ S11, from which:
 |---|---|
 | `sweep` | `start_hz`, `stop_hz`, `points`, `scale` (`linear` or `log`); optional `if_bandwidth_hz`, `power_dbm` |
 | `device.label` | identifies the device; it is saved in the run |
+| `device.dut_id`, `device.version` | optional: the device as a [DUT](duts.md) of the archive (`DUT-0001`) and its version (free text); the card of that day is saved in the header of the run |
 | `z0` | reference impedance of the VNA, 50 ohm by default |
 | `vswr_max` | the bands where the VSWR is at most this are reported (2 by default, must be above 1) |
 | `frequencies_of_interest` | return loss and VSWR are reported at these frequencies (inside the sweep) |

@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from . import rf
 from .assets import asset_ids_in
+from .duts import dut_ids_in
 from .run_view import trace_xy
 from .runs import last_traces, read_run
 
@@ -111,9 +112,12 @@ def load_run(path: Union[str, Path], label: Optional[str] = None) -> RunData:
     if not traces and not points:
         raise CompareError(f"{path.name}: the run has no results to compare")
     params = header.get("params") or {}
-    codes = asset_ids_in(params)
+    codes = asset_ids_in(params) or dut_ids_in(params)  # a component, else the device under test
     asset_id = codes[0] if codes else ""
-    cards = header.get("assets") if isinstance(header.get("assets"), dict) else {}
+    cards: Dict[str, Any] = {}
+    for key in ("assets", "duts"):  # the cards the run saved, of the components and of the DUT
+        if isinstance(header.get(key), dict):
+            cards.update(header[key])
     card_name = str((cards.get(asset_id) or {}).get("name", "")) if asset_id else ""
     name = (
         measured_name(params) or card_name

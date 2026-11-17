@@ -34,8 +34,8 @@ from .registry import ModuleInfo
 
 KINDS = (
     "text", "number", "int", "bool", "choice", "multichoice", "numlist", "json", "instrument",
-    "asset",
-)
+    "asset", "dut", "dut_version",
+)  # fmt: skip
 Text = Union[str, Mapping[str, str]]
 Check = Callable[[Dict[str, Any]], List[Problem]]
 
@@ -74,7 +74,8 @@ class FormField:
     placeholder: Text = ""
     visible_if: Optional[Dict[str, Any]] = None  # {"path": "mode", "equals": "reflection"}
     asset_kind: Optional[str] = None  # for ``asset``: only cards of this kind are offered
-    label_path: Optional[str] = None  # for ``asset``: the name field to fill when it is empty
+    label_path: Optional[str] = None  # for ``asset`` and ``dut``: the name field to fill if empty
+    dut_path: Optional[str] = None  # for ``dut_version``: the ``dut`` field whose versions it lists
 
 
 @dataclass
@@ -145,6 +146,7 @@ def parse_form_spec(raw: Any, where: str = "form.json") -> FormSpec:
                     visible_if=visible,
                     asset_kind=rf.get("asset_kind"),
                     label_path=rf.get("label_path"),
+                    dut_path=rf.get("dut_path"),
                 )
             )
         sections.append(FormSection(rs.get("title", ""), fields))
@@ -177,12 +179,15 @@ class FormModel:
         required_roles: Sequence[str] = (),
         role_message: Optional[Callable[[str], str]] = None,
         assets: Optional[Any] = None,
+        duts: Optional[Any] = None,
     ):
         """``check(params)`` returns the ``Problem`` list of the parameters (the module's own
         ``check()``, or its ``validate()`` strings as problems without a path). A role in
         ``required_roles`` with no instrument chosen is an error at the field of that role
         (``role_message(role)`` is its text). ``assets``: the registry of cables and devices; a
-        code in an ``asset`` field that it does not know is a warning."""
+        code in an ``asset`` field that it does not know is a warning. ``duts``: the archive of the
+        devices under test (``ola.duts.DutRegistry``), the same for a ``dut`` field and for the
+        version of a ``dut_version`` field."""
         self.spec = spec
         self.params: Dict[str, Any] = copy.deepcopy(dict(params))
         self.role_bindings: Dict[str, Any] = copy.deepcopy(dict(role_bindings or {}))
@@ -190,6 +195,7 @@ class FormModel:
         self.type, self.version = measurement_type, module_version
         self.required_roles = list(required_roles)
         self.assets = assets
+        self.duts = duts
         self._role_message = role_message or (lambda role: f"no instrument chosen for '{role}'")
         self._problems: Optional[List[Problem]] = None
 
@@ -257,18 +263,26 @@ class FormModel:
         return self._problems
 
     def _unknown_assets(self) -> List[Problem]:
-        """A warning for each ``asset`` field that holds a code the registry does not have."""
-        if self.assets is None:
-            return []
+        """A warning for each ``asset`` field that holds a code the registry does not have, for
+        each ``dut`` field with a code the archive does not have, and for a version the device does
+        not have."""
         out = []
         for f in self.spec.fields():
-            code = self.get(f.path) if f.kind == "asset" else None
-            if isinstance(code, str) and code and self.assets.get(code) is None:
-                out.append(
-                    Problem(
-                        f.path, "this code is not in the registry of cables and devices", "warning"
-                    )
-                )
+            value = self.get(f.path)
+            if f.kind == "asset" and self.assets is not None:
+                if isinstance(value, str) and value and self.assets.get(value) is None:
+                    out.append(Problem(f.path, "this code is not in the registry", "warning"))
+            elif f.kind == "dut" and self.duts is not None:
+                if isinstance(value, str) and value and self.duts.get(value) is None:
+                    out.append(Problem(f.path, "this code is not in the DUT archive", "warning"))
+            elif f.kind == "dut_version" and self.duts is not None and f.dut_path:
+                code = self.get(f.dut_path)
+                card = self.duts.get(code) if isinstance(code, str) and code else None
+                if card is not None and isinstance(value, str) and value:
+                    if not self.duts.has_version(card.id, value):
+                        out.append(
+                            Problem(f.path, f"{card.id} has no version with this name", "warning")
+                        )
         return out
 
     def problems_at(self, prefix: str) -> List[Problem]:
@@ -307,6 +321,7 @@ class FormModel:
         required_roles: Sequence[str] = (),
         role_message: Optional[Callable[[str], str]] = None,
         assets: Optional[Any] = None,
+        duts: Optional[Any] = None,
     ) -> "FormModel":
         """Open a measurement file (``MeasurementError`` if it is not one, or of another type)."""
         from .measurement import MeasurementError
@@ -316,7 +331,7 @@ class FormModel:
             raise MeasurementError(f"{path} is a '{file.type}' file, not a '{expected_type}' file")
         return cls(
             spec, file.params, file.role_bindings, check, file.type, file.module_version,
-            required_roles, role_message, assets,
+            required_roles, role_message, assets, duts,
         )  # fmt: skip
 
 

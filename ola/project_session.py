@@ -34,6 +34,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import bench as ola_bench
 from .assets import normalize_code, snapshots_for
+from .duts import dut_snapshots_for
 from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
 from .inst_file import fits_role, load_inst
@@ -83,15 +84,19 @@ class ProjectSession:
         instruments: Optional[Sequence[str]] = None,
         run_dir: Optional[Path] = None,
         assets: Optional[Any] = None,
+        duts: Optional[Any] = None,
     ):
         """``instruments``: the names of the project's instruments; by default those of the
         ``.inst`` file of the project. ``run_dir``: where the run files go (default: the
         ``runs`` folder of the project). ``assets``: the registry of cables and devices
         (``ola.assets.AssetRegistry``): the card of every object a measurement names is saved in
-        the header of its runs."""
+        the header of its runs. ``duts``: the archive of the devices under test
+        (``ola.duts.DutRegistry``): the card of the DUT a measurement names, with its versions, is
+        saved there too."""
         self.project, self.registry, self.connect = project, registry, connect
         self._instruments = list(instruments) if instruments is not None else None
         self.assets = assets
+        self.duts = duts
         self.resistor_kits: Optional[Any] = None  # ``ola.resistor_kits.KitRegistry`` (default file)
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
         self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
@@ -357,6 +362,9 @@ class ProjectSession:
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
             extra["assets"] = cards
+        dut_cards = dut_snapshots_for(measurement_file.params, self.duts)
+        if dut_cards:  # the same for the device under test, with its versions
+            extra["duts"] = dut_cards
         if accepted_differences:  # the user went on although an instrument has less than before
             extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(

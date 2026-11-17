@@ -67,7 +67,25 @@ def parse_extra(text: str) -> Dict[str, Any]:
 
 
 class AssetEditDialog(QDialog):
-    """Create a card (``asset=None``) or change one; ``saved`` is the card afterwards."""
+    """Create a card (``asset=None``) or change one; ``saved`` is the card afterwards.
+
+    A window of the same shape for another archive (the devices under test, ``DutEditDialog``)
+    sets ``kinds`` and overrides ``_make_translator``, ``_add_rows`` and ``_create``."""
+
+    kinds: Dict[str, Dict[str, Any]] = KINDS  # kind -> prefix and suggested details
+
+    def _make_translator(self, translator: Any) -> Any:
+        """Where the strings come from."""
+        return CatalogTranslator("assets", translator)
+
+    def _add_rows(self, form: QFormLayout) -> None:
+        """Rows of a variant of this window, after the name and the other common fields."""
+
+    def _create(
+        self, name: str, description: str, attributes: Dict[str, Any], fields: Dict[str, str]
+    ) -> Asset:
+        """Add the new card to the registry."""
+        return self.registry.create(self.kind, name, description, attributes, **fields)
 
     def __init__(
         self,
@@ -78,7 +96,7 @@ class AssetEditDialog(QDialog):
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
-        self.tr_ = CatalogTranslator("assets", translator)
+        self.tr_ = self._make_translator(translator)
         self._t = self.tr_.t
         self.registry, self.asset = registry, asset
         self.saved: Optional[Asset] = None
@@ -98,7 +116,7 @@ class AssetEditDialog(QDialog):
             form.addRow(self._t("ast_f_kind"), QLabel(self._t(f"ast_kind_{self.kind}")))
         else:
             self.kind_box = QComboBox()
-            for kind in KINDS:
+            for kind in self.kinds:
                 self.kind_box.addItem(self._t(f"ast_kind_{kind}"), kind)
             self.kind_box.setCurrentIndex(max(self.kind_box.findData(self.kind), 0))
             self.kind_box.currentIndexChanged.connect(self._kind_changed)
@@ -118,6 +136,7 @@ class AssetEditDialog(QDialog):
             ("ast_f_notes", self.notes_edit),
         ):
             form.addRow(self._t(key), widget)
+        self._add_rows(form)
         root.addLayout(form)
         root.addWidget(QLabel(f"<b>{self._t('ast_f_details')}</b>"))
         self.details = QFormLayout()
@@ -141,7 +160,7 @@ class AssetEditDialog(QDialog):
         self._fill()
 
     def _suggested(self):
-        return KINDS[self.kind]["attributes"]
+        return self.kinds[self.kind]["attributes"]
 
     def _kind_changed(self) -> None:
         self.kind = self.kind_box.currentData()
@@ -209,9 +228,7 @@ class AssetEditDialog(QDialog):
                 )
             else:
                 description = fields.pop("description")
-                self.saved = self.registry.create(
-                    self.kind, name, description, attributes, **fields
-                )
+                self.saved = self._create(name, description, attributes, fields)
         except (AssetError, OSError) as exc:
             QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
             return

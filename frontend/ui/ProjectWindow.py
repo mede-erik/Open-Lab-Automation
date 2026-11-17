@@ -204,6 +204,7 @@ class ProjectWindow(QMainWindow):
         parent: Optional[QWidget] = None,
         wiring_before_run: bool = False,
         on_wiring_preference: Optional[Callable[[bool], None]] = None,
+        duts: Optional[Any] = None,
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
@@ -219,6 +220,7 @@ class ProjectWindow(QMainWindow):
         self.translator, self.connect = translator, connect
         self.connector_factory, self.connector = connector_factory, None
         self.assets = assets  # the registry of cables and devices (ola.assets), or None
+        self.duts = duts  # the archive of the devices under test (ola.duts), or None
         self.registry = registry or default_registry()
         self.session: Optional[ProjectSession] = None
         self.run_windows: list = []
@@ -336,7 +338,7 @@ class ProjectWindow(QMainWindow):
         """Show this project (``connect`` is kept)."""
         self._close_connector()
         self.session = ProjectSession(
-            project, self.registry, connect=self.connect, assets=self.assets
+            project, self.registry, connect=self.connect, assets=self.assets, duts=self.duts
         )
         if self.connector_factory is not None:  # built for this project, closed when it changes
             self.connector = self.connector_factory(self.session)
@@ -596,6 +598,7 @@ class ProjectWindow(QMainWindow):
                     role_instruments=self.session.instruments_by_role(self.registry.get(ref.type)),
                     assets=self.assets,
                     parent=self,
+                    duts=self.duts,
                 )
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)
