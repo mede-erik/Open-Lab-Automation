@@ -26,11 +26,11 @@ Order when it matters: `python scripts/check_translations.py && flake8 ola tests
 
 ## Gotchas
 
-- **CI** is `.github/workflows/ci.yml` (translations → lint → tests on Python 3.12 / 3.13 → Rust transport → PostgreSQL → tests against the library `main`). It runs on every push and pull request; the runner is set by the repository variable `CI_RUNS_ON`. Details: `docs/CI.md`.
+- **CI** is `.github/workflows/ci.yml` (translations → lint → tests on Python 3.12 / 3.13 → Rust transport → tests against the library `main`). It runs on every push and pull request; the runner is set by the repository variable `CI_RUNS_ON`. Details: `docs/CI.md`.
 - **`.gitignore` excludes** `*_old.py`, `*_debug.py`, `debug_*.py`, `check_*.py` (except `scripts/check_*.py`), `*.backup`, `*.bak`, `.vscode/` and `*.code-workspace`. Test files are tracked.
 - **`Instruments_LIB` is a git submodule.** Change the library in its own repository; here only the pointer moves, in a separate pull request.
 - **Stacked pull requests are a trap.** If a pull request is based on the branch of another one, merging it after the first lands it in that branch, not in `main`. Base every pull request on `main`.
-- The database layer is `database.py` (connection) and `ProjectDatabaseManager.py` (storage).
+- **The PostgreSQL storage and the old `.eff` editor were removed in November 2026**: the results are the run files (`runs/`, JSON Lines).
 - **The former C backend was removed in November 2026**: `ola/transport.py` and `native/` replace it.
 - **Documentation and code comments are in English.** The UI strings are in the locale files.
 
@@ -41,7 +41,7 @@ Order when it matters: `python scripts/check_translations.py && flake8 ola tests
 ```
 GUI (frontend/ui) ──► Core (frontend/core) ──► Engine (ola/, native/) ──► Instruments
  Remote control tab     validation, errors,      planner, steps, runner,    VISA, TCP, serial,
- Measurements tab       i18n, PostgreSQL         transport, drivers,        GPIB adapters,
+ Measurements tab       i18n, logging            transport, drivers,        GPIB adapters,
                                                  measurement modules        drivers (SDK)
                                     Instruments_LIB (submodule): models and call schemas
 ```
@@ -50,7 +50,7 @@ GUI (frontend/ui) ──► Core (frontend/core) ──► Engine (ola/, native/
 |-------|----------|------|
 | Entry points | `frontend/launcher.py`, `frontend/main.py` | App bootstrap |
 | UI dialogs | `frontend/ui/*.py` | One file per window/dialog. Layout & signal wiring only — **no business logic**. |
-| Core library | `frontend/core/*.py` | Validation, error handling, PostgreSQL storage, i18n, logging |
+| Core library | `frontend/core/*.py` | Validation, error handling, i18n, logging |
 | Engine | `ola/`, `native/` | Qt-free transport, steps, call planner, drivers, measurement runner and modules. See the section *Engine (`ola/` and `native/`)* of `README.md` and `docs/engine.md`. |
 | Measurement modules | `ola/modules/<id>/` | `module.json`, `measurement.py`, `form.json`, `wiring.json`; guide in `docs/`. |
 | Instrument library | `Instruments_LIB/instruments_lib.json`, `Instruments_LIB/schema/` | Models, interfaces, limits, and the logical calls of each category. |
@@ -82,8 +82,6 @@ Tests live in `tests/` (engine, measurement modules, whole-library integrity, `f
 QT_QPA_PLATFORM=offscreen pytest   # everything (tests/ + test_*.py at root)
 pytest -m "not gui"                # without the Qt widgets
 pytest tests/test_library_integrity.py   # every call of every library model
-OLA_TEST_POSTGRES="host=127.0.0.1 port=5432 user=postgres password=postgres" \
-    pytest tests/test_project_database.py   # with a PostgreSQL server
 ```
 
 Some tests keep the documentation in sync: public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, every `TRN-xxx` / `CALL-xxx` code must be in `ERROR_CODES.md`, relative links must not be broken. When you change the library usage, a dialog or an error code, run the suite: the integrity, window and error-code tests are meant to catch exactly those changes.

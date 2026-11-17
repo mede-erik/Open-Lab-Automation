@@ -81,13 +81,11 @@ def test_oscilloscope_settings_plan_for_its_model(library, instruments):
         assert plan_call(library, scope["model_id"], name, args).steps, name
 
 
-def test_project_variables_are_defined_by_the_instruments(instruments):
+def test_the_project_lists_files_that_exist():
     project = load("Test DC-DC Converter.json")
-    names = {c["name"] for i in instruments for c in i["channels"]}
-    assert set(project["control_variables"]) <= names
-    assert set(project["measure_variables"]) <= names
     assert project["inst_file"] == "test_instruments.inst"
-    assert set(project["was_files"]) | set(project["eff_files"]) <= set(os.listdir(PROJECT))
+    files = set(project["was_files"]) | {m["file"] for m in project["measurements"]}
+    assert files <= set(os.listdir(PROJECT))
 
 
 def test_efficiency_file_is_current_and_uses_the_instruments_of_the_project(library, instruments):

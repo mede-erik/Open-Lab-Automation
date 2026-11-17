@@ -47,10 +47,6 @@ class ErrorCode(Enum):
     VALID_OUT_OF_RANGE = "[VALID-005]"
     VALID_INVALID_FORMAT = "[VALID-006]"
     
-    # Database related errors (DB-XXX)
-    DB_CONNECTION_ERROR = "[DB-001]"
-    DB_QUERY_ERROR = "[DB-002]"
-    DB_TIMEOUT = "[DB-003]"
     
     # Network related errors (NET-XXX)
     NET_CONNECTION_TIMEOUT = "[NET-001]"
@@ -148,16 +144,6 @@ class ErrorCode(Enum):
     DATA_OUT_OF_RANGE = "[DATA-007]"
     DATA_INCOMPLETE = "[DATA-008]"
     
-    # Project database errors (PJDB-XXX)
-    PJDB_CONNECTION_FAILED = "[PJDB-001]"
-    PJDB_NOT_SPECIFIED = "[PJDB-002]"
-    PJDB_QUERY_ERROR = "[PJDB-003]"
-    PJDB_TABLE_NOT_FOUND = "[PJDB-004]"
-    PJDB_TIMEOUT = "[PJDB-005]"
-    PJDB_SCHEMA_ERROR = "[PJDB-006]"
-    PJDB_DATA_INTEGRITY = "[PJDB-007]"
-    PJDB_READ_DATA_ERROR = "[PJDB-008]"
-    PJDB_DELETE_ERROR = "[PJDB-009]"
     
     # System errors (SYS-XXX)
     SYS_RESOURCE_UNAVAILABLE = "[SYS-001]"
@@ -259,14 +245,6 @@ class SCPIError(Exception):
 
 class DataError(Exception):
     """Custom exception for data acquisition/processing errors"""
-    def __init__(self, error_code: ErrorCode, message: str = ""):
-        self.error_code = error_code
-        self.message = message
-        super().__init__(f"{error_code.value}: {message}")
-
-
-class ProjectDatabaseError(Exception):
-    """Custom exception for project database errors"""
     def __init__(self, error_code: ErrorCode, message: str = ""):
         self.error_code = error_code
         self.message = message

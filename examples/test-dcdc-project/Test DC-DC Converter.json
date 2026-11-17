@@ -3,26 +3,9 @@
   "created_at": "2025-09-29T16:00:00",
   "last_opened": "2026-04-16T19:06:57.256119",
   "project_name": "Test DC-DC Converter",
-  "eff_files": [
-    "eff.eff"
-  ],
   "inst_file": "test_instruments.inst",
   "was_files": [
     "osc1.was"
-  ],
-  "control_variables": [
-    "VIN",
-    "Vaux",
-    "Vdrive",
-    "Vcc",
-    "Iout"
-  ],
-  "measure_variables": [
-    "VOUT",
-    "VIN_monitor",
-    "Temp_Q1",
-    "Vd_Q1",
-    "Vs_Q1"
   ],
   "format_version": 2,
   "measurements": [

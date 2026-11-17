@@ -32,7 +32,6 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - **Project management**
   - Measurement projects with their configuration files: `.json` (project and variables), `.inst` (instruments), `.was` (oscilloscope settings) and one file per measurement (`.eff`, `.cbl`, `.flt`, ...; see [Project Structure](#project-structure)).
   - Dedicated editors for instruments, efficiency sweeps and oscilloscope settings, with advanced naming options for files and instances.
-  - Optional PostgreSQL storage of the measurement data; the connection settings are saved with an encrypted password.
   - Measurements are run from the *Measurements* tab (the project window): new measurement, edit, **Start measurement** and the runs already made; see the [Engine](#engine-ola-and-native) section for the measurement types. They have been tried only with simulated instruments so far.
 
 - **Tools** (*Tools* menu)
@@ -43,7 +42,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 - **Testing instruments from the terminal** (no GUI needed): an interactive instrument shell and a dry run that shows the exact commands a logical call would send; see [Trying an instrument from the terminal](#trying-an-instrument-from-the-terminal).
 
 - **Error handling & validation**
-  - Standardized error codes with resource prefixes (`[RESOURCE-XXX]`, e.g. `CALL-xxx` for the instrument calls, `PJDB-xxx` for the project database), shown to the user and logged with the stack trace; see `ERROR_CODES.md`.
+  - Standardized error codes with resource prefixes (`[RESOURCE-XXX]`, e.g. `CALL-xxx` for the instrument calls, shown to the user and logged with the stack trace; see `ERROR_CODES.md`.
   - Validation of user inputs; fully translatable interface (Italian, English, French, Spanish, German).
 
 ## Project Structure
@@ -286,7 +285,6 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `frontend/ui/` — Dialog boxes and UI components (one file per window)
   - `RemoteControlTab.py` — Remote control panel
   - `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
-  - `EffFileDialog.py` — Efficiency sweep editor
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
   - `AddressEditorDialog.py` — Guided VISA address composition
@@ -304,9 +302,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `frontend/core/Translator.py` — Translation management system
 
 ### Core Functionality
-- `frontend/core/` — Core modules for database, error handling, validation, and utilities
-  - `ProjectDatabaseManager.py` — PostgreSQL project database (one database per project, one table per run)
-  - `database_config.py` — Database connection settings, stored with an encrypted password
+- `frontend/core/` — Core modules for error handling, validation, translations, logging and utilities
   - `LoadInstruments.py` — Instrument library interface used by the GUI
   - `errorhandler.py` — Centralized error handling with standardized error codes ([RESOURCE-XXX] format)
   - `validator.py` — Input validation functions
@@ -378,8 +374,6 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 ### Projects and data
 
 - [ ] Project files `.json`, `.inst`, `.eff`, `.was`, `.cbl`, `.flt`: create, edit and reopen
-- [ ] PostgreSQL storage of the measurement data (encrypted connection password)
-  - [ ] with a real server (`OLA_TEST_POSTGRES`)
 - [ ] Cable and device registry with labels
 
 ### Tools

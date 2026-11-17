@@ -184,16 +184,17 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     assert "test_instruments.inst" in listed(window) and "osc1.was" in listed(window)
 
     # saving the menu's data keeps the measurements the tab wrote
-    window.current_project_data["control_variables"] = ["VX"]
+    window.current_project_data["was_files"] = ["osc1.was", "osc2.was"]
     window.save_project_json()
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["control_variables"] == ["VX"]
+    assert saved["was_files"] == ["osc1.was", "osc2.was"]
     # (the example project already lists its efficiency measurement)
     assert [m["file"] for m in saved["measurements"]] == ["eff.eff", cable_file]
     # and the tab saving afterwards keeps the menu's data
     window.project_tab.session.rename("m2", "Lead B")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["control_variables"] == ["VX"] and saved["measurements"][1]["name"] == "Lead B"
+    assert saved["was_files"] == ["osc1.was", "osc2.was"]
+    assert saved["measurements"][1]["name"] == "Lead B"
 
     # double click on a measurement file: the editor of the Measurements tab, not the old dialog
     opened = []

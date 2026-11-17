@@ -245,7 +245,6 @@ def test_a_broken_diagram_file_is_reported_and_does_not_block_the_run(
 
 
 def test_the_main_window_remembers_the_preference(app):
-    pytest.importorskip("psycopg2")  # the main window needs the database layer
     from frontend.ui.main_window import MainWindow
 
     from PyQt6.QtCore import QSettings

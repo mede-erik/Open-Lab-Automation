@@ -126,7 +126,6 @@ DIALOGS = {
     "DataloggerSlotConfigDialog": lambda m, li, tr, p: m.DataloggerSlotConfigDialog(
         _first(p, "datalogger"), li, tr
     ),
-    "EffFileDialog": lambda m, li, tr, p: m.EffFileDialog(str(p / "eff.eff"), tr),
     "GpibAdapterDialog": lambda m, li, tr, p: m.GpibAdapterDialog(translator=tr),
     "HexDecConverterDialog": lambda m, li, tr, p: m.HexDecConverterDialog(translator=tr),
     "InstrumentConfigDialog": lambda m, li, tr, p: m.InstrumentConfigDialog(
@@ -141,7 +140,6 @@ DIALOGS = {
     "RemoteControlTab": lambda m, li, tr, p: m.RemoteControlTab(li),
     "SettingsDialog": lambda m, li, tr, p: m.SettingsDialog(translator=tr),
     "WasFileDialog": lambda m, li, tr, p: m.WasFileDialog(str(p / "osc1.was"), tr),
-    "database_config_dialog": lambda m, li, tr, p: m.DatabaseConfigDialog(),
 }
 
 

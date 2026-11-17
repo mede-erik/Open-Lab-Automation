@@ -12,7 +12,6 @@ def test_frontend_imports():
         "frontend.core.tools",
         "frontend.core.validator",
         "frontend.core.errorhandler",
-        "frontend.core.ProjectDatabaseManager",
     ]
     for mod in modules:
         importlib.import_module(mod)

@@ -37,14 +37,9 @@ depends=(
     'python-pyserial'
     'python-numpy'
     'python-matplotlib'
-    'python-psycopg2'
-    'python-cryptography'
     'python-typing_extensions'
 )
 makedepends=('git' 'cargo' 'maturin')
-optdepends=(
-    'postgresql: store the measurements in a PostgreSQL server'
-)
 _fragment="${OLA_FRAGMENT:-tag=v${pkgver}}"
 _pyvisa_ver=1.16.2
 _pyvisa_py_ver=0.8.1
