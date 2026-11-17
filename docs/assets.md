@@ -70,6 +70,6 @@ a label without the QR code still works.
 
 ## Not done yet
 
-Editable label templates (they will share the template system of the HTML report planned for the beta), reading a QR code
-with a camera (a USB scanner works), a trend of a cable's loss over time in the history, and tying other results (an
-efficiency run) to the converter under test.
+Editable label templates (they will share the template system of the HTML report planned for the beta) and reading a QR
+code with a camera (a USB scanner works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
+names its converter under test (`"device"` in the `.eff` file, see [efficiency.md](efficiency.md)).

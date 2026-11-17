@@ -100,6 +100,7 @@ class EfficiencyEditorDialog(QDialog):
         checker: Optional[CallChecker] = None,
         params: Optional[dict] = None,
         parent: Optional[QWidget] = None,
+        assets: Any = None,
     ):
         """``file_path``: the file to edit (created on save if it does not exist). ``instruments``:
         names of the instruments of the project. ``catalog(instrument)``: call names known for an
@@ -116,6 +117,7 @@ class EfficiencyEditorDialog(QDialog):
         self._fields: List[_Field] = []  # fixed fields of the parameter form and other tabs
         self._dynamic: List[_Field] = []  # fields of the readings / extra calls (rebuilt)
         self._calls: Dict[str, CallEdit] = {}  # CallEdit of every bound path template
+        self.assets = assets  # the registry of cables and devices (ola.assets), or None
         self.editor = self._open_model(params, checker)
         self.setWindowTitle(self._t("eff_title"))
         resize_to_screen(self, 1180, 820)
@@ -234,6 +236,14 @@ class EfficiencyEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._rename_current)
         name_row.addRow(self._t("eff_name"), self.name_edit)
+        self.device_box = QComboBox()
+        self.device_box.setEditable(True)  # a code can be typed, or scanned: a scanner types it
+        self.device_box.addItem("", None)
+        for choice in self.assets.choices("other") if self.assets is not None else []:
+            self.device_box.addItem(choice, choice.split(" - ")[0])
+        self.device_box.lineEdit().setPlaceholderText(self._t("eff_device_placeholder"))
+        self.device_box.currentTextChanged.connect(self._device_changed)
+        name_row.addRow(self._t("eff_device"), self.device_box)
         form_layout.addLayout(name_row)
         form_layout.addWidget(self._build_set_group())
         form_layout.addWidget(self._build_value_group())
@@ -1051,8 +1061,27 @@ class EfficiencyEditorDialog(QDialog):
         color = self._c("error" if error else "muted")
         self.status_label.setText(f"<span style='color:{color}'>{text}</span>")
 
+    def _show_device(self) -> None:
+        """The converter of the file in its box: its card if the registry has it, else its code."""
+        device = self.editor.params.get("device") or {}
+        code = str(device.get("asset_id") or "") if isinstance(device, dict) else ""
+        card = self.assets.get(code) if (self.assets is not None and code) else None
+        self.device_box.blockSignals(True)
+        self.device_box.setCurrentText(f"{card.id} - {card.name}" if card else code)
+        self.device_box.blockSignals(False)
+
+    def _device_changed(self, text: str) -> None:
+        """Write the converter of the file from the box (an empty box removes it)."""
+        code = text.split(" - ")[0].strip()
+        if code:
+            self.editor.params["device"] = {"asset_id": code}
+        else:
+            self.editor.params.pop("device", None)
+        self._after_change()
+
     def _refresh_all(self) -> None:
         """Show everything from the model (used when the window opens)."""
+        self._show_device()
         self._loading = True
         for field in self._fields:
             if not field.scoped:

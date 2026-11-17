@@ -350,6 +350,7 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 ### Measurements
 
 - [ ] Efficiency sweep (power supply and electronic load)
+  - [ ] converter under test from the registry (`device`): saved in the run header and in its history
 - [ ] Line and load regulation (multimeter, datalogger)
 - [ ] Ripple and noise
 - [ ] RF with a VNA

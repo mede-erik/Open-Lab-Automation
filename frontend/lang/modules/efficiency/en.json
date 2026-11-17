@@ -16,6 +16,8 @@
   "eff_new_formula": "result",
   "eff_confirm_remove": "Remove the parameter '{name}'?",
   "eff_name": "Name",
+  "eff_device": "Converter (from the registry)",
+  "eff_device_placeholder": "Type or scan the code, e.g. DUT-0001",
   "eff_set": "This parameter is set on an instrument",
   "eff_set_help": "Call that sets the value. Leave off for a read-only parameter (for example a shunt).",
   "eff_call": "Call",

@@ -65,7 +65,9 @@ from .formula import FUNCTIONS, Formula, FormulaError
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order", "golden")
+TOP_KEYS = (
+    "variables", "timing", "derived", "startup", "shutdown", "power_order", "golden", "device",
+)
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
 
@@ -768,6 +770,19 @@ class _Checker:
         return order
 
 
+def _check_device(c: "_Checker", device: Any) -> None:
+    """The converter under test, if the file names one: ``{"asset_id": "DUT-0001"}``, a card of the
+    registry of cables and devices (``ola.assets``). The card is saved with the results."""
+    if device is None:
+        return
+    from .assets import normalize_code  # imported here: the spec module needs no registry
+
+    if not isinstance(device, dict) or set(device) - {"asset_id"}:
+        c.error("device", "the device is {\"asset_id\": \"DUT-0001\"}: the code of a card")
+    elif normalize_code(str(device.get("asset_id") or "")) is None:
+        c.error("device.asset_id", "not a code (it looks like DUT-0001)")
+
+
 def _analyse(
     params: Any, bound: Optional[Collection[str]], checker: Optional[CallChecker]
 ) -> Tuple[Optional[EfficiencySpec], List[Problem]]:
@@ -776,6 +791,7 @@ def _analyse(
         c.error("", "the parameters must be an object with 'variables', 'sweeps', 'timing'...")
         return None, c.problems
     c.unknown_keys(params, TOP_KEYS, "")
+    _check_device(c, params.get("device"))
     variables = c.variables(params.get("variables"))
     timing = c.timing(params.get("timing"))
     if c.checker is not None:
