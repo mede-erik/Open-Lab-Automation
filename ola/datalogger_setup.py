@@ -133,6 +133,40 @@ def _setting_calls(
     return extra_calls(wanted, supports)
 
 
+def scan_channels(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The channels of a datalogger entry of an ``.inst`` file that can be logged: the enabled
+    ones (also those inside the slots), in channel-number order, each a copy of its settings in
+    the file with its ``channel_id`` written as the channel number (``"103"``). A channel that has
+    no number is left out, and one listed twice (flat and in its slot) is taken once. Two different
+    channels with the same name get their number added to the name, so that each one is a column
+    of its own."""
+    from .inst_file import enabled_channels  # (not at the top: it imports this module)
+
+    numbered = []
+    for ch in enabled_channels(entry):
+        try:
+            numbered.append((channel_number(ch), ch))
+        except DataloggerSetupError:
+            continue
+    out = []
+    done = set()
+    for number, ch in sorted(numbered, key=lambda item: item[0]):
+        if number in done:  # a file can list a channel both flat and in its slot: it is one
+            continue
+        done.add(number)
+        copy = {k: v for k, v in ch.items() if k != "enabled"}
+        copy["channel_id"] = str(number)
+        copy["name"] = str(ch.get("name") or f"CH{number}")
+        out.append(copy)
+    seen: Dict[str, int] = {}
+    for ch in out:
+        seen[ch["name"]] = seen.get(ch["name"], 0) + 1
+    for ch in out:
+        if seen[ch["name"]] > 1:
+            ch["name"] = f"{ch['name']}_{ch['channel_id']}"
+    return out
+
+
 def scan_order(channels: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """The enabled channels in the order of the readings of ``read_scan`` (by channel number)."""
     enabled = [c for c in channels if c.get("enabled", True)]

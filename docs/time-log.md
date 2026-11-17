@@ -66,7 +66,7 @@ ones are bound.
 
 A datalogger can be read **all its channels together**: a source with `"scan": true` has `channels` instead of `readings`. The
 channels are the ones of the instrument file (`channel_id`, `meas_type`, optional `range`, `resolution`, `probe_type`,
-`sensor_type`). The datalogger is configured once at the start of the run, and every sample is one scan whose values go to the
+`sensor_type`, `attenuation`); a channel with an `attenuation` has its value divided by it, as in the remote control tab. The datalogger is configured once at the start of the run, and every sample is one scan whose values go to the
 channels in channel-number order. The same channel checks as the remote control tab apply, so a channel the datalogger cannot
 configure is refused before the run starts.
 
@@ -85,7 +85,10 @@ configure is refused before the run starts.
 
 The time log has its own editor, opened by the Measurements tab. It lists the sources, one for each instrument of the file, and for
 the selected one it shows the name, the instrument, the interval, the samples and either the readings (the calls offered are those
-of the instrument's model in the library) or, for a datalogger scan, its channels. The duration is at the top. **Save** asks the
+of the instrument's model in the library) or, for a datalogger scan, the **channels defined for it in the instrument file**: they are listed with a tick box (all ticked at
+first, with *All* and *None* buttons) and only the ticked ones are logged. Their settings (range, probe, sensor, attenuation...) are
+copied from the instrument file when the log is saved, so open and save the editor again after changing them. A channel that the file no
+longer has stays in the list, marked, until it is unticked. The duration is at the top. **Save** asks the
 time-log module whether the file is valid, and shows the problems instead of saving if it is not.
 
 ### The earlier format

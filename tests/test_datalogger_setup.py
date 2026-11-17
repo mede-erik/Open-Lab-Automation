@@ -105,3 +105,24 @@ def test_an_rtd_sends_its_nominal_resistance_only_when_the_model_has_the_call():
     assert ("set_rtd_resistance", {"ohms": 1000.0, "channels": "101"}) in calls
     without = datalogger_calls(channels, supports=lambda call: call != "set_rtd_resistance")
     assert "set_rtd_resistance" not in [name for name, _ in without]
+
+
+def test_scan_channels_lists_the_enabled_channels_once_in_channel_order():
+    from ola.datalogger_setup import scan_channels
+
+    entry = {
+        "channels": [ch("vout", 103), ch("vin", 102, attenuation=10.0)],
+        "slots": [{"channels": [ch("vout", 103), ch("off", 105, enabled=False)]}],
+    }
+    out = scan_channels(entry)
+    assert [c["channel_id"] for c in out] == ["102", "103"]
+    assert [c["name"] for c in out] == ["vin", "vout"]
+    assert out[0]["attenuation"] == 10.0 and all("enabled" not in c for c in out)
+
+
+def test_scan_channels_gives_different_names_to_different_channels():
+    from ola.datalogger_setup import scan_channels
+
+    out = scan_channels({"channels": [ch("v", 101), ch("v", 102), ch("", 103)]})
+    names = [c["name"] for c in out]
+    assert len(set(names)) == 3 and names[2] == "CH103"

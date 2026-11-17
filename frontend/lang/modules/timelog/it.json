@@ -18,14 +18,14 @@
   "tlg_col_args": "Argomenti (JSON)",
   "tlg_add_reading": "Aggiungi lettura",
   "tlg_remove_row": "Elimina riga",
-  "tlg_channels": "Canali del data logger (come nel file degli strumenti)",
+  "tlg_channels": "Canali del data logger (dal file degli strumenti): spunta quelli da registrare",
   "tlg_col_channel": "Canale",
-  "tlg_col_type": "Misura",
-  "tlg_col_range": "Portata",
-  "tlg_col_probe": "Sonda",
-  "tlg_col_sensor": "Sensore",
-  "tlg_add_channel": "Aggiungi canale",
   "tlg_save": "Salva",
   "tlg_cancel": "Annulla",
-  "tlg_problem": "• {text}"
+  "tlg_problem": "• {text}",
+  "tlg_channels_pick": "Scegli il data logger qui sopra: i suoi canali arrivano dal file degli strumenti.",
+  "tlg_channels_none": "Questo strumento non ha canali abilitati nel file degli strumenti: definiscili prima nell'editor degli strumenti.",
+  "tlg_all": "Tutti",
+  "tlg_none": "Nessuno",
+  "tlg_channel_missing": "(non è più nel file degli strumenti)"
 }
