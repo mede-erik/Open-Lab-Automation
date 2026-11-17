@@ -234,7 +234,7 @@ class EfficiencyEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._rename_current)
         name_row.addRow(self._t("eff_name"), self.name_edit)
-        self.device_box = QLineEdit()  # the converter under test: a name, written by hand (optional)
+        self.device_box = QLineEdit()  # the converter under test: a name typed by hand
         self.device_box.setPlaceholderText(self._t("eff_device_placeholder"))
         self.device_box.editingFinished.connect(self._device_changed)
         name_row.addRow(self._t("eff_device"), self.device_box)
