@@ -361,7 +361,7 @@ def test_a_datalogger_with_slots_shows_its_modules_and_opens_the_slot_dialog(
     select(dialog, "DAQ")
     assert not hasattr(dialog, "channel_table")  # slots, not a channel table
     summary = " ".join(texts(dialog.editor_widget))
-    assert "1/2" in summary and "34901A" in summary and "2 ch" in summary
+    assert "1/3" in summary and "34901A" in summary and "2 ch" in summary
     opened = []
 
     class FakeSlots:
@@ -376,7 +376,7 @@ def test_a_datalogger_with_slots_shows_its_modules_and_opens_the_slot_dialog(
     monkeypatch.setattr(module, "DataloggerSlotConfigDialog", FakeSlots)
     next(b for b in dialog.editor_widget.findChildren(QPushButton) if "⚙" in b.text()).click()
     assert opened == ["DAQ"] and saved(path)[0]["slots"][1]["module_id"] == "34902A"
-    assert "2/2" in " ".join(texts(dialog.editor_widget))
+    assert "2/3" in " ".join(texts(dialog.editor_widget))
 
 
 # ---------------------------------------------------------------- delete and menu
@@ -489,8 +489,11 @@ def test_adding_an_instrument_from_the_library(app, tmp_path, library, monkeypat
     entry = saved(path)[0]
     assert entry["instrument_type"] == "power_supply" and entry["instance_name"] == "BENCH"
     assert entry["model"] == "Keysight E36311A" and entry["model_id"] == "PSU_Keysight_E36311A"
-    assert entry["series"] == "Keysight_E36300_Series" and entry["channels"] == []
+    assert entry["series"] == "Keysight_E36300_Series"
     assert entry["num_channels"] == 3
+    # the new instrument is in the file with all its channels (disabled, with the model limits)
+    assert [c["enabled"] for c in entry["channels"]] == [False, False, False]
+    assert all(c["max_voltage"] and c["max_current"] for c in entry["channels"])
     assert dialog.list_widget.count() == 1 and dialog.list_widget.currentRow() == 0
     assert dialog.channel_table.rowCount() == 3  # the new entry is selected and shown
 
