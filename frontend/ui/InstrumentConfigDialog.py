@@ -22,6 +22,7 @@ from frontend.ui.layout_utils import clamp_to_screen, fit_table_to_rows, resize_
 from frontend.ui.theme_utils import set_class
 from frontend.ui.InstrumentPanels import NetworkAnalyzerPanel, SerialPanel, SwitchUnitPanel
 from ola import inst_file as inst
+from ola import inst_complete
 from ola import project_rename
 
 # PyVISA opzionale per discovery
@@ -54,8 +55,11 @@ class InstrumentConfigDialog(QDialog):
         self.current_instrument = None
         self.suppress_save = False
         self.instruments_modified = False  # Flag per tracciare le modifiche
+        self.completed_on_load = False
         self.load_instruments_file()
         self.init_ui()
+        if self.completed_on_load:
+            self.save_instruments()  # the file now has what the opened entries were missing
 
     def load_instruments_file(self):
         """Read the .inst file. A file that exists but cannot be read is not overwritten: the
@@ -68,6 +72,12 @@ class InstrumentConfigDialog(QDialog):
             self.load_error = str(exc)
         else:
             self.load_error = ''
+            # every instrument of the file has all the information of its model, also the ones
+            # that were never opened (the measurements read it from here)
+            before = json.dumps(self.instruments, sort_keys=True, default=str)
+            inst_complete.complete_entries(self.load_instruments, self.instruments)
+            self.completed_on_load = before != json.dumps(
+                self.instruments, sort_keys=True, default=str)
 
     def save_instruments(self):
         if self.suppress_save:
@@ -86,6 +96,7 @@ class InstrumentConfigDialog(QDialog):
                 elif isinstance(obj, list):
                     for item in obj:
                         fix_attenuation(item)
+            inst_complete.complete_entries(self.load_instruments, self.instruments)
             fix_attenuation(self.instruments)
             inst.save_inst(self.inst_file_path, self.instruments, self.extra_keys)
             self.instruments_modified = True  # Segnala che ci sono state modifiche
