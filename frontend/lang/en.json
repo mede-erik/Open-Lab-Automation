@@ -653,5 +653,6 @@
   "rc_read_values": "Read values",
   "rc_output_error_title": "Output error",
   "rc_output_on_failed": "The output of channel {channel} of {instrument} could not be switched on.",
-  "rc_output_off_failed": "The output of channel {channel} of {instrument} could not be switched off."
+  "rc_output_off_failed": "The output of channel {channel} of {instrument} could not be switched off.",
+  "pulse_peak": "Peak"
 }
