@@ -212,6 +212,19 @@ class FormEditorDialog(QDialog):
             for choice in field.choices:
                 widget.addItem(self._text(choice.label), choice.value)
             widget.currentIndexChanged.connect(lambda _i, f=field: self._edited(f))
+        elif field.kind == "multichoice":
+            # one tick box for each option; the value is the list of the ticked ones, in order
+            widget = QWidget()
+            ticks = QHBoxLayout(widget)
+            ticks.setContentsMargins(0, 0, 0, 0)
+            widget.boxes = []
+            for choice in field.choices:
+                tick = QCheckBox(self._text(choice.label))
+                tick.value = choice.value
+                tick.toggled.connect(lambda _on, f=field: self._edited(f))
+                ticks.addWidget(tick)
+                widget.boxes.append(tick)
+            ticks.addStretch(1)
         elif field.kind == "instrument":
             widget = QComboBox()
             widget.setEditable(True)
@@ -266,6 +279,10 @@ class FormEditorDialog(QDialog):
         elif f.kind == "choice":
             position = w.findData(value)
             w.setCurrentIndex(position if position >= 0 else 0)
+        elif f.kind == "multichoice":
+            chosen = value if isinstance(value, list) else []
+            for tick in w.boxes:
+                tick.setChecked(tick.value in chosen)
         elif f.kind == "json":
             w.setPlainText(
                 json.dumps(value, indent=2, ensure_ascii=False) if value is not None else ""
@@ -294,6 +311,9 @@ class FormEditorDialog(QDialog):
             return True, w.isChecked()
         if f.kind == "choice":
             return True, w.currentData()
+        if f.kind == "multichoice":
+            # nothing ticked is an empty list, not "not given": the module says what is missing
+            return True, [tick.value for tick in w.boxes if tick.isChecked()]
         if f.kind == "instrument":
             return True, w.currentText().strip() or None
         if f.kind == "asset":

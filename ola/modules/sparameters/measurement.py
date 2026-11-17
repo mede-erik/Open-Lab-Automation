@@ -25,7 +25,9 @@ say whether they are calibrated.
 
 import math
 import time
+from typing import Any, Dict, List
 
+from ola.efficiency_spec import Problem
 from ola.golden import check_golden_param, finish, recording
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 
@@ -41,50 +43,70 @@ def magnitude_db(value: complex) -> float:
     return 20.0 * math.log10(max(abs(value), 1e-12))
 
 
+def default_params() -> Dict[str, Any]:
+    """The starting parameters of a new S-parameters file (used by the editor)."""
+    return {
+        "start_hz": 1e6,
+        "stop_hz": 1e9,
+        "points": 201,
+        "sparameters": ["S11"],
+        "sweeps": 1,
+        "interval_s": 0,
+    }
+
+
+def _integer(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def check_params(params: Dict[str, Any]) -> List[Problem]:
+    """Everything wrong with the parameters, each with the path of its field. Does no I/O."""
+    p, out = params, []
+    for key in ("start_hz", "stop_hz"):
+        if not _number(p.get(key)) or p[key] < 0:
+            out.append(Problem(key, "must be a number of Hz, 0 or more"))
+    if _number(p.get("start_hz")) and _number(p.get("stop_hz")) and p["stop_hz"] <= p["start_hz"]:
+        out.append(Problem("stop_hz", "must be greater than the start frequency"))
+    if not _integer(p.get("points")) or p["points"] < 2:
+        out.append(Problem("points", "must be a whole number, 2 or more"))
+    names = p.get("sparameters", ["S11"])
+    if not isinstance(names, list) or not names:
+        out.append(Problem("sparameters", "choose at least one S-parameter"))
+    else:
+        bad = [n for n in names if n not in PARAMETERS]
+        if bad:
+            out.append(
+                Problem("sparameters", f"unknown S-parameters {bad}: use {list(PARAMETERS)}")
+            )
+        if len(set(names)) != len(names):
+            out.append(Problem("sparameters", "an S-parameter is repeated"))
+    if not _integer(p.get("sweeps", 1)) or p.get("sweeps", 1) < 1:
+        out.append(Problem("sweeps", "must be a whole number, 1 or more"))
+    if not _number(p.get("interval_s", 0)) or p.get("interval_s", 0) < 0:
+        out.append(Problem("interval_s", "must be a number of seconds, 0 or more"))
+    if "if_bandwidth_hz" in p and (not _number(p["if_bandwidth_hz"]) or p["if_bandwidth_hz"] <= 0):
+        out.append(Problem("if_bandwidth_hz", "must be a number of Hz greater than 0"))
+    if "power_dbm" in p and not _number(p["power_dbm"]):
+        out.append(Problem("power_dbm", "must be a number of dBm"))
+    if "require_calibration" in p and not isinstance(p["require_calibration"], bool):
+        out.append(Problem("require_calibration", "must be true or false"))
+    single = _integer(p.get("sweeps", 1)) and p.get("sweeps", 1) == 1
+    if single and _number(p.get("interval_s")) and p["interval_s"] > 0:
+        out.append(Problem("interval_s", "a single sweep does not use the interval", "warning"))
+    check_golden_param(p, out)
+    return out
+
+
 class SParameters(Measurement):
     """Sweep a vector network analyzer and record its S-parameters (see the module docstring)."""
 
-    def validate(self):
+    def check(self) -> List[Problem]:
+        """The problems of the parameters with the path of each field (for the editor)."""
+        return check_params(self.params)
+
+    def validate(self) -> List[str]:
         """Parameter problems as strings (empty list: the parameters are valid)."""
-        p, problems = self.params, []
-        for key in ("start_hz", "stop_hz"):
-            if not _number(p.get(key)) or p[key] < 0:
-                problems.append(f"{key} must be a number >= 0")
-        if (
-            _number(p.get("start_hz"))
-            and _number(p.get("stop_hz"))
-            and p["stop_hz"] <= p["start_hz"]
-        ):
-            problems.append("stop_hz must be greater than start_hz")
-        points = p.get("points")
-        if not isinstance(points, int) or isinstance(points, bool) or points < 2:
-            problems.append("points must be an integer >= 2")
-        names = p.get("sparameters", ["S11"])
-        if not isinstance(names, list) or not names:
-            problems.append("sparameters must be a non-empty list")
-        else:
-            bad = [n for n in names if n not in PARAMETERS]
-            if bad:
-                problems.append(f"unknown S-parameters {bad}: use {list(PARAMETERS)}")
-            if len(set(names)) != len(names):
-                problems.append("sparameters has a repeated parameter")
-        sweeps = p.get("sweeps", 1)
-        if not isinstance(sweeps, int) or isinstance(sweeps, bool) or sweeps < 1:
-            problems.append("sweeps must be an integer >= 1")
-        if not _number(p.get("interval_s", 0)) or p.get("interval_s", 0) < 0:
-            problems.append("interval_s must be a number >= 0")
-        if "if_bandwidth_hz" in p and (
-            not _number(p["if_bandwidth_hz"]) or p["if_bandwidth_hz"] <= 0
-        ):
-            problems.append("if_bandwidth_hz must be a number > 0")
-        if "power_dbm" in p and not _number(p["power_dbm"]):
-            problems.append("power_dbm must be a number")
-        if "require_calibration" in p and not isinstance(p["require_calibration"], bool):
-            problems.append("require_calibration must be true or false")
-        golden_problems: list = []
-        check_golden_param(p, golden_problems)
-        problems += [str(x) for x in golden_problems if x.severity == "error"]
-        return problems
+        return [str(p) for p in self.check() if p.severity == "error"]
 
     def setup(self, ctx: MeasurementContext) -> None:
         """Set the sweep (and, when asked, the IF bandwidth and the power) on the analyzer."""

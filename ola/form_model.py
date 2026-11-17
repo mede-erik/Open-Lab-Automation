@@ -32,7 +32,10 @@ from .efficiency_spec import Problem
 from .project import MeasurementFile
 from .registry import ModuleInfo
 
-KINDS = ("text", "number", "int", "bool", "choice", "numlist", "json", "instrument", "asset")
+KINDS = (
+    "text", "number", "int", "bool", "choice", "multichoice", "numlist", "json", "instrument",
+    "asset",
+)
 Text = Union[str, Mapping[str, str]]
 Check = Callable[[Dict[str, Any]], List[Problem]]
 
@@ -52,7 +55,7 @@ def localized(text: Optional[Text], lang: str = "en") -> str:
 
 @dataclass
 class Choice:
-    """One option of a ``choice`` field."""
+    """One option of a ``choice`` or ``multichoice`` field."""
 
     value: Any
     label: Text
@@ -119,8 +122,8 @@ def parse_form_spec(raw: Any, where: str = "form.json") -> FormSpec:
                 for c in rf.get("choices", [])
                 if isinstance(c, dict) and "value" in c
             ]
-            if rf["kind"] == "choice" and not choices:
-                raise FormSpecError(f"{at} ({rf['path']}): a 'choice' needs 'choices'")
+            if rf["kind"] in ("choice", "multichoice") and not choices:
+                raise FormSpecError(f"{at} ({rf['path']}): a '{rf['kind']}' needs 'choices'")
             visible = rf.get("visible_if")
             if visible is not None and not (
                 isinstance(visible, dict)
