@@ -81,8 +81,10 @@ def check_sweep(
 def check_asset(params: Mapping[str, Any], group: str, out: List[Problem]) -> None:
     """Check what ``params[group]`` says about the object measured, all optional: ``asset_id``, the
     code of a component of the registry (``CBL-0042``); ``dut_id``, the code of a device under test
-    of the archive (``DUT-0001``), and its ``version``, free text."""
+    of the archive (``DUT-0001``), its ``version``, free text, and its ``variant``, a few named
+    values (``ola.variants``)."""
     from .assets import normalize_code
+    from .variants import problem as variant_problem
 
     item = params.get(group)
     if not isinstance(item, dict):
@@ -93,6 +95,9 @@ def check_asset(params: Mapping[str, Any], group: str, out: List[Problem]) -> No
             out.append(Problem(f"{group}.{key}", f"not a code (it looks like {example})"))
     if item.get("version") not in (None, "") and not isinstance(item["version"], str):
         out.append(Problem(f"{group}.version", "the version must be text"))
+    message = variant_problem(item.get("variant"))
+    if message:
+        out.append(Problem(f"{group}.variant", message))
 
 
 def apply_correction(

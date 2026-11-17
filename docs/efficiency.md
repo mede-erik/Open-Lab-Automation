@@ -274,13 +274,16 @@ Two tables, written while the measurement runs ([engine.md](engine.md#files)):
 
 ## The converter under test
 
-The file can name the converter it measures: `"device": {"name": "Boost 12 V-5 V"}`, typed in the
-editor box under the name of the parameters. It is **optional**: an efficiency measurement runs the
-same without it, and nothing is saved about it in the header of the run.
+The file can name the converter it measures, in `device`, all optional: `name` (typed by hand), `dut_id` and
+`version` (a [DUT of the archive](duts.md) and its version), and `variant` (what changed since another run, a few
+`name = value` lines: `R100 = 100 ohm`, `fan = off`). It is **optional**: an efficiency measurement runs the same
+without it. The editor has the boxes under the name of the parameters; choosing a DUT fills the name and the version in
+use.
 
-It is not a card of the registry of cables and devices ([assets.md](assets.md)): a device under test
-is not part of the set-up of a measurement (only cables, amplifiers, attenuators and adapters are, see
-there). Saving the devices under test, and how to manage them, comes with their own database, later.
+A DUT is not a card of the registry of cables and devices ([assets.md](assets.md)): a device under test is not part of the
+set-up of a measurement (only cables, amplifiers, attenuators and adapters are, see there). With a `dut_id` the card of that
+day, with its versions, is saved in the header of the run, and the variant stays with the results: see
+[`duts.md`](duts.md#the-variant-of-a-run).
 
 ## Not done yet
 

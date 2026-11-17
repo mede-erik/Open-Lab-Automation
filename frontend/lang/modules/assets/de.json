@@ -69,6 +69,7 @@
   "ast_h_date": "Datum",
   "ast_h_measurement": "Messung",
   "ast_h_state": "Ergebnis",
+  "ast_h_variant": "Variante",
   "ast_h_file": "Lauf-Datei",
   "ast_state_finished": "abgeschlossen",
   "ast_state_stopped": "gestoppt",

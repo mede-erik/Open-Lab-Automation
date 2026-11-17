@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from . import rf
 from .assets import asset_ids_in
 from .duts import dut_ids_in
+from .variants import variant_of, variant_text
 from .run_view import trace_xy
 from .runs import last_traces, read_run
 
@@ -60,6 +61,7 @@ class RunData:
     traces: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # name -> trace
     points: List[Dict[str, Any]] = field(default_factory=list)  # rows of the main table
     params: Dict[str, Any] = field(default_factory=dict)
+    variant: str = ""  # what changed in the device since another run, ``R100=100 ohm, fan=on``
 
     @property
     def summary(self) -> Dict[str, Any]:
@@ -124,9 +126,11 @@ def load_run(path: Union[str, Path], label: Optional[str] = None) -> RunData:
     )  # the name typed in the file, else the card's of that day
     when = run_date(path)
     kind = str(header.get("measurement", "?"))
+    variant = variant_text(variant_of(params))
+    shown = f" [{variant}]" if variant else ""  # the variant, so two runs of a DUT can be told
     return RunData(
         path=path,
-        label=label or f"{asset_id + ' ' if asset_id else ''}{name or kind} - {when}",
+        label=label or f"{asset_id + ' ' if asset_id else ''}{name or kind}{shown} - {when}",
         measurement=kind,
         name=name,
         asset_id=asset_id,
@@ -135,6 +139,7 @@ def load_run(path: Union[str, Path], label: Optional[str] = None) -> RunData:
         traces=traces,
         points=points,
         params=params,
+        variant=variant,
     )
 
 

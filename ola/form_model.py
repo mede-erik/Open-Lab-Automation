@@ -34,7 +34,7 @@ from .registry import ModuleInfo
 
 KINDS = (
     "text", "number", "int", "bool", "choice", "multichoice", "numlist", "json", "instrument",
-    "asset", "dut", "dut_version",
+    "asset", "dut", "dut_version", "variant",
 )  # fmt: skip
 Text = Union[str, Mapping[str, str]]
 Check = Callable[[Dict[str, Any]], List[Problem]]

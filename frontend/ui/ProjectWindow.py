@@ -574,6 +574,7 @@ class ProjectWindow(QMainWindow):
                     self.translator,
                     self.session.instruments,
                     parent=self,
+                    duts=self.duts,
                 )
             elif ref.type == "time_log":
                 from frontend.ui.TimeLogEditorDialog import TimeLogEditorDialog

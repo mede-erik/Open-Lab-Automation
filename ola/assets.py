@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
 from .fileio import atomic_write_json
+from .variants import variant_of, variant_text
 
 FORMAT_VERSION = 1
 ENV_FILE = "OLA_ASSETS_FILE"
@@ -352,6 +353,7 @@ class RunRef:
     state: str
     # code -> uid of the card the run saved for it (None: an old run, whose card has no uid)
     uids: Dict[str, Optional[str]] = field(default_factory=dict)
+    variant: str = ""  # what changed in the device since another run (``ola.variants``), or ''
 
 
 def read_header(path: Path) -> Optional[Dict[str, Any]]:
@@ -417,7 +419,12 @@ def index_runs(
                 if isinstance(cards.get(code) or {}, dict)
             }
             ref = RunRef(
-                path, run_date(path), str(header.get("measurement", "?")), _end_state(path), uids
+                path,
+                run_date(path),
+                str(header.get("measurement", "?")),
+                _end_state(path),
+                uids,
+                variant_text(variant_of(header.get("params") or {})),
             )
             for code in codes:
                 out.setdefault(code, []).append(ref)

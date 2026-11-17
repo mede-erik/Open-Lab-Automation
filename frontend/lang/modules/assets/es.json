@@ -69,6 +69,7 @@
   "ast_h_date": "Fecha",
   "ast_h_measurement": "Medición",
   "ast_h_state": "Resultado",
+  "ast_h_variant": "Variante",
   "ast_h_file": "Archivo de ejecución",
   "ast_state_finished": "terminada",
   "ast_state_stopped": "detenida",

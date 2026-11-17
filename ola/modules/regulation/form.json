@@ -102,6 +102,24 @@
           }
         },
         {
+          "path": "device.variant",
+          "kind": "variant",
+          "label": {
+            "en": "Variant of this run",
+            "it": "Variante di questa misura",
+            "fr": "Variante de cette mesure",
+            "es": "Variante de esta medición",
+            "de": "Variante dieser Messung"
+          },
+          "help": {
+            "en": "What changed in the device since the last run, one per line: R100 = 100 ohm, fan = on. Saved with the results and shown next to them. Optional.",
+            "it": "Cosa è cambiato nel dispositivo dall'ultima misura, una per riga: R100 = 100 ohm, ventola = accesa. Si salva con i risultati e si vede accanto a loro. Facoltativa.",
+            "fr": "Ce qui a changé dans le dispositif depuis la dernière mesure, un par ligne : R100 = 100 ohm, ventilateur = allumé. Enregistré avec les résultats et affiché à côté. Facultative.",
+            "es": "Qué cambió en el dispositivo desde la última medición, uno por línea: R100 = 100 ohm, ventilador = encendido. Se guarda con los resultados y se muestra junto a ellos. Opcional.",
+            "de": "Was sich am Gerät seit der letzten Messung geändert hat, eine pro Zeile: R100 = 100 ohm, Lüfter = an. Wird mit den Ergebnissen gespeichert und daneben angezeigt. Optional."
+          }
+        },
+        {
           "path": "device.label",
           "kind": "text",
           "label": {

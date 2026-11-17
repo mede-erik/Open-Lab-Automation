@@ -9,7 +9,7 @@ naming one, and then nothing is remembered about it.
 The design and the stages are in [`PLAN.md`](../PLAN.md#12-devices-under-test-dut-archive). This page describes what is
 built. The logic is in [`ola/duts.py`](../ola/duts.py) (no Qt); the windows are `DutsDialog`, `DutEditDialog` and
 `DutVersionsDialog` in `frontend/ui/`. The measurements name their DUT from the archive ([below](#in-a-measurement)); the
-efficiency file still takes a name typed by hand (it will take a DUT together with the variants of a run).
+efficiency file takes a DUT, a version and a [variant](#the-variant-of-a-run) too.
 
 ## The window
 
@@ -84,6 +84,38 @@ The header of every run keeps the **card of that day** with its versions (`"duts
 components, so a result says which device it was made on and in which version, whatever happens to the card later; the
 comparison tool names the run after it. A file made before the archive names its device with an `asset_id`: it works as it
 did, and the editor offers it again as a `dut_id` once the card has moved (below).
+
+## The variant of a run
+
+The same DUT, in the same version, is often measured more than once with a small change in between: a part changed in the
+bill of materials (`R100 = 100 ohm`), a fan switched on or off. That is a **variant** of the run, not a new version of the DUT.
+It is a few named values, written in the editor one `name = value` per line (the field *Variant of this run*, under the
+version) and stored in the file as `device.variant` (`filter.variant` for the filter):
+
+```json
+{"device": {"dut_id": "DUT-0001", "version": "rev A", "variant": {"R100": "100 ohm", "fan": "on"}}}
+```
+
+* It is **optional**, and free: the names and the values are text (a number is kept as text too). A line that is not
+  `name = value`, with no name or no value, or a name twice, marks the field and writes nothing wrong.
+* The header of a run keeps the parameters of the file, so **the variant stays with its results**. The comparison tool shows
+  it in the label of the run (`DUT-0001 Pippo [R100=100 ohm, fan=on] - 2026-11-03`), and the history of a DUT has a
+  *Variant* column when any of its runs has one.
+* To change it between two runs, edit the measurement file (or keep one measurement per variant in the project, which also
+  keeps each one's results apart in the run list).
+* The comparison does not group by variant yet, and there is no list of the names already used: the names are written by hand.
+
+## The efficiency file
+
+The efficiency measurement has no form: its editor has the same fields in the box under the name of the parameters. In the
+file, `device` takes, all optional: `name` (written by hand), `dut_id` (a code of the archive), `version` and `variant`:
+
+```json
+{"device": {"name": "Pippo", "dut_id": "DUT-0001", "version": "rev A", "variant": {"fan": "off"}}}
+```
+
+Choosing a DUT in the editor fills the name and the version in use if they are empty; a name or a version already typed is
+kept. The header of the run keeps the card of that day, as for the other measurements.
 
 ## Moving the antennas and filters from the components
 
