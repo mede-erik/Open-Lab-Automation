@@ -234,6 +234,10 @@ class EfficiencyEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._rename_current)
         name_row.addRow(self._t("eff_name"), self.name_edit)
+        self.device_box = QLineEdit()  # the converter under test: a name typed by hand
+        self.device_box.setPlaceholderText(self._t("eff_device_placeholder"))
+        self.device_box.editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_device"), self.device_box)
         form_layout.addLayout(name_row)
         form_layout.addWidget(self._build_set_group())
         form_layout.addWidget(self._build_value_group())
@@ -1051,8 +1055,28 @@ class EfficiencyEditorDialog(QDialog):
         color = self._c("error" if error else "muted")
         self.status_label.setText(f"<span style='color:{color}'>{text}</span>")
 
+    def _show_device(self) -> None:
+        """The converter of the file in its box (the name written by hand)."""
+        device = self.editor.params.get("device")
+        name = str(device.get("name") or "") if isinstance(device, dict) else ""
+        self.device_box.blockSignals(True)
+        self.device_box.setText(name)
+        self.device_box.blockSignals(False)
+
+    def _device_changed(self) -> None:
+        """Write the converter of the file from the box (an empty box removes it)."""
+        name = self.device_box.text().strip()
+        if name == str((self.editor.params.get("device") or {}).get("name", "")):
+            return  # nothing changed: no edit, no "unsaved" mark
+        if name:
+            self.editor.params["device"] = {"name": name}
+        else:
+            self.editor.params.pop("device", None)
+        self._after_change()
+
     def _refresh_all(self) -> None:
         """Show everything from the model (used when the window opens)."""
+        self._show_device()
         self._loading = True
         for field in self._fields:
             if not field.scoped:

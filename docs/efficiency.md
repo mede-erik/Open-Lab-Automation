@@ -272,6 +272,16 @@ Two tables, written while the measurement runs ([engine.md](engine.md#files)):
 
 `ola.runs.export_points_csv(run, csv)` exports `points`; add `table="samples"` for the other one.
 
+## The converter under test
+
+The file can name the converter it measures: `"device": {"name": "Boost 12 V-5 V"}`, typed in the
+editor box under the name of the parameters. It is **optional**: an efficiency measurement runs the
+same without it, and nothing is saved about it in the header of the run.
+
+It is not a card of the registry of cables and devices ([assets.md](assets.md)): a device under test
+is not part of the set-up of a measurement (only cables, amplifiers, attenuators and adapters are, see
+there). Saving the devices under test, and how to manage them, comes with their own database, later.
+
 ## Not done yet
 
 Connecting the project window to the main window and to the real instruments. The measurement

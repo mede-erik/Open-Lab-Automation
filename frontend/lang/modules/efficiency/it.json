@@ -16,6 +16,8 @@
   "eff_new_formula": "risultato",
   "eff_confirm_remove": "Rimuovere il parametro '{name}'?",
   "eff_name": "Nome",
+  "eff_device": "Convertitore in prova (facoltativo)",
+  "eff_device_placeholder": "Nome a mano, es. Boost 12 V-5 V",
   "eff_set": "Questo parametro viene impostato su uno strumento",
   "eff_set_help": "Chiamata che imposta il valore. Lascia spento per un parametro di sola lettura (es. uno shunt).",
   "eff_call": "Chiamata",

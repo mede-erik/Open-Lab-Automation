@@ -65,7 +65,9 @@ from .formula import FUNCTIONS, Formula, FormulaError
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order", "golden")
+TOP_KEYS = (
+    "variables", "timing", "derived", "startup", "shutdown", "power_order", "golden", "device",
+)
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
 
@@ -768,6 +770,18 @@ class _Checker:
         return order
 
 
+def _check_device(c: "_Checker", device: Any) -> None:
+    """The converter under test, if the file names one: ``{"name": "Boost 12 V to 5 V"}``, written
+    by hand. Not a card of the registry: a device under test is kept in the file only, until the
+    database of devices under test exists."""
+    if device is None:
+        return
+    if not isinstance(device, dict) or set(device) - {"name"}:
+        c.error("device", 'the device is {"name": "..."}: a name written by hand')
+    elif not isinstance(device.get("name", ""), str):
+        c.error("device.name", "the name must be text")
+
+
 def _analyse(
     params: Any, bound: Optional[Collection[str]], checker: Optional[CallChecker]
 ) -> Tuple[Optional[EfficiencySpec], List[Problem]]:
@@ -776,6 +790,7 @@ def _analyse(
         c.error("", "the parameters must be an object with 'variables', 'sweeps', 'timing'...")
         return None, c.problems
     c.unknown_keys(params, TOP_KEYS, "")
+    _check_device(c, params.get("device"))
     variables = c.variables(params.get("variables"))
     timing = c.timing(params.get("timing"))
     if c.checker is not None:
