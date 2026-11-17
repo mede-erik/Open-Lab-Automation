@@ -69,7 +69,9 @@ from frontend.ui.efficiency_widgets import (
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
 from ola.efficiency_editor import EditorError, EfficiencyEditor
+from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
+from ola.variants import format_lines, parse_lines
 
 SWEEP_MODES = ("none", "fixed", "list", "points", "step", "log")
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
@@ -100,10 +102,12 @@ class EfficiencyEditorDialog(QDialog):
         checker: Optional[CallChecker] = None,
         params: Optional[dict] = None,
         parent: Optional[QWidget] = None,
+        duts: Any = None,
     ):
         """``file_path``: the file to edit (created on save if it does not exist). ``instruments``:
         names of the instruments of the project. ``catalog(instrument)``: call names known for an
-        instrument (optional). ``checker``: the library check of calls and values (optional)."""
+        instrument (optional). ``checker``: the library check of calls and values (optional).
+        ``duts``: the archive of the devices under test (``ola.duts.DutRegistry``), or None."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("efficiency", translator)
         self._t = self.tr_.t
@@ -116,6 +120,7 @@ class EfficiencyEditorDialog(QDialog):
         self._fields: List[_Field] = []  # fixed fields of the parameter form and other tabs
         self._dynamic: List[_Field] = []  # fields of the readings / extra calls (rebuilt)
         self._calls: Dict[str, CallEdit] = {}  # CallEdit of every bound path template
+        self.duts = duts
         self.editor = self._open_model(params, checker)
         self.setWindowTitle(self._t("eff_title"))
         resize_to_screen(self, 1180, 820)
@@ -238,6 +243,26 @@ class EfficiencyEditorDialog(QDialog):
         self.device_box.setPlaceholderText(self._t("eff_device_placeholder"))
         self.device_box.editingFinished.connect(self._device_changed)
         name_row.addRow(self._t("eff_device"), self.device_box)
+        self.dut_box = QComboBox()  # a DUT of the archive: pick it, or type or scan its code
+        self.dut_box.setEditable(True)
+        self.dut_box.addItem("", None)
+        for choice in self.duts.choices() if self.duts is not None else []:
+            self.dut_box.addItem(choice, choice.split(" - ")[0])
+        self.dut_box.lineEdit().setPlaceholderText(self._t("eff_dut_placeholder"))
+        self.dut_box.activated.connect(lambda _i: self._device_changed())
+        self.dut_box.lineEdit().editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_dut"), self.dut_box)
+        self.version_box = QComboBox()  # its version, free text: the versions are only suggestions
+        self.version_box.setEditable(True)
+        self.version_box.lineEdit().setPlaceholderText(self._t("eff_dut_version_placeholder"))
+        self.version_box.activated.connect(lambda _i: self._device_changed())
+        self.version_box.lineEdit().editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_dut_version"), self.version_box)
+        self.variant_edit = QPlainTextEdit()  # what changed since another run, name = value
+        self.variant_edit.setMaximumHeight(70)
+        self.variant_edit.setPlaceholderText(self._t("eff_variant_placeholder"))
+        self.variant_edit.textChanged.connect(self._device_changed)
+        name_row.addRow(self._t("eff_variant"), self.variant_edit)
         form_layout.addLayout(name_row)
         form_layout.addWidget(self._build_set_group())
         form_layout.addWidget(self._build_value_group())
@@ -1056,22 +1081,70 @@ class EfficiencyEditorDialog(QDialog):
         self.status_label.setText(f"<span style='color:{color}'>{text}</span>")
 
     def _show_device(self) -> None:
-        """The converter of the file in its box (the name written by hand)."""
+        """The converter of the file in its boxes: the name, the DUT of the archive with its
+        version (the card if the archive has it, else the code) and the variant."""
         device = self.editor.params.get("device")
-        name = str(device.get("name") or "") if isinstance(device, dict) else ""
-        self.device_box.blockSignals(True)
-        self.device_box.setText(name)
-        self.device_box.blockSignals(False)
+        device = device if isinstance(device, dict) else {}
+        code = str(device.get("dut_id") or "")
+        card = self.duts.get(code) if (self.duts is not None and code) else None
+        variant = device.get("variant")
+        widgets = (self.device_box, self.dut_box, self.version_box, self.variant_edit)
+        for widget in widgets:
+            widget.blockSignals(True)
+        self.device_box.setText(str(device.get("name") or ""))
+        self.dut_box.setCurrentText(f"{card.id} - {card.name}" if card else code)
+        self._fill_versions(card)
+        self.version_box.setCurrentText(str(device.get("version") or ""))
+        self.variant_edit.setPlainText(format_lines(variant) if isinstance(variant, dict) else "")
+        for widget in widgets:
+            widget.blockSignals(False)
+        mark_widget(self.variant_edit, None)
+
+    def _fill_versions(self, card: Any) -> None:
+        """List the versions of the DUT in the version box (the text typed there is kept)."""
+        text = self.version_box.currentText()
+        self.version_box.clear()
+        self.version_box.addItem("")
+        if card is not None:
+            for label in reversed(card.version_labels(include_retired=False)):
+                self.version_box.addItem(label)
+        self.version_box.setCurrentText(text)
 
     def _device_changed(self) -> None:
-        """Write the converter of the file from the box (an empty box removes it)."""
+        """Write the converter of the file from the boxes (empty boxes leave nothing)."""
+        code_text = self.dut_box.currentText().split(" - ")[0].strip()
+        code = normalize_code(code_text) if code_text else None
+        card = self.duts.get(code) if (self.duts is not None and code) else None
         name = self.device_box.text().strip()
-        if name == str((self.editor.params.get("device") or {}).get("name", "")):
+        version = self.version_box.currentText().strip()
+        if card is not None and self.sender() is not self.version_box.lineEdit():
+            if not name:  # a DUT was chosen: its name, and the version in use, if empty
+                name = card.name
+            if not version:
+                version = self.duts.current_version(card.id) or ""
+        try:
+            variant = parse_lines(self.variant_edit.toPlainText())
+            mark_widget(self.variant_edit, None)
+        except ValueError as exc:
+            mark_widget(self.variant_edit, "error", self._t("eff_variant_invalid", line=str(exc)))
+            return  # nothing wrong is written
+        device: Dict[str, Any] = {}
+        for key, value in (("name", name), ("dut_id", code), ("version", version)):
+            if value:
+                device[key] = value
+        if variant:
+            device["variant"] = variant
+        if code_text and not code:  # not a code: leave it as typed, nothing wrong is written
+            mark_widget(self.dut_box, "error", self._t("eff_dut_invalid"))
+            return
+        mark_widget(self.dut_box, None)
+        if device == (self.editor.params.get("device") or {}):
             return  # nothing changed: no edit, no "unsaved" mark
-        if name:
-            self.editor.params["device"] = {"name": name}
+        if device:
+            self.editor.params["device"] = device
         else:
             self.editor.params.pop("device", None)
+        self._show_device()
         self._after_change()
 
     def _refresh_all(self) -> None:

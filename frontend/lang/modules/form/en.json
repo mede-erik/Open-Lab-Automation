@@ -7,6 +7,8 @@
   "form_choose_instrument": "Choose the instrument for '{role}'",
   "form_asset_placeholder": "code or scan, e.g. CBL-0001",
   "form_version_placeholder": "Version (free text)",
+  "form_variant_placeholder": "one per line: R100 = 100 ohm",
+  "form_variant_invalid": "line {line}: write name = value, each name once",
   "form_asset_invalid": "Not a code (it looks like CBL-0001)",
   "form_save": "Save",
   "form_close": "Close",

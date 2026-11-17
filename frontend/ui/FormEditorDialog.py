@@ -59,6 +59,7 @@ from ola.form_model import (
 )
 from ola.assets import normalize_code
 from ola.duts import upgrade_params
+from ola.variants import format_lines, parse_lines
 from ola.run_view import format_si, parse_si
 
 
@@ -256,6 +257,11 @@ class FormEditorDialog(QDialog):
             widget.addItem("", None)
             widget.lineEdit().setPlaceholderText(self._t("form_version_placeholder"))
             widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
+        elif field.kind == "variant":
+            widget = QPlainTextEdit()  # one ``name = value`` per line
+            widget.setMaximumHeight(80)
+            widget.setPlaceholderText(self._t("form_variant_placeholder"))
+            widget.textChanged.connect(lambda f=field: self._edited(f))
         elif field.kind == "json":
             widget = QPlainTextEdit()
             widget.setMaximumHeight(90)
@@ -322,6 +328,8 @@ class FormEditorDialog(QDialog):
             chosen = value if isinstance(value, list) else []
             for tick in w.boxes:
                 tick.setChecked(tick.value in chosen)
+        elif f.kind == "variant":
+            w.setPlainText(format_lines(value) if isinstance(value, dict) else "")
         elif f.kind == "json":
             w.setPlainText(
                 json.dumps(value, indent=2, ensure_ascii=False) if value is not None else ""
@@ -366,6 +374,12 @@ class FormEditorDialog(QDialog):
                 row.invalid = self._t("form_asset_invalid")
                 return False, None
             return True, code
+        if f.kind == "variant":
+            try:
+                return True, parse_lines(w.toPlainText()) or None
+            except ValueError as exc:
+                row.invalid = self._t("form_variant_invalid", line=str(exc))
+                return False, None
         if f.kind == "json":
             text = w.toPlainText().strip()
             if not text:

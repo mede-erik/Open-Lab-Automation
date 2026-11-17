@@ -1014,14 +1014,16 @@ measurement, so it does not belong in the registry of components.
   first time it is opened, with their data; the registry file is saved first (`.bak`). The runs already made keep the card that
   they saved in their header.
 
-### Same DUT, different set-up (to plan, not decided)
+### Same DUT, different set-up: the variant of a run (built, 2026-11-17)
 
 The same DUT, in the same version, is often measured more than once with a small change between the runs: a component changed in the
 bill of materials (`R100 = 100 ohm`), a fan switched on or off. These are **variants of a run**, not new versions. The idea:
 a few values written with the measurement (`{"R100": "100 ohm", "fan": "on"}`), saved in the header of the run and shown next to the
-results, so the runs of a DUT can be compared by variant. Open: where they are entered (the measurement file, the start of the
-run, the version of the DUT), a list of the names already used so they are written the same way, and whether the comparison
-tool groups by them.
+results, so the runs of a DUT can be compared by variant. **Built**: they are `device.variant` (`filter.variant`) in the measurement
+file, written in the editors as `name = value` lines, kept in the header with the parameters, shown in the label of the comparison
+and in a *Variant* column of the history of a DUT ([`docs/duts.md`](docs/duts.md#the-variant-of-a-run)). **Still open**: asking for
+the variant at the start of a run (with the last values filled in) instead of editing the file, a list of the names already used so
+they are written the same way, and a comparison that groups the runs by variant.
 
 ### Stages
 
@@ -1041,7 +1043,8 @@ tool groups by them.
    * Not moved: `amplifier` and `tdr` (their `device` is a component, an amplifier or a cable, that the module characterises), as
      `cable` and `attenuator`. The `device` of `bode`, `regulation`, `ripple`, `resistive_efficiency`, `return_loss`, `antenna` and
      the `filter` of `filter` are the DUT.
-4. Variants of a run, and the efficiency file taking a DUT (`device.dut_id`, `version`) beside the name typed by hand.
+4. ✅ Variants of a run, and the efficiency file taking a DUT (`device.dut_id`, `version`) beside the name typed by hand
+   (2026-11-17, [`docs/duts.md`](docs/duts.md)).
 5. Labels for DUTs, reusing the label system of the components (see below).
 
 ### Labels for DUTs

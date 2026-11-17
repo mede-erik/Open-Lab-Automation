@@ -7,6 +7,8 @@
   "form_choose_instrument": "Elija el instrumento para '{role}'",
   "form_asset_placeholder": "código o escaneo, p. ej. CBL-0001",
   "form_version_placeholder": "Versión (texto libre)",
+  "form_variant_placeholder": "una por línea: R100 = 100 ohm",
+  "form_variant_invalid": "línea {line}: escriba nombre = valor, cada nombre una vez",
   "form_asset_invalid": "No es un código (es como CBL-0001)",
   "form_save": "Guardar",
   "form_close": "Cerrar",

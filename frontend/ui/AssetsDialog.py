@@ -87,18 +87,24 @@ class AssetHistoryDialog(QDialog):
         root = QVBoxLayout(self)
         if not self.runs:
             root.addWidget(QLabel(self._t("ast_h_none", code=asset.id)))
-        self.table = QTableWidget(len(self.runs), 4)
-        self.table.setHorizontalHeaderLabels(
-            [self._t(k) for k in ("ast_h_date", "ast_h_measurement", "ast_h_state", "ast_h_file")]
-        )
+        # a column for the variant of the run (a part changed, a fan on) only if any run has one
+        with_variant = any(r.variant for r in self.runs)
+        keys = ["ast_h_date", "ast_h_measurement", "ast_h_state"]
+        keys += ["ast_h_variant"] if with_variant else []
+        keys += ["ast_h_file"]
+        self.table = QTableWidget(len(self.runs), len(keys))
+        self.table.setHorizontalHeaderLabels([self._t(k) for k in keys])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         for row, ref in enumerate(self.runs):
-            for col, text in enumerate(
-                (ref.when, ref.measurement, self._t(f"ast_state_{ref.state}"), ref.path.name)
-            ):
+            cells = [ref.when, ref.measurement, self._t(f"ast_state_{ref.state}")]
+            cells += [ref.variant] if with_variant else []
+            cells += [ref.path.name]
+            for col, text in enumerate(cells):
                 self.table.setItem(row, col, QTableWidgetItem(text))
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            len(keys) - 1, QHeaderView.ResizeMode.Stretch
+        )
         root.addWidget(self.table, 1)
         row_buttons = QHBoxLayout()
         row_buttons.addStretch(1)
