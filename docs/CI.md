@@ -18,6 +18,17 @@ replaced by simulated transports, fake TCP instruments on `localhost` and pseudo
 The library repository (`Instruments_LIB`) has its own workflow: library data checks,
 conformance, generated docs, and this application's test suite run against the library change.
 
+## Stale runs
+
+Two workflows keep the queue of the self-hosted runner short:
+
+- `.github/workflows/cancel-stale.yml` cancels the queued and running runs of a branch when its
+  pull request is closed (or merged) or when the branch is deleted, unless the branch still has an
+  open pull request.
+- `package.yml` builds a nightly only for the newest commit of `main`: an older commit stops in the
+  first job (`meta`), and its tests do not run. A newer push to `main` also cancels the queued build
+  of the older one (concurrency).
+
 ## Packages
 
 The workflow `.github/workflows/package.yml` builds the installable packages (Windows: installer

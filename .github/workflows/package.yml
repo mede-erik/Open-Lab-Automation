@@ -52,6 +52,9 @@ env:
 jobs:
   tests:
     name: Tests
+    needs: [meta]
+    # A nightly of a commit that is no longer the newest of main is not built (see meta)
+    if: needs.meta.outputs.current != 'false'
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -67,6 +70,7 @@ jobs:
       prerelease: ${{ steps.version.outputs.prerelease }}
       library_sha: ${{ steps.library.outputs.library_sha }}
       library_label: ${{ steps.library.outputs.library_label }}
+      current: ${{ steps.fresh.outputs.current }}
     steps:
       - uses: actions/checkout@v7
 
@@ -85,6 +89,24 @@ jobs:
           fi
           python3 scripts/build_package.py version --kind "$kind" --tag "$tag" --sha "$GITHUB_SHA" \
             | tee -a "$GITHUB_OUTPUT"
+
+      - name: Is this still the newest commit of main (nightly)?
+        id: fresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KIND: ${{ steps.version.outputs.kind }}
+        run: |
+          # A nightly is worth building only while its commit is the newest one of main: an older
+          # commit stops here, before it takes the runner. Release tags are always built.
+          if [ "$KIND" = nightly ]; then
+            head="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            if [ "$head" != "$GITHUB_SHA" ]; then
+              echo "main moved on to $head: the build of $GITHUB_SHA is not needed"
+              echo "current=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
 
       - name: Work out the instrument library of the packages
         id: library
