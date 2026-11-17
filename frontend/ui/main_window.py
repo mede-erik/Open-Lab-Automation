@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QLabel, QDialog, 
     QPushButton, QHBoxLayout, QComboBox, QFileDialog, QListWidget, 
     QListWidgetItem, QInputDialog, QLineEdit, QMessageBox, QMenu,
-    QFormLayout, QSplitter
+    QSplitter
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QSettings
@@ -49,7 +49,7 @@ from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.ui.database_config_dialog import DatabaseConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
-from frontend.core.errorhandler import ErrorHandler, ErrorCode, ValidationError
+from frontend.core.errorhandler import ErrorHandler
 from frontend.core.tools import read_json, save_json
 class MainWindow(QMainWindow):
     def reload_remote_tab_instruments(self):
@@ -498,22 +498,6 @@ class MainWindow(QMainWindow):
             logger.error(f"Error loading theme file {theme_filename}: {e}")
             self.setStyleSheet("")
     
-    def set_dark_theme(self):
-        """
-        Set the application to dark theme using the dark_theme.qss file.
-        (Legacy method, now uses load_theme_file)
-        """
-        self.logger.debug("Setting dark theme (legacy method).")
-        self.load_theme_file('dark_theme.qss')
-
-    def set_light_theme(self):
-        """
-        Set the application to light theme using the light_theme.qss file.
-        (Legacy method, now uses load_theme_file)
-        """
-        self.logger.debug("Setting light theme (legacy method).")
-        self.load_theme_file('light_theme.qss')
-
     def update_translations(self):
         """
         Update the UI texts and menus according to the current language.
@@ -928,28 +912,6 @@ class MainWindow(QMainWindow):
             self.logger.debug("Creating SettingsDialog instance for the first time.")
             self.settings_dialog = SettingsDialog(self, self.translator)
         self.settings_dialog.show()
-        
-    def open_db_settings(self):
-        """Open the database settings dialog to configure database connection parameters."""
-        try:
-            from frontend.ui.database_config_dialog import DatabaseConfigDialog
-            dlg = DatabaseConfigDialog(self)
-            dlg.exec()
-        except ImportError as e:
-            QMessageBox.warning(
-                self, 
-                "Database Settings", 
-                f"Database configuration not available. Missing dependencies: {e}\\n\\nInstall psycopg2 to enable database features."
-            )
-        
-    def show_database_config(self):
-        """Show database configuration dialog."""
-        try:
-            # Qui puoi implementare una finestra di configurazione avanzata del database
-            QMessageBox.information(self, "Database Config", "Funzione di configurazione avanzata non ancora implementata.")
-        except Exception as e:
-            self.logger.error(f"Error showing database config: {e}", exc_info=True)
-            QMessageBox.warning(self, "Database Config", f"Errore: {e}")
         
     def edit_project_file(self, item):
         """Open a configuration dialog for the selected file based on its type (.eff, .was, .inst)."""

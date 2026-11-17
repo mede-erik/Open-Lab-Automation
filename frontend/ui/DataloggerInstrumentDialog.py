@@ -6,10 +6,8 @@
 import json
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QTextEdit, QGroupBox, QComboBox,
-                             QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
-                             QButtonGroup, QWidget, QScrollArea, QCheckBox,
-                             QMessageBox)
-from PyQt6.QtCore import Qt
+                             QSpinBox, QFormLayout, QRadioButton, QButtonGroup,
+                             QWidget, QScrollArea, QCheckBox, QMessageBox)
 
 class DataloggerInstrumentDialog(QDialog):
     """Dialog specifico per la configurazione di datalogger"""

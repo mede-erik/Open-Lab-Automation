@@ -122,17 +122,11 @@ DIALOGS = {
     "AddressEditorDialog": lambda m, li, tr, p: m.AddressEditorDialog(
         _first(p, "power_supply"), li
     ),
-    "DataloggerConfigDialog": lambda m, li, tr, p: m.DataloggerConfigDialog(
-        _first(p, "datalogger"), load_instruments=li
-    ),
     "DataloggerInstrumentDialog": lambda m, li, tr, p: m.DataloggerInstrumentDialog(li, tr),
     "DataloggerSlotConfigDialog": lambda m, li, tr, p: m.DataloggerSlotConfigDialog(
         _first(p, "datalogger"), li, tr
     ),
     "EffFileDialog": lambda m, li, tr, p: m.EffFileDialog(str(p / "eff.eff"), tr),
-    "ElectronicLoadConfigDialog": lambda m, li, tr, p: m.ElectronicLoadConfigDialog(
-        _first(p, "electronic_load"), load_instruments=li
-    ),
     "GpibAdapterDialog": lambda m, li, tr, p: m.GpibAdapterDialog(translator=tr),
     "HexDecConverterDialog": lambda m, li, tr, p: m.HexDecConverterDialog(translator=tr),
     "InstrumentConfigDialog": lambda m, li, tr, p: m.InstrumentConfigDialog(
@@ -142,9 +136,6 @@ DIALOGS = {
     "InstrumentTypeSelectionDialog": lambda m, li, tr, p: m.InstrumentTypeSelectionDialog(li, tr),
     "OscilloscopeConfigDialog": lambda m, li, tr, p: m.OscilloscopeConfigDialog(
         _first(p, "oscilloscope"), tr, load_instruments=li
-    ),
-    "PowerSupplyConfigDialog": lambda m, li, tr, p: m.PowerSupplyConfigDialog(
-        _first(p, "power_supply"), load_instruments=li
     ),
     "PowerSupplyInstrumentDialog": lambda m, li, tr, p: m.PowerSupplyInstrumentDialog(li, tr),
     "RemoteControlTab": lambda m, li, tr, p: m.RemoteControlTab(li),

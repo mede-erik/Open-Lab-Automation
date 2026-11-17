@@ -23,10 +23,9 @@ Error codes used:
 """
 
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QComboBox, QGroupBox, QTableWidget, QTableWidgetItem, 
-    QCheckBox, QLineEdit, QMessageBox, QScrollArea, QWidget,
-    QDialogButtonBox, QSizePolicy, QHeaderView, QSpinBox
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
+    QGroupBox, QTableWidget, QCheckBox, QLineEdit, 
+    QMessageBox, QScrollArea, QWidget, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDoubleValidator

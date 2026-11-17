@@ -2,7 +2,6 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-import os
 import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QLabel, QPushButton
 from PyQt6.QtCore import Qt, QSettings

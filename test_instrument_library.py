@@ -4,7 +4,6 @@
 
 # Tests per l'API della libreria strumenti (nuovo formato Instruments_LIB).
 
-import json
 import os
 
 import pytest

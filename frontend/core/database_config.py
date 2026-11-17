@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from cryptography.fernet import Fernet
 import base64
-import hashlib
 import logging
 
 

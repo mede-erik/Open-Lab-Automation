@@ -30,7 +30,7 @@ Order when it matters: `python scripts/check_translations.py && flake8 ola tests
 - **`.gitignore` excludes** `*_old.py`, `*_debug.py`, `debug_*.py`, `check_*.py` (except `scripts/check_*.py`), `*.backup`, `*.bak`, `.vscode/` and `*.code-workspace`. Test files are tracked.
 - **`Instruments_LIB` is a git submodule.** Change the library in its own repository; here only the pointer moves, in a separate pull request.
 - **Stacked pull requests are a trap.** If a pull request is based on the branch of another one, merging it after the first lands it in that branch, not in `main`. Base every pull request on `main`.
-- **`models.py` and `DatabaseManager.py` (capital) are deprecated.** Use `ProjectDatabaseManager`.
+- The database layer is `database.py` (connection) and `ProjectDatabaseManager.py` (storage).
 - **The former C backend was removed in November 2026**: `ola/transport.py` and `native/` replace it.
 - **Documentation and code comments are in English.** The UI strings are in the locale files.
 

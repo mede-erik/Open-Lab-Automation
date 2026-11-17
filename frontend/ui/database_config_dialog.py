@@ -8,13 +8,9 @@ and testing connectivity.
 """
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QPushButton, QLineEdit, QComboBox, QLabel, 
-                             QMessageBox, QProgressBar, QGroupBox, QSpinBox, 
-                             QCheckBox, QTextEdit)
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
-from PyQt6.QtGui import QFont
-import json
-import os
+                             QPushButton, QLineEdit, QLabel, QMessageBox, 
+                             QProgressBar, QGroupBox, QSpinBox, QCheckBox)
+from PyQt6.QtCore import QThread, pyqtSignal
 from typing import Dict, Any
 from frontend.core.database import DatabaseManager
 from frontend.core.logger import Logger

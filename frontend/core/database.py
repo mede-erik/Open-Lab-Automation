@@ -12,12 +12,8 @@ and database_config_dialog. Not deprecated — use for direct connection needs.
 
 import psycopg2
 import psycopg2.extras
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from typing import Optional, Dict, List, Any, Tuple
-import logging
 from contextlib import contextmanager
-import json
-from datetime import datetime
 from frontend.core.logger import Logger
 
 

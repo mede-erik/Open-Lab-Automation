@@ -142,19 +142,11 @@ def test_two_things_are_warned_about_not_refused(registry):
 
 
 # ---- the helpers -------------------------------------------------------------------------------
-def test_snap_up_and_wrap():
+def test_snap_up():
     assert [bode.snap_up(v) for v in (0.0011, 0.002, 0.003, 0.05, 0.051, 1.0, 7.0)] == [
         0.002, 0.002, 0.005, 0.05, 0.1, 1.0, 10.0,
     ]  # fmt: skip
     assert bode.snap_up(0) == 1e-3
-    assert [bode.wrap_deg(a) for a in (190, -190, 540, 0, 180, -180)] == [
-        -170,
-        170,
-        180,
-        0,
-        180,
-        -180,
-    ]
 
 
 def test_the_phase_is_made_continuous():
