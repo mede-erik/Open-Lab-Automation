@@ -671,5 +671,18 @@
   "rc_scope_calls_failed": "{name}: {count} Einstellungen wurden nicht übernommen:",
   "rc_scope_done": "{name}: die Einstellungen von {file} wurden übernommen.",
   "vna_plot_empty": "Noch keine Daten: Starten Sie einen Sweep, um die Kurve hier zu sehen",
-  "plot_no_data": "Noch keine Daten"
+  "plot_no_data": "Noch keine Daten",
+  "rc_conn_refused": "Verbindung von {address} abgelehnt.\n\nMögliche Ursachen:\n• das Gerät ist ausgeschaltet\n• falsche IP-Adresse oder falscher Port\n• der VXI-11-Dienst des Geräts läuft nicht\n• das Netzwerk oder eine Firewall blockiert die Verbindung\n\nDetails: {error}",
+  "rc_conn_timeout": "Keine rechtzeitige Antwort von {address}.\n\nMögliche Ursachen:\n• das Gerät antwortet nicht\n• das Netzwerk ist zu langsam\n• das Gerät ist mit einem anderen Vorgang beschäftigt\n\nDetails: {error}",
+  "rc_conn_failed": "Keine Verbindung zu {address}.\n\nFehler: {type}: {error}\n\nPrüfen:\n1. ob das Gerät eingeschaltet ist\n2. ob die VISA-Adresse stimmt\n3. ob das Netzwerk es erreicht (ping)\n4. ob ein VISA-Backend installiert ist\n5. die Fernsteuerungseinstellung im Handbuch des Geräts",
+  "err_main_window_failed": "Das Hauptfenster konnte nicht erstellt werden.",
+  "err_appinfo_failed": "Die Anwendungsinformationen (appinfo.json) konnten nicht gelesen werden.",
+  "err_library_failed": "Die Gerätebibliothek konnte nicht geladen werden: kein Gerät ist nutzbar.",
+  "err_last_project_failed": "Das letzte Projekt konnte nicht geöffnet werden: {path}",
+  "err_new_project_failed": "Das Projekt konnte nicht erstellt werden.",
+  "err_dl_init_failed": "Die Konfiguration des Datenloggers konnte nicht vorbereitet werden.",
+  "err_dl_channels_failed": "Die Kanäle des Moduls {module} konnten nicht konfiguriert werden.",
+  "err_dl_save_failed": "Die Konfiguration des Datenloggers konnte nicht gespeichert werden.",
+  "err_pulse_instruments_failed": "Die Geräte des Projekts konnten nicht gelesen werden: {error}",
+  "err_pulse_capabilities_failed": "Die Eigenschaften des Geräts konnten nicht gelesen werden: {error}"
 }

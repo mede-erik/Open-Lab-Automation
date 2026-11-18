@@ -61,6 +61,7 @@ from ola.assets import normalize_code
 from ola.duts import upgrade_params
 from ola.variants import format_lines, parse_lines
 from ola.run_view import format_si, parse_si
+from frontend.core.errorhandler import show_problem
 
 
 class _Row:
@@ -527,7 +528,7 @@ class FormEditorDialog(QDialog):
         try:
             self.model.save(self.file_path)
         except Exception as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("form_save_failed", error=exc))
+            show_problem(self, self.windowTitle(), self._t("form_save_failed", error=exc), code="MEAS-002", exception=exc, level="critical")
             return False
         self.dirty = False
         self.status_label.setText(self._t("form_saved"))

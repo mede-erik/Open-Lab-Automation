@@ -67,6 +67,7 @@ from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
 from ola.runs import export_points_csv
+from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger(__name__)
 
@@ -371,8 +372,11 @@ class ProjectWindow(QMainWindow):
             return
         project = Project.new(name.strip(), folder)
         if project.path.exists():
-            QMessageBox.warning(
-                self, self._t("prj_title"), self._t("prj_exists", path=str(project.path))
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_exists", path=str(project.path)),
+                code="PROJ-008",
             )
             return
         project.save()
@@ -391,7 +395,7 @@ class ProjectWindow(QMainWindow):
         try:
             project = Project.load(path)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_open_failed", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_open_failed", error=exc), code="PROJ-005", exception=exc, level="critical")
             return False
         self.set_project(project)
         return True
@@ -412,7 +416,7 @@ class ProjectWindow(QMainWindow):
                 raise MeasurementError(self._t("prj_inst_outside"))
             self.session.set_instrument_file(Path(path).name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="PROJ-010", exception=exc)
             return
         self._refresh()
 
@@ -523,7 +527,7 @@ class ProjectWindow(QMainWindow):
         try:
             ref = self.session.create(type_id, name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-009", exception=exc)
             return
         self._refresh()
         self._select(ref.id)
@@ -604,7 +608,7 @@ class ProjectWindow(QMainWindow):
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-001", exception=exc, level="critical")
             return
         dialog.exec()
         self._refresh()
@@ -618,7 +622,7 @@ class ProjectWindow(QMainWindow):
         try:
             diagram = self.session.wiring(ref, self.wir_.lang)
         except (WiringError, MeasurementError) as exc:
-            QMessageBox.warning(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc))
+            show_problem(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc), code="MEAS-005", exception=exc)
             return None
         if diagram is None:
             return None
@@ -651,13 +655,17 @@ class ProjectWindow(QMainWindow):
                 raise ConnectionProblem("the project has no instrument file (.inst)")
             entries = read_inst_entries(project.directory / project.inst_file)
         except ConnectionProblem as exc:
-            QMessageBox.warning(
-                self, self.cal_.t("cal_title"), self.cal_.t("cal_no_connection", error=exc)
+            show_problem(
+                self,
+                self.cal_.t("cal_title"),
+                self.cal_.t("cal_no_connection", error=exc),
+                code="VISA-001",
+                exception=exc,
             )
             return
         analyzers = flow.network_analyzers(library, entries)
         if not analyzers:
-            QMessageBox.information(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"))
+            show_problem(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"), code="INST-005")
             return
         from frontend.ui.CalibrationDialog import CalibrationDialog
 
@@ -749,7 +757,7 @@ class ProjectWindow(QMainWindow):
                 bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
             )
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
             return
         from frontend.ui.RunWindow import RunWindow
 
@@ -836,8 +844,13 @@ class ProjectWindow(QMainWindow):
         try:
             n = export_points_csv(path, target)
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("prj_title"), self._t("prj_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         QMessageBox.information(

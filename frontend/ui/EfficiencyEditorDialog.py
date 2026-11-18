@@ -72,6 +72,7 @@ from ola.efficiency_editor import EditorError, EfficiencyEditor
 from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
 from ola.variants import format_lines, parse_lines
+from frontend.core.errorhandler import show_problem
 
 SWEEP_MODES = ("none", "fixed", "list", "points", "step", "log")
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
@@ -140,8 +141,13 @@ class EfficiencyEditorDialog(QDialog):
             try:
                 return EfficiencyEditor.from_file(self.file_path, **kwargs)
             except Exception as exc:  # unreadable or another kind of file
-                QMessageBox.critical(
-                    self, self._t("eff_title"), self._t("eff_open_failed", error=exc)
+                show_problem(
+                    self,
+                    self._t("eff_title"),
+                    self._t("eff_open_failed", error=exc),
+                    code="MEAS-001",
+                    exception=exc,
+                    level="critical",
                 )
         return EfficiencyEditor(EfficiencyEditor.template(self.instruments), **kwargs)
 
@@ -1306,7 +1312,7 @@ class EfficiencyEditorDialog(QDialog):
         try:
             self.editor.save(path)
         except Exception as exc:
-            QMessageBox.critical(self, self._t("eff_title"), self._t("eff_save_failed", error=exc))
+            show_problem(self, self._t("eff_title"), self._t("eff_save_failed", error=exc), code="MEAS-002", exception=exc, level="critical")
             return False
         self.file_path, self.dirty = path, False
         self._refresh_problems()

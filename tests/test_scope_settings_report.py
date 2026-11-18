@@ -153,3 +153,29 @@ def test_the_report_is_translated(app, shown, project):
     tab._configure_oscilloscope_from_was()
     assert "progetto" in shown[0][1]
     assert json.dumps(shown)  # plain texts
+
+
+def test_each_problem_of_the_report_has_its_code(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, data)
+    reachable(tab, monkeypatch, Executor())
+
+    def refuse(self, address):
+        raise OSError("VI_ERROR_RSRC_NFOUND")
+
+    tab.rm = type("RM", (), {"open_resource": refuse})()
+    tab._configure_oscilloscope_from_was()
+    assert shown[0][1].startswith("[VISA-001] OSC")
+    tab2 = make_tab(app)
+    tab2._configure_oscilloscope_from_was()
+    assert shown[1][1].startswith("[PROJ-009]")
+
+
+def test_a_failed_run_shows_its_code():
+    from frontend.ui.RunWindow import failure_text
+
+    assert failure_text({"message": "boom", "code": None}) == "[MEAS-006] boom"
+    assert failure_text({"message": "[CALL-004] no answer", "code": "CALL-004"}) == (
+        "[CALL-004] no answer"
+    )
+    assert failure_text({"message": "x", "code": "TRN-003"}) == "[TRN-003] x"

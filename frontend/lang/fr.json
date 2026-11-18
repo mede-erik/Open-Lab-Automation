@@ -671,5 +671,18 @@
   "rc_scope_calls_failed": "{name} : {count} réglages n'ont pas été appliqués :",
   "rc_scope_done": "{name} : les réglages de {file} ont été appliqués.",
   "vna_plot_empty": "Aucune donnée : lancez un balayage pour voir la trace ici",
-  "plot_no_data": "Pas encore de données"
+  "plot_no_data": "Pas encore de données",
+  "rc_conn_refused": "Connexion refusée par {address}.\n\nCauses possibles :\n• l'instrument est éteint\n• adresse IP ou port erronés\n• le service VXI-11 de l'instrument n'est pas actif\n• le réseau ou un pare-feu bloque la connexion\n\nDétails : {error}",
+  "rc_conn_timeout": "Pas de réponse de {address} à temps.\n\nCauses possibles :\n• l'instrument ne répond pas\n• le réseau est trop lent\n• l'instrument est occupé par une autre opération\n\nDétails : {error}",
+  "rc_conn_failed": "Connexion impossible à {address}.\n\nErreur : {type} : {error}\n\nVérifiez :\n1. que l'instrument est allumé\n2. que l'adresse VISA est juste\n3. que le réseau l'atteint (ping)\n4. qu'un backend VISA est installé\n5. le réglage de la commande à distance dans le manuel de l'instrument",
+  "err_main_window_failed": "La fenêtre principale n'a pas pu être créée.",
+  "err_appinfo_failed": "Les informations de l'application (appinfo.json) n'ont pas pu être lues.",
+  "err_library_failed": "La bibliothèque d'instruments n'a pas pu être chargée : aucun instrument n'est utilisable.",
+  "err_last_project_failed": "Le dernier projet n'a pas pu être ouvert : {path}",
+  "err_new_project_failed": "Le projet n'a pas pu être créé.",
+  "err_dl_init_failed": "La configuration de l'enregistreur n'a pas pu être préparée.",
+  "err_dl_channels_failed": "Les canaux du module {module} n'ont pas pu être configurés.",
+  "err_dl_save_failed": "La configuration de l'enregistreur n'a pas pu être enregistrée.",
+  "err_pulse_instruments_failed": "Les instruments du projet n'ont pas pu être lus : {error}",
+  "err_pulse_capabilities_failed": "Les caractéristiques de l'instrument n'ont pas pu être lues : {error}"
 }

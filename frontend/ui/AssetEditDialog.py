@@ -21,7 +21,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -31,6 +30,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.module_translator import CatalogTranslator
 from ola.assets import KINDS, Asset, AssetError, AssetRegistry
 from ola.run_view import format_si, parse_si
+from frontend.core.errorhandler import show_problem
 
 
 def parse_attribute(text: str, unit: str) -> Any:
@@ -230,6 +230,6 @@ class AssetEditDialog(QDialog):
                 description = fields.pop("description")
                 self.saved = self._create(name, description, attributes, fields)
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
             return
         self.accept()

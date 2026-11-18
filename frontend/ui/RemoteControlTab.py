@@ -27,6 +27,7 @@ from ola.datalogger_setup import signature as datalogger_signature
 from ola.multimeter_setup import accepts_from, measured_channel, multimeter_calls
 from ola.multimeter_setup import signature as multimeter_signature
 from frontend.ui.theme_utils import set_class
+from frontend.core.errorhandler import show_problem, with_code
 
 
 # =========================
@@ -178,20 +179,42 @@ class RemoteControlTab(QWidget):
         finally:
             self._show_scope_report()
 
+    # the code of each problem of the oscilloscope settings (ERROR_CODES.md)
+    SCOPE_CODES = {
+        "rc_scope_no_project": "PROJ-009",
+        "rc_scope_no_was": "PROJ-007",
+        "rc_scope_was_missing": "FILE-001",
+        "rc_scope_was_unreadable": "FILE-003",
+        "rc_scope_none": "INST-005",
+        "rc_scope_manual": "INST-001",
+        "rc_scope_no_address": "INST-005",
+        "rc_scope_no_model": "LIB-003",
+        "rc_scope_visa": "VISA-005",
+        "rc_scope_connect_failed": "VISA-001",
+        "rc_scope_no_answer": "VISA-004",
+        "rc_scope_failed": "VISA-003",
+        "rc_scope_calls_failed": "CALL-001",
+    }
+
     def _scope_note(self, severity, key, **values):
-        """One line of the report of the oscilloscope settings ("ok", "warning" or "error")."""
+        """One line of the report of the oscilloscope settings ("ok", "warning" or "error");
+        a problem starts with its code."""
         text = self._t(key, **values)
+        code = self.SCOPE_CODES.get(key)
+        if severity != "ok" and code:
+            text = f"[{code}] {text}"
         self._scope_report.append((severity, text))
         print(f"[RemoteControlTab] {text}")
         if self.logger and severity != "ok":
             self.logger.warning(text)
 
     def _show_scope_report(self):
-        from PyQt6.QtWidgets import QMessageBox
         report = getattr(self, '_scope_report', [])
         problems = [line for severity, line in report if severity != "ok"]
         if problems:  # nothing to say when everything was applied
-            QMessageBox.warning(self, self._t("rc_scope_title"), "\n".join(problems))
+            # each line has its own code; the box is the code of the first problem
+            first = problems[0][1:problems[0].index("]")] if problems[0].startswith("[") else None
+            show_problem(self, self._t("rc_scope_title"), "\n".join(problems), code=first)
 
     def _configure_oscilloscopes(self):
         parent = self.parent()
@@ -554,7 +577,8 @@ class RemoteControlTab(QWidget):
                 if "wrapped C/C++ object" in str(e) and "has been deleted" in str(e):
                     self.error_handler.handle_ui_error(e, "retry connection timer")
                 else:
-                    self.error_handler.handle_error(e, "Unexpected error in connection retry", show_dialog=False)
+                    self.error_handler.handle_error(
+                        e, "Unexpected error in connection retry", show_dialog=False, code="UI-003")
             except Exception as e:
                 if self.logger:
                     self.logger.error(f"Errore in safe_retry_connection: {e}")
@@ -1140,40 +1164,22 @@ class RemoteControlTab(QWidget):
                         is_visa_timeout = _is_visa_io and _visa_timeout(e, err_str)
 
                         if is_visa_refused:
-                            error_msg = f"Connection refused to {visa_addr}\n\n"
-                            error_msg += "Possible causes:\n"
-                            error_msg += "• Instrument is powered off\n"
-                            error_msg += "• Wrong IP address or port\n"
-                            error_msg += "• VXI-11 service not running on instrument\n"
-                            error_msg += "• Network/firewall blocking connection\n"
-                            error_msg += f"\nTechnical details: {str(e)}"
+                            error_msg = with_code(self._t(
+                                "rc_conn_refused", address=visa_addr, error=e), "VISA-001")
+                            if self.logger:
+                                self.logger.error(f"[VISA-001] {visa_addr}: {e}")
                             self._show_connection_error_with_diagnostics(error_msg, visa_addr)
                         elif is_visa_timeout:
-                            error_msg = f"Connection timeout to {visa_addr}\n\n"
-                            error_msg += "Possible causes:\n"
-                            error_msg += "• Instrument is not responding\n"
-                            error_msg += "• Network latency too high\n"
-                            error_msg += "• Instrument is busy with another operation\n"
-                            error_msg += f"\nTechnical details: {str(e)}"
-                            self.error_handler.handle_visa_error(
-                                Exception(error_msg),
-                                f"connection to {visa_addr}"
-                            )
+                            show_problem(
+                                self, self._t("rc_connection_error"),
+                                self._t("rc_conn_timeout", address=visa_addr, error=e),
+                                code="VISA-004", exception=e)
                         else:
-                            error_type = type(e).__name__
-                            error_msg = f"Failed to connect to {visa_addr}\n\n"
-                            error_msg += f"Error type: {error_type}\n"
-                            error_msg += f"Details: {str(e)}\n\n"
-                            error_msg += "Troubleshooting steps:\n"
-                            error_msg += "1. Verify instrument is powered on\n"
-                            error_msg += "2. Check VISA address is correct\n"
-                            error_msg += "3. Test network connectivity (ping)\n"
-                            error_msg += "4. Verify VISA backend is installed\n"
-                            error_msg += "5. Check instrument manual for remote control setup"
-                            self.error_handler.handle_visa_error(
-                                Exception(error_msg),
-                                f"connection to {visa_addr}"
-                            )
+                            show_problem(
+                                self, self._t("rc_connection_error"),
+                                self._t("rc_conn_failed", address=visa_addr,
+                                        type=type(e).__name__, error=e),
+                                code="VISA-003", exception=e)
 
                         # Safe timer management – schedule a retry regardless of error type.
                         # Keep the button checked (orange) to signal "retrying in progress";
@@ -1967,12 +1973,11 @@ class RemoteControlTab(QWidget):
 
     def _toggle_output_failed(self, inst, ch, button, checked):
         """Mostra errore e resetta UI dopo fallimento del toggle."""
-        from PyQt6.QtWidgets import QMessageBox
         error_title = self._t("rc_output_error_title")
         error_text = self._t(
             "rc_output_on_failed" if checked else "rc_output_off_failed",
             channel=ch.get('name', 'N/A'), instrument=inst.get('instance_name', 'N/A'))
-        QMessageBox.critical(self, error_title, error_text)
+        show_problem(self, error_title, error_text, code="VISA-003", level="critical")
         button.setChecked(not checked)
         button.setText(self._t("rc_output_on") if not checked else self._t("rc_output_off"))
         button.setStyleSheet('')

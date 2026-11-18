@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                              QSpinBox, QDoubleSpinBox, QFormLayout, QRadioButton,
                              QButtonGroup, QWidget, QScrollArea, QCheckBox,
                              QMessageBox)
+from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger('frontend.ui.PowerSupplyInstrumentDialog')
 
@@ -249,13 +250,13 @@ class PowerSupplyInstrumentDialog(QDialog):
             if self.existing_series_radio.isChecked():
                 selected_series = self.existing_series_combo.currentData()
                 if not selected_series:
-                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("select_existing_series"))
+                    show_problem(self, self.translator.t("error"), self.translator.t("select_existing_series"), code="VALID-004")
                     return
                 target_series_id = selected_series.get('series_id')
             else:
                 target_series_id = self.new_series_id.text().strip()
                 if not target_series_id or not self.new_series_name.text().strip():
-                    QMessageBox.warning(self, self.translator.t("error"), self.translator.t("complete_new_series_fields"))
+                    show_problem(self, self.translator.t("error"), self.translator.t("complete_new_series_fields"), code="VALID-004")
                     return
             
             # Crea l'entry del nuovo strumento
@@ -269,16 +270,16 @@ class PowerSupplyInstrumentDialog(QDialog):
                 self.accept()
                 
         except Exception as e:
-            QMessageBox.critical(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {str(e)}")
+            show_problem(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {str(e)}", code="LIB-008", exception=e, level="critical")
             
     def validate_input(self):
         """Valida l'input dell'utente"""
         if not self.model_name.text().strip():
-            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_name_required"))
+            show_problem(self, self.translator.t("error"), self.translator.t("model_name_required"), code="VALID-004")
             return False
             
         if not self.manufacturer.text().strip():
-            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("manufacturer_required"))
+            show_problem(self, self.translator.t("error"), self.translator.t("manufacturer_required"), code="VALID-004")
             return False
             
         return True

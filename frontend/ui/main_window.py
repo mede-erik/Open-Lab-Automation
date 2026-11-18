@@ -52,6 +52,7 @@ from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler
 from frontend.core.tools import read_json, save_json
+from frontend.core.errorhandler import settings_translator, show_problem
 class MainWindow(QMainWindow):
     def reload_remote_tab_instruments(self):
         """
@@ -98,7 +99,8 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"App info loaded: {self.appinfo.get('app_name')} v{self.appinfo.get('version')}")
         except Exception as e:
             self.logger.error(f"Failed to load appinfo.json: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Failed to load application info")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_appinfo_failed"), code="CFG-006")
             self.appinfo = {"app_name": "Lab Automation", "version": "1.0"}
             
         self.setWindowTitle(self.appinfo.get('app_name', 'Lab Automation'))
@@ -114,7 +116,8 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"LoadInstruments initialized successfully with library: {lib_path}")
         except Exception as e:
             self.logger.error(f"Error initializing LoadInstruments: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Error initializing LoadInstruments")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_library_failed"), code="LIB-001")
             self.load_instruments = None
             
         self.tabs = QTabWidget()
@@ -199,7 +202,9 @@ class MainWindow(QMainWindow):
                 self.logger.info(f"Successfully loaded last project: {project_data.get('project_name')}")
             except Exception as e:
                 self.logger.error(f"Failed to load last project: {last_project_path} - {e}", exc_info=True)
-                self.error_handler.handle_error(e, f"Failed to load last project: {last_project_path}")
+                self.error_handler.handle_error(
+                    e, settings_translator().t("err_last_project_failed").format(path=last_project_path),
+                    code="PROJ-005")
 
                 self.logger.set_project_directory(self.current_project_dir)
         self.project_files_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -396,7 +401,8 @@ class MainWindow(QMainWindow):
                 
         except Exception as e:
             self.logger.error(f"Failed to create new project: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Failed to create new project")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_new_project_failed"), code="PROJ-004")
 
 
 
@@ -524,7 +530,7 @@ class MainWindow(QMainWindow):
     # Placeholder methods - these need to be implemented based on the full original code
     def open_project(self):
         """Open an existing project: select .json file and load its data."""
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PyQt6.QtWidgets import QFileDialog
         self.logger.debug("Opening project...")
         file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '', 'Project Files (*.json)')
         if file_path:
@@ -536,7 +542,7 @@ class MainWindow(QMainWindow):
                 self.logger.info(f"Project opened: {file_path}")
             except Exception as e:
                 self.logger.error(f"Failed to open project: {file_path} - {e}", exc_info=True)
-                QMessageBox.warning(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}")
+                show_problem(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}", code="PROJ-005", exception=e)
         
     def refresh_project_files(self):
         """Refresh the list of project files displayed in the UI."""
@@ -573,7 +579,7 @@ class MainWindow(QMainWindow):
         """Add a new file to the project: a measurement of any type, or oscilloscope settings."""
         from PyQt6.QtWidgets import QDialog
         if not self.current_project_dir or not self.current_project_data:
-            QMessageBox.information(self, self.translator.t('add_file'), self.translator.t('no_project_open'))
+            show_problem(self, self.translator.t('add_file'), self.translator.t('no_project_open'), code="PROJ-009")
             return
         session = self.project_tab.session
         types = session.module_types() if session is not None else []
@@ -590,7 +596,7 @@ class MainWindow(QMainWindow):
                     file_name += '.was'
                 file_path = os.path.join(self.current_project_dir, file_name)
                 if os.path.exists(file_path):
-                    QMessageBox.warning(self, self.translator.t('add_file'), self.translator.t('file_exists').format(name=file_name))
+                    show_problem(self, self.translator.t('add_file'), self.translator.t('file_exists').format(name=file_name), code="FILE-005")
                     return
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write('')
@@ -602,7 +608,7 @@ class MainWindow(QMainWindow):
                 ref = session.create(kind, file_name)
                 self.project_tab.show_measurement(ref.id)
         except MeasurementError as e:
-            QMessageBox.warning(self, self.translator.t('add_file'), str(e))
+            show_problem(self, self.translator.t('add_file'), str(e), code="MEAS-009", exception=e)
 
     def add_existing_file(self):
         """Add an existing file (a measurement of any type, or oscilloscope settings) to the project."""
@@ -620,7 +626,7 @@ class MainWindow(QMainWindow):
         dest_path = os.path.join(self.current_project_dir, fname)
         ext = os.path.splitext(fname)[1].lower()
         if ext not in extensions and ext != '.was':
-            QMessageBox.warning(self, self.translator.t('add_existing_file'), self.translator.t('unsupported_file_type'))
+            show_problem(self, self.translator.t('add_existing_file'), self.translator.t('unsupported_file_type'), code="FILE-004")
             return
         try:
             if os.path.abspath(file_path) != os.path.abspath(dest_path) and not os.path.exists(dest_path):
@@ -635,7 +641,7 @@ class MainWindow(QMainWindow):
                 ref = session.adopt(fname)
                 self.project_tab.show_measurement(ref.id)
         except MeasurementError as e:
-            QMessageBox.warning(self, self.translator.t('add_existing_file'), str(e))
+            show_problem(self, self.translator.t('add_existing_file'), str(e), code="MEAS-010", exception=e)
 
     def save_project_json(self):
         """
@@ -668,10 +674,13 @@ class MainWindow(QMainWindow):
             self.logger.info(f"Project JSON saved: {path}")
         except Exception as e:
             self.logger.error(f"Error saving project JSON: {e}")
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                f"{self.translator.t('mw_project_save_failed')}\n{e}"
+                f"{self.translator.t('mw_project_save_failed')}\n{e}",
+                code="PROJ-004",
+                exception=e,
+                level="critical",
             )
 
     def delete_file(self, item):
@@ -742,10 +751,12 @@ class MainWindow(QMainWindow):
                         self.logger.warning(f"File not found on disk: {file_path}")
                 except Exception as e:
                     self.logger.error(f"Error deleting file from disk: {e}")
-                    QMessageBox.warning(
+                    show_problem(
                         self,
                         self.translator.t('error'),
-                        f"{self.translator.t('mw_file_not_deleted')}\n{e}"
+                        f"{self.translator.t('mw_file_not_deleted')}\n{e}",
+                        code="FILE-002",
+                        exception=e,
                     )
             else:
                 QMessageBox.information(
@@ -758,10 +769,11 @@ class MainWindow(QMainWindow):
             self.refresh_project_files()
         else:
             self.logger.warning(f"File '{file_name}' not found in project data")
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                self.translator.t('mw_file_not_in_project').format(file=file_name)
+                self.translator.t('mw_file_not_in_project').format(file=file_name),
+                code="PROJ-007",
             )
         
     def open_settings(self):
@@ -787,7 +799,7 @@ class MainWindow(QMainWindow):
             dlg.exec()
         elif fname.endswith('.inst'):
             if self.load_instruments is None:
-                QMessageBox.warning(self, self.translator.t('instrument_library'), self.translator.t('mw_library_not_loaded'))
+                show_problem(self, self.translator.t('instrument_library'), self.translator.t('mw_library_not_loaded'), code="LIB-001")
                 return
             dlg = InstrumentConfigDialog(file_path, self.load_instruments, self)
             dlg.exec()
@@ -817,7 +829,7 @@ class MainWindow(QMainWindow):
         if self.assets is None:
             error = f"{default_assets_path()} (damaged or not readable)"
             text = CatalogTranslator("assets", self.translator).t("ast_open_failed", error=error)
-            QMessageBox.warning(self, "Open Lab Automation", text)
+            show_problem(self, "Open Lab Automation", text, code="AST-003")
             return
 
         def run_dirs():  # the runs folder of the project that is open now
@@ -849,7 +861,7 @@ class MainWindow(QMainWindow):
         if self.duts is None:
             error = f"{default_duts_path()} (damaged or not readable)"
             text = CatalogTranslator("duts", self.translator).t("dut_open_failed", error=error)
-            QMessageBox.warning(self, "Open Lab Automation", text)
+            show_problem(self, "Open Lab Automation", text, code="AST-003")
             return
 
         def run_dirs():  # the runs folder of the project that is open now
@@ -869,8 +881,12 @@ class MainWindow(QMainWindow):
             registry = KitRegistry()
         except KitError as exc:
             self.logger.error(f"Kits of resistors not available: {exc}")
-            QMessageBox.warning(
-                self, "Open Lab Automation", tr.t("res_open_failed", error=f"{default_path()}: {exc}")
+            show_problem(
+                self,
+                "Open Lab Automation",
+                tr.t("res_open_failed", error=f"{default_path()}: {exc}"),
+                code="CFG-006",
+                exception=exc,
             )
             return
         self._resistors_tool = ResistorKitsDialog(registry, self.translator, self)
@@ -910,10 +926,11 @@ class MainWindow(QMainWindow):
         """Open the electronic load pulse generator tool."""
         # Check if project is open
         if not self.current_project_dir:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                self.translator.t('no_project_open')
+                self.translator.t('no_project_open'),
+                code="PROJ-009",
             )
             return
         
@@ -927,10 +944,13 @@ class MainWindow(QMainWindow):
             dlg.exec()
         except Exception as e:
             self.logger.error(f"Error opening pulse generator: {e}")
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}"
+                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}",
+                code="TOOL-005",
+                exception=e,
+                level="critical",
             )
     
     def show_file_context_menu(self, pos):

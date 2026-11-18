@@ -672,5 +672,18 @@
   "rc_scope_calls_failed": "{name}: {count} impostazioni non sono state applicate:",
   "rc_scope_done": "{name}: le impostazioni di {file} sono state applicate.",
   "vna_plot_empty": "Nessun dato: avvia una scansione per vedere la traccia qui",
-  "plot_no_data": "Nessun dato per ora"
+  "plot_no_data": "Nessun dato per ora",
+  "rc_conn_refused": "Connessione rifiutata da {address}.\n\nCause possibili:\n• lo strumento è spento\n• indirizzo IP o porta sbagliati\n• il servizio VXI-11 dello strumento non è attivo\n• la rete o un firewall blocca la connessione\n\nDettagli: {error}",
+  "rc_conn_timeout": "Nessuna risposta da {address} in tempo.\n\nCause possibili:\n• lo strumento non risponde\n• la rete è troppo lenta\n• lo strumento è occupato in un'altra operazione\n\nDettagli: {error}",
+  "rc_conn_failed": "Impossibile collegarsi a {address}.\n\nErrore: {type}: {error}\n\nVerifica:\n1. che lo strumento sia acceso\n2. che l'indirizzo VISA sia giusto\n3. che la rete lo raggiunga (ping)\n4. che sia installato un backend VISA\n5. l'impostazione del controllo remoto nel manuale dello strumento",
+  "err_main_window_failed": "Impossibile creare la finestra principale.",
+  "err_appinfo_failed": "Impossibile leggere le informazioni dell'applicazione (appinfo.json).",
+  "err_library_failed": "Impossibile caricare la libreria strumenti: nessuno strumento è utilizzabile.",
+  "err_last_project_failed": "Impossibile aprire l'ultimo progetto: {path}",
+  "err_new_project_failed": "Impossibile creare il progetto.",
+  "err_dl_init_failed": "Impossibile preparare la configurazione del data logger.",
+  "err_dl_channels_failed": "Impossibile configurare i canali del modulo {module}.",
+  "err_dl_save_failed": "Impossibile salvare la configurazione del data logger.",
+  "err_pulse_instruments_failed": "Impossibile leggere gli strumenti del progetto: {error}",
+  "err_pulse_capabilities_failed": "Impossibile leggere le caratteristiche dello strumento: {error}"
 }

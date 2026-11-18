@@ -61,7 +61,9 @@ def main():
     except Exception as e:
         from frontend.core.errorhandler import ErrorHandler
         error_handler = ErrorHandler()
-        error_handler.handle_error(e, "Failed to create main window")
+        from frontend.core.errorhandler import settings_translator
+        error_handler.handle_error(
+            e, settings_translator().t("err_main_window_failed"), code="SYS-006")
         logger.critical(f"Critical error during main window creation: {e}", exc_info=True)
         sys.exit(1)
     
