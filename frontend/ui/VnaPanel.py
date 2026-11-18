@@ -144,6 +144,7 @@ class VnaPanel(QGroupBox):
 
         self.plot = TracePlot()
         self.plot.setMinimumHeight(260)
+        self.plot.empty_text = self.t("vna_plot_empty")
         layout.addWidget(self.plot)
         self.markers = QLabel("")
         self.markers.setWordWrap(True)

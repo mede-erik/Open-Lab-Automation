@@ -669,5 +669,7 @@
   "rc_scope_no_answer": "{name}: das Oszilloskop antwortet nicht; es wurde nichts weiter gesendet.\n{error}",
   "rc_scope_failed": "{name}: die Einstellungen konnten nicht übernommen werden: {error}",
   "rc_scope_calls_failed": "{name}: {count} Einstellungen wurden nicht übernommen:",
-  "rc_scope_done": "{name}: die Einstellungen von {file} wurden übernommen."
+  "rc_scope_done": "{name}: die Einstellungen von {file} wurden übernommen.",
+  "vna_plot_empty": "Noch keine Daten: Starten Sie einen Sweep, um die Kurve hier zu sehen",
+  "plot_no_data": "Noch keine Daten"
 }

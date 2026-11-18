@@ -166,6 +166,7 @@ class CompareDialog(QDialog):
         row.addWidget(self.log_box)
         layout.addLayout(row)
         self.plot, self.smith = TracePlot(), SmithChart()
+        self.plot.empty_text = self._t("plot_no_data")
         self.stack = QStackedWidget()
         self.stack.addWidget(self.plot)
         self.stack.addWidget(self.smith)
@@ -199,6 +200,7 @@ class CompareDialog(QDialog):
             box.activated.connect(lambda _i: self._draw_tables())
         layout.addLayout(row)
         self.table_plot = TracePlot()
+        self.table_plot.empty_text = self._t("plot_no_data")
         layout.addWidget(self.table_plot, 1)
         return page
 
