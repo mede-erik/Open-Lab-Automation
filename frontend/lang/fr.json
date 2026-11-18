@@ -684,5 +684,11 @@
   "err_dl_channels_failed": "Les canaux du module {module} n'ont pas pu être configurés.",
   "err_dl_save_failed": "La configuration de l'enregistreur n'a pas pu être enregistrée.",
   "err_pulse_instruments_failed": "Les instruments du projet n'ont pas pu être lus : {error}",
-  "err_pulse_capabilities_failed": "Les caractéristiques de l'instrument n'ont pas pu être lues : {error}"
+  "err_pulse_capabilities_failed": "Les caractéristiques de l'instrument n'ont pas pu être lues : {error}",
+  "rc_not_connected": "{name} n'est pas connecté ({address}). Vérifiez qu'il est allumé, connecté au réseau et que son adresse est juste.",
+  "rc_no_address": "{name} n'a pas d'adresse VISA dans le fichier des instruments : définissez-la dans l'éditeur d'instruments.",
+  "rc_visa_unavailable": "VISA n'est pas disponible sur cet ordinateur : {name} est injoignable.",
+  "rc_command_failed": "L'instrument n'a pas terminé l'opération",
+  "rc_no_answer": "L'instrument ne répond pas. Vérifiez qu'il est allumé et connecté au réseau.",
+  "rc_refresh_not_connected": "Non connectés : {names}. Vérifiez que les instruments sont allumés et connectés."
 }

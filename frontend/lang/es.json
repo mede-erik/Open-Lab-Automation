@@ -685,5 +685,11 @@
   "err_dl_channels_failed": "No se pudieron configurar los canales del módulo {module}.",
   "err_dl_save_failed": "No se pudo guardar la configuración del registrador.",
   "err_pulse_instruments_failed": "No se pudieron leer los instrumentos del proyecto: {error}",
-  "err_pulse_capabilities_failed": "No se pudieron leer las características del instrumento: {error}"
+  "err_pulse_capabilities_failed": "No se pudieron leer las características del instrumento: {error}",
+  "rc_not_connected": "{name} no está conectado ({address}). Compruebe que está encendido, conectado a la red y que su dirección es correcta.",
+  "rc_no_address": "{name} no tiene dirección VISA en el archivo de instrumentos: defínala en el editor de instrumentos.",
+  "rc_visa_unavailable": "VISA no está disponible en este equipo: no se puede llegar a {name}.",
+  "rc_command_failed": "El instrumento no completó la operación",
+  "rc_no_answer": "El instrumento no responde. Compruebe que está encendido y conectado a la red.",
+  "rc_refresh_not_connected": "No conectados: {names}. Compruebe que los instrumentos están encendidos y conectados."
 }

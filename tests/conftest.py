@@ -44,3 +44,17 @@ def library(library_path):
     from ola.library import Library
 
     return Library.load(library_path)
+
+
+@pytest.fixture(autouse=True)
+def no_modal_message_box(monkeypatch):
+    """A message box waits for a click, so a test must never open one: the ones that check a
+    box replace it themselves (their replacement wins), the others get an answer at once."""
+    try:
+        from PyQt6.QtWidgets import QMessageBox
+    except ImportError:  # no Qt in this run: nothing can open a box
+        return
+    for name in ("warning", "critical", "information", "question"):
+        monkeypatch.setattr(
+            QMessageBox, name, staticmethod(lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+        )

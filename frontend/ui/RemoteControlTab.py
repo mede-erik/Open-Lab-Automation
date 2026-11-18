@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QLineEdit, 
 from frontend.ui.layout_utils import FlowLayout
 from PyQt6.QtCore import QEvent, QTimer, Qt
 from frontend.core.errorhandler import ErrorHandler
-from ola.call_errors import CallNotSupportedError
+from ola.call_errors import CallNotSupportedError, InstrumentNotConnectedError, StepFailedError
 from ola.call_errors import ManualActionCancelledError
 from ola.datalogger_setup import datalogger_calls, scan_order
 from ola.manual_instrument import manual_handle_from_inst
@@ -1496,11 +1496,39 @@ class RemoteControlTab(QWidget):
             return 'load_on' if on else 'load_off'
         return 'output_on' if on else 'output_off'
 
-    def _report_call_error(self, title, exc):
-        """Print and log the error of a call."""
-        print(f"ERROR: {title}: {exc}")
-        if self.logger:
-            self.logger.error(f"{title}: {exc}")
+    def _report_call_error(self, exc):
+        """Tell the operator that a command or a reading did not happen: a box with the code
+        (ERROR_CODES.md) and the reason, and the log. A not connected instrument, an instrument
+        that does not answer, and any other failure all come here."""
+        print(f"ERROR: {exc}")
+        if isinstance(exc, StepFailedError):
+            text = self._t("rc_no_answer")
+        else:
+            text = str(exc)
+        cause = getattr(exc, "cause", None)
+        if cause is not None:
+            text = f"{text}\n\n{self._t('err_details')}: {cause}"
+        show_problem(self, self._t("rc_command_failed"), text, exception=exc)
+
+    def _connected(self, inst, call=None):
+        """The VISA instrument of an entry, ready for a command. When it cannot be reached the
+        command is not sent: ``InstrumentNotConnectedError`` says why (no address, VISA not
+        installed, the address does not answer, not connected)."""
+        name = inst.get('instance_name', 'N/A')
+        address = inst.get('visa_address', '')
+        if not address:
+            raise InstrumentNotConnectedError(
+                self._t("rc_no_address", name=name), call=call, code="INST-005")
+        if not self._ensure_visa_initialized():
+            raise InstrumentNotConnectedError(
+                self._t("rc_visa_unavailable", name=name), call=call, code="VISA-005")
+        instr = self.get_visa_instrument(inst)
+        if instr is None:
+            cause = self.__dict__.get('_open_error')
+            raise InstrumentNotConnectedError(
+                self._t("rc_not_connected", name=name, address=address), call=call,
+                code="VISA-002" if cause is not None else "INST-006", cause=cause)
+        return instr
 
     def _manual_prompt(self, request):
         """Ask the operator to carry out a manual action: True after OK, False on Cancel."""
@@ -1663,10 +1691,7 @@ class RemoteControlTab(QWidget):
         model_id = library.resolve_model_id(model_key) if library else None
         if not model_id:
             raise CallNotSupportedError(f"model {model_key!r} is not in the library", call=call)
-        instr = self.get_visa_instrument(inst)
-        if instr is None:
-            raise CallNotSupportedError(
-                f"instrument {inst.get('instance_name', '?')!r} is not connected", call=call)
+        instr = self._connected(inst, call)
         visa_addr = inst.get('visa_address', '')
         executor = self._get_instrument_executor(
             visa_addr, instr, inst.get('instance_name', visa_addr), library, model_id)
@@ -1773,6 +1798,7 @@ class RemoteControlTab(QWidget):
             instr = self.rm.open_resource(visa_addr)
             self._configure_serial(instr, visa_addr, inst)
             self.visa_connections[visa_addr] = instr
+            self._open_error = None
             print(f"[DEBUG] connection open: {instr}")
             return instr
         except Exception as e:
@@ -1780,6 +1806,7 @@ class RemoteControlTab(QWidget):
             print(f"ERROR VISA-002: {error_msg}")
             if self.logger:
                 self.logger.error(error_msg, error_code="VISA-002")
+            self._open_error = e  # why it is not connected: see _connected
             return None
 
     def set_voltage(self, inst, ch, edit):
@@ -1821,24 +1848,14 @@ class RemoteControlTab(QWidget):
             except ManualActionCancelledError as exc:
                 print(f"[ManualInstrument] {exc}")
             except Exception as exc:
-                self._report_call_error('Set Voltage Error', exc)
+                self._report_call_error(exc)
             return
-
-        instr = self.get_visa_instrument(inst)
-        if not instr:
-            print("[DEBUG] ERROR: get_visa_instrument gave None!")
-            return
-
-        print(f"[DEBUG] VISA instrument: {instr}")
 
         try:
             self.run_call(inst, ch, self._setpoint_call(inst, 'voltage'), value=value_float)
             print(f"[RemoteControlTab] voltage set: {value_float}V on {inst.get('instance_name', 'N/A')}")
         except Exception as e:
-            error_msg = f'Set Voltage Error: {str(e)}'
-            print(f"ERROR: {error_msg}")
-            if self.logger:
-                self.logger.error(error_msg)
+            self._report_call_error(e)
 
     def set_current(self, inst, ch, edit):
         """
@@ -1879,24 +1896,14 @@ class RemoteControlTab(QWidget):
             except ManualActionCancelledError as exc:
                 print(f"[ManualInstrument] {exc}")
             except Exception as exc:
-                self._report_call_error('Set Current Error', exc)
+                self._report_call_error(exc)
             return
-
-        instr = self.get_visa_instrument(inst)
-        if not instr:
-            print("[DEBUG] ERROR: get_visa_instrument gave None!")
-            return
-
-        print(f"[DEBUG] VISA instrument: {instr}")
 
         try:
             self.run_call(inst, ch, self._setpoint_call(inst, 'current'), value=value_float)
             print(f"[RemoteControlTab] current set: {value_float}A on {inst.get('instance_name', 'N/A')}")
         except Exception as e:
-            error_msg = f'Set Current Error: {str(e)}'
-            print(f"ERROR: {error_msg}")
-            if self.logger:
-                self.logger.error(error_msg)
+            self._report_call_error(e)
 
     def toggle_output(self, inst, ch, button, checked):
         """
@@ -1907,13 +1914,20 @@ class RemoteControlTab(QWidget):
             self._toggle_output_manual(inst, ch, button, checked)
             return
 
-        instr = self.get_visa_instrument(inst)
-        if not instr:
-            button.setChecked(False)
-            button.setText(self._t("rc_output_off"))
+        try:
+            instr = self._connected(inst, self._output_call(inst, checked))
+        except InstrumentNotConnectedError as exc:
+            self._report_call_error(exc)
+            self._revert_output_button(button, checked)
             return
 
         self._toggle_output_attempt(instr, inst, ch, button, checked, attempt=1, max_attempts=2)
+
+    def _revert_output_button(self, button, checked):
+        """The output button goes back to the state it had before the press."""
+        button.setChecked(not checked)
+        button.setText(self._t("rc_output_on") if not checked else self._t("rc_output_off"))
+        button.setStyleSheet('')
 
     def _toggle_output_attempt(self, instr, inst, ch, button, checked, attempt, max_attempts):
         """Tenta di impostare l'output e programma la verifica via QTimer."""
@@ -1923,6 +1937,10 @@ class RemoteControlTab(QWidget):
             QTimer.singleShot(200, lambda: self._verify_output_state(
                 instr, inst, ch, button, checked, attempt, max_attempts))
 
+        except InstrumentNotConnectedError as e:
+            # no point in trying again: say so at once
+            self._report_call_error(e)
+            self._revert_output_button(button, checked)
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Toggle Output Error (tentativo {attempt}/{max_attempts}): {e}")
@@ -1990,7 +2008,7 @@ class RemoteControlTab(QWidget):
             button.setChecked(not checked)
             return
         except Exception as exc:
-            self._report_call_error('Output Error', exc)
+            self._report_call_error(exc)
             button.setChecked(not checked)
             return
         if checked:
@@ -2007,26 +2025,28 @@ class RemoteControlTab(QWidget):
         :param ch: Channel data.
         :param label: QLabel widget to update with the read values.
         """
-        if not self.get_visa_instrument(inst):
-            return
         try:
             v = self.run_call(inst, ch, 'read_voltage')
             c = self.run_call(inst, ch, 'read_current')
             label.setText(f'V: {v:.6g}  I: {c:.6g}')
         except Exception as e:
             label.setText(f"{self._t('error')}: {e}")
+            self._report_call_error(e)
 
     def refresh_measurements_manual(self):
-        """Refresh measurements manually (called by button)."""
-        self.refresh_measurements_auto()
+        """Refresh measurements manually (called by button): unlike the automatic refresh it says
+        in a box which instruments cannot be read."""
+        self.refresh_measurements_auto(manual=True)
 
-    def refresh_measurements_auto(self):
+    def refresh_measurements_auto(self, manual=False):
         """
         Refresh the measurements displayed in the UI by querying the instruments.
         Nuovo formato: <Nome variabile>=<Valore> <Unità>
+        The automatic refresh only marks the values ("NC"); ``manual`` also shows a box.
         """
         if not hasattr(self, 'meas_vars'):
             return
+        unreachable = []
 
         # Dataloggers answer one list with all the readings of the scan list: ask once per
         # instrument and per refresh, then pick the value of each channel by its position
@@ -2056,6 +2076,8 @@ class RemoteControlTab(QWidget):
 
             if not instr:
                 # Strumento non connesso
+                if inst.get('instance_name', '') not in unreachable:
+                    unreachable.append(inst.get('instance_name', ''))
                 label.setText(f"{var_name} = NC {unit}")
                 label.setProperty("state", "error")
                 continue
@@ -2094,11 +2116,24 @@ class RemoteControlTab(QWidget):
             except CallNotSupportedError:
                 # the model has no such call: not available, not an instrument error
                 label.setText(f"{var_name} = N/A {unit}")
+            except InstrumentNotConnectedError as e:
+                if self.logger:
+                    self.logger.error(f"Measurement error {var_name}: {e}")
+                label.setText(f"{var_name} = NC {unit}")
+                label.setProperty("state", "error")
+                if e.message and inst.get('instance_name', '') not in unreachable:
+                    unreachable.append(inst.get('instance_name', ''))
             except Exception as e:
                 if self.logger:
                     self.logger.error(f"Measurement error {var_name}: {e}")
                 label.setText(f"{var_name} = ERR {unit}")
                 label.setProperty("state", "error")
+
+        if manual and unreachable:
+            show_problem(
+                self, self._t("rc_command_failed"),
+                self._t("rc_refresh_not_connected", names=", ".join(n for n in unreachable if n)),
+                code="INST-006")
 
     def toggle_auto_refresh(self, enabled):
         """Abilita/disabilita aggiornamento automatico."""

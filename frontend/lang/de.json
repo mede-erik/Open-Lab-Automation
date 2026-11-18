@@ -684,5 +684,11 @@
   "err_dl_channels_failed": "Die Kanäle des Moduls {module} konnten nicht konfiguriert werden.",
   "err_dl_save_failed": "Die Konfiguration des Datenloggers konnte nicht gespeichert werden.",
   "err_pulse_instruments_failed": "Die Geräte des Projekts konnten nicht gelesen werden: {error}",
-  "err_pulse_capabilities_failed": "Die Eigenschaften des Geräts konnten nicht gelesen werden: {error}"
+  "err_pulse_capabilities_failed": "Die Eigenschaften des Geräts konnten nicht gelesen werden: {error}",
+  "rc_not_connected": "{name} ist nicht verbunden ({address}). Prüfen, ob es eingeschaltet, im Netzwerk erreichbar und die Adresse richtig ist.",
+  "rc_no_address": "{name} hat keine VISA-Adresse in der Gerätedatei: im Geräte-Editor festlegen.",
+  "rc_visa_unavailable": "VISA ist auf diesem Computer nicht verfügbar: {name} ist nicht erreichbar.",
+  "rc_command_failed": "Das Gerät hat den Vorgang nicht abgeschlossen",
+  "rc_no_answer": "Das Gerät antwortet nicht. Prüfen, ob es eingeschaltet und im Netzwerk angeschlossen ist.",
+  "rc_refresh_not_connected": "Nicht verbunden: {names}. Prüfen, ob die Geräte eingeschaltet und angeschlossen sind."
 }

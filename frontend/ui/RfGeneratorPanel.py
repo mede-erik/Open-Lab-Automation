@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 
 from ola import rf_controls as rc
 from ola.vna_controls import parse_frequency
+from frontend.core.errorhandler import show_problem
 
 TOGGLE_STYLE = """
     QPushButton { padding: 6px; font-weight: bold; background-color: #d32f2f; color: white; }
@@ -165,6 +166,7 @@ class RfGeneratorPanel(QWidget):
                 self.run(call, **args)
         except Exception as exc:  # the call error says what went wrong (CALL-xxx, TRN-xxx)
             self.status.setText(self.t("rf_err_call").format(error=exc))
+            show_problem(self, self.t("rc_command_failed"), str(exc), exception=exc)
             return False
         return True
 
