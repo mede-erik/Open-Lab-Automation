@@ -5,8 +5,9 @@
 import json
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox, QSpinBox, 
-    QDialogButtonBox, QLabel, QMessageBox, QTextEdit
+    QDialogButtonBox, QLabel, QTextEdit
 )
+from frontend.core.errorhandler import show_problem
 
 class AddInstrumentDialog(QDialog):
     def __init__(self, load_instruments, translator, parent=None):
@@ -111,18 +112,18 @@ class AddInstrumentDialog(QDialog):
             self.save_to_library()
             super().accept()
         except Exception as e:
-            QMessageBox.critical(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {e}")
+            show_problem(self, self.translator.t("error"), f"{self.translator.t('save_instrument_error')} {e}", code="LIB-008", exception=e, level="critical")
 
     def validate_input(self):
         """Validate user input"""
         if not self.model_name_edit.text().strip():
-            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_name_required"))
+            show_problem(self, self.translator.t("error"), self.translator.t("model_name_required"), code="VALID-004")
             return False
         if not self.manufacturer_edit.text().strip():
-            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("manufacturer_required"))
+            show_problem(self, self.translator.t("error"), self.translator.t("manufacturer_required"), code="VALID-004")
             return False
         if not self.model_id_edit.text().strip():
-            QMessageBox.warning(self, self.translator.t("error"), self.translator.t("model_id_required"))
+            show_problem(self, self.translator.t("error"), self.translator.t("model_id_required"), code="VALID-004")
             return False
         return True
 

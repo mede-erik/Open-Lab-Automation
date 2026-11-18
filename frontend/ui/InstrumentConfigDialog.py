@@ -21,6 +21,7 @@ from frontend.ui.InstrumentPanels import NetworkAnalyzerPanel, SerialPanel, Swit
 from ola import inst_file as inst
 from ola import inst_complete
 from ola import project_rename
+from frontend.core.errorhandler import show_problem
 
 # PyVISA opzionale per discovery
 try:
@@ -104,7 +105,7 @@ class InstrumentConfigDialog(QDialog):
                 logger.debug("Failed to emit instruments_changed signal (no connected slot or deleted receiver)")
         except Exception as e:
             logger.error("Saving the instrument file failed: %s", e)
-            QMessageBox.warning(self, self.translator.t('inst_save_error_title'), str(e))
+            show_problem(self, self.translator.t('inst_save_error_title'), str(e), code="INST-009", exception=e)
 
     def init_ui(self):
         t = self.translator.t
@@ -837,8 +838,13 @@ class InstrumentConfigDialog(QDialog):
             try:
                 project_rename.rename_references(self.inst_file_path, old, new, references)
             except project_rename.RenameError as exc:
-                QMessageBox.warning(self, t('inst_rename_title'),
-                                    t('inst_rename_failed').format(error=exc))
+                show_problem(
+                    self,
+                    t('inst_rename_title'),
+                    t('inst_rename_failed').format(error=exc),
+                    code="INST-010",
+                    exception=exc,
+                )
                 self.name_edit.setText(old)
                 self.check_name(old)
                 return
@@ -866,7 +872,8 @@ class InstrumentConfigDialog(QDialog):
         """Scansiona le risorse VISA disponibili e permette di applicare un indirizzo allo strumento selezionato."""
         from PyQt6.QtWidgets import QApplication
         if not PYVISA_AVAILABLE or pyvisa is None:
-            QMessageBox.information(self, self.translator.t('inst_scan_unavailable_title'), self.translator.t('inst_scan_unavailable'))
+            show_problem(self, self.translator.t('inst_scan_unavailable_title'),
+                         self.translator.t('inst_scan_unavailable'), code="VISA-005")
             return
 
         dlg = QDialog(self)
@@ -1003,7 +1010,7 @@ class InstrumentConfigDialog(QDialog):
                         logger.debug("Could not open VISA resource %s", addr)
                     idn_cache[addr] = (idn, iface)
         except Exception as e:
-            QMessageBox.warning(self, self.translator.t('inst_scan_error_title'), str(e))
+            show_problem(self, self.translator.t('inst_scan_error_title'), str(e), code="INST-011", exception=e)
 
         def kind_of(iface_val):
             """Kind of connection of a VISA interface name: usb, lan, rs232, gpib (or 'other')."""
@@ -1241,7 +1248,7 @@ class InstrumentConfigDialog(QDialog):
         control. It is one channel with its limits and is not a model of the instrument
         library (a supply with two outputs is two manual instruments).
         """
-        from PyQt6.QtWidgets import QDoubleSpinBox, QMessageBox
+        from PyQt6.QtWidgets import QDoubleSpinBox
 
         t = self.translator.t
         dlg = QDialog(self)
@@ -1278,10 +1285,10 @@ class InstrumentConfigDialog(QDialog):
         while dlg.exec() == QDialog.DialogCode.Accepted:
             name = name_edit.text().strip()
             if not name:
-                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_required'))
+                show_problem(self, t('manual_dialog_title'), t('manual_name_required'), code="VALID-004")
                 continue
             if any(i.get('instance_name') == name for i in self.instruments):
-                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_exists'))
+                show_problem(self, t('manual_dialog_title'), t('manual_name_exists'), code="INST-003")
                 continue
             channel = {
                 'enabled': True,

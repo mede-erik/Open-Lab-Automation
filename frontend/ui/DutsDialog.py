@@ -48,6 +48,7 @@ from frontend.ui.efficiency_widgets import text_color
 from frontend.ui.module_translator import CatalogTranslator, ChainedTranslator
 from ola.assets import AssetError, RunRef, last_measurement_line, normalize_code, runs_of
 from ola.duts import CATEGORIES, Dut, DutRegistry, index_dut_runs
+from frontend.core.errorhandler import show_problem
 
 RunDirs = Union[Sequence[Union[str, Path]], Callable[[], Sequence[Union[str, Path]]]]
 
@@ -238,7 +239,7 @@ class DutsDialog(QDialog):
                 self.registry.update(dut.id, save=False, retired=retire)
             self.registry.save()
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def delete_selected(self) -> None:
@@ -258,7 +259,7 @@ class DutsDialog(QDialog):
         try:
             self.registry.delete(dut.id)
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def make_labels(self) -> None:

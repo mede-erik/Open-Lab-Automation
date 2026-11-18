@@ -6,13 +6,13 @@ import logging
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QLabel, QLineEdit, QDialogButtonBox, QWidget, QFormLayout
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton
 from PyQt6.QtCore import QSettings
-from PyQt6.QtWidgets import QMessageBox
 from frontend.core import gpib_settings
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
 from ola.gpib_adapter import FAMILY_PROLOGIX, FAMILY_VISA, GpibError
 from frontend.ui.theme_utils import set_class
+from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger('frontend.ui.AddressEditorDialog')
 
@@ -367,22 +367,30 @@ class AddressEditorDialog(QDialog):
                 try:
                     vals['com_port'] = serial_port_value(vals['com_port'])
                 except ValueError:
-                    QMessageBox.warning(
-                        self, self._t("addr_invalid_title"), self._t("addr_invalid_port"))
+                    show_problem(
+                        self,
+                        self._t("addr_invalid_title"),
+                        self._t("addr_invalid_port"),
+                        code="VALID-003",
+                    )
                     return None
             
             # Validazione per GPIB
             elif self.is_gpib_type(self.conn_type) and 'gpib_addr' in vals:
                 gpib_addr = vals['gpib_addr'].strip()
                 if not gpib_addr.isdigit() or not (1 <= int(gpib_addr) <= 30):
-                    QMessageBox.warning(
-                        self, self._t("addr_invalid_title"), self._t("addr_invalid_gpib"))
+                    show_problem(
+                        self,
+                        self._t("addr_invalid_title"),
+                        self._t("addr_invalid_gpib"),
+                        code="VALID-005",
+                    )
                     return None
                 if self.gpib_adapter is not None:
                     try:
                         addr = self.gpib_adapter.address(int(gpib_addr))
                     except GpibError as exc:
-                        QMessageBox.warning(self, self._t("addr_invalid_title"), str(exc))
+                        show_problem(self, self._t("addr_invalid_title"), str(exc), exception=exc)
                         return None
                     logger.debug(f"Generated address: {addr}")
                     return addr
@@ -398,5 +406,5 @@ class AddressEditorDialog(QDialog):
             
         except Exception as e:
             logger.error(f"Address format error: {e}")
-            QMessageBox.warning(self, self._t("error"), f"{self._t('addr_format_error')} {e}")
+            show_problem(self, self._t("error"), f"{self._t('addr_format_error')} {e}", code="VALID-006", exception=e)
             return None

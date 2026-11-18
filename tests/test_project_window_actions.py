@@ -114,8 +114,9 @@ def test_calibration_says_when_the_instrument_file_cannot_be_read(window, librar
 def test_calibration_says_when_there_is_no_network_analyzer(window, library, popups):
     use_inst_file(window, library, [PSU])
     window.calibrate_analyzer()
-    assert [p[0] for p in popups] == ["information"]
+    assert [p[0] for p in popups] == ["warning"]
     assert "analyzer" in popups[0][2].lower() or "vna" in popups[0][2].lower()
+    assert popups[0][2].endswith("[INST-005]")
 
 
 def test_calibration_opens_its_window_for_the_analyzers_of_the_project(

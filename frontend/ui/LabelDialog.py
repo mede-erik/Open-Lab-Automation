@@ -33,7 +33,6 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -53,6 +52,7 @@ from ola.labels import (
     render_svg,
     sheet_drawings,
 )
+from frontend.core.errorhandler import show_problem
 
 SHEET = "sheet"
 SINGLE = "single"
@@ -293,6 +293,6 @@ class LabelDialog(QDialog):
         try:
             action()
         except Exception as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("lbl_failed", error=exc))
+            show_problem(self, self.windowTitle(), self._t("lbl_failed", error=exc), code="AST-002", exception=exc, level="critical")
             return
         self.message.setText(self._t("lbl_saved", path=path))

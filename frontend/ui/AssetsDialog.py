@@ -58,6 +58,7 @@ from ola.assets import (
     normalize_code,
     runs_of,
 )
+from frontend.core.errorhandler import show_problem
 
 RunDirs = Union[Sequence[Union[str, Path]], Callable[[], Sequence[Union[str, Path]]]]
 
@@ -317,7 +318,7 @@ class AssetsDialog(QDialog):
                 self.registry.update(asset.id, save=False, retired=retire)
             self.registry.save()
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def delete_selected(self) -> None:
@@ -335,7 +336,7 @@ class AssetsDialog(QDialog):
         try:
             self.registry.delete(asset.id)
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def make_labels(self) -> None:

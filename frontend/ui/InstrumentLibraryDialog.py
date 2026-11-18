@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QHeaderView, QTreeWidgetItemIterator
 from frontend.ui.layout_utils import resize_to_screen
 from PyQt6.QtWidgets import QWidget 
 from frontend.core.LoadInstruments import LoadInstruments
+from frontend.core.errorhandler import show_problem
 
 
 class InstrumentLibraryDialog(QDialog):
@@ -160,7 +161,7 @@ class InstrumentLibraryDialog(QDialog):
                     raise ValueError(library_path)
                 QMessageBox.information(self, self._t("success"), self._t("instrument_added_success"))
             except Exception as e:
-                QMessageBox.warning(self, self._t("warning"), f"{self._t('ilb_reload_failed')}\n{e}")
+                show_problem(self, self._t("warning"), f"{self._t('ilb_reload_failed')}\n{e}", code="LIB-008", exception=e)
             self.populate_tree()
 
     def populate_tree(self):

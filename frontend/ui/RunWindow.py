@@ -72,6 +72,7 @@ from ola.run_view import (
 )
 from ola.runner import Runner
 from ola.runs import export_points_csv, export_touchstone, export_trace_csv
+from frontend.core.errorhandler import show_problem
 
 POLL_MS = 100
 TIMEOUT_CLOSE_S = 15  # how long closing the window waits for the run to stop
@@ -87,6 +88,15 @@ def number(value: Any, column: str = "") -> str:
         return format_si(float(value), "Hz")
     return f"{value:.6g}"
 
+
+
+def failure_text(error) -> str:
+    """The message of a failed run with its code (ERROR_CODES.md): the code of the error when it
+    has one (CALL-xxx, TRN-xxx...), else MEAS-006."""
+    message = str(error.get("message", "")) if error else ""
+    code = (error or {}).get("code") or "MEAS-006"
+    code = str(code).strip("[]")
+    return message if f"[{code}]" in message else f"[{code}] {message}"
 
 class QuestionDialog(QDialog):
     """Pop-up with a question of the measurement and one button per choice.
@@ -371,8 +381,13 @@ class RunWindow(QWidget):
         try:
             self.runner.start()
         except MeasurementError as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_cannot_start", errors=str(exc))
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_cannot_start", errors=str(exc)),
+                code="MEAS-003",
+                exception=exc,
+                level="critical",
             )
         self._tick()
 
@@ -397,8 +412,13 @@ class RunWindow(QWidget):
         try:
             n = export_points_csv(self.run_file, path)
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.banner.setText(self._t("run_export_done", n=n, path=path))
@@ -471,7 +491,7 @@ class RunWindow(QWidget):
         if state == "failed" and m.error:
             self.banner.setText(
                 f"<span style='color:{text_color('error', self)}'>"
-                f"{self._t('run_failed_banner', message=m.error.get('message', ''))}</span>"
+                f"{self._t('run_failed_banner', message=failure_text(m.error))}</span>"
             )
         elif state == "stopped":
             self.banner.setText(self._t("run_stopped_banner", n=len(m.points)))
@@ -688,8 +708,13 @@ class RunWindow(QWidget):
         try:
             action()
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.banner.setText(self._t("run_traces_export_done", path=path))

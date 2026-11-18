@@ -30,6 +30,7 @@ from frontend.core.errorhandler import ErrorHandler
 from ola.pulse_power import check_pulse_power, max_amplitude, max_base_level, max_duty
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.theme_utils import set_class
+from frontend.core.errorhandler import show_problem
 
 # Logical calls the Pulse Generator needs from an electronic load (see schema/electronic_load.json).
 # A model that does not define all of them cannot be used here: there is no generic fallback.
@@ -282,10 +283,11 @@ class PulseGeneratorDialog(QDialog):
             # Find project JSON file
             project_files = [f for f in os.listdir(self.project_dir) if f.endswith('.json')]
             if not project_files:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_project_file_found')
+                    self.translator.t('no_project_file_found'),
+                    code="PROJ-001",
                 )
                 return
 
@@ -296,19 +298,21 @@ class PulseGeneratorDialog(QDialog):
             # Load instruments from .inst file
             inst_file_name = project_data.get('inst_file')
             if not inst_file_name:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_inst_file_in_project')
+                    self.translator.t('no_inst_file_in_project'),
+                    code="PROJ-007",
                 )
                 return
 
             inst_file_path = os.path.join(self.project_dir, inst_file_name)
             if not os.path.exists(inst_file_path):
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    f"{self.translator.t('inst_file_not_found')}: {inst_file_name}"
+                    f"{self.translator.t('inst_file_not_found')}: {inst_file_name}",
+                    code="PROJ-007",
                 )
                 return
 
@@ -325,10 +329,11 @@ class PulseGeneratorDialog(QDialog):
             ]
 
             if not electronic_loads:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_load_available')
+                    self.translator.t('no_load_available'),
+                    code="TOOL-002",
                 )
                 # the sentence is a message under the (empty) list, where it can wrap
                 self.instrument_combo.setEnabled(False)
@@ -347,7 +352,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"Error loading instruments from project: {str(e)}"
+                self.translator.t("err_pulse_instruments_failed").format(error=e),
+                code="PROJ-005",
             )
 
     def on_instrument_changed(self, index):
@@ -373,10 +379,12 @@ class PulseGeneratorDialog(QDialog):
             )
 
             if not self.current_capabilities:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    f"{self.translator.t('pulse_missing_capabilities')}\n[TOOL-007]"
+                    f"{self.translator.t('pulse_missing_capabilities')}\n[TOOL-007]",
+                    code="TOOL-007",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 return
@@ -387,10 +395,12 @@ class PulseGeneratorDialog(QDialog):
             )
 
             if not self.current_scpi_commands:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    f"{self.translator.t('pulse_no_commands')}\n[TOOL-003]"
+                    f"{self.translator.t('pulse_no_commands')}\n[TOOL-003]",
+                    code="TOOL-003",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 return
@@ -399,12 +409,14 @@ class PulseGeneratorDialog(QDialog):
             missing_commands = [cmd for cmd in REQUIRED_CALLS if cmd not in self.current_scpi_commands]
 
             if missing_commands:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
                     f"{self.translator.t('pulse_missing_commands_error')}:\n" +
                     f"{', '.join(missing_commands)}\n\n" +
-                    f"{self.translator.t('pulse_update_library_suggestion')}\n[TOOL-003]"
+                    f"{self.translator.t('pulse_update_library_suggestion')}\n[TOOL-003]",
+                    code="TOOL-003",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 self.instrument_info_label.setText(
@@ -451,7 +463,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"Error loading instrument capabilities: {str(e)}"
+                self.translator.t("err_pulse_capabilities_failed").format(error=e),
+                code="LIB-003",
             )
             self.start_button.setEnabled(False)
 
@@ -465,13 +478,14 @@ class PulseGeneratorDialog(QDialog):
         max_current = self.current_limits.get('max_current') or 100.0
 
         if value > max_current:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('error'),
                 self.translator.t('pulse_amplitude_exceeded').format(
                     value=value,
                     max=max_current
-                ) + f"\n[TOOL-004]"
+                ) + "\n[TOOL-004]",
+                code="TOOL-004",
             )
             self.amplitude_spin.setValue(max_current)
 
@@ -489,13 +503,14 @@ class PulseGeneratorDialog(QDialog):
         max_current = self.current_limits.get('max_current') or 100.0
 
         if value > max_current:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('error'),
                 self.translator.t('pulse_base_level_exceeded').format(
                     value=value,
                     max=max_current
-                ) + f"\n[TOOL-004]"
+                ) + "\n[TOOL-004]",
+                code="TOOL-004",
             )
             self.base_level_spin.setValue(max_current)
 
@@ -585,12 +600,13 @@ class PulseGeneratorDialog(QDialog):
                 self.frequency_spin.setValue(max(value, self.frequency_spin.minimum()))
                 shown, unit = t('pulse_frequency'), f"{value} Hz"
 
-        QMessageBox.warning(
+        show_problem(
             self,
             t('error'),
             self._power_message(result, max_power)
             + "\n" + t('pulse_power_corrected').format(parameter=shown, value=unit)
             + "\n[TOOL-008]",
+            code="TOOL-008",
         )
 
     def _power_allowed_to_start(self, amplitude, base_level, duty):
@@ -618,7 +634,7 @@ class PulseGeneratorDialog(QDialog):
 
     def _refuse_start(self, message):
         """Tell why the pulse does not start and release the connection to the load."""
-        QMessageBox.critical(self, self.translator.t('error'), f"{message}\n[TOOL-008]")
+        show_problem(self, self.translator.t('error'), f"{message}\n[TOOL-008]", code="TOOL-008", level="critical")
         if self.visa_instr:
             try:
                 self.visa_instr.close()
@@ -735,18 +751,21 @@ class PulseGeneratorDialog(QDialog):
     def start_pulse(self):
         """Start pulse generation"""
         if not PYVISA_AVAILABLE:
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                self.translator.t('pyvisa_not_available')
+                self.translator.t('pyvisa_not_available'),
+                code="VISA-005",
+                level="critical",
             )
             return
 
         if not self.current_instrument or not self.current_scpi_commands:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                f"{self.translator.t('no_instrument_selected')}\n[TOOL-001]"
+                f"{self.translator.t('no_instrument_selected')}\n[TOOL-001]",
+                code="TOOL-001",
             )
             return
 
@@ -754,10 +773,12 @@ class PulseGeneratorDialog(QDialog):
             # Get VISA address
             visa_address = self.current_instrument.get('visa_address')
             if not visa_address:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    self.translator.t('no_visa_address')
+                    self.translator.t('no_visa_address'),
+                    code="INST-005",
+                    level="critical",
                 )
                 return
 
@@ -805,7 +826,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"{self.translator.t('pulse_start_failed')}: {str(e)}\n[TOOL-005]"
+                f"{self.translator.t('pulse_start_failed')}: {str(e)}",
+                code="TOOL-005",
             )
 
     def stop_pulse(self):
@@ -840,7 +862,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"{self.translator.t('pulse_stop_failed')}: {str(e)}\n[TOOL-005]"
+                f"{self.translator.t('pulse_stop_failed')}: {str(e)}",
+                code="TOOL-005",
             )
 
     def closeEvent(self, event):

@@ -44,7 +44,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
@@ -61,6 +60,7 @@ from frontend.ui.trace_plot import SmithChart, TracePlot
 from ola import compare, golden
 from ola.compare import CompareError, RunData
 from ola.run_view import VIEW_SMITH, format_si, trace_views, trace_xy
+from frontend.core.errorhandler import show_problem
 
 NO_GROUP = ""
 REFERENCE_MARK = "★ "
@@ -289,8 +289,11 @@ class CompareDialog(QDialog):
             except CompareError as exc:
                 errors.append(str(exc))
         if errors:
-            QMessageBox.warning(
-                self, self._t("cmp_title"), self._t("cmp_load_failed", errors="\n".join(errors))
+            show_problem(
+                self,
+                self._t("cmp_title"),
+                self._t("cmp_load_failed", errors="\n".join(errors)),
+                code="MEAS-007",
             )
         self._fill_list()
 
@@ -733,8 +736,13 @@ class CompareDialog(QDialog):
         try:
             action()
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("cmp_title"), self._t("cmp_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("cmp_title"),
+                self._t("cmp_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.stats_label.setText(self._t("cmp_saved", path=path))

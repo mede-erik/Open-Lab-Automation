@@ -5,8 +5,9 @@
 import json
 import logging
 logger = logging.getLogger(__name__)
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QMessageBox
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel
 from frontend.ui.theme_utils import set_class
+from frontend.core.errorhandler import show_problem
 
 # =========================
 # WasFileDialog
@@ -469,5 +470,5 @@ class WasFileDialog(QDialog):
                 json.dump(self.data, f, indent=2)
             self.accept()
         except Exception as e:
-            QMessageBox.warning(self, self.translator.t('error'), str(e))
+            show_problem(self, self.translator.t('error'), str(e), code="FILE-006", exception=e)
 
