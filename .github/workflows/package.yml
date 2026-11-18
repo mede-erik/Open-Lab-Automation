@@ -256,13 +256,13 @@ jobs:
             $log = "$env:RUNNER_TEMP\$name.log"
             $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", "/LOG=$log") + $extra
             $p = Start-Process -FilePath $setup.FullName -Wait -PassThru -ArgumentList $arguments
-            if ($p.ExitCode -ne 0) { throw "$name: the installer exited with $($p.ExitCode)" }
+            if ($p.ExitCode -ne 0) { throw "${name}: the installer exited with $($p.ExitCode)" }
             return Get-Content $log -Raw
           }
           function Selftest([string]$name) {
             $env:QT_QPA_PLATFORM = 'offscreen'
             & "$dir\ola-selftest.exe" --expect-native
-            if ($LASTEXITCODE -ne 0) { throw "$name: self-test of the installed program failed" }
+            if ($LASTEXITCODE -ne 0) { throw "${name}: self-test of the installed program failed" }
           }
 
           # 1. first installation with the desktop icon: program, Start menu and desktop icon
@@ -291,7 +291,7 @@ jobs:
           # 5. every language installs (exit code 0) and the program starts
           foreach ($lang in @('italian', 'french', 'spanish', 'german', 'english')) {
             $null = Run "lang-$lang" @("/LANG=$lang", '/MODE=REPAIR')
-            if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "language $lang: no program" }
+            if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "language ${lang}: no program" }
             Selftest "lang-$lang"
           }
 
