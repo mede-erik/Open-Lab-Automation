@@ -384,7 +384,8 @@ class ProjectWindow(QMainWindow):
 
     def open_project(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, self._t("prj_open_project"), "", "Project (*.json)"
+            self, self._t("prj_open_project"), "",
+            f"{self._t('file_filter_project')} (*.json)",
         )
         if path:
             self.open_path(path)
@@ -407,7 +408,7 @@ class ProjectWindow(QMainWindow):
             self,
             self._t("prj_choose_inst"),
             str(self.session.project.directory),
-            "Instruments (*.inst)",
+            f"{self._t('file_filter_instruments')} (*.inst)",
         )
         if not path:
             return
@@ -650,9 +651,9 @@ class ProjectWindow(QMainWindow):
         project = self.session.project
         try:
             if library is None:
-                raise ConnectionProblem("the instrument library is not available")
+                raise ConnectionProblem(self._t("prj_cal_no_library"))
             if not project.inst_file:
-                raise ConnectionProblem("the project has no instrument file (.inst)")
+                raise ConnectionProblem(self._t("prj_cal_no_inst"))
             entries = read_inst_entries(project.directory / project.inst_file)
         except ConnectionProblem as exc:
             show_problem(

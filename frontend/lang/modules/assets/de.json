@@ -117,5 +117,6 @@
   "ast_t_limit_line": "Grenze",
   "ast_t_days": "Tage seit {date}",
   "ast_t_failed": "Speichern nicht möglich: {error}",
-  "ast_t_saved": "Gespeichert: {path}"
+  "ast_t_saved": "Gespeichert: {path}",
+  "ast_unreadable": "beschädigt oder nicht lesbar"
 }

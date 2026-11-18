@@ -1303,7 +1303,8 @@ class EfficiencyEditorDialog(QDialog):
         path = self.file_path
         if not path:
             path, _ = QFileDialog.getSaveFileName(
-                self, self._t("eff_save"), "", "Efficiency (*.eff)"
+                self, self._t("eff_save"), "",
+                f"{self._t('file_filter_efficiency')} (*.eff)",
             )
             if not path:
                 return False

@@ -775,7 +775,8 @@ class GpibAdapterDialog(QDialog):
 
     def save_linux_script(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, self._t("gpb_lx_save"), "ola-gpib-setup.sh", "Shell (*.sh)"
+            self, self._t("gpb_lx_save"), "ola-gpib-setup.sh",
+            f"{self._t('file_filter_shell')} (*.sh)",
         )
         if not path:
             return

@@ -274,7 +274,8 @@ class CompareDialog(QDialog):
     def add_dialog(self) -> None:
         """Choose run files to add."""
         paths, _ = QFileDialog.getOpenFileNames(
-            self, self._t("cmp_open_title"), self.start_dir, "Run files (*.jsonl)"
+            self, self._t("cmp_open_title"), self.start_dir,
+            f"{self._t('file_filter_runs')} (*.jsonl)",
         )
         self.add_files(paths)
 
@@ -716,7 +717,8 @@ class CompareDialog(QDialog):
         """Add a golden sample of the project and make it the reference."""
         folder = Path(self.project_dir()) / golden.GOLDEN_DIR
         path, _ = QFileDialog.getOpenFileName(
-            self, self._t("cmp_g_open"), str(folder), "Run files (*.jsonl)"
+            self, self._t("cmp_g_open"), str(folder),
+            f"{self._t('file_filter_runs')} (*.jsonl)",
         )
         if path:
             self.use_as_golden(path)

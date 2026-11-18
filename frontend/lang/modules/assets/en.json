@@ -117,5 +117,6 @@
   "ast_t_limit_line": "limit",
   "ast_t_days": "days since {date}",
   "ast_t_failed": "Could not save: {error}",
-  "ast_t_saved": "Saved: {path}"
+  "ast_t_saved": "Saved: {path}",
+  "ast_unreadable": "damaged or not readable"
 }
