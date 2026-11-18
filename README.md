@@ -319,6 +319,46 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `Instruments_LIB/docs/` — Instrument manuals and documentation
 - `examples/` — Example projects and configuration files
 
+## Troubleshooting
+
+### USBTMC instrument on Linux is not found
+
+Symptoms: the instrument is plugged in and `lsusb` lists it, but VISA (NI-VISA or pyvisa-py) lists no
+`USB0::...::INSTR` resource, the automatic search of the instrument window finds nothing, and
+`pyusb` fails on the string descriptors with `The device has no langid (permission issue ...)`.
+
+Cause: the kernel `usbtmc` driver takes the instrument, and its device node in `/dev/bus/usb/` is owned
+by `root:root` with mode `0664`. The user cannot open it, so the VISA backends cannot read the
+instrument's identity and do not list it. The instrument itself is fine: `/dev/usbtmc0` answers `*IDN?`.
+
+Check that the kernel driver holds it, and that the device node is the problem:
+
+```bash
+lsusb                              # find the vendor:product ids of the instrument
+ls -l /dev/usbtmc*                 # the kernel driver created a node
+ls -l /dev/bus/usb/<bus>/<dev>     # root:root 0664 = the VISA backend cannot open it
+```
+
+Fix: a udev rule that gives the device to a group the user belongs to (here `plugdev`). Replace
+`<vendor-id>` and `<product-id>` with the ids from `lsusb`, without the `0x` prefix; do not add the serial
+number, so the rule works for every unit of the model:
+
+```bash
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="<vendor-id>", ATTR{idProduct}=="<product-id>", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-usbtmc-instrument.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
+```
+
+Then unplug and plug the instrument again. Check that `id -nG` lists `plugdev`, and that VISA now lists
+the instrument as `USB0::0x<VENDOR>::0x<PRODUCT>::<serial>::INSTR`.
+
+Notes:
+
+- The rule is for the instrument model. A different model needs its own ids.
+- A VISA resource is usually `USB0::`, so the instrument window must be set to that resource, not to the
+  `/dev/usbtmc0` node, which the VISA backends do not use.
+- If the instrument is also reached over LAN, the LAN address is not used by the USB connection: a
+  "no route to host" error on the LAN address does not mean the USB connection is broken.
 
 ## Software test status
 
