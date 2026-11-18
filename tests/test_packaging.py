@@ -256,3 +256,11 @@ def test_skipping_the_tests_is_only_for_manual_runs_and_never_publishes():
     assert "needs.tests.result == 'skipped' && inputs.skip_tests" in workflow
     publish = workflow.split("\n  publish:", 1)[1]
     assert "github.event_name == 'push'" in publish.split("steps:", 1)[0]
+
+
+def test_update_waits_for_the_old_uninstaller_to_finish():
+    """The uninstaller of Inno Setup starts a second copy and ends at once: Setup waits until the
+    uninstaller file is gone, or the old uninstaller could delete the new files."""
+    script = read_installer()
+    assert "while FileExists(PreviousUninstaller)" in script
+    assert "Sleep(" in script

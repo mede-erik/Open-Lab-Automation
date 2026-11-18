@@ -197,6 +197,19 @@ jobs:
             Start-Process -FilePath $setup.FullName -Wait -ArgumentList $arguments
             return Get-Content "$env:RUNNER_TEMP\$name.log" -Raw
           }
+          # The uninstaller is found where Windows says (its name is not always the same), and the
+          # folder must keep exactly one of them
+          function UninstallerPath {
+            $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{6B0B8A3E-5C2D-4E8E-9D5B-0F6A3C41B7A2}_is1'
+            if (-not (Test-Path -LiteralPath $key)) { throw "no uninstall entry in the registry" }
+            return (Get-ItemProperty -LiteralPath $key).UninstallString.Trim('"')
+          }
+          function CheckUninstaller([string]$step) {
+            $found = @(Get-ChildItem $dir -Filter 'unins*.exe' | ForEach-Object { $_.Name })
+            Write-Host "after ${step}: $($found -join ', ') (registry: $(UninstallerPath))"
+            if ($found.Count -ne 1) { throw "after ${step}: expected one uninstaller, found $($found.Count)" }
+            if (-not (Test-Path -LiteralPath (UninstallerPath))) { throw "after ${step}: the uninstaller of the registry is missing" }
+          }
           function Selftest {
             $env:QT_QPA_PLATFORM = 'offscreen'
             & "$dir\ola-selftest.exe" --expect-native
@@ -208,6 +221,7 @@ jobs:
           if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { Write-Host $log; throw "the installer did not install the program" }
           if ($log -match 'Previous version removed') { throw "a first installation ran an uninstaller" }
           Selftest
+          CheckUninstaller 'the first installation'
 
           # Update: the old uninstaller runs first, then the files are installed. A file that is not
           # part of the program is not ours to delete: it stays.
@@ -217,6 +231,7 @@ jobs:
           if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "update left no program" }
           if (-not (Test-Path "$dir\other.txt")) { throw "update deleted a file that is not part of the program" }
           Selftest
+          CheckUninstaller 'the update'
 
           # Repair: no uninstaller, the files are installed again, the missing one comes back
           Remove-Item "$dir\ola-selftest.exe"
@@ -225,8 +240,9 @@ jobs:
           if (-not (Test-Path "$dir\ola-selftest.exe")) { throw "repair did not restore the missing file" }
           if (-not (Test-Path "$dir\other.txt")) { throw "repair deleted a file that is not part of the program" }
           Selftest
+          CheckUninstaller 'the repair'
 
-          Start-Process -FilePath "$dir\unins000.exe" -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
+          Start-Process -FilePath (UninstallerPath) -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
           if (Test-Path "$dir\OpenLabAutomation.exe") { throw "the uninstaller left the program" }
 
       - uses: actions/upload-artifact@v7

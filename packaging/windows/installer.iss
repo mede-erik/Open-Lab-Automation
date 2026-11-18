@@ -181,16 +181,35 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
+  Waited: Integer;
 begin
   if (CurStep <> ssInstall) or (not WantsUpdate) then
     Exit;
   if not WizardSilent then
     WizardForm.StatusLabel.Caption := CustomMessage('RemovingOld');
   if not FileExists(PreviousUninstaller) then
-    Log('Previous uninstaller not found, the files are replaced in place: ' + PreviousUninstaller)
-  else if Exec(PreviousUninstaller, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '',
+  begin
+    Log('Previous uninstaller not found, the files are replaced in place: ' + PreviousUninstaller);
+    Exit;
+  end;
+  if not Exec(PreviousUninstaller, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '',
       SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-    Log('Previous version removed, exit code ' + IntToStr(ResultCode))
-  else
+  begin
     Log('Could not run the previous uninstaller: ' + SysErrorMessage(ResultCode));
+    Exit;
+  end;
+  // The uninstaller starts a second copy of itself and ends at once: Exec returns while the
+  // files are still being removed. That copy deletes the uninstaller file as its last act, so
+  // wait for that before installing: the new files must not be removed by the old uninstaller,
+  // and the new uninstaller must not be deleted by it.
+  Waited := 0;
+  while FileExists(PreviousUninstaller) and (Waited < 120000) do
+  begin
+    Sleep(250);
+    Waited := Waited + 250;
+  end;
+  if FileExists(PreviousUninstaller) then
+    Log('The previous uninstaller is still there after ' + IntToStr(Waited div 1000) + ' s')
+  else
+    Log('Previous version removed after ' + IntToStr(Waited) + ' ms, exit code ' + IntToStr(ResultCode));
 end;
