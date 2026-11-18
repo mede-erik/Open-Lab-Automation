@@ -97,6 +97,10 @@ def test_no_message_box_of_a_problem_goes_around_show_problem():
     assert direct == []
 
 
+# a failure that comes from a thread as a text: its code is the one written in the text
+TEXT_ONLY = {os.path.join("frontend", "ui", "VnaPanel.py")}
+
+
 def test_every_show_problem_names_its_code_and_it_is_documented():
     import ast
 
@@ -105,6 +109,8 @@ def test_every_show_problem_names_its_code_and_it_is_documented():
         if ast.unparse(node.func) != "show_problem":
             continue
         keywords = {k.arg: k.value for k in node.keywords}
+        if path in TEXT_ONLY:
+            continue
         assert "code" in keywords or "exception" in keywords, f"{path}:{node.lineno}"
         code = keywords.get("code")
         if isinstance(code, ast.Constant):
@@ -220,3 +226,13 @@ def test_call_error_classes_have_documented_codes():
     for obj in vars(ce).values():
         if isinstance(obj, type) and issubclass(obj, CallError):
             assert obj.code in documented, obj.__name__
+
+
+def test_a_code_written_in_the_text_is_kept_when_nothing_else_gives_one(monkeypatch):
+    shown = []
+    monkeypatch.setattr(
+        eh.QMessageBox, "warning",
+        staticmethod(lambda parent, title, text: shown.append(text)),
+    )
+    eh.show_problem(None, "T", "no answer [CALL-004] from the bench")
+    assert shown == ["no answer [CALL-004] from the bench"]  # not SYS-007 on top

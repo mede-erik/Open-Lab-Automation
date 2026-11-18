@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.trace_plot import TracePlot
 from ola import vna_controls as vc
 from ola.run_view import format_si
+from frontend.core.errorhandler import show_problem
 
 
 class _SweepWorker(QThread):
@@ -224,6 +225,7 @@ class VnaPanel(QGroupBox):
         self.sweep_button.setEnabled(True)
         self._sent_sweep = None  # set the sweep again next time
         self.status.setText(self.t("vna_err_call").format(error=text))
+        show_problem(self, self.t("rc_command_failed"), text)  # the text has the code if it has one
         self.continuous.setChecked(False)
 
     def _continuous_toggled(self, on: bool):

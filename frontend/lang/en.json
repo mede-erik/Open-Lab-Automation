@@ -684,5 +684,11 @@
   "err_dl_channels_failed": "The channels of module {module} could not be configured.",
   "err_dl_save_failed": "The datalogger configuration could not be saved.",
   "err_pulse_instruments_failed": "The instruments of the project could not be read: {error}",
-  "err_pulse_capabilities_failed": "The capabilities of the instrument could not be read: {error}"
+  "err_pulse_capabilities_failed": "The capabilities of the instrument could not be read: {error}",
+  "rc_not_connected": "{name} is not connected ({address}). Check that it is on, connected to the network and that its address is right.",
+  "rc_no_address": "{name} has no VISA address in the instrument file: set it in the instrument editor.",
+  "rc_visa_unavailable": "VISA is not available on this computer: {name} cannot be reached.",
+  "rc_command_failed": "The instrument did not complete the operation",
+  "rc_no_answer": "The instrument did not answer. Check that it is on and connected to the network.",
+  "rc_refresh_not_connected": "Not connected: {names}. Check that the instruments are on and connected."
 }

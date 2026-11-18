@@ -685,5 +685,11 @@
   "err_dl_channels_failed": "Impossibile configurare i canali del modulo {module}.",
   "err_dl_save_failed": "Impossibile salvare la configurazione del data logger.",
   "err_pulse_instruments_failed": "Impossibile leggere gli strumenti del progetto: {error}",
-  "err_pulse_capabilities_failed": "Impossibile leggere le caratteristiche dello strumento: {error}"
+  "err_pulse_capabilities_failed": "Impossibile leggere le caratteristiche dello strumento: {error}",
+  "rc_not_connected": "{name} non è collegato ({address}). Verifica che sia acceso, collegato alla rete e che l'indirizzo sia giusto.",
+  "rc_no_address": "{name} non ha un indirizzo VISA nel file degli strumenti: impostalo nell'editor degli strumenti.",
+  "rc_visa_unavailable": "VISA non è disponibile su questo computer: {name} non è raggiungibile.",
+  "rc_command_failed": "Lo strumento non ha completato l'operazione",
+  "rc_no_answer": "Lo strumento non risponde. Verifica che sia acceso e collegato alla rete.",
+  "rc_refresh_not_connected": "Non collegati: {names}. Verifica che gli strumenti siano accesi e collegati."
 }

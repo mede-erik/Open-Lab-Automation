@@ -18,6 +18,7 @@ Examples:
 - [VALID-005]: Invalid email format
 """
 import logging
+import re
 from enum import Enum
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -218,12 +219,19 @@ def with_code(text: str, code) -> str:
     return f"{text}\n\n[{code}]"
 
 
+def _code_in_text(text: str) -> str:
+    """The first ``[XXX-nnn]`` code written in a text, or an empty string."""
+    match = re.search(r"\[([A-Z]{2,5}-\d{3})\]", str(text))
+    return match.group(1) if match else ""
+
+
 def show_problem(parent, title, text, code=None, exception=None, level="warning"):
     """Show a problem to the user in a message box, with its code (see ERROR_CODES.md), and log
     it. ``code`` is an ``ErrorCode`` or ``"XXX-nnn"``; without one, the code of ``exception``,
     else SYS-007. Every warning and error box of the application goes through here, so every
     message has a code the user can look up. ``level``: ``"warning"`` or ``"critical"``."""
-    code = code_text(code) or exception_code(exception) or code_text(ErrorCode.SYS_UNEXPECTED_ERROR)
+    code = (code_text(code) or exception_code(exception) or _code_in_text(text)
+            or code_text(ErrorCode.SYS_UNEXPECTED_ERROR))
     message = with_code(str(text), code)
     logging.getLogger("frontend.errors").log(
         logging.ERROR if level == "critical" else logging.WARNING,

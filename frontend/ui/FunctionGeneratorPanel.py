@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ola.control_panels import FunctionGeneratorControls, check_function_generator
+from frontend.core.errorhandler import show_problem
 
 OUTPUT_STYLE = """
     QPushButton { padding: 6px; font-weight: bold; background-color: #d32f2f; color: white; }
@@ -143,6 +144,7 @@ class FunctionGeneratorPanel(QWidget):
                 self.run(number, call, **args)
         except Exception as exc:  # the call error says what went wrong (CALL-xxx, TRN-xxx)
             w["status"].setText(self.t("fg_err_call").format(error=exc))
+            show_problem(self, self.t("rc_command_failed"), str(exc), exception=exc)
             return False
         w["status"].setText(self.t("fg_applied"))
         return True
@@ -156,6 +158,7 @@ class FunctionGeneratorPanel(QWidget):
         except Exception as exc:
             button.setChecked(not on)
             w["status"].setText(self.t("fg_err_call").format(error=exc))
+            show_problem(self, self.t("rc_command_failed"), str(exc), exception=exc)
             return False
         button.setText(self.t("fg_output_on") if on else self.t("fg_output_off"))
         w["status"].setText("")
