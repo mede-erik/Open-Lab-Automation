@@ -18,6 +18,7 @@ a refused connection is reported (as TRN-001) by the first read/write, not by ``
 from __future__ import annotations
 
 import contextlib
+import math
 import threading
 import time
 from typing import Optional
@@ -25,6 +26,21 @@ from typing import Optional
 from .errors import TransportClosed, TransportError, TransportTimeout
 
 MAX_RESPONSE = 256 * 1024 * 1024
+
+
+def finite_timeout_ms(value, default: int = 5000) -> int:
+    """A VISA timeout in milliseconds that can be used as an integer.
+
+    pyvisa-py reports an infinite timeout as ``float("inf")`` (a USB instrument opened with the
+    ``@py`` backend), and ``int()`` of that raises ``OverflowError``. Anything that is not a finite
+    positive number gives ``default``."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(number) or number <= 0:
+        return default
+    return int(number)
 
 
 def _term_bytes(value) -> bytes:

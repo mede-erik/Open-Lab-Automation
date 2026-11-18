@@ -2,6 +2,7 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
+import math
 import os
 import json
 import logging
@@ -343,6 +344,12 @@ class RemoteControlTab(QWidget):
         'serial' entry in the project's .inst file. They must match the instrument's own
         front-panel RS-232 settings.
         """
+        # pyvisa-py gives an infinite timeout to some USB instruments (the @py backend): the
+        # reads would then never end, so a finite one is set on every resource we open.
+        if hasattr(instr, 'timeout'):
+            raw_timeout = instr.timeout
+            if raw_timeout is None or not math.isfinite(float(raw_timeout)):
+                instr.timeout = 5000
         if not str(visa_addr).upper().startswith('ASRL'):
             return
         library = self.instruments_manager.get_library() if self.instruments_manager else None
@@ -370,7 +377,8 @@ class RemoteControlTab(QWidget):
         executors = self.__dict__.setdefault('_executors', {})
         entry = executors.get(visa_addr)
         if entry is None or entry[0] is not instr:
-            timeout_ms = int(getattr(instr, 'timeout', None) or 5000)
+            from ola._visa import finite_timeout_ms
+            timeout_ms = finite_timeout_ms(getattr(instr, 'timeout', None))
             connection = VisaConnection(instr, visa_addr, timeout_ms, pyvisa)
             cfg = self.__dict__.get('_serial_cfg', {}).get(visa_addr)
             if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
