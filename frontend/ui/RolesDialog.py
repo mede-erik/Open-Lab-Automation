@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.core.Translator import Translator
+from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
 from ola import role_mapping
 from ola.project_rename import RenameError
 from frontend.core.errorhandler import show_problem
@@ -51,7 +52,7 @@ class RolesDialog(QDialog):
         self.abilities_of = abilities_of
         self.gaps = role_mapping.find_gaps(session)
         self.setWindowTitle(self.t("roles_title"))
-        self.resize(820, 340)
+        resize_to_screen(self, 820, 340)
         layout = QVBoxLayout(self)
         intro = QLabel(self.t("roles_intro"))
         intro.setWordWrap(True)
@@ -67,9 +68,10 @@ class RolesDialog(QDialog):
             combo = self._combo(gap)
             self.combos[gap.name] = combo
             self.table.setCellWidget(row, 3, combo)
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.table, 1)
+        # the titles are whole at any width; the choice and the names share the room that is left
+        fit_table_to_rows(self.table, fixed_columns=(0,), min_column_width=130)
+        layout.addWidget(self.table)
+        layout.addStretch(1)  # the room that is left goes below the table, not between it and the text
         row = QHBoxLayout()
         row.addStretch(1)
         self.apply_button = QPushButton(self.t("roles_apply"))

@@ -103,3 +103,17 @@ def test_every_text_exists_in_all_languages():
         catalog = json.load(open(path, encoding="utf-8"))
         missing = sorted(k for k in keys if k not in catalog)
         assert not missing, f"{os.path.basename(path)} lacks {missing}"
+
+
+def test_the_table_does_not_cut_its_titles_or_its_cells(app, tmp_path):
+    """The window of the instruments of a project (narrow on a half screen): the column titles and
+    the chosen texts stay whole (the 'Used by' title and the names were cut on Windows)."""
+    from tests.ui_audit import audit
+
+    session, connector, _ = received(tmp_path)
+    dialog = RolesDialog(session, connector.characteristics, connector.abilities)
+    dialog.resize(560, 340)
+    dialog.show()
+    for _ in range(3):
+        app.processEvents()
+    assert audit(dialog) == []
