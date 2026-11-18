@@ -245,6 +245,64 @@ jobs:
           Start-Process -FilePath (UninstallerPath) -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
           if (Test-Path "$dir\OpenLabAutomation.exe") { throw "the uninstaller left the program" }
 
+      - name: Test the installer features (shortcuts, default choice, /MODE, all languages)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist-release\*-setup.exe | Select-Object -First 1
+          $dir = 'C:\ola-features'
+          $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Open Lab Automation'
+          $desk = [Environment]::GetFolderPath('Desktop')
+          function Run([string]$name, [string[]]$extra) {
+            $log = "$env:RUNNER_TEMP\$name.log"
+            $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", "/LOG=$log") + $extra
+            $p = Start-Process -FilePath $setup.FullName -Wait -PassThru -ArgumentList $arguments
+            if ($p.ExitCode -ne 0) { throw "$name: the installer exited with $($p.ExitCode)" }
+            return Get-Content $log -Raw
+          }
+          function Selftest([string]$name) {
+            $env:QT_QPA_PLATFORM = 'offscreen'
+            & "$dir\ola-selftest.exe" --expect-native
+            if ($LASTEXITCODE -ne 0) { throw "$name: self-test of the installed program failed" }
+          }
+
+          # 1. first installation with the desktop icon: program, Start menu and desktop icon
+          $log = Run 'first' @('/TASKS=desktopicon')
+          if ($log -match 'Previous version removed|Previous uninstaller') { throw "first installation looked for a previous version" }
+          if (-not (Test-Path "$menu\Open Lab Automation.lnk")) { throw "no Start menu shortcut" }
+          if (-not (Test-Path "$desk\Open Lab Automation.lnk")) { throw "no desktop icon with desktopicon" }
+          Selftest 'first'
+
+          # 2. the same version again, no /MODE: the default is Repair, nothing is removed
+          $log = Run 'default' @()
+          if ($log -match 'Previous version removed') { throw "the default for the same version removed the program (it must repair)" }
+          if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "repair left no program" }
+          Selftest 'default'
+
+          # 3. an unknown /MODE is ignored: the default applies again (Repair, same version)
+          $log = Run 'badmode' @('/MODE=NONSENSE')
+          if ($log -match 'Previous version removed') { throw "an unknown /MODE removed the program" }
+          Selftest 'badmode'
+
+          # 4. /MODE=UPDATE removes the previous version first
+          $log = Run 'update' @('/MODE=UPDATE')
+          if ($log -notmatch 'Previous version removed') { throw "/MODE=UPDATE did not remove the previous version" }
+          Selftest 'update'
+
+          # 5. every language installs (exit code 0) and the program starts
+          foreach ($lang in @('italian', 'french', 'spanish', 'german', 'english')) {
+            $null = Run "lang-$lang" @("/LANG=$lang", '/MODE=REPAIR')
+            if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "language $lang: no program" }
+            Selftest "lang-$lang"
+          }
+
+          # 6. uninstall removes the program and both shortcuts
+          $uninstaller = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{6B0B8A3E-5C2D-4E8E-9D5B-0F6A3C41B7A2}_is1').UninstallString.Trim('"')
+          $p = Start-Process -FilePath $uninstaller -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
+          if ($p.ExitCode -ne 0) { throw "uninstaller exited with $($p.ExitCode)" }
+          if (Test-Path "$dir\OpenLabAutomation.exe") { throw "uninstall left the program" }
+          if (Test-Path "$menu\Open Lab Automation.lnk") { throw "uninstall left the Start menu shortcut" }
+          if (Test-Path "$desk\Open Lab Automation.lnk") { throw "uninstall left the desktop icon" }
+
       - uses: actions/upload-artifact@v7
         with:
           name: packages-windows

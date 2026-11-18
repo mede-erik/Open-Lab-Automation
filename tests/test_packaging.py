@@ -264,3 +264,12 @@ def test_update_waits_for_the_old_uninstaller_to_finish():
     script = read_installer()
     assert "while FileExists(PreviousUninstaller)" in script
     assert "Sleep(" in script
+
+
+def test_the_windows_job_tests_the_features_of_the_installer():
+    """Shortcuts, the default choice without /MODE, an unknown /MODE, /MODE=UPDATE, every
+    language and the uninstall are tested by the Windows job, not only described."""
+    workflow = read(".github", "workflows", "package.yml")
+    for feature in ("/TASKS=desktopicon", "/MODE=NONSENSE", "/MODE=UPDATE", "/LANG=$lang",
+                    "UninstallString", "Start menu shortcut", "desktop icon"):
+        assert feature in workflow, feature
