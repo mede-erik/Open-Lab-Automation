@@ -179,3 +179,69 @@ def test_nightly_is_built_only_for_the_newest_commit_of_main():
     assert "steps.fresh.outputs.current" in workflow
     assert "needs.meta.outputs.current != 'false'" in workflow
     assert "commits/main" in workflow
+
+
+# ---------------------------------------------------------------- Windows installer
+
+
+def read_installer():
+    path = os.path.join(REPO, "packaging", "windows", "installer.iss")
+    with open(path, encoding="utf-8-sig") as f:
+        return f.read()
+
+
+# Inno Setup language name -> locale file of frontend/lang
+INSTALLER_LANGUAGES = {
+    "english": "en",
+    "italian": "it",
+    "french": "fr",
+    "spanish": "es",
+    "german": "de",
+}
+
+
+def test_installer_languages_are_the_locales_of_the_program():
+    """The installer speaks the languages of frontend/lang: adding a locale file makes this fail
+    until the installer has the language too."""
+    names = re.findall(r'^Name: "(\w+)"; MessagesFile:', read_installer(), re.MULTILINE)
+    assert set(names) <= set(INSTALLER_LANGUAGES), f"unknown language in installer.iss: {names}"
+    codes = {INSTALLER_LANGUAGES[name] for name in names}
+    locales = {
+        os.path.splitext(name)[0]
+        for name in os.listdir(os.path.join(REPO, "frontend", "lang"))
+        if name.endswith(".json")
+    }
+    assert codes == locales, f"installer: {sorted(codes)}, frontend/lang: {sorted(locales)}"
+
+
+def test_installer_has_every_message_in_every_language():
+    """A message of the existing-installation page in English exists in every language."""
+    script = read_installer()
+    section = script.split("[CustomMessages]", 1)[1].split("\n[", 1)[0]
+    english = set(re.findall(r"^(\w+)=", section, re.MULTILINE))
+    assert english, "no custom messages found"
+    for language in INSTALLER_LANGUAGES:
+        if language == "english":
+            continue
+        found = set(re.findall(rf"^{language}\.(\w+)=", section, re.MULTILINE))
+        assert found == english, f"{language}: missing {english - found}, unknown {found - english}"
+
+
+def test_installer_guid_of_the_code_equals_the_app_id():
+    """The uninstall entry is looked up under the AppId: the two copies of the GUID must agree."""
+    script = read_installer()
+    app_id = re.search(r"^AppId=\{(\{[0-9A-F-]{36}\})", script, re.MULTILINE)
+    code_id = re.search(r"AppGuid = '(\{[0-9A-F-]{36}\})'", script)
+    assert app_id and code_id, "AppId or AppGuid not found in installer.iss"
+    assert app_id.group(1) == code_id.group(1)
+
+
+def test_installer_has_a_windows_requirement_and_the_update_choice():
+    script = read_installer()
+    assert re.search(r"^MinVersion=10\.0\.\d+$", script, re.MULTILINE)
+    assert "{param:MODE|}" in script  # a silent run chooses with /MODE=UPDATE or /MODE=REPAIR
+
+
+def test_the_windows_job_tests_update_and_repair():
+    workflow = read(".github", "workflows", "package.yml")
+    assert "/MODE=UPDATE" in workflow and "/MODE=REPAIR" in workflow

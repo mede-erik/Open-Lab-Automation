@@ -174,21 +174,47 @@ jobs:
       - name: Installer
         run: python scripts/build_package.py installer --version "$VERSION"
 
-      - name: Test the installer (silent install, self-test of the installed program, uninstall)
+      - name: Test the installer (install, update, repair, uninstall)
         shell: pwsh
         run: |
           $setup = Get-ChildItem dist-release\*-setup.exe | Select-Object -First 1
-          Start-Process -FilePath $setup.FullName -Wait -ArgumentList `
-            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR=C:\ola-test', "/LOG=$env:RUNNER_TEMP\setup.log"
-          if (-not (Test-Path C:\ola-test\OpenLabAutomation.exe)) {
-            Get-Content "$env:RUNNER_TEMP\setup.log" -ErrorAction SilentlyContinue
-            throw "the installer did not install the program"
+          $dir = 'C:\ola-test'
+          function Install([string]$name, [string[]]$extra) {
+            $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", "/LOG=$env:RUNNER_TEMP\$name.log") + $extra
+            Start-Process -FilePath $setup.FullName -Wait -ArgumentList $arguments
+            return Get-Content "$env:RUNNER_TEMP\$name.log" -Raw
           }
-          $env:QT_QPA_PLATFORM = 'offscreen'
-          & C:\ola-test\ola-selftest.exe --expect-native
-          if ($LASTEXITCODE -ne 0) { throw "self-test of the installed program failed" }
-          Start-Process -FilePath C:\ola-test\unins000.exe -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
-          if (Test-Path C:\ola-test\OpenLabAutomation.exe) { throw "the uninstaller left the program" }
+          function Selftest {
+            $env:QT_QPA_PLATFORM = 'offscreen'
+            & "$dir\ola-selftest.exe" --expect-native
+            if ($LASTEXITCODE -ne 0) { throw "self-test of the installed program failed" }
+          }
+
+          # First installation: no question, the old version is not touched (there is none)
+          $log = Install 'first' @()
+          if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { Write-Host $log; throw "the installer did not install the program" }
+          if ($log -match 'Previous version removed') { throw "a first installation ran an uninstaller" }
+          Selftest
+
+          # Update: the old uninstaller runs first, then the files are installed. A file that is not
+          # part of the program is not ours to delete: it stays.
+          Set-Content "$dir\other.txt" 'not a program file'
+          $log = Install 'update' @('/MODE=UPDATE')
+          if ($log -notmatch 'Previous version removed') { Write-Host $log; throw "update did not remove the previous version first" }
+          if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "update left no program" }
+          if (-not (Test-Path "$dir\other.txt")) { throw "update deleted a file that is not part of the program" }
+          Selftest
+
+          # Repair: no uninstaller, the files are installed again, the missing one comes back
+          Remove-Item "$dir\ola-selftest.exe"
+          $log = Install 'repair' @('/MODE=REPAIR')
+          if ($log -match 'Previous version removed') { throw "repair ran the uninstaller" }
+          if (-not (Test-Path "$dir\ola-selftest.exe")) { throw "repair did not restore the missing file" }
+          if (-not (Test-Path "$dir\other.txt")) { throw "repair deleted a file that is not part of the program" }
+          Selftest
+
+          Start-Process -FilePath "$dir\unins000.exe" -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
+          if (Test-Path "$dir\OpenLabAutomation.exe") { throw "the uninstaller left the program" }
 
       - uses: actions/upload-artifact@v7
         with:

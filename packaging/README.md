@@ -91,6 +91,24 @@ Windows add `installer` (needs Inno Setup 6.3+); on Linux `linux` makes the `.de
 cross-compile. Linux packages are built on the oldest runner image (Ubuntu 22.04) so that they run
 on distributions with an older glibc.
 
+## The Windows installer
+
+`packaging/windows/installer.iss` (Inno Setup 6.3 or newer, saved as UTF-8 with a BOM for the accents of the translations).
+
+- **Languages**: the same as `frontend/lang` (en, it, fr, es, de); a test keeps the two lists equal.
+- **Requirements**: Windows 10 1809 or later, 64 bit. Setup checks the free disk space itself.
+- **A first installation** goes ahead without a question. **If the program is already installed**, Setup asks:
+  - *Update*: the old uninstaller runs first and removes the files of the old version, then the new files are installed.
+  - *Repair*: the files of this version are installed again over the existing ones; the missing ones come back, nothing is removed.
+  Projects, measurements and settings are not in the installation folder: neither choice touches them. A file in the
+  folder that the old Setup did not install is left alone.
+- **Silent runs**: `/MODE=UPDATE` or `/MODE=REPAIR` choose; without it, *Repair* if the installed version is the same,
+  *Update* otherwise. Setup finds an installation made in the same mode only (this user, or all users).
+- **CI**: the Windows job installs, updates, repairs and uninstalls with the real installer and runs `ola-selftest` after each
+  step. The pages of the wizard are not shown in a silent run: the text and the order of the pages are checked by hand.
+
+Ideas not done (file associations, a release notes page, components) are in `PLAN.md`, section 13.
+
 ## Which instrument library goes in a package
 
 `Instruments_LIB` is a separate repository, so a package takes one of its commits, chosen by the

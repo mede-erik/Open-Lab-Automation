@@ -929,6 +929,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
 - ❓ **Languages**: each module carries its own optional `lang/` (proposal).
 - ❓ **DUT archive** (devices under test: antennas, filters, converters, generic): designed in §12, to be built in stages.
 - ❓ **Package signing**: postponed until the repository moves to the Open Lab Instruments organization; the publisher identity and the CI set-up depend on it (§11).
+- ❓ **Windows installer**: file associations and the other ideas are listed in §13; what is done is described there.
 
 
 ---
@@ -1057,4 +1058,38 @@ To do for the DUTs: a **version** line, a **category** line (what a DUT of each 
 components), the last measurement of a DUT taken from its runs (by code and version), and the button *Label...* in the DUT window.
 **Still to define**: which lines a DUT label shows by default, and the sizes. Editable label templates, and reading the QR code with
 a camera (a USB scanner types the code and works), are not done for the components either: they come with the report templates.
+
+---
+
+## 13. Windows installer
+
+`packaging/windows/installer.iss` (Inno Setup). The decisions, and what is left for later.
+
+**Done**
+
+- **Languages**: the installer has the languages of `frontend/lang` (en, it, fr, es, de); it asks only when the
+  language of Windows is not one of them. A test fails when a locale file is added and the installer lacks the language.
+- **Requirements**: Windows 10 1809 or later, 64 bit. Setup itself checks the free disk space and shows what it needs.
+- **Existing installation**: if the program is already installed (same user or all-users mode), Setup asks
+  *Update* or *Repair* before anything else; a first installation goes ahead without a question.
+  - *Update*: the old uninstaller runs first and removes the files of the old version, then the new ones are
+    installed. Nothing of the old version is left behind.
+  - *Repair*: the files of this version are installed again over the existing ones; the missing ones come back and
+    nothing is removed.
+  - Projects, measurements and settings are not in the installation folder: neither choice touches them.
+  - A silent run chooses with `/MODE=UPDATE` or `/MODE=REPAIR`; without it, *Repair* if the installed version is the
+    same, *Update* otherwise. The CI tests the three cases (first installation, update, repair) and the uninstaller.
+
+**Not done, on purpose**
+
+- ❓ **File associations** (`.eff`, `.cbl`, `.flt`, `.was`, `.inst`, double-click opens the program): not now. The
+  program does not open a single file as a project (a project is a folder with its files), so an association would
+  have nothing to open. Do it together with *open a project from the command line / a double click*, if that is ever added.
+- ❓ **Release notes page** in the installer: not wanted for now; maybe when the release rhythm is regular.
+- ❓ **Components** (for example "examples" or "program only"): not planned.
+- ❓ **Installer language as the language of the program**: the installer does not set the language of the program
+  (the program has its own setting).
+- ❓ **Signing** of the installer and of the program: see §11.
+- ❓ **Installations in the other mode** (one per user and one for all users on the same computer) are two separate
+  installations, as Inno Setup keeps them: *Update* and *Repair* act on the one of the mode chosen at the start.
 
