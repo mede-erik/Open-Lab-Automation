@@ -328,6 +328,7 @@ class RunWindow(QWidget):
             box.activated.connect(self._axes_changed)
         layout.addLayout(row)
         self.plot = LinePlot()
+        self.plot.empty_text = self._t("plot_no_data")
         layout.addWidget(self.plot, 1)
         return page
 
@@ -355,6 +356,7 @@ class RunWindow(QWidget):
         side.addWidget(self.touchstone_btn)
         layout.addLayout(side)
         self.trace_plot = TracePlot()
+        self.trace_plot.empty_text = self._t("plot_no_data")
         self.smith = SmithChart()
         self.trace_stack = QStackedWidget()
         self.trace_stack.addWidget(self.trace_plot)

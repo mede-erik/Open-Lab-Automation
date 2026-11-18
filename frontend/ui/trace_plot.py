@@ -18,7 +18,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen, QPolygonF
 from PyQt6.QtWidgets import QWidget
 
-from frontend.ui.plot_widget import LINE_COLORS
+from frontend.ui.plot_widget import LINE_COLORS, draw_empty_chart
 from ola import rf
 from ola.run_view import format_si, log_ticks, nice_ticks
 
@@ -114,16 +114,7 @@ class TracePlot(QWidget):
         metrics = QFontMetrics(self.font())
         bounds = self.ranges()
         if bounds is None:
-            # no data yet: the empty frame of the chart, with the message inside it
-            frame = self.rect().adjusted(40, 10, -10, -30)
-            painter.setPen(grid)
-            painter.drawRect(frame)
-            muted = QColor(text)
-            muted.setAlpha(150)
-            painter.setPen(muted)
-            painter.drawText(frame.adjusted(12, 12, -12, -12),
-                             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-                             self.empty_text)
+            draw_empty_chart(painter, self.rect(), text, grid, self.empty_text)
             return
         xmin, xmax, ymin, ymax = bounds
         if self.log_x:

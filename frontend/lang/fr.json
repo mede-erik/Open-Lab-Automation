@@ -670,5 +670,6 @@
   "rc_scope_failed": "{name} : les réglages n'ont pas pu être appliqués : {error}",
   "rc_scope_calls_failed": "{name} : {count} réglages n'ont pas été appliqués :",
   "rc_scope_done": "{name} : les réglages de {file} ont été appliqués.",
-  "vna_plot_empty": "Aucune donnée : lancez un balayage pour voir la trace ici"
+  "vna_plot_empty": "Aucune donnée : lancez un balayage pour voir la trace ici",
+  "plot_no_data": "Pas encore de données"
 }

@@ -36,6 +36,22 @@ def format_tick(value: float) -> str:
     return f"{value:.6g}"
 
 
+def draw_empty_chart(painter: QPainter, area, text: QColor, grid: QColor, message: str) -> None:
+    """The chart of a plot that has no data yet: an empty frame, and ``message`` in it, in a muted
+    colour (it used to be a lone ``-`` in the middle of a blank area). ``area`` is the widget rect."""
+    frame = area.adjusted(40, 10, -10, -30)
+    painter.setPen(grid)
+    painter.drawRect(frame)
+    muted = QColor(text)
+    muted.setAlpha(150)
+    painter.setPen(muted)
+    painter.drawText(
+        frame.adjusted(12, 12, -12, -12),
+        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+        message,
+    )
+
+
 class LinePlot(QWidget):
     """Lines with markers on a plain grid; ``set_series`` redraws."""
 
@@ -43,6 +59,7 @@ class LinePlot(QWidget):
         super().__init__(parent)
         self.series: List[Series] = []
         self.xlabel = self.ylabel = ""
+        self.empty_text = ""  # shown while there is no data (the window gives it, translated)
         self.setMinimumSize(320, 220)
 
     def set_series(self, series: Sequence[Series], xlabel: str = "", ylabel: str = "") -> None:
@@ -69,7 +86,7 @@ class LinePlot(QWidget):
         metrics = QFontMetrics(self.font())
         bounds = self.ranges()
         if bounds is None:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "-")
+            draw_empty_chart(painter, self.rect(), text, grid, self.empty_text)
             return
         xmin, xmax, ymin, ymax = bounds
         xticks, yticks = nice_ticks(xmin, xmax, 7), nice_ticks(ymin, ymax, 6)

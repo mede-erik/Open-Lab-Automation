@@ -671,5 +671,6 @@
   "rc_scope_failed": "{name}: impossibile applicare le impostazioni: {error}",
   "rc_scope_calls_failed": "{name}: {count} impostazioni non sono state applicate:",
   "rc_scope_done": "{name}: le impostazioni di {file} sono state applicate.",
-  "vna_plot_empty": "Nessun dato: avvia una scansione per vedere la traccia qui"
+  "vna_plot_empty": "Nessun dato: avvia una scansione per vedere la traccia qui",
+  "plot_no_data": "Nessun dato per ora"
 }
