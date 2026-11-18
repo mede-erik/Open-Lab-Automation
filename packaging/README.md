@@ -11,7 +11,7 @@ workflow `.github/workflows/package.yml` and published as GitHub releases:
 |---|---|---|
 | every commit on `main` | **`nightly`** (pre-release, replaced at each commit) | the newest `main`, for testing; its tag `nightly` always points at the built commit |
 | a tag `vX.Y.Z` is pushed | **`vX.Y.Z`** (fixed, never replaced) | a real release; `vX.Y.Z-rc1` gives a pre-release |
-| manual run (*Actions → Package → Run workflow*) | none | the same packages as downloadable artifacts of the run (14 days), nothing is published |
+| manual run (*Actions → Package → Run workflow*) | none | the same packages as downloadable artifacts of the run (14 days), nothing is published; tick `skip_tests` to build them without waiting for the tests |
 
 Pull requests and the other branches build nothing: they only run the tests (`ci.yml`).
 
@@ -90,6 +90,24 @@ Windows add `installer` (needs Inno Setup 6.3+); on Linux `linux` makes the `.de
 [nfpm](https://nfpm.goreleaser.com), the CI uses v2.43.0). Each OS builds its own packages: PyInstaller does not
 cross-compile. Linux packages are built on the oldest runner image (Ubuntu 22.04) so that they run
 on distributions with an older glibc.
+
+## The Windows installer
+
+`packaging/windows/installer.iss` (Inno Setup 6.3 or newer, saved as UTF-8 with a BOM for the accents of the translations).
+
+- **Languages**: the same as `frontend/lang` (en, it, fr, es, de); a test keeps the two lists equal.
+- **Requirements**: Windows 10 1809 or later, 64 bit. Setup checks the free disk space itself.
+- **A first installation** goes ahead without a question. **If the program is already installed**, Setup asks:
+  - *Update*: the old uninstaller runs first and removes the files of the old version, then the new files are installed.
+  - *Repair*: the files of this version are installed again over the existing ones; the missing ones come back, nothing is removed.
+  Projects, measurements and settings are not in the installation folder: neither choice touches them. A file in the
+  folder that the old Setup did not install is left alone.
+- **Silent runs**: `/MODE=UPDATE` or `/MODE=REPAIR` choose; without it, *Repair* if the installed version is the same,
+  *Update* otherwise. Setup finds an installation made in the same mode only (this user, or all users).
+- **CI**: the Windows job installs, updates, repairs and uninstalls with the real installer and runs `ola-selftest` after each
+  step. The pages of the wizard are not shown in a silent run: the text and the order of the pages are checked by hand.
+
+Ideas not done (file associations, a release notes page, components) are in `PLAN.md`, section 13.
 
 ## Which instrument library goes in a package
 
