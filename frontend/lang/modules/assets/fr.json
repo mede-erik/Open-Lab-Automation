@@ -117,5 +117,6 @@
   "ast_t_limit_line": "limite",
   "ast_t_days": "jours depuis le {date}",
   "ast_t_failed": "Impossible d'enregistrer : {error}",
-  "ast_t_saved": "Enregistré : {path}"
+  "ast_t_saved": "Enregistré : {path}",
+  "ast_unreadable": "endommagé ou illisible"
 }

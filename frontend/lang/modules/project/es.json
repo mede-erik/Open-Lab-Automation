@@ -55,5 +55,7 @@
   "prj_export_failed": "No se pudo exportar: {error}",
   "prj_confirm_close": "{n} medición(es) en curso. ¿Detenerlas y cerrar?",
   "prj_bench": "Medir los tiempos (benchmark)",
-  "prj_bench_tip": "Mide cada llamada a los instrumentos y cada fase de la próxima medición y muestra un informe en la pestaña Benchmark. El retraso añadido es pequeño (unos 30 microsegundos por llamada)."
+  "prj_bench_tip": "Mide cada llamada a los instrumentos y cada fase de la próxima medición y muestra un informe en la pestaña Benchmark. El retraso añadido es pequeño (unos 30 microsegundos por llamada).",
+  "prj_cal_no_library": "la biblioteca de instrumentos no está disponible",
+  "prj_cal_no_inst": "el proyecto no tiene un archivo de instrumentos (.inst)"
 }

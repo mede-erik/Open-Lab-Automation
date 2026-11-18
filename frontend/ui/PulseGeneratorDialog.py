@@ -138,7 +138,8 @@ class PulseGeneratorDialog(QDialog):
 
         # Operating Mode
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["CC (Constant Current)", "CV (Constant Voltage)", "CP (Constant Power)"])
+        for mode in ("CC", "CV", "CP"):
+            self.mode_combo.addItem(self.translator.t(f"pulse_mode_{mode.lower()}"), mode)
         params_layout.addRow(self.translator.t('pulse_mode') + ":", self.mode_combo)
 
         # Amplitude

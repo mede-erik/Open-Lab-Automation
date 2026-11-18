@@ -532,7 +532,8 @@ class MainWindow(QMainWindow):
         """Open an existing project: select .json file and load its data."""
         from PyQt6.QtWidgets import QFileDialog
         self.logger.debug("Opening project...")
-        file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '', 'Project Files (*.json)')
+        file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '',
+            f"{self.translator.t('file_filter_project')} (*.json)")
         if file_path:
             try:
                 self._open_project_path(file_path)
@@ -827,8 +828,9 @@ class MainWindow(QMainWindow):
     def open_assets_tool(self):
         """Open the window of the cables and devices (cards, labels, history)."""
         if self.assets is None:
-            error = f"{default_assets_path()} (damaged or not readable)"
-            text = CatalogTranslator("assets", self.translator).t("ast_open_failed", error=error)
+            assets_tr = CatalogTranslator("assets", self.translator)
+            error = f"{default_assets_path()} ({assets_tr.t('ast_unreadable')})"
+            text = assets_tr.t("ast_open_failed", error=error)
             show_problem(self, "Open Lab Automation", text, code="AST-003")
             return
 
@@ -859,7 +861,10 @@ class MainWindow(QMainWindow):
     def open_duts_tool(self):
         """Open the DUT window (the archive of the devices under test: cards, versions, labels)."""
         if self.duts is None:
-            error = f"{default_duts_path()} (damaged or not readable)"
+            error = (
+                f"{default_duts_path()} "
+                f"({CatalogTranslator('assets', self.translator).t('ast_unreadable')})"
+            )
             text = CatalogTranslator("duts", self.translator).t("dut_open_failed", error=error)
             show_problem(self, "Open Lab Automation", text, code="AST-003")
             return

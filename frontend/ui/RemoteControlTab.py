@@ -608,7 +608,7 @@ class RemoteControlTab(QWidget):
             Dictionary with diagnostic results
         """
         from frontend.core.tools import diagnose_connection as _diagnose
-        return _diagnose(visa_address)
+        return _diagnose(visa_address, translate=self._t)
 
     def show_connection_diagnostics(self, visa_address: str):
         """
@@ -663,7 +663,7 @@ class RemoteControlTab(QWidget):
                         'host_reachable': False,
                         'port_open': False,
                         'visa_available': PYVISA_AVAILABLE,
-                        'recommendations': [f"Diagnostics failed unexpectedly: {e}"],
+                        'recommendations': [self._tab._t("rc_diag_failed", error=e)],
                     }
                 self.finished.emit(results)
 
@@ -674,22 +674,29 @@ class RemoteControlTab(QWidget):
             try:
                 progress.setVisible(False)
                 # Format results
-                output = f"Connection Diagnostics for: {visa_address}\n"
+                t = self._t
+                yes_no = lambda ok: t("rc_diag_yes") if ok else t("rc_diag_no")  # noqa: E731
+                mark = lambda ok: "✓" if ok else "✗"  # noqa: E731
+                output = t("rc_diag_header", address=visa_address) + "\n"
                 output += "=" * 60 + "\n\n"
-                output += f"✓ VISA Available: {'Yes' if results['visa_available'] else 'No'}\n"
-                output += f"{'✓' if results['address_valid'] else '✗'} Address Valid: {'Yes' if results['address_valid'] else 'No'}\n"
+                visa_ok, valid = results['visa_available'], results['address_valid']
+                output += f"✓ {t('rc_diag_visa')}: {yes_no(visa_ok)}\n"
+                output += f"{mark(valid)} {t('rc_diag_address_valid')}: {yes_no(valid)}\n"
                 if 'host' in results:
-                    output += f"\nHost: {results['host']}\n"
-                    output += f"Port: {results['port']}\n"
+                    output += f"\n{t('rc_diag_host')}: {results['host']}\n"
+                    output += f"{t('rc_diag_port')}: {results['port']}\n"
                     if 'resolved_addresses' in results:
-                        output += f"Resolved: {', '.join(results['resolved_addresses'])}\n"
+                        output += f"{t('rc_diag_resolved')}: {', '.join(results['resolved_addresses'])}\n"
                     output += "\n"
-                    output += f"{'✓' if results.get('host_resolves') else '✗'} Host Resolves (DNS): {'Yes' if results.get('host_resolves') else 'No'}\n"
-                    output += f"{'✓' if results['host_reachable'] else '✗'} Host Reachable (TCP): {'Yes' if results['host_reachable'] else 'No'}\n"
-                    output += f"{'✓' if results['port_open'] else '✗'} Port Open: {'Yes' if results['port_open'] else 'No'}\n"
+                    for label, ok in (
+                        ('rc_diag_dns', results.get('host_resolves')),
+                        ('rc_diag_reachable', results['host_reachable']),
+                        ('rc_diag_port_open', results['port_open']),
+                    ):
+                        output += f"{mark(ok)} {t(label)}: {yes_no(ok)}\n"
                 if results['recommendations']:
                     output += "\n" + "=" * 60 + "\n"
-                    output += "RECOMMENDATIONS:\n"
+                    output += t("rc_diag_recommendations") + ":\n"
                     output += "=" * 60 + "\n\n"
                     for i, rec in enumerate(results['recommendations'], 1):
                         output += f"{i}. {rec}\n\n"

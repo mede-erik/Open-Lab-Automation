@@ -165,3 +165,27 @@ def test_diagnose_unresolvable_host(monkeypatch):
     result = tools.diagnose_connection("TCPIP0::no-such-host.invalid::inst0::INSTR")
     assert result["address_valid"] and not result["host_resolves"]
     assert not result["host_reachable"]
+
+
+def test_diagnose_recommendations_are_translated():
+    from frontend.core.Translator import Translator
+
+    italian = Translator(default_lang="it")
+    result = tools.diagnose_connection("USB0::0x1AB1::0x04CE::X::INSTR", translate=italian.t)
+    assert any("non riconosciuto" in r for r in result["recommendations"])
+    # without a translator, or with a key it does not know, the English text is used
+    plain = tools.diagnose_connection("USB0::X::INSTR")
+    assert any("not recognized" in r for r in plain["recommendations"])
+    unknown = tools.diagnose_connection("USB0::X::INSTR", translate=lambda key: key)
+    assert any("not recognized" in r for r in unknown["recommendations"])
+
+
+def test_diagnose_english_texts_match_the_english_catalog():
+    import json
+
+    lang_dir = os.path.join(os.path.dirname(tools.__file__), os.pardir, "lang")
+    with open(os.path.join(lang_dir, "en.json"), encoding="utf-8") as f:
+        catalog = json.load(f)
+    assert {k for k in catalog if k.startswith("diag_rec_")} == set(tools._RECOMMENDATIONS)
+    for key, text in tools._RECOMMENDATIONS.items():
+        assert catalog[key] == text, key
