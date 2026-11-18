@@ -200,3 +200,22 @@ def test_asrl_resource_with_default_pyvisa_settings():
         c.close()
     finally:
         inst.close()
+
+
+def test_finite_timeout_ms_keeps_a_finite_value():
+    from ola._visa import finite_timeout_ms
+
+    assert finite_timeout_ms(2000) == 2000
+    assert finite_timeout_ms(2000.0) == 2000
+
+
+def test_finite_timeout_ms_replaces_infinite_and_missing_values():
+    from ola._visa import finite_timeout_ms
+
+    # pyvisa-py reports an infinite timeout as inf; int(inf) used to raise OverflowError
+    assert finite_timeout_ms(float("inf")) == 5000
+    assert finite_timeout_ms(None) == 5000
+    assert finite_timeout_ms(float("nan")) == 5000
+    assert finite_timeout_ms(0) == 5000
+    assert finite_timeout_ms(-1) == 5000
+    assert finite_timeout_ms(float("inf"), default=1234) == 1234
