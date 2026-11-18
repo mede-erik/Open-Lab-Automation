@@ -245,3 +245,14 @@ def test_installer_has_a_windows_requirement_and_the_update_choice():
 def test_the_windows_job_tests_update_and_repair():
     workflow = read(".github", "workflows", "package.yml")
     assert "/MODE=UPDATE" in workflow and "/MODE=REPAIR" in workflow
+
+
+def test_skipping_the_tests_is_only_for_manual_runs_and_never_publishes():
+    """The input skip_tests lets a manual run build the packages without the tests; a push or a
+    tag always runs them, and the publish job still needs a push."""
+    workflow = read(".github", "workflows", "package.yml")
+    assert "skip_tests:" in workflow
+    assert "!inputs.skip_tests" in workflow  # the tests job is skipped only by the input
+    assert "needs.tests.result == 'skipped' && inputs.skip_tests" in workflow
+    publish = workflow.split("\n  publish:", 1)[1]
+    assert "github.event_name == 'push'" in publish.split("steps:", 1)[0]

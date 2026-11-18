@@ -11,7 +11,7 @@ workflow `.github/workflows/package.yml` and published as GitHub releases:
 |---|---|---|
 | every commit on `main` | **`nightly`** (pre-release, replaced at each commit) | the newest `main`, for testing; its tag `nightly` always points at the built commit |
 | a tag `vX.Y.Z` is pushed | **`vX.Y.Z`** (fixed, never replaced) | a real release; `vX.Y.Z-rc1` gives a pre-release |
-| manual run (*Actions → Package → Run workflow*) | none | the same packages as downloadable artifacts of the run (14 days), nothing is published |
+| manual run (*Actions → Package → Run workflow*) | none | the same packages as downloadable artifacts of the run (14 days), nothing is published; tick `skip_tests` to build them without waiting for the tests |
 
 Pull requests and the other branches build nothing: they only run the tests (`ci.yml`).
 

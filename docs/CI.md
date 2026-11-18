@@ -36,7 +36,9 @@ and zip; Linux: `.deb`, `.rpm` and tar.gz) and publishes them as GitHub releases
 
 - every commit on `main` updates the pre-release **`nightly`**;
 - a tag `vX.Y.Z` creates the fixed release `vX.Y.Z`;
-- a manual run only leaves the packages as artifacts of the run.
+- a manual run only leaves the packages as artifacts of the run; ticking `skip_tests` in the form of
+  *Run workflow* builds them without waiting for the tests (useful to try a change of the packaging while
+  the runner is busy). A push or a tag always runs the tests first.
 
 The package for Arch Linux is a `PKGBUILD` in `packaging/arch/`, checked by the workflow in an Arch
 container and built by the user. Everything about the recipes, the checks done on the packages and
