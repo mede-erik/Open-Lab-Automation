@@ -5,6 +5,21 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 > [!IMPORTANT]  
 > This software is under active development. Features and stability may change, and some parts may be incomplete or experimental. Most instrument models in the library are marked **experimental**: they are written from the manuals and have not been tried on a real instrument (see [Supported instruments](#supported-instruments)).
 
+## Contents
+
+- [Main Features](#main-features)
+- [Project Structure](#project-structure)
+- [Engine (`ola/` and `native/`)](#engine-ola-and-native)
+- [Requirements](#requirements)
+- [File List and Description](#file-list-and-description)
+- [Getting Started](#getting-started)
+  - [Installation](#installation) · [Trying an instrument from the terminal](#trying-an-instrument-from-the-terminal) · [Running the tests](#running-the-tests) · [Supported instruments](#supported-instruments) · [Quick Start](#quick-start) · [Example Projects](#example-projects)
+- [Future features](#future-features)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
 ## Main Features
 
 - **Instrument library and logical calls**
