@@ -1098,25 +1098,24 @@ a camera (a USB scanner types the code and works), are not done for the componen
 
 Decided with the user (2026-11-19). The project file `.was` **configures the oscilloscope as the user wants it**: time base,
 volts per division of each channel, trigger, and the rest of what a scope has (`ola/was_calls.py` turns it into logical calls).
-It is not a measurement: it has no run and no results.
+It is **not a measurement**: it has no run and no results. It is a **definition file of the project, like the instrument file
+`.inst`**: it may or may not be there. The project names it with a key (`scope_settings`, as `inst_file` names the `.inst`).
 
-**For the alpha** it is used by the *Remote control* tab to set the oscilloscope(s) of the project, as it is today. The project
-format v2 work (issue #95: remove `was_files`, move the editor and the application of `.was` into `ola/`) keeps exactly this.
-How a project names its `.was` file is part of that issue.
+**In the alpha**
+1. The *Remote control* tab uses it to set the oscilloscope(s) of the project, as it does today. The project format v2 work
+   (issue #95: remove `was_files`, move the editor and the application of `.was` into `ola/`) is this: `was_files` becomes the
+   `scope_settings` key, and a project without one is valid.
+2. **A waveform acquired inside a measurement.** A measurement can name the scope settings file and say **when** to acquire: at
+   every step, or every *N* steps. At that point the oscilloscope is set as the file says and a waveform is acquired and saved
+   with the results of that step. It is for the measurements on **converters**: the two efficiency measurements (`efficiency` and
+   `resistive_efficiency`) and the load transient (step load, row 5 of the table in section 6). Not for the measurements made with
+   a VNA (S-parameters, return loss, antenna, filter, attenuator, cable, TDR, amplifier): they have no use for it.
 
-**After the alpha, two things, both new and not yet designed in detail:**
+**After the alpha:** several scope settings files in a project, to set the oscilloscope in different ways (a file per set-up),
+chosen from the Remote control tab and, by name, from a measurement. Until then the project has one.
 
-1. **Several `.was` files** in a project, to set the oscilloscope in different ways (a file per set-up), chosen from the Remote
-   control tab and, as below, by name from a measurement.
-2. **A waveform acquired inside a measurement.** A measurement can name a `.was` file and say **when** to acquire: at every step,
-   or every *N* steps. At that point the oscilloscope is set as the file says and a waveform is acquired and saved with the
-   results of that step. It is for the measurements on **converters**, so far: the two efficiency measurements (`efficiency` and
-   `resistive_efficiency`) and the load transient (step load, row 5 of the table in section 6). Not for the measurements made with a
-   VNA (S-parameters, return loss, antenna, filter, attenuator, cable, TDR, amplifier): they have no use for it.
-
-Open, for when it is built: which oscilloscope takes part (a role of the measurement, not "every oscilloscope of the project"); how
-the waveform is stored in the run (a trace per step, as the VNA traces are, with the CSV export) and how much space it takes; how
-the acquisition fits in the time of a step (settling, a single shot or a stop, the trigger waiting for an event that may not
-come); what the measurement does if the oscilloscope fails (the run goes on, with a warning); and whether the load regulation
+Open, for the waveform in a measurement: which oscilloscope takes part (a role of the measurement, not "every oscilloscope of the
+project"); how the waveform is stored in the run (a trace per step, as the VNA traces are, with the CSV export) and how much space it
+takes; how the acquisition fits in the time of a step (settling, a single shot or a stop, the trigger waiting for an event that may
+not come); what the measurement does if the oscilloscope fails (the run goes on, with a warning); and whether the load regulation
 and the ripple measurements, which already read a scope, take the same parameter.
-
