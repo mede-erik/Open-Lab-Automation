@@ -18,9 +18,22 @@ Examples:
 - [VALID-005]: Invalid email format
 """
 import logging
+import re
 from enum import Enum
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QObject, pyqtSignal
+
+
+def settings_translator():
+    """The translations of the language chosen in the settings (English if none)."""
+    from PyQt6.QtCore import QSettings
+    from frontend.core.Translator import Translator
+
+    lang = QSettings('LabAutomation', 'App').value('language', 'en', type=str) or 'en'
+    return Translator(default_lang=lang)
+
+
+_translator = settings_translator  # the name used before
 
 
 class ErrorCode(Enum):
@@ -38,6 +51,8 @@ class ErrorCode(Enum):
     FILE_ACCESS_DENIED = "[FILE-002]"
     FILE_CORRUPT = "[FILE-003]"
     FILE_INVALID_FORMAT = "[FILE-004]"
+    FILE_ALREADY_EXISTS = "[FILE-005]"
+    FILE_WRITE_FAILED = "[FILE-006]"
     
     # Validation related errors (VALID-XXX)
     VALID_INVALID_EMAIL = "[VALID-001]"
@@ -47,10 +62,6 @@ class ErrorCode(Enum):
     VALID_OUT_OF_RANGE = "[VALID-005]"
     VALID_INVALID_FORMAT = "[VALID-006]"
     
-    # Database related errors (DB-XXX)
-    DB_CONNECTION_ERROR = "[DB-001]"
-    DB_QUERY_ERROR = "[DB-002]"
-    DB_TIMEOUT = "[DB-003]"
     
     # Network related errors (NET-XXX)
     NET_CONNECTION_TIMEOUT = "[NET-001]"
@@ -91,6 +102,8 @@ class ErrorCode(Enum):
     PROJ_INCOMPATIBLE_VERSION = "[PROJ-006]"
     PROJ_MISSING_FILES = "[PROJ-007]"
     PROJ_ALREADY_EXISTS = "[PROJ-008]"
+    PROJ_NOT_OPEN = "[PROJ-009]"
+    PROJ_INSTRUMENT_FILE = "[PROJ-010]"
     
     # Instrument configuration errors (INST-XXX)
     INST_NOT_SUPPORTED = "[INST-001]"
@@ -101,6 +114,9 @@ class ErrorCode(Enum):
     INST_CONNECTION_REQUIRED = "[INST-006]"
     INST_NOT_INITIALIZED = "[INST-007]"
     INST_INCOMPATIBLE_FIRMWARE = "[INST-008]"
+    INST_FILE_SAVE_FAILED = "[INST-009]"
+    INST_RENAME_FAILED = "[INST-010]"
+    INST_SCAN_FAILED = "[INST-011]"
     
     # Application configuration errors (CFG-XXX)
     CFG_FILE_MISSING = "[CFG-001]"
@@ -148,17 +164,22 @@ class ErrorCode(Enum):
     DATA_OUT_OF_RANGE = "[DATA-007]"
     DATA_INCOMPLETE = "[DATA-008]"
     
-    # Project database errors (PJDB-XXX)
-    PJDB_CONNECTION_FAILED = "[PJDB-001]"
-    PJDB_NOT_SPECIFIED = "[PJDB-002]"
-    PJDB_QUERY_ERROR = "[PJDB-003]"
-    PJDB_TABLE_NOT_FOUND = "[PJDB-004]"
-    PJDB_TIMEOUT = "[PJDB-005]"
-    PJDB_SCHEMA_ERROR = "[PJDB-006]"
-    PJDB_DATA_INTEGRITY = "[PJDB-007]"
-    PJDB_READ_DATA_ERROR = "[PJDB-008]"
-    PJDB_DELETE_ERROR = "[PJDB-009]"
     
+    # Measurement errors (MEAS-XXX): files, runs and results of the Measurements tab
+    MEAS_OPEN_FAILED = "[MEAS-001]"
+    MEAS_SAVE_FAILED = "[MEAS-002]"
+    MEAS_CANNOT_START = "[MEAS-003]"
+    MEAS_EXPORT_FAILED = "[MEAS-004]"
+    MEAS_WIRING_FAILED = "[MEAS-005]"
+    MEAS_RUN_FAILED = "[MEAS-006]"
+    MEAS_RUNS_UNREADABLE = "[MEAS-007]"
+    MEAS_ROLES_FAILED = "[MEAS-008]"
+    MEAS_CREATE_FAILED = "[MEAS-009]"
+    MEAS_ADOPT_FAILED = "[MEAS-010]"
+    # Registries of cables, devices and DUTs, and their labels (AST-XXX)
+    AST_OPERATION_FAILED = "[AST-001]"
+    AST_LABEL_FAILED = "[AST-002]"
+    AST_REGISTRY_UNREADABLE = "[AST-003]"
     # System errors (SYS-XXX)
     SYS_RESOURCE_UNAVAILABLE = "[SYS-001]"
     SYS_INSUFFICIENT_MEMORY = "[SYS-002]"
@@ -168,6 +189,57 @@ class ErrorCode(Enum):
     SYS_INITIALIZATION_FAILED = "[SYS-006]"
     SYS_UNEXPECTED_ERROR = "[SYS-007]"
 
+
+
+def code_text(code) -> str:
+    """``"PROJ-005"`` from ``ErrorCode.PROJ_LOAD_FAILED``, ``"[PROJ-005]"`` or ``"PROJ-005"``
+    (empty for None)."""
+    if code is None:
+        return ""
+    value = code.value if isinstance(code, ErrorCode) else str(code)
+    return value.strip().strip("[]")
+
+
+def exception_code(exception) -> str:
+    """The code an exception carries (``error_code`` of the application's exceptions, ``code``
+    of the engine's: CALL-xxx, TRN-xxx, GPIB-xxx), or an empty string."""
+    if exception is None:
+        return ""
+    if isinstance(getattr(exception, "error_code", None), ErrorCode):
+        return code_text(exception.error_code)
+    code = getattr(exception, "code", None)
+    return code_text(code) if isinstance(code, str) and code.strip("[]") else ""
+
+
+def with_code(text: str, code) -> str:
+    """The text of a message with its code on the last line, ``[PROJ-005]`` (once)."""
+    code = code_text(code)
+    if not code or f"[{code}]" in text:
+        return text
+    return f"{text}\n\n[{code}]"
+
+
+def _code_in_text(text: str) -> str:
+    """The first ``[XXX-nnn]`` code written in a text, or an empty string."""
+    match = re.search(r"\[([A-Z]{2,5}-\d{3})\]", str(text))
+    return match.group(1) if match else ""
+
+
+def show_problem(parent, title, text, code=None, exception=None, level="warning"):
+    """Show a problem to the user in a message box, with its code (see ERROR_CODES.md), and log
+    it. ``code`` is an ``ErrorCode`` or ``"XXX-nnn"``; without one, the code of ``exception``,
+    else SYS-007. Every warning and error box of the application goes through here, so every
+    message has a code the user can look up. ``level``: ``"warning"`` or ``"critical"``."""
+    code = (code_text(code) or exception_code(exception) or _code_in_text(text)
+            or code_text(ErrorCode.SYS_UNEXPECTED_ERROR))
+    message = with_code(str(text), code)
+    logging.getLogger("frontend.errors").log(
+        logging.ERROR if level == "critical" else logging.WARNING,
+        "[%s] %s", code, str(text).replace("\n", " "),
+        exc_info=exception if isinstance(exception, BaseException) else None,
+    )
+    box = QMessageBox.critical if level == "critical" else QMessageBox.warning
+    return box(parent, title, message)
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""
@@ -265,14 +337,6 @@ class DataError(Exception):
         super().__init__(f"{error_code.value}: {message}")
 
 
-class ProjectDatabaseError(Exception):
-    """Custom exception for project database errors"""
-    def __init__(self, error_code: ErrorCode, message: str = ""):
-        self.error_code = error_code
-        self.message = message
-        super().__init__(f"{error_code.value}: {message}")
-
-
 class SystemError(Exception):
     """Custom exception for system-level errors"""
     def __init__(self, error_code: ErrorCode, message: str = ""):
@@ -295,7 +359,7 @@ class ErrorHandler(QObject):
         super().__init__()
         self.logger = logger or logging.getLogger(__name__)
     
-    def handle_error(self, exception, user_message="An error occurred", show_dialog=True):
+    def handle_error(self, exception, user_message="An error occurred", show_dialog=True, code=None):
         """
         Handle an exception with consistent logging and user notification.
         Uses structured logging format: LEVEL-CODE-Message
@@ -304,6 +368,8 @@ class ErrorHandler(QObject):
             exception: The exception that occurred
             user_message: User-friendly message to display
             show_dialog: Whether to show a dialog to the user
+            code: the code (ErrorCode or "XXX-nnn") when the exception carries none; without
+                it such an exception is SYS-007 (unexpected error)
         """
         error_code = ""
         technical_message = str(exception)
@@ -321,6 +387,9 @@ class ErrorHandler(QObject):
             if getattr(exception, 'message', None):
                 technical_message = exception.message
         
+        if not error_code:  # every message the user sees has a code (ERROR_CODES.md)
+            error_code = code_text(code) or code_text(ErrorCode.SYS_UNEXPECTED_ERROR)
+
         # Log with structured format
         if error_code:
             log_message = f"[{error_code}] {technical_message}"
@@ -345,25 +414,22 @@ class ErrorHandler(QObject):
             technical_message: Technical details for support
         """
         try:
+            t = settings_translator().t
             msg_box = QMessageBox()
             msg_box.setIcon(QMessageBox.Icon.Critical)
-            msg_box.setWindowTitle("Error")
-            
+            msg_box.setWindowTitle(t("error"))
+
             # Construct the message
+            full_message = user_message
             if error_code:
-                full_message = f"{user_message}\\n\\nError Code: {error_code}"
-                if technical_message:
-                    full_message += f"\\nDetails: {technical_message}"
-            else:
-                full_message = user_message
-                if technical_message:
-                    full_message += f"\\nDetails: {technical_message}"
-            
+                full_message += f"\n\n{t('err_code')}: {error_code}"
+            if technical_message:
+                full_message += f"\n{t('err_details')}: {technical_message}"
             msg_box.setText(full_message)
-            
+
             if error_code:
-                msg_box.setInformativeText("Please contact support with the error code if the problem persists.")
-            
+                msg_box.setInformativeText(t("err_contact_support"))
+
             msg_box.exec()
         except Exception as e:
             logging.getLogger('frontend.core.errorhandler').error(
@@ -444,7 +510,7 @@ def get_error_handler(logger=None):
     return _global_error_handler
 
 
-def handle_error(exception, user_message="An error occurred", show_dialog=True):
+def handle_error(exception, user_message="An error occurred", show_dialog=True, code=None):
     """
     Convenience function to handle errors using the global error handler.
     
@@ -454,4 +520,4 @@ def handle_error(exception, user_message="An error occurred", show_dialog=True):
         show_dialog: Whether to show a dialog to the user
     """
     handler = get_error_handler()
-    handler.handle_error(exception, user_message, show_dialog)
+    handler.handle_error(exception, user_message, show_dialog, code)

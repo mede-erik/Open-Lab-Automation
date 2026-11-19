@@ -6,21 +6,22 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox, QScrollArea
+    QDialog, QHBoxLayout, QListWidget, QFormLayout, QLineEdit, QPushButton, QLabel, QTableWidget, QTableWidgetItem, QCheckBox, QComboBox, QMessageBox, QWidget, QVBoxLayout, QSpinBox, QMenu, QDialogButtonBox, QScrollArea, QSplitter, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QLocale
+from PyQt6.QtCore import Qt, pyqtSignal, QLocale, QSize, QTimer
 from PyQt6.QtGui import QAction, QDoubleValidator
 from frontend.ui.AddressEditorDialog import AddressEditorDialog
 from frontend.core.Translator import Translator
-from frontend.ui.PowerSupplyConfigDialog import PowerSupplyConfigDialog
-from frontend.ui.ElectronicLoadConfigDialog import ElectronicLoadConfigDialog
 from frontend.ui.OscilloscopeConfigDialog import OscilloscopeConfigDialog
-from frontend.ui.DataloggerConfigDialog import DataloggerConfigDialog
 from frontend.ui.DataloggerSlotConfigDialog import DataloggerSlotConfigDialog
 from frontend.core.LoadInstruments import LoadInstruments
+from frontend.ui.layout_utils import clamp_to_screen, fit_table_to_rows, resize_to_screen
+from frontend.ui.theme_utils import set_class
 from frontend.ui.InstrumentPanels import NetworkAnalyzerPanel, SerialPanel, SwitchUnitPanel
 from ola import inst_file as inst
+from ola import inst_complete
 from ola import project_rename
+from frontend.core.errorhandler import show_problem
 
 # PyVISA opzionale per discovery
 try:
@@ -35,20 +36,28 @@ class InstrumentConfigDialog(QDialog):
     # Emesso ogni volta che la configurazione strumenti viene salvata
     instruments_changed = pyqtSignal(str)  # arg: percorso del file .inst
 
+    DEFAULT_WIDTH = 900
+    DEFAULT_HEIGHT = 560
+    LIST_WIDTH = 220  # the instrument list; the editor has all the rest
+
     def __init__(self, inst_file_path, load_instruments: LoadInstruments, parent=None):
         super().__init__(parent)
-        self.translator = Translator()
+        # the language of the application (a Translator of its own would always be English)
+        self.translator = getattr(parent, 'translator', None) or Translator()
         self.setWindowTitle(self.translator.t('inst_dialog_title'))
         self.inst_file_path = inst_file_path
         self.load_instruments = load_instruments
         self.extra_keys = {}  # other top-level keys of the file: kept when it is saved
-        self.resize(900, 500)
+        resize_to_screen(self, self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
         self.instruments = []
         self.current_instrument = None
         self.suppress_save = False
         self.instruments_modified = False  # Flag per tracciare le modifiche
+        self.completed_on_load = False
         self.load_instruments_file()
         self.init_ui()
+        if self.completed_on_load:
+            self.save_instruments()  # the file now has what the opened entries were missing
 
     def load_instruments_file(self):
         """Read the .inst file. A file that exists but cannot be read is not overwritten: the
@@ -61,6 +70,12 @@ class InstrumentConfigDialog(QDialog):
             self.load_error = str(exc)
         else:
             self.load_error = ''
+            # every instrument of the file has all the information of its model, also the ones
+            # that were never opened (the measurements read it from here)
+            before = json.dumps(self.instruments, sort_keys=True, default=str)
+            inst_complete.complete_entries(self.load_instruments, self.instruments)
+            self.completed_on_load = before != json.dumps(
+                self.instruments, sort_keys=True, default=str)
 
     def save_instruments(self):
         if self.suppress_save:
@@ -79,6 +94,7 @@ class InstrumentConfigDialog(QDialog):
                 elif isinstance(obj, list):
                     for item in obj:
                         fix_attenuation(item)
+            inst_complete.complete_entries(self.load_instruments, self.instruments)
             fix_attenuation(self.instruments)
             inst.save_inst(self.inst_file_path, self.instruments, self.extra_keys)
             self.instruments_modified = True  # Segnala che ci sono state modifiche
@@ -89,16 +105,14 @@ class InstrumentConfigDialog(QDialog):
                 logger.debug("Failed to emit instruments_changed signal (no connected slot or deleted receiver)")
         except Exception as e:
             logger.error("Saving the instrument file failed: %s", e)
-            QMessageBox.warning(self, self.translator.t('inst_save_error_title'), str(e))
+            show_problem(self, self.translator.t('inst_save_error_title'), str(e), code="INST-009", exception=e)
 
     def init_ui(self):
         t = self.translator.t
-        layout = QHBoxLayout(self)
+        root = QVBoxLayout(self)
 
-        # Left panel with list and buttons
-        left_panel = QVBoxLayout()
-
-        # Button panel
+        # The buttons run along the whole window (they used to sit above the list and made it as
+        # wide as they are, leaving the editor with what remained)
         button_panel = QHBoxLayout()
         add_btn = QPushButton(t('inst_add'))
         add_btn.clicked.connect(self.add_instrument_dialog)
@@ -113,16 +127,18 @@ class InstrumentConfigDialog(QDialog):
         button_panel.addWidget(manual_btn)
         button_panel.addWidget(save_btn)
         button_panel.addWidget(discover_btn)
-        left_panel.addLayout(button_panel)
+        button_panel.addStretch(1)
+        root.addLayout(button_panel)
 
         if self.load_error:
             error_label = QLabel(t('inst_file_error').format(error=self.load_error))
             error_label.setWordWrap(True)
-            error_label.setStyleSheet("color: #b00020;")
-            left_panel.addWidget(error_label)
+            set_class(error_label, 'error')
+            root.addWidget(error_label)
 
         # Instrument list
         self.list_widget = QListWidget()
+        self.list_widget.setMinimumWidth(150)
         for entry in self.instruments:
             self.list_widget.addItem(self._list_text(entry))
         self.list_widget.currentRowChanged.connect(self.on_instrument_selected)
@@ -131,23 +147,42 @@ class InstrumentConfigDialog(QDialog):
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
 
-        left_panel.addWidget(self.list_widget, 1)
-
-        layout.addLayout(left_panel, 2)
-
         # Editor panel (scrolls: a network analyzer or a serial instrument has many fields)
         self.editor_widget = QWidget()
         self.editor_layout = QVBoxLayout(self.editor_widget)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.editor_widget)
-        layout.addWidget(scroll, 5)
+        self.editor_scroll = QScrollArea()
+        self.editor_scroll.setWidgetResizable(True)
+        self.editor_scroll.setWidget(self.editor_widget)
+
+        # The list is narrow, the editor takes the rest; the border between them can be moved
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.addWidget(self.list_widget)
+        self.splitter.addWidget(self.editor_scroll)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([self.LIST_WIDTH, self.DEFAULT_WIDTH - self.LIST_WIDTH])
+        root.addWidget(self.splitter, 1)
 
         self.refresh_list_marks()
         if self.instruments:
             self.list_widget.setCurrentRow(0)
         else:
             self.show_empty_editor()
+
+    def fit_to_editor(self):
+        """Make the window large enough for the editor of the selected instrument (a channel
+        table needs more room than a name and an address), within the screen. It never shrinks the
+        window: what the user has enlarged stays."""
+        viewport = self.editor_scroll.viewport()
+        need = self.editor_widget.sizeHint()
+        extra_w = self.width() - viewport.width()
+        extra_h = self.height() - viewport.height()
+        wanted = QSize(max(self.width(), need.width() + extra_w),
+                       max(self.height(), need.height() + extra_h))
+        size = clamp_to_screen(self, wanted)
+        if size != self.size():
+            self.resize(size)
 
     # ---- the problems of the entries --------------------------------------------------------
     def _name_of(self, entry):
@@ -212,10 +247,10 @@ class InstrumentConfigDialog(QDialog):
         t = self.translator.t
         if problems:
             lines = ["\u26a0 " + self.problem_text(c, v) for c, v in problems]
-            label.setStyleSheet("color: #b00020;")
+            set_class(label, 'error')
             label.setText(t('inst_problems_title') + ":\n" + "\n".join(lines))
         else:
-            label.setStyleSheet("color: #2e7d32;")
+            set_class(label, 'ok')
             label.setText("\u2713 " + t('inst_problems_ok'))
 
     def changed(self):
@@ -346,7 +381,7 @@ class InstrumentConfigDialog(QDialog):
         self.name_edit.editingFinished.connect(self.commit_name)
         form.addRow(t('inst_field_name'), self.name_edit)
         self.name_error = QLabel()
-        self.name_error.setStyleSheet("color: #b00020;")
+        set_class(self.name_error, 'error')
         self.name_error.setVisible(False)
         form.addRow(self.name_error)
         # Address editor (a manual instrument has no address)
@@ -419,6 +454,8 @@ class InstrumentConfigDialog(QDialog):
                 entry, self.entry_caps(entry), self.translator, self.changed))
         self.editor_layout.addStretch(1)
         self.refresh_problems()
+        # when the layout of the editor is done, make room for it
+        QTimer.singleShot(0, self.fit_to_editor)
 
     def serial_defaults(self, entry):
         """The RS-232 settings the library gives for the model of an entry."""
@@ -444,12 +481,12 @@ class InstrumentConfigDialog(QDialog):
         # Info label
         info_label = QLabel("🔧 " + self.translator.t('inst_osc_info'))
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #f0f0f0; border-radius: 5px; }")
+        info_label.setProperty("class", "infobox")
         self.editor_layout.addWidget(info_label)
 
         # Pulsante per aprire OscilloscopeConfigDialog
         config_btn = QPushButton("⚙️ " + self.translator.t('inst_osc_button'))
-        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.setProperty("class", "action")
         config_btn.clicked.connect(lambda: self.open_oscilloscope_config_dialog(entry))
         self.editor_layout.addWidget(config_btn)
 
@@ -459,7 +496,8 @@ class InstrumentConfigDialog(QDialog):
             enabled_count = sum(1 for ch in channels if ch.get('enabled', False))
             summary_label = QLabel("📊 " + self.translator.t('inst_osc_summary').format(
                 total=len(channels), enabled=enabled_count))
-            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            summary_label.setProperty("class", "accent")
+            summary_label.setWordWrap(True)
             self.editor_layout.addWidget(summary_label)
 
             # Lista canali abilitati
@@ -469,7 +507,7 @@ class InstrumentConfigDialog(QDialog):
                     for ch in channels if ch.get('enabled', False)
                 ]))
                 enabled_list.setWordWrap(True)
-                enabled_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                enabled_list.setProperty("class", "muted")
                 self.editor_layout.addWidget(enabled_list)
 
     def open_oscilloscope_config_dialog(self, entry):
@@ -486,12 +524,12 @@ class InstrumentConfigDialog(QDialog):
         # Info label
         info_label = QLabel("🔧 " + self.translator.t('datalogger_slot_config_desc'))
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("QLabel { color: #555; padding: 10px; background-color: #e3f2fd; border-radius: 5px; }")
+        info_label.setProperty("class", "infobox")
         self.editor_layout.addWidget(info_label)
 
         # Button to open DataloggerSlotConfigDialog
         config_btn = QPushButton("⚙️ " + self.translator.t('configure_datalogger_slots'))
-        config_btn.setStyleSheet("QPushButton { padding: 10px; font-weight: bold; }")
+        config_btn.setProperty("class", "action")
         config_btn.clicked.connect(lambda: self.open_datalogger_slot_config_dialog(entry))
         self.editor_layout.addWidget(config_btn)
 
@@ -515,7 +553,8 @@ class InstrumentConfigDialog(QDialog):
                 f"{self.translator.t('total_channels')}: {total_channels} | "
                 f"{self.translator.t('enabled_channels')}: {enabled_channels}"
             )
-            summary_label.setStyleSheet("QLabel { padding: 5px; color: #007acc; }")
+            summary_label.setProperty("class", "accent")
+            summary_label.setWordWrap(True)
             self.editor_layout.addWidget(summary_label)
 
             # List configured modules
@@ -530,7 +569,7 @@ class InstrumentConfigDialog(QDialog):
 
                 modules_list = QLabel(self.translator.t('configured_modules') + ": " + ", ".join(module_list_parts))
                 modules_list.setWordWrap(True)
-                modules_list.setStyleSheet("QLabel { padding: 5px; font-size: 11px; color: #666; }")
+                modules_list.setProperty("class", "muted")
                 self.editor_layout.addWidget(modules_list)
 
     def open_datalogger_slot_config_dialog(self, entry):
@@ -563,7 +602,7 @@ class InstrumentConfigDialog(QDialog):
         if n <= 0:
             # Mostra messaggio informativo invece di non mostrare nulla
             info_label = QLabel("ℹ️ " + self.translator.t('inst_no_channels'))
-            info_label.setStyleSheet("QLabel { color: #888; padding: 10px; }")
+            info_label.setProperty("class", "muted")
             self.editor_layout.addWidget(info_label)
             return
 
@@ -740,7 +779,7 @@ class InstrumentConfigDialog(QDialog):
                 unit_edit.textChanged.connect(lambda val, r=row: self.on_channel_unit_changed(r, val))
                 table.setCellWidget(row, 4, unit_edit)
 
-        table.resizeColumnsToContents()
+        fit_table_to_rows(table)
         self.editor_layout.addWidget(table)
         self.channel_table = table
 
@@ -799,8 +838,13 @@ class InstrumentConfigDialog(QDialog):
             try:
                 project_rename.rename_references(self.inst_file_path, old, new, references)
             except project_rename.RenameError as exc:
-                QMessageBox.warning(self, t('inst_rename_title'),
-                                    t('inst_rename_failed').format(error=exc))
+                show_problem(
+                    self,
+                    t('inst_rename_title'),
+                    t('inst_rename_failed').format(error=exc),
+                    code="INST-010",
+                    exception=exc,
+                )
                 self.name_edit.setText(old)
                 self.check_name(old)
                 return
@@ -828,29 +872,89 @@ class InstrumentConfigDialog(QDialog):
         """Scansiona le risorse VISA disponibili e permette di applicare un indirizzo allo strumento selezionato."""
         from PyQt6.QtWidgets import QApplication
         if not PYVISA_AVAILABLE or pyvisa is None:
-            QMessageBox.information(self, self.translator.t('inst_scan_unavailable_title'), self.translator.t('inst_scan_unavailable'))
+            show_problem(self, self.translator.t('inst_scan_unavailable_title'),
+                         self.translator.t('inst_scan_unavailable'), code="VISA-005")
             return
 
         dlg = QDialog(self)
         dlg.setWindowTitle(self.translator.t('inst_scan_title'))
+        dlg.setSizeGripEnabled(True)
+        resize_to_screen(dlg, 980, 520)  # room for the address and the IDN answer on one line
         vbox = QVBoxLayout(dlg)
 
-        # Barra filtro: Solo USB
+        # The instrument that gets the address: chosen here, so the window does not depend on what
+        # is selected in the editor behind it (the default is that one)
+        target_bar = QHBoxLayout()
+        target_bar.addWidget(QLabel(self.translator.t('inst_scan_target_label')))
+        target_combo = QComboBox()
+        for index, entry in enumerate(self.instruments):
+            if not entry.get('is_manual'):  # a manual instrument has no address
+                target_combo.addItem(self._name_of(entry), index)  # (Qt would copy the dict)
+        if self.current_instrument is not None:
+            for i in range(target_combo.count()):
+                if self.instruments[target_combo.itemData(i)] is self.current_instrument:
+                    target_combo.setCurrentIndex(i)
+
+        def target_entry():
+            """The instrument chosen in the combo (the real entry of the file), or None."""
+            index = target_combo.currentData()
+            return self.instruments[index] if index is not None else None
+        target_bar.addWidget(target_combo, 1)
+        vbox.addLayout(target_bar)
+
+        # What to show: every kind of connection that is checked (all of them at the start)
         filter_bar = QHBoxLayout()
-        usb_only_cb = QCheckBox(self.translator.t('inst_scan_usb_only'))
-        filter_bar.addWidget(usb_only_cb)
+        filter_bar.addWidget(QLabel(self.translator.t('inst_scan_show')))
+        kind_checks = {}
+        for kind, key in (('usb', 'inst_scan_kind_usb'), ('lan', 'inst_scan_kind_lan'),
+                          ('rs232', 'inst_scan_kind_rs232'), ('gpib', 'inst_scan_kind_gpib')):
+            check = QCheckBox(self.translator.t(key))
+            check.setChecked(True)
+            kind_checks[kind] = check
+            filter_bar.addWidget(check)
         filter_bar.addStretch(1)
         vbox.addLayout(filter_bar)
 
-        table = QTableWidget(0, 3)
-        table.setHorizontalHeaderLabels([self.translator.t('inst_scan_col_address'), "IDN", self.translator.t('inst_scan_col_interface')])
-        vbox.addWidget(table)
+        hint = QLabel(self.translator.t('inst_scan_check_hint'))
+        hint.setWordWrap(True)
+        vbox.addWidget(hint)
+
+        # columns: check box (add to the file), address, IDN, interface, model of the library
+        COL_ADDR, COL_IDN, COL_IFACE, COL_MODEL = 1, 2, 3, 4
+        table = QTableWidget(0, 5)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setHorizontalHeaderLabels([
+            self.translator.t('inst_scan_col_add'), self.translator.t('inst_scan_col_address'), "IDN",
+            self.translator.t('inst_scan_col_interface'), self.translator.t('inst_scan_col_model'),
+        ])
+        # the IDN answer takes the room that is left, the other columns are as wide as their text
+        header = table.horizontalHeader()
+        header.setStretchLastSection(False)
+        for column in (0, COL_ADDR, COL_IFACE):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(COL_IDN, QHeaderView.ResizeMode.Stretch)
+        # the model column can hold a long sentence: fixed width, the full text is in the tooltip
+        header.setSectionResizeMode(COL_MODEL, QHeaderView.ResizeMode.Interactive)
+        table.setColumnWidth(COL_MODEL, 230)
+        table.setWordWrap(False)  # one line per row: with word wrap the IDN showed only its first word
+        table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        table.setMinimumHeight(160)
+        vbox.addWidget(table, 1)
+
+        # What the "Set" button will do (or why it cannot): it is never silent
+        status = QLabel()
+        status.setWordWrap(True)
+        vbox.addWidget(status)
 
         btns = QDialogButtonBox()
         btn_copy = QPushButton(self.translator.t('inst_scan_copy'))
+        btn_add = QPushButton(self.translator.t('inst_scan_add_checked'))
         btn_apply = QPushButton(self.translator.t('inst_scan_apply'))
         btn_close = QPushButton(self.translator.t('inst_scan_close'))
         btns.addButton(btn_copy, QDialogButtonBox.ButtonRole.ActionRole)
+        btns.addButton(btn_add, QDialogButtonBox.ButtonRole.ActionRole)
         btns.addButton(btn_apply, QDialogButtonBox.ButtonRole.ActionRole)
         btns.addButton(btn_close, QDialogButtonBox.ButtonRole.RejectRole)
         vbox.addWidget(btns)
@@ -906,33 +1010,86 @@ class InstrumentConfigDialog(QDialog):
                         logger.debug("Could not open VISA resource %s", addr)
                     idn_cache[addr] = (idn, iface)
         except Exception as e:
-            QMessageBox.warning(self, self.translator.t('inst_scan_error_title'), str(e))
+            show_problem(self, self.translator.t('inst_scan_error_title'), str(e), code="INST-011", exception=e)
 
-        def is_usb(addr_iface_tuple):
-            _, iface_val = addr_iface_tuple
-            return "USB" in iface_val.upper()
+        def kind_of(iface_val):
+            """Kind of connection of a VISA interface name: usb, lan, rs232, gpib (or 'other')."""
+            name = iface_val.upper()
+            for prefix, kind in (('USB', 'usb'), ('TCPIP', 'lan'), ('SOCKET', 'lan'),
+                                 ('ASRL', 'rs232'), ('GPIB', 'gpib')):
+                if name.startswith(prefix):
+                    return kind
+            return 'other'
 
-        def populate_table(only_usb=False):
+        def recognized(idn_text):
+            """(type, series, model) of the library for an *IDN? answer, or None."""
+            try:
+                matches = self.load_instruments.find_models_by_idn(idn_text)
+            except Exception:
+                matches = []
+            return matches[0] if matches else None
+
+        models = {addr: recognized(idn_text) for addr, (idn_text, _) in idn_cache.items()}
+        to_add = set()  # addresses checked to be added (kept when a kind is hidden and shown)
+
+        def in_file(addr):
+            return any(e.get('visa_address') == addr for e in self.instruments)
+
+        def populate_table():
+            """Fill the table with the kinds that are checked (the others are hidden, not lost)."""
+            keep = selected_address()
+            table.blockSignals(True)
             table.setRowCount(0)
             for addr, (idn_text, iface_val) in idn_cache.items():
-                if only_usb and not is_usb((addr, iface_val)):
-                    continue
+                check = kind_checks.get(kind_of(iface_val))
+                if check is not None and not check.isChecked():
+                    continue  # kinds without a check box ("other") are always shown
                 row = table.rowCount()
                 table.insertRow(row)
-                table.setItem(row, 0, QTableWidgetItem(addr))
-                table.setItem(row, 1, QTableWidgetItem(idn_text))
-                table.setItem(row, 2, QTableWidgetItem(iface_val))
-            table.resizeColumnsToContents()
+                box = QTableWidgetItem()
+                match = models.get(addr)
+                if in_file(addr):
+                    model_text = self.translator.t('inst_scan_already')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+                elif match is None:
+                    model_text = self.translator.t('inst_scan_unknown_model')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+                else:
+                    model_text = match[2].get('name') or match[2].get('model', '')
+                    box.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled
+                                 | Qt.ItemFlag.ItemIsUserCheckable)
+                    box.setCheckState(Qt.CheckState.Checked if addr in to_add else Qt.CheckState.Unchecked)
+                table.setItem(row, 0, box)
+                table.setItem(row, COL_ADDR, QTableWidgetItem(addr))
+                for column, text in ((COL_IDN, idn_text), (COL_IFACE, iface_val), (COL_MODEL, model_text)):
+                    cell = QTableWidgetItem(text)
+                    cell.setToolTip(text)
+                    table.setItem(row, column, cell)
+                if addr == keep:
+                    table.selectRow(row)
+            table.blockSignals(False)
 
-        populate_table(only_usb=False)
-        usb_only_cb.stateChanged.connect(lambda _state: populate_table(usb_only_cb.isChecked()))
+        def on_item_changed(item):
+            if item.column() != 0:
+                return
+            addr_item = table.item(item.row(), COL_ADDR)
+            if addr_item is None:
+                return
+            if item.checkState() == Qt.CheckState.Checked:
+                to_add.add(addr_item.text())
+            else:
+                to_add.discard(addr_item.text())
+            refresh_state()
+
+        table.itemChanged.connect(on_item_changed)
+
         table.cellDoubleClicked.connect(lambda row, _col: btn_apply.click())
 
         def copy_selected():
             row = table.currentRow()
             if row < 0:
                 return
-            addr_item = table.item(row, 0)
+            addr_item = table.item(row, COL_ADDR)
             if addr_item is None:
                 return
             addr = addr_item.text()
@@ -940,20 +1097,92 @@ class InstrumentConfigDialog(QDialog):
             if clipboard is not None:
                 clipboard.setText(addr)
 
-        def apply_selected():
+        def selected_address():
+            """The address of the selected row of the table, or None."""
             row = table.currentRow()
-            if row < 0:
+            addr_item = table.item(row, COL_ADDR) if row >= 0 else None
+            return addr_item.text() if addr_item is not None else None
+
+        def apply_state():
+            """(can_apply, text): what the button does now, or the reason why it cannot."""
+            t = self.translator.t
+            entry = target_entry()
+            if not idn_cache:
+                return False, t('inst_scan_none')
+            if entry is None:
+                return False, t('inst_scan_no_instrument')
+            name = self._name_of(entry)
+            addr = selected_address()
+            if addr is None:
+                return False, t('inst_scan_pick').format(name=name)
+            return True, t('inst_scan_target').format(address=addr, name=name)
+
+        def refresh_state(*_args):
+            can_apply, text = apply_state()
+            btn_apply.setEnabled(can_apply)
+            btn_add.setEnabled(bool(to_add))
+            if to_add:
+                text = self.translator.t('inst_scan_will_add').format(count=len(to_add)) + "\n" + text
+            status.setText(text)
+
+        def add_checked():
+            """Add a new instrument of the file for every checked row (model of the library and
+            address found), then close: the editor shows the first one added."""
+            if not to_add:
                 return
-            addr_item = table.item(row, 0)
-            if addr_item is None:
+            first = None
+            for addr in [a for a in idn_cache if a in to_add]:  # in the order of the table
+                match = models.get(addr)
+                if match is None or in_file(addr):
+                    continue
+                type_name, series_id, model = match
+                taken = [self._name_of(e) for e in self.instruments]
+                name = model.get('model') or type_name
+                if name in taken:  # the name is what measurements use: it must be unique
+                    name = inst.unique_name(name, taken, suffix='_')
+                guessed = model.get('channels', model.get('num_channels', 1))
+                entry = self._new_entry(
+                    type_name, series_id, model.get('id'), model.get('name', ''), name,
+                    guessed if isinstance(guessed, int) else 1,
+                )
+                entry['visa_address'] = addr
+                self.instruments.append(entry)
+                self.list_widget.addItem(self._list_text(entry))
+                if first is None:
+                    first = len(self.instruments) - 1
+            self.save_instruments()
+            if first is not None:
+                self.list_widget.setCurrentRow(first)
+            dlg.accept()
+
+        def apply_selected():
+            can_apply, _text = apply_state()
+            if not can_apply:
+                refresh_state()
                 return
-            addr = addr_item.text()
-            if self.current_instrument is not None and not self.current_instrument.get('is_manual'):
-                self.current_instrument['visa_address'] = addr
-                self.save_instruments()
-                self.show_instrument_editor(self.current_instrument)  # serial settings follow
+            entry = target_entry()
+            entry['visa_address'] = selected_address()
+            self.save_instruments()
+            if entry is not self.current_instrument:
+                self.list_widget.setCurrentRow(self.instruments.index(entry))  # shows it
+            else:
+                self.show_instrument_editor(entry)  # serial settings follow
+            dlg.accept()  # the editor behind now shows the new address
+
+        def refilter(*_args):
+            populate_table()
+            refresh_state()
+
+        populate_table()
+        table.currentCellChanged.connect(refresh_state)
+        table.itemSelectionChanged.connect(refresh_state)
+        target_combo.currentIndexChanged.connect(refresh_state)
+        for check in kind_checks.values():
+            check.stateChanged.connect(refilter)
+        refresh_state()
 
         btn_copy.clicked.connect(copy_selected)
+        btn_add.clicked.connect(add_checked)
         btn_apply.clicked.connect(apply_selected)
         btn_close.clicked.connect(dlg.reject)
         dlg.exec()
@@ -1019,7 +1248,7 @@ class InstrumentConfigDialog(QDialog):
         control. It is one channel with its limits and is not a model of the instrument
         library (a supply with two outputs is two manual instruments).
         """
-        from PyQt6.QtWidgets import QDoubleSpinBox, QMessageBox
+        from PyQt6.QtWidgets import QDoubleSpinBox
 
         t = self.translator.t
         dlg = QDialog(self)
@@ -1056,10 +1285,10 @@ class InstrumentConfigDialog(QDialog):
         while dlg.exec() == QDialog.DialogCode.Accepted:
             name = name_edit.text().strip()
             if not name:
-                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_required'))
+                show_problem(self, t('manual_dialog_title'), t('manual_name_required'), code="VALID-004")
                 continue
             if any(i.get('instance_name') == name for i in self.instruments):
-                QMessageBox.warning(self, t('manual_dialog_title'), t('manual_name_exists'))
+                show_problem(self, t('manual_dialog_title'), t('manual_name_exists'), code="INST-003")
                 continue
             channel = {
                 'enabled': True,
@@ -1081,6 +1310,29 @@ class InstrumentConfigDialog(QDialog):
             self.list_widget.addItem(self._list_text(entry))
             self.list_widget.setCurrentRow(self.list_widget.count() - 1)
             break
+
+    def _new_entry(self, type_name, series, model_id, model, name, guessed_num_channels=1):
+        """A new entry of the file for a library model (its channels are filled when shown)."""
+        caps = None
+        try:
+            caps = self.load_instruments.get_model_capabilities(type_name, series, model_id)
+        except Exception:
+            caps = None
+        num_channels = (
+            (caps.get('number_of_channels') if isinstance(caps, dict) else None)
+            or (caps.get('channels') if isinstance(caps, dict) and isinstance(caps.get('channels'), int) else None)
+            or (caps.get('number_of_slots') if isinstance(caps, dict) else None)
+            or guessed_num_channels
+        )
+        return {
+            'instrument_type': type_name,
+            'instance_name': name,
+            'series': series,
+            'model': model,
+            'model_id': model_id,
+            'num_channels': num_channels,
+            'channels': []
+        }
 
     def add_instrument_dialog(self):
         dlg = QDialog(self)
@@ -1148,27 +1400,7 @@ class InstrumentConfigDialog(QDialog):
             series = series_combo.currentData()
             model = model_combo.currentText().strip()
             model_id, guessed_num_channels = model_map.get(model, (model, 1))
-            # Ricava num_channels dalle capabilities quando possibile
-            caps = None
-            try:
-                caps = self.load_instruments.get_model_capabilities(type_name, series, model_id)
-            except Exception:
-                caps = None
-            num_channels = (
-                (caps.get('number_of_channels') if isinstance(caps, dict) else None)
-                or (caps.get('channels') if isinstance(caps, dict) and isinstance(caps.get('channels'), int) else None)
-                or (caps.get('number_of_slots') if isinstance(caps, dict) else None)
-                or guessed_num_channels
-            )
-            new_inst = {
-                'instrument_type': type_name,
-                'instance_name': name,
-                'series': series,
-                'model': model,
-                'model_id': model_id,
-                'num_channels': num_channels,
-                'channels': []
-            }
+            new_inst = self._new_entry(type_name, series, model_id, model, name, guessed_num_channels)
             self.instruments.append(new_inst)
             self.save_instruments()
             self.list_widget.addItem(self._list_text(new_inst))

@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
+from .fileio import atomic_write_json
 from .measurement import API_VERSION, MeasurementError
 from .registry import ModuleRegistry
 
@@ -84,9 +86,7 @@ class MeasurementFile:
 
     def save(self, path: Union[str, Path]) -> None:
         """Write the measurement file as JSON."""
-        Path(path).write_text(
-            json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        atomic_write_json(path, self.to_dict())
 
     @staticmethod
     def load(path: Union[str, Path]) -> "MeasurementFile":
@@ -108,7 +108,13 @@ class MeasurementFile:
 
 # keys of the project file that are written directly, not through ``Project``: on a save the file
 # on disk is the newest
-DISK_KEYS = ("calibrations",)
+# Keys written straight to the file by other parts of the program (the calibration window, the
+# main window's file list): when the project is saved the file is the newest.
+DISK_KEYS = (
+    "calibrations",
+    "last_opened",
+    "was_files",
+)
 
 
 @dataclass
@@ -121,6 +127,9 @@ class Project:
     inst_file: Optional[str] = None
     measurements: List[MeasurementRef] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)  # unknown keys, preserved on save
+    # who this project is, for ever: the name is only a label and the folder can be moved or
+    # renamed; a shared archive (docs/proposals/shared-archive.md) finds the project by this
+    project_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     # ----- creation / persistence ---------------------------------------------------------
     @staticmethod
@@ -156,8 +165,8 @@ class Project:
                 refs.append(MeasurementRef(m["id"], m["type"], m["name"], m["file"]))
             except (KeyError, TypeError) as exc:
                 raise MeasurementError(f"{path}: invalid measurement entry {m!r}") from exc
-        known = {"format_version", "project_name", "inst_file", "measurements"}
-        return Project(
+        known = {"format_version", "project_name", "inst_file", "measurements", "project_id"}
+        project = Project(
             name=str(raw.get("project_name", path.stem)),
             directory=path.parent,
             path=path,
@@ -165,6 +174,14 @@ class Project:
             measurements=refs,
             extra={k: v for k, v in raw.items() if k not in known},
         )
+        if raw.get("project_id"):
+            project.project_id = str(raw["project_id"])
+        else:  # a project made before the id existed: give it one and keep it
+            try:
+                project.save()
+            except OSError:  # read-only folder: it will be given again until it can be saved
+                pass
+        return project
 
     def save(self) -> None:
         """Write the project file, keeping the keys this program does not know."""
@@ -172,14 +189,13 @@ class Project:
             **self._written_elsewhere(),
             **self.extra,
             "format_version": FORMAT_VERSION,
+            "project_id": self.project_id,
             "project_name": self.name,
             "inst_file": self.inst_file,
             "measurements": [vars(m) for m in self.measurements],
         }
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        atomic_write_json(self.path, data)
 
     def _written_elsewhere(self) -> Dict[str, Any]:
         """The keys of the file on disk that other parts of the program write directly (the list
@@ -192,12 +208,30 @@ class Project:
             return {}
         if not isinstance(raw, dict):
             return {}
-        known = {"format_version", "project_name", "inst_file", "measurements"}
+        known = {"format_version", "project_id", "project_name", "inst_file", "measurements"}
         on_disk = {k: v for k, v in raw.items() if k not in known}
         keep = {k: v for k, v in on_disk.items() if k not in self.extra or k in DISK_KEYS}
         for key in DISK_KEYS:
             self.extra.pop(key, None)  # the file is the newest: ``keep`` has it
         return keep
+
+    @staticmethod
+    def upgrade_legacy(path: Union[str, Path]) -> bool:
+        """Turn a project file of the first format (``eff_files`` / ``was_files``) into a current
+        one, in place and without losing a key: it only gains ``format_version`` and an empty
+        ``measurements`` list. Returns True if the file was changed; a file that is already
+        current, or is not a project, is left alone."""
+        path = Path(path)
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        if not isinstance(raw, dict) or "format_version" in raw or "project_name" not in raw:
+            return False
+        raw["format_version"] = FORMAT_VERSION
+        raw.setdefault("measurements", [])
+        path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return True
 
     # ----- measurements ---------------------------------------------------------------------
     def get(self, measurement_id: str) -> MeasurementRef:

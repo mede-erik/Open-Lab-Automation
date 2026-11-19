@@ -69,6 +69,7 @@
   "ast_h_date": "Datum",
   "ast_h_measurement": "Messung",
   "ast_h_state": "Ergebnis",
+  "ast_h_variant": "Variante",
   "ast_h_file": "Lauf-Datei",
   "ast_state_finished": "abgeschlossen",
   "ast_state_stopped": "gestoppt",
@@ -81,6 +82,7 @@
   "lbl_lines": "Zeilen",
   "lbl_field_id": "Code (immer)",
   "lbl_field_name": "Name",
+  "lbl_field_version": "Version",
   "lbl_field_description": "Was es ist",
   "lbl_field_specs": "Kenndaten",
   "lbl_field_connectors": "Stecker",
@@ -115,5 +117,6 @@
   "ast_t_limit_line": "Grenze",
   "ast_t_days": "Tage seit {date}",
   "ast_t_failed": "Speichern nicht möglich: {error}",
-  "ast_t_saved": "Gespeichert: {path}"
+  "ast_t_saved": "Gespeichert: {path}",
+  "ast_unreadable": "beschädigt oder nicht lesbar"
 }

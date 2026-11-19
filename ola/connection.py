@@ -32,6 +32,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from . import bench
+
 log = logging.getLogger(__name__)
 
 Opener = Callable[
@@ -184,7 +186,8 @@ class ProjectConnector:
             else:
                 if known is not None:
                     self._close_link(known[2])
-                link = self._open_link(name, address, model_id, timeout_ms, serial)
+                with bench.span("connect", f"{name}: open"):
+                    link = self._open_link(name, address, model_id, timeout_ms, serial)
                 instrument = Instrument(name, link, driver_for(self.library, model_id, link))
                 self._open[name] = (key, instrument, link)
                 fresh = True
@@ -195,8 +198,24 @@ class ProjectConnector:
             except Exception as exc:
                 log.warning("set_remote not accepted by %s: %s", name, exc)
         if fresh:  # who the apparatus is, read once per connection and kept for the saved runs
-            instrument.identity = read_identity(handle, address)
-        return handle
+            with bench.span("connect", f"{name}: identity"):
+                instrument.identity = read_identity(handle, address)
+        return self._with_channel_settings(name, entry, handle)
+
+    @staticmethod
+    def _with_channel_settings(name: str, entry: Dict[str, Any], handle: Any) -> Any:
+        """The handle of a datalogger whose channels ask for a range, an integration time, a zero or
+        an input impedance (``ola.channel_setup``) is wrapped so the measurement gets them; any
+        other handle is returned as it is."""
+        from .channel_setup import ChannelSetupError, wrap_if_configured
+        from .datalogger_setup import DataloggerSetupError
+
+        if not (entry.get("channels") or entry.get("slots")):
+            return handle
+        try:
+            return wrap_if_configured(handle, entry)
+        except (ChannelSetupError, DataloggerSetupError) as exc:
+            raise ConnectionProblem(f"'{name}': {exc}") from exc
 
     def _open_link(
         self, name: str, address: str, model_id: str, timeout_ms: int, serial: Dict[str, Any]

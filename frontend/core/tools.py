@@ -257,7 +257,33 @@ def generate_unique_filename(base_path: str, extension: str = "") -> str:
     return filename
 
 
-def diagnose_connection(visa_address: str) -> dict:
+_RECOMMENDATIONS = {
+    'diag_rec_unresolved': "Host '{host}' could not be resolved. Check the hostname/IP address and network configuration.",
+    'diag_rec_unverified': "Could not verify host reachability for '{host}': {error}",
+    'diag_rec_refused': 'Host {host} responded (TCP RST), but port {port} is refusing connections. Verify VXI-11 service is running on instrument.',
+    'diag_rec_timeout': 'Connection to {host}:{port} timed out. Verify VXI-11 service is running on instrument.',
+    'diag_rec_filtered': 'Port {port} on {host} is closed or filtered. Verify VXI-11 service is running on instrument.',
+    'diag_rec_bad_format': 'VISA address format not recognized: {address}\nExpected formats:\n  TCPIP0::<host>::inst0::INSTR  (VXI-11)\n  TCPIP0::<host>::hislip0::INSTR  (HiSLIP)\n  TCPIP0::<host>::<port>::SOCKET  (raw socket)',
+    'diag_rec_parse': 'Error parsing VISA address: {error}',
+    'diag_rec_no_pyvisa': 'PyVISA is not available. Install it with: pip install pyvisa pyvisa-py',
+    'diag_rec_unreachable': "Host '{host}' is not reachable. Check:\n  - Instrument is powered on\n  - IP address/hostname is correct\n  - Network cable is connected\n  - Instrument and PC are on the same network",
+    'diag_rec_closed_port': 'Port {port} is closed on {host}. Common causes:\n  VXI-11 Protocol (port 111):\n    - Use format: TCPIP0::{host}::inst0::INSTR\n    - Enable VXI-11/LXI service on instrument\n    - Check firewall settings\n  HiSLIP Protocol (port 4880):\n    - Use format: TCPIP0::{host}::hislip0::INSTR\n    - Enable HiSLIP service on instrument\n  Socket Protocol (custom port):\n    - Use format: TCPIP0::{host}::{port}::SOCKET\n    - Verify correct port number in instrument settings\n\nTry changing the protocol in Address Editor if connection fails.',
+    'diag_rec_open_port': 'Port is open but connection may still fail. If using VXI-11:\n  - Ensure RPC portmapper is running on instrument\n  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR',
+    'diag_rec_enable_remote': 'Enable remote control/LXI interface on instrument.',
+    'diag_rec_manual': 'Check instrument manual for VXI-11 or SCPI-over-LAN setup.',
+    'diag_rec_firewall': 'Verify firewall is not blocking the connection.',
+}
+
+
+def _recommendation(translate, key: str, **values: Any) -> str:
+    """The text of a recommendation of the connection diagnostics: ``translate(key)`` (the
+    application's translator) when it knows the key, else the English text of this module."""
+    text = translate(key) if translate else key
+    if not text or text == key:
+        text = _RECOMMENDATIONS[key]
+    return text.format(**values)
+
+def diagnose_connection(visa_address: str, translate=None) -> dict:
     """
     Perform diagnostic tests on an instrument TCP/IP connection.
 
@@ -269,6 +295,8 @@ def diagnose_connection(visa_address: str) -> dict:
     Args:
         visa_address: VISA address to diagnose (e.g.
             ``'TCPIP0::192.168.1.100::inst0::INSTR'``).
+        translate: optional ``translate(key) -> text`` (the application's ``Translator.t``) that
+            gives the recommendations in the language of the application; English without it.
 
     Returns:
         Dictionary with diagnostic results containing keys:
@@ -346,14 +374,13 @@ def diagnose_connection(visa_address: str) -> dict:
                 results['host_resolves'] = False
                 results['reachability_error'] = str(e)
                 results['recommendations'].append(
-                    f"Host '{host}' could not be resolved. "
-                    f"Check the hostname/IP address and network configuration."
+                    _recommendation(translate, 'diag_rec_unresolved', host=host)
                 )
             except Exception as e:
                 results['host_resolves'] = False
                 results['reachability_error'] = str(e)
                 results['recommendations'].append(
-                    f"Could not verify host reachability for '{host}': {e}"
+                    _recommendation(translate, 'diag_rec_unverified', host=host, error=e)
                 )
 
             # Test 2: Check if port is open using Python's socket (cross-platform)
@@ -369,84 +396,59 @@ def diagnose_connection(visa_address: str) -> dict:
                     results['host_reachable'] = True
                     results['port_open'] = False
                     results['recommendations'].append(
-                        f"Host {host} responded (TCP RST), but port {port} is refusing connections. "
-                        f"Verify VXI-11 service is running on instrument."
+                        _recommendation(translate, 'diag_rec_refused', host=host, port=port)
                     )
                 except (_socket.timeout, TimeoutError):
                     results['port_open'] = False
                     results['recommendations'].append(
-                        f"Connection to {host}:{port} timed out. "
-                        f"Verify VXI-11 service is running on instrument."
+                        _recommendation(translate, 'diag_rec_timeout', host=host, port=port)
                     )
                 except OSError:
                     results['port_open'] = False
                     results['recommendations'].append(
-                        f"Port {port} on {host} is closed or filtered. "
-                        f"Verify VXI-11 service is running on instrument."
+                        _recommendation(translate, 'diag_rec_filtered', host=host, port=port)
                     )
                 except Exception as e:
                     results['port_test_error'] = str(e)
         else:
             results['recommendations'].append(
-                f"VISA address format not recognized: {visa_address}\n"
-                f"Expected formats:\n"
-                f"  TCPIP0::<host>::inst0::INSTR  (VXI-11)\n"
-                f"  TCPIP0::<host>::hislip0::INSTR  (HiSLIP)\n"
-                f"  TCPIP0::<host>::<port>::SOCKET  (raw socket)"
+                _recommendation(translate, 'diag_rec_bad_format', address=visa_address)
             )
 
     except Exception as e:
         results['parse_error'] = str(e)
-        results['recommendations'].append(f"Error parsing VISA address: {e}")
+        results['recommendations'].append(_recommendation(translate, 'diag_rec_parse', error=e))
 
     # Add general recommendations
     if not results['visa_available']:
         results['recommendations'].append(
-            "PyVISA is not available. Install it with: pip install pyvisa pyvisa-py"
+            _recommendation(translate, 'diag_rec_no_pyvisa')
         )
 
     if results['address_valid'] and not results['host_resolves']:
         host = results.get('host', '?')
         results['recommendations'].append(
-            f"Host '{host}' is not reachable. Check:\n"
-            "  - Instrument is powered on\n"
-            "  - IP address/hostname is correct\n"
-            "  - Network cable is connected\n"
-            "  - Instrument and PC are on the same network"
+            _recommendation(translate, 'diag_rec_unreachable', host=host)
         )
 
     if results['address_valid'] and results['host_reachable'] and not results['port_open']:
         host = results.get('host', '?')
         port = results.get('port', '?')
         results['recommendations'].append(
-            f"Port {port} is closed on {host}. Common causes:\n"
-            f"  VXI-11 Protocol (port 111):\n"
-            f"    - Use format: TCPIP0::{host}::inst0::INSTR\n"
-            f"    - Enable VXI-11/LXI service on instrument\n"
-            f"    - Check firewall settings\n"
-            f"  HiSLIP Protocol (port 4880):\n"
-            f"    - Use format: TCPIP0::{host}::hislip0::INSTR\n"
-            f"    - Enable HiSLIP service on instrument\n"
-            f"  Socket Protocol (custom port):\n"
-            f"    - Use format: TCPIP0::{host}::{port}::SOCKET\n"
-            f"    - Verify correct port number in instrument settings\n"
-            "\n"
-            "Try changing the protocol in Address Editor if connection fails."
+            _recommendation(translate, 'diag_rec_closed_port', host=host, port=port)
         )
 
     if results.get('port_open') and 'inst0' in visa_address.lower():
         host = results.get('host', '?')
         results['recommendations'].append(
-            f"Port is open but connection may still fail. If using VXI-11:\n"
-            f"  - Ensure RPC portmapper is running on instrument\n"
-            f"  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR"
+            _recommendation(translate, 'diag_rec_open_port', host=host)
         )
 
     if results['host_reachable'] and not results['port_open']:
-        results['recommendations'].append("Enable remote control/LXI interface on instrument.")
+        results['recommendations'].append(_recommendation(translate, 'diag_rec_enable_remote'))
         results['recommendations'].append(
-            "Check instrument manual for VXI-11 or SCPI-over-LAN setup."
+            _recommendation(translate, 'diag_rec_manual')
         )
-        results['recommendations'].append("Verify firewall is not blocking the connection.")
+        results['recommendations'].append(_recommendation(translate, 'diag_rec_firewall'))
 
     return results

@@ -17,8 +17,9 @@ measurements made on an object are found by the code that every run of it has sa
     registry.find("OLA:CBL-0001")                    # what a barcode scanner or a QR gives
     history("CBL-0001", [project_dir / "runs"])      # the runs that used this cable
 
-Kinds: ``cable``, ``antenna``, ``filter``, ``amplifier``, ``attenuator``, ``adapter``, ``other``
-(see ``KINDS``).
+Kinds: ``cable``, ``amplifier``, ``attenuator``, ``adapter`` (see ``KINDS``): the components of a
+measurement, which sit in the signal path and can be used for a correction or de-embedding. A device
+under test is not one: it has its own archive (``ola.duts``).
 Reading is forgiving (keys it does not know are kept) and saving is atomic (a power cut never
 leaves a half-written file; the previous version is kept as ``assets.json.bak``).
 """
@@ -30,9 +31,13 @@ import json
 import os
 import re
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+
+from .fileio import atomic_write_json
+from .variants import variant_of, variant_text
 
 FORMAT_VERSION = 1
 ENV_FILE = "OLA_ASSETS_FILE"
@@ -43,14 +48,6 @@ KINDS: Dict[str, Dict[str, Any]] = {
     "cable": {
         "prefix": "CBL",
         "attributes": [("cable_type", ""), ("connectors", ""), ("length_m", "m")],
-    },
-    "antenna": {
-        "prefix": "ANT",
-        "attributes": [("frequency_range", ""), ("connector", ""), ("gain_dbi", "dBi")],
-    },
-    "filter": {
-        "prefix": "FLT",
-        "attributes": [("filter_type", ""), ("frequency", "Hz"), ("connectors", "")],
     },
     "amplifier": {
         "prefix": "AMP",
@@ -67,9 +64,9 @@ KINDS: Dict[str, Dict[str, Any]] = {
         ],
     },
     "adapter": {"prefix": "ADP", "attributes": [("connectors", "")]},
-    "other": {"prefix": "DUT", "attributes": []},
 }
-PREFIX_KIND = {v["prefix"]: k for k, v in KINDS.items()}
+# Antennas, filters and the generic ``DUT`` cards used to be kinds of this registry. They are
+# devices under test, in their own archive (``ola.duts``), which moves old cards from here.
 ASSET_GROUPS = (
     "cable",
     "device",
@@ -100,6 +97,10 @@ class Asset:
     )  # kind-specific: length_m, connectors...
     created: str = ""
     retired: bool = False  # taken out of use: kept, so that its old results still make sense
+    # who this object is, for ever: the code is what people see and can change (two registries
+    # merged may force a new one), the uid never does. Runs keep it in the card they saved.
+    uid: str = field(default_factory=lambda: uuid.uuid4().hex)
+    former_codes: List[str] = field(default_factory=list)  # codes it had before, newest last
     extra: Dict[str, Any] = field(default_factory=dict)  # keys this program does not know
 
     def to_dict(self) -> Dict[str, Any]:
@@ -108,7 +109,7 @@ class Asset:
             "id": self.id, "kind": self.kind, "name": self.name, "description": self.description,
             "manufacturer": self.manufacturer, "serial": self.serial, "owner": self.owner,
             "notes": self.notes, "attributes": self.attributes, "created": self.created,
-            "retired": self.retired,
+            "retired": self.retired, "uid": self.uid, "former_codes": list(self.former_codes),
         }  # fmt: skip
         return {**self.extra, **data}
 
@@ -118,8 +119,9 @@ class Asset:
         if not isinstance(raw.get("id"), str) or not raw["id"]:
             raise AssetError(f"a card without a code: {dict(raw)!r}")
         known = {"id", "kind", "name", "description", "manufacturer", "serial", "owner", "notes",
-                 "attributes", "created", "retired"}  # fmt: skip
+                 "attributes", "created", "retired", "uid", "former_codes"}  # fmt: skip
         attributes = raw.get("attributes")
+        former = raw.get("former_codes")
         return Asset(
             id=raw["id"],
             kind=str(raw.get("kind", "other")),
@@ -132,6 +134,8 @@ class Asset:
             attributes=dict(attributes) if isinstance(attributes, dict) else {},
             created=str(raw.get("created", "")),
             retired=bool(raw.get("retired", False)),
+            uid=str(raw["uid"]) if raw.get("uid") else uuid.uuid4().hex,
+            former_codes=[str(c) for c in former] if isinstance(former, list) else [],
             extra={k: v for k, v in raw.items() if k not in known},
         )
 
@@ -161,10 +165,22 @@ def qr_text(code: str) -> str:
 
 
 class AssetRegistry:
-    """The cards, in a JSON file (see the module docstring)."""
+    """The cards, in a JSON file (see the module docstring).
+
+    The class attributes say what the cards are, so the archive of devices under test
+    (``ola.duts``) is the same machinery with its own cards, kinds and file."""
+
+    card_class = Asset  # what one card is
+    kinds = KINDS  # kind -> the prefix of its codes and the attributes its card suggests
+    title = "registry of cables and devices"  # for the messages
+    what = "cable or device"
+
+    def _default_path(self) -> Path:
+        """The file used when no path is given."""
+        return default_path()
 
     def __init__(self, path: Union[str, Path, None] = None):
-        self.path = Path(path) if path else default_path()
+        self.path = Path(path) if path else self._default_path()
         self.assets: List[Asset] = []
         self.counters: Dict[str, int] = {}  # prefix -> the last number given (never goes back)
         self._extra: Dict[str, Any] = {}
@@ -182,10 +198,11 @@ class AssetRegistry:
         except (OSError, ValueError) as exc:
             raise AssetError(f"cannot read the registry {self.path}: {exc}") from exc
         if not isinstance(raw, dict) or not isinstance(raw.get("assets", []), list):
-            raise AssetError(f"{self.path}: not a registry of cables and devices")
+            raise AssetError(f"{self.path}: not a {self.title}")
         if raw.get("format_version", FORMAT_VERSION) > FORMAT_VERSION:
             raise AssetError(f"{self.path}: made by a newer version of the program")
-        self.assets = [Asset.from_dict(item) for item in raw.get("assets", [])]
+        self.assets = [self.card_class.from_dict(item) for item in raw.get("assets", [])]
+        missing_uid = any(not item.get("uid") for item in raw.get("assets", []))
         counters = raw.get("counters", {})
         self.counters = (
             {k: int(v) for k, v in counters.items()} if isinstance(counters, dict) else {}
@@ -198,6 +215,11 @@ class AssetRegistry:
             if code:
                 prefix, number = code.split("-")
                 self.counters[prefix] = max(self.counters.get(prefix, 0), int(number))
+        if missing_uid:  # cards made before the uid existed: keep the ones just given
+            try:
+                self.save()
+            except OSError:  # a read-only file: they will be given again, no harm until saved
+                pass
 
     def save(self) -> None:
         """Write the file atomically; the previous one is kept as ``<name>.bak``."""
@@ -208,12 +230,10 @@ class AssetRegistry:
             "assets": [a.to_dict() for a in self.assets],
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp = self.path.with_name(self.path.name + ".tmp")
-        temp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         if self.path.is_file():
             backup = self.path.with_name(self.path.name + ".bak")
             backup.write_bytes(self.path.read_bytes())
-        os.replace(temp, self.path)
+        atomic_write_json(self.path, data)
 
     # ----- the cards --------------------------------------------------------------------------
     def get(self, code: str) -> Optional[Asset]:
@@ -241,17 +261,17 @@ class AssetRegistry:
     ) -> Asset:
         """Add a card with the next code of its kind (``manufacturer``, ``serial``, ``owner`` and
         ``notes`` can be given as keywords). ``AssetError`` for an unknown kind or an empty name."""
-        if kind not in KINDS:
-            raise AssetError(f"unknown kind {kind!r}: use one of {', '.join(KINDS)}")
+        if kind not in self.kinds:
+            raise AssetError(f"unknown kind {kind!r}: use one of {', '.join(self.kinds)}")
         if not name.strip():
             raise AssetError("the name cannot be empty")
         unknown = set(fields) - {"manufacturer", "serial", "owner", "notes"}
         if unknown:
             raise AssetError(f"unknown field(s) {sorted(unknown)}")
-        prefix = KINDS[kind]["prefix"]
+        prefix = self.kinds[kind]["prefix"]
         number = self.counters.get(prefix, 0) + 1
         self.counters[prefix] = number
-        asset = Asset(
+        asset = self.card_class(
             id=f"{prefix}-{number:04d}",
             kind=kind,
             name=name.strip(),
@@ -301,7 +321,7 @@ class AssetRegistry:
     def _need(self, code: str) -> Asset:
         asset = self.get(code)
         if asset is None:
-            raise AssetError(f"no cable or device with the code {code!r}")
+            raise AssetError(f"no {self.what} with the code {code!r}")
         return asset
 
     def choices(self, kind: Optional[str] = None) -> List[str]:
@@ -331,6 +351,9 @@ class RunRef:
     when: str
     measurement: str
     state: str
+    # code -> uid of the card the run saved for it (None: an old run, whose card has no uid)
+    uids: Dict[str, Optional[str]] = field(default_factory=dict)
+    variant: str = ""  # what changed in the device since another run (``ola.variants``), or ''
 
 
 def read_header(path: Path) -> Optional[Dict[str, Any]]:
@@ -364,12 +387,19 @@ def _end_state(path: Path) -> str:
     return "interrupted"
 
 
-def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
+def index_runs(
+    run_dirs: Iterable[Union[str, Path]],
+    ids_in: Optional[Any] = None,
+    cards_key: str = "assets",
+) -> Dict[str, List[RunRef]]:
     """Every run file of the folders, grouped by the codes it names: ``{code: [RunRef, ...]}``,
     each list oldest first. One pass over the files (the first line of each), for a table of all
-    the cables with how many times each was measured."""
+    the cables with how many times each was measured. ``ids_in(params)`` gives the codes a run
+    names (``asset_ids_in``, the components) and ``cards_key`` is where its header keeps their
+    cards (``"assets"``); the devices under test pass their own (``ola.duts.index_dut_runs``)."""
     from .compare import run_date
 
+    ids_in = ids_in or asset_ids_in
     out: Dict[str, List[RunRef]] = {}
     for folder in run_dirs:
         folder = Path(folder)
@@ -379,24 +409,64 @@ def index_runs(run_dirs: Iterable[Union[str, Path]]) -> Dict[str, List[RunRef]]:
             header = read_header(path)
             if header is None:
                 continue
-            codes = asset_ids_in(header.get("params") or {})
+            codes = ids_in(header.get("params") or {})
             if not codes:
                 continue
+            cards = header.get(cards_key) if isinstance(header.get(cards_key), dict) else {}
+            uids = {
+                code: (cards.get(code) or {}).get("uid") or None
+                for code in codes
+                if isinstance(cards.get(code) or {}, dict)
+            }
             ref = RunRef(
-                path, run_date(path), str(header.get("measurement", "?")), _end_state(path)
+                path,
+                run_date(path),
+                str(header.get("measurement", "?")),
+                _end_state(path),
+                uids,
+                variant_text(variant_of(header.get("params") or {})),
             )
             for code in codes:
                 out.setdefault(code, []).append(ref)
+                if uids.get(code):  # also under the uid, which does not change with the code
+                    out.setdefault(uids[code], []).append(ref)
     for refs in out.values():
         refs.sort(key=lambda r: (r.when, r.path.name))
     return out
 
 
-def history(code: str, run_dirs: Iterable[Union[str, Path]]) -> List[RunRef]:
+def history(
+    code: str,
+    run_dirs: Iterable[Union[str, Path]],
+    registry: Optional["AssetRegistry"] = None,
+) -> List[RunRef]:
     """The runs that used the object with this code, oldest first: found by the code every run
     saved in its header (only the first line of each file is read). Folders that do not exist
-    are skipped."""
-    return index_runs(run_dirs).get(normalize_code(code) or code, [])
+    are skipped. With the ``registry`` the object is found by its ``uid`` and former codes too
+    (``runs_of``); without it, or for a code it does not know, only by the code."""
+    index = index_runs(run_dirs)
+    asset = registry.get(code) if registry is not None else None
+    if asset is not None:
+        return runs_of(asset, index)
+    return list(index.get(normalize_code(code) or code, []))
+
+
+def runs_of(
+    asset: Asset,
+    index: Mapping[str, List[RunRef]],
+) -> List[RunRef]:
+    """The runs of this object in an ``index_runs`` result, oldest first. A run that saved the
+    card with a ``uid`` belongs to the object with that uid, whatever the code was or became; a run
+    without one (made before the uid existed) belongs to the object with that code, now or before
+    (``former_codes``). So two different objects that had the same code in two registries are
+    never mixed."""
+    found: Dict[Path, RunRef] = {r.path: r for r in index.get(asset.uid, [])}
+    codes = [normalize_code(c) or c for c in [asset.id, *asset.former_codes]]
+    for code in dict.fromkeys(codes):
+        for ref in index.get(code, []):
+            if ref.uids.get(code) is None:
+                found.setdefault(ref.path, ref)
+    return sorted(found.values(), key=lambda r: (r.when, r.path.name))
 
 
 # the figure that tells the most about each kind of measurement, in order of preference
@@ -447,5 +517,5 @@ def snapshots_for(params: Mapping[str, Any], registry: Optional[AssetRegistry]) 
 __all__: Sequence[str] = [
     "Asset", "AssetError", "AssetRegistry", "KINDS", "RunRef", "asset_ids_in", "default_path",
     "history", "index_runs", "last_measurement_line", "normalize_code", "qr_text", "read_header",
-    "snapshots_for",
+    "runs_of", "snapshots_for",
 ]  # fmt: skip

@@ -6,18 +6,14 @@
 
     python benchmarks/bench_transport.py
 
-Compares the legacy C backend (built into a temp dir if gcc is available), the
-pure-Python transport and the native Rust transport. Real instruments add their own
-1-50 ms; this measures only the software overhead, which must stay negligible.
+Compares the pure-Python transport and the native Rust transport (the former C backend,
+about 44 ms per query, was removed). Real instruments add their own 1-50 ms; this measures
+only the software overhead, which must stay negligible.
 """
 
-import ctypes
 import os
-import shutil
 import statistics
-import subprocess
 import sys
-import tempfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -43,33 +39,8 @@ def report(name, times):
     )
 
 
-def legacy_c():
-    if not shutil.which("gcc"):
-        return None
-    src = os.path.join(ROOT, "backend")
-    out = os.path.join(tempfile.mkdtemp(), "libbackend.so")
-    files = [os.path.join(src, f) for f in ("backend.c", "instrument.c", "platform.c", "sweep.c")]
-    r = subprocess.run(
-        ["gcc", "-O2", "-shared", "-fPIC", "-o", out, *files, "-I" + src, "-lm"],
-        capture_output=True,
-    )
-    return ctypes.CDLL(out) if r.returncode == 0 else None
-
-
 def bench_query():
     print(f"Query round-trip ('MEAS:VOLT?' -> float), {N} samples")
-    inst = FakeTcpInstrument(line_server(lambda c: b"1.234567\n"))
-    lib = legacy_c()
-    if lib:
-        lib.be_init()
-        h, v, times = ctypes.c_int(), ctypes.c_double(), []
-        lib.be_connect(ctypes.byref(h), b"127.0.0.1", inst.port, 2000)
-        for _ in range(60):  # legacy is ~44 ms/query: keep the run short
-            t = time.perf_counter()
-            lib.be_send(h, b"MEAS:VOLT?")
-            lib.be_receive_float(h, ctypes.byref(v), 2000)
-            times.append(time.perf_counter() - t)
-        report("legacy C backend (60 samples)", times)
     for name, cls in (
         ("pure Python", _pyconn.PyConnection),
         ("native Rust", ola_native and ola_native.Connection),

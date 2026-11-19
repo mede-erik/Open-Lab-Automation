@@ -548,18 +548,14 @@ QTableWidget {
 
 QTableWidget QLineEdit {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
 
 QTableWidget QComboBox {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
@@ -567,9 +563,7 @@ QTableWidget QComboBox {
 QTableWidget QCheckBox {
     padding: 2px;
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
 }
 
 /* ===== TREE WIDGET ===== */

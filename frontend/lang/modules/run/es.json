@@ -54,5 +54,12 @@
   "run_choice_retry": "Reintentar",
   "run_choice_abort": "Abortar",
   "run_choice_skip": "Omitir la comprobación",
-  "run_choice_continue": "Continuar"
+  "run_choice_continue": "Continuar",
+  "run_q_load_title": "Conectar la carga",
+  "run_q_load_details": "<b>{load}</b>: {description}<br>Conecte las resistencias como en el esquema, entre la salida del convertidor (+) y masa (−). La fuente está apagada.",
+  "run_tab_bench": "Benchmark",
+  "run_q_zero_title": "Poner a cero el canal",
+  "run_q_zero_short": "Canal <b>{channel}</b> {name}: paso 1 de 2. Una sus dos terminales de entrada, para que el instrumento mida solo el desfase del cableado y de su entrada, y continúe.",
+  "run_q_zero_back": "Canal <b>{channel}</b> {name}: paso 2 de 2. Se tomó el desfase {offset}. Vuelva a conectar los terminales en su sitio y continúe.",
+  "run_choice_skip_zero": "Omitir este canal"
 }

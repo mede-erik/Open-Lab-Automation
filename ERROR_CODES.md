@@ -9,7 +9,7 @@ All error codes follow the standardized format:
 ```
 
 Where:
-- **RESOURCE**: 3-4 letter abbreviation identifying the resource/component (e.g., VISA, FILE, DB, NET, VALID)
+- **RESOURCE**: 3-4 letter abbreviation identifying the resource/component (e.g., VISA, FILE, NET, VALID)
 - **XXX**: Three-digit progressive number uniquely identifying the error within that resource
 
 ## Format in Logs
@@ -211,6 +211,41 @@ Errors related to file access and manipulation.
 
 ---
 
+### FILE-005: File Already Exists
+**Description**: A file with this name is already in the project folder  
+**Common Cause**:
+- A measurement or settings file was added with the name of an existing one
+
+**Solution**:
+1. Choose another name
+2. Or add the existing file with *Add existing file*
+
+**Log Example**:
+```
+[10:39:00] WARNING-FILE-005-osc1.was already exists in the project
+```
+
+---
+
+### FILE-006: File Cannot Be Written
+**Description**: A settings file (for example the oscilloscope settings, .was) could not be saved  
+**Common Cause**:
+- The folder is read-only or on a disconnected drive
+- The file is open in another program
+- The disk is full
+
+**Solution**:
+1. Check the permissions of the project folder
+2. Close other programs using the file
+3. Free disk space and save again
+
+**Log Example**:
+```
+[10:40:00] ERROR-FILE-006-Permission denied: osc1.was
+```
+
+---
+
 ## VALID - Data Validation Errors (VALID-XXX)
 
 User input validation errors.
@@ -322,69 +357,6 @@ User input validation errors.
 **Log Example**:
 ```
 [10:44:00] ERROR-VALID-006-Invalid date format: 32/13/2025 (expected: DD/MM/YYYY)
-```
-
----
-
-## DB - Database Errors (DB-XXX)
-
-Errors related to database access.
-
-### DB-001: Database Connection Error
-**Description**: Unable to connect to database  
-**Common Cause**:
-- Database server not running
-- Incorrect credentials
-- Incorrect database address
-
-**Solution**:
-1. Verify that the database is active
-2. Check username/password
-3. Verify connection string
-4. Check database firewall
-
-**Log Example**:
-```
-[10:45:00] ERROR-DB-001-Cannot connect to database at localhost:5432
-```
-
----
-
-### DB-002: Database Query Error
-**Description**: Error during query execution  
-**Common Cause**:
-- Malformed SQL query
-- Non-existent table
-- Insufficient permissions
-
-**Solution**:
-1. Verify SQL syntax
-2. Check that tables/columns exist
-3. Verify database user permissions
-
-**Log Example**:
-```
-[10:46:00] ERROR-DB-002-Query failed: SELECT * FROM non_existing_table
-```
-
----
-
-### DB-003: Database Timeout
-**Description**: Timeout during database operation  
-**Common Cause**:
-- Query too complex
-- Overloaded database
-- Slow connection
-
-**Solution**:
-1. Optimize query
-2. Increase connection timeout
-3. Add indexes to tables
-4. Check database load
-
-**Log Example**:
-```
-[10:47:00] ERROR-DB-003-Database query timeout after 30s
 ```
 
 ---
@@ -1015,6 +987,37 @@ Errors related to project file management and operations.
 
 ---
 
+### PROJ-009: No Project Open
+**Description**: The action needs an open project  
+**Common Cause**:
+- A file, a tool or the oscilloscope settings were used before opening or creating a project
+
+**Solution**:
+1. Open a project (*File > Open project*) or create one, then repeat the action
+
+**Log Example**:
+```
+[13:09:00] WARNING-PROJ-009-No project open
+```
+
+---
+
+### PROJ-010: Instrument File Not Usable
+**Description**: The instrument file chosen for the project cannot be used  
+**Common Cause**:
+- The .inst file is outside the project folder
+- The file cannot be read
+
+**Solution**:
+1. Copy the .inst file into the project folder and choose it from there
+
+**Log Example**:
+```
+[13:10:00] WARNING-PROJ-010-The instrument file must be in the project folder
+```
+
+---
+
 ## INST - Instrument Configuration Errors (INST-XXX)
 
 Errors related to instrument configuration and setup.
@@ -1183,6 +1186,57 @@ Errors related to instrument configuration and setup.
 **Log Example**:
 ```
 [13:17:00] ERROR-INST-008-Firmware v1.2.3 incompatible, requires >= v2.0.0
+```
+
+---
+
+### INST-009: Instrument File Not Saved
+**Description**: The instrument file (.inst) could not be written  
+**Common Cause**:
+- The project folder is read-only or on a disconnected drive
+- The file is open in another program
+
+**Solution**:
+1. Check the permissions of the project folder
+2. Close other programs using the file and change a value to save again
+
+**Log Example**:
+```
+[14:09:00] WARNING-INST-009-cannot write lab.inst: Permission denied
+```
+
+---
+
+### INST-010: Instrument Rename Failed
+**Description**: An instrument could not be renamed in the measurements that use it  
+**Common Cause**:
+- A measurement file of the project cannot be read or written
+- The new name is already used
+
+**Solution**:
+1. Check the files of the project (*Measurements* tab)
+2. Choose another name
+
+**Log Example**:
+```
+[14:10:00] WARNING-INST-010-rename PSU -> BENCH failed: eff.eff cannot be written
+```
+
+---
+
+### INST-011: Network Scan Failed
+**Description**: The search for instruments on the network or on the buses did not complete  
+**Common Cause**:
+- VISA is not installed or not working
+- The network is not reachable
+
+**Solution**:
+1. Check the VISA installation (pyvisa, pyvisa-py or the vendor VISA)
+2. Check the network connection, then scan again
+
+**Log Example**:
+```
+[14:11:00] WARNING-INST-011-scan failed: no VISA backend
 ```
 
 ---
@@ -1959,191 +2013,231 @@ Errors related to data acquisition and processing.
 
 ---
 
-## PJDB - Project Database Errors (PJDB-XXX)
+## MEAS - Measurement Errors (MEAS-XXX)
 
-Errors related to PostgreSQL project database operations.
+Errors of the *Measurements* tab: the measurement files, their runs and results.
 
-### PJDB-001: Project Database Connection Failed
-**Description**: Cannot connect to PostgreSQL project database  
+### MEAS-001: Measurement File Not Opened
+**Description**: The editor could not open a measurement file  
 **Common Cause**:
-- PostgreSQL server not running
-- Wrong connection parameters
-- Network error
-- Firewall blocking
+- The file is damaged or not a measurement file
+- The file is of another type than the measurement
+- The module of the measurement is missing
 
 **Solution**:
-1. Verify PostgreSQL service running
-2. Check host, port, credentials
-3. Test network connection
-4. Configure firewall rules
+1. Check the file (it is JSON) or create the measurement again
+2. Install or enable the module of the measurement
 
 **Log Example**:
 ```
-[14:00:00] ERROR-PJDB-001-Connection failed to PostgreSQL at localhost:5432
+[15:01:00] ERROR-MEAS-001-cable.cbl is a 'filter' file, not a 'cable' file
 ```
 
 ---
 
-### PJDB-002: Project Database Not Specified
-**Description**: Project database name not specified  
+### MEAS-002: Measurement File Not Saved
+**Description**: The editor could not write the measurement file  
 **Common Cause**:
-- Missing database name in config
-- Project not fully initialized
-- Configuration error
-- Database selection missing
+- The project folder is read-only or on a disconnected drive
+- The file is open in another program
 
 **Solution**:
-1. Specify database name in project
-2. Complete project initialization
-3. Check configuration file
-4. Select database from list
+1. Check the permissions of the project folder and save again
 
 **Log Example**:
 ```
-[14:01:00] ERROR-PJDB-002-Database name not specified for project
+[15:02:00] ERROR-MEAS-002-cannot write eff.eff: Permission denied
 ```
 
 ---
 
-### PJDB-003: Project Database Query Error
-**Description**: Error executing database query  
+### MEAS-003: Measurement Cannot Start
+**Description**: The measurement cannot start: the parameters or the instruments are not valid  
 **Common Cause**:
-- SQL syntax error
-- Table doesn't exist
-- Column not found
-- Permission denied
+- A parameter of the measurement is wrong or missing (the message lists them)
+- No instrument is chosen for a role
+- An instrument cannot do what the measurement asks
 
 **Solution**:
-1. Verify SQL syntax
-2. Check table exists
-3. Validate column names
-4. Check user permissions
+1. Open the editor of the measurement and correct the fields marked with a problem
+2. Choose the instruments of the roles
 
 **Log Example**:
 ```
-[14:02:00] ERROR-PJDB-003-Query error: table 'measurements' does not exist
+[15:03:00] ERROR-MEAS-003-stop_hz: must be greater than the start frequency
 ```
 
 ---
 
-### PJDB-004: Project Database Table Not Found
-**Description**: Required database table not found  
+### MEAS-004: Results Not Exported
+**Description**: The results of a run could not be exported (CSV, Touchstone, a project export)  
 **Common Cause**:
-- Database not initialized
-- Table creation failed
-- Wrong database selected
-- Schema migration incomplete
+- The destination folder is read-only
+- The file is open in another program
+- The run file cannot be read
 
 **Solution**:
-1. Initialize database schema
-2. Create missing tables
-3. Verify correct database
-4. Run migration scripts
+1. Choose another destination
+2. Close the file in the other program and export again
 
 **Log Example**:
 ```
-[14:03:00] ERROR-PJDB-004-Table 'efficiency_data' not found
+[15:04:00] ERROR-MEAS-004-cannot write results.csv: Permission denied
 ```
 
 ---
 
-### PJDB-005: Project Database Timeout
-**Description**: Database operation timeout  
+### MEAS-005: Wiring Diagram Not Shown
+**Description**: The connection diagram of the measurement could not be drawn  
 **Common Cause**:
-- Query too complex
-- Large data set
-- Database overloaded
-- Network latency
+- The wiring.json of the module is not valid
+- A picture named by the diagram is missing
 
 **Solution**:
-1. Optimize query
-2. Reduce data set size
-3. Increase timeout value
-4. Check database load
+1. Report it with the module name; the measurement can still be run
 
 **Log Example**:
 ```
-[14:04:00] ERROR-PJDB-005-Query timeout after 30 seconds
+[15:05:00] WARNING-MEAS-005-wiring.json: unknown node 'dut'
 ```
 
 ---
 
-### PJDB-006: Project Database Schema Error
-**Description**: Database schema error or mismatch  
+### MEAS-006: Measurement Failed
+**Description**: A running measurement stopped with an error that has no more specific code  
 **Common Cause**:
-- Schema version mismatch
-- Missing schema elements
-- Incorrect data types
-- Migration failed
+- The measurement module found a condition it cannot handle (the message says which)
+- An instrument answered with something unexpected
 
 **Solution**:
-1. Update schema to match version
-2. Run schema migration
-3. Verify data types
-4. Recreate database if necessary
+1. Read the message and the log of the run (*Log* tab)
+2. Fix the cause and run again; the data already measured are in the run file
 
 **Log Example**:
 ```
-[14:05:00] ERROR-PJDB-006-Schema mismatch: expected v2.0, found v1.5
+[15:06:00] ERROR-MEAS-006-the data are not calibrated: calibrate the analyzer for this sweep first
 ```
 
 ---
 
-### PJDB-007: Project Database Data Integrity Error
-**Description**: Data integrity constraint violation  
+### MEAS-007: Runs Not Read
+**Description**: The comparison window could not read some run files  
 **Common Cause**:
-- Foreign key violation
-- Unique constraint violation
-- NULL in required field
-- Invalid data type
+- A run file is damaged or of an older format
+- A run file was moved or deleted
 
 **Solution**:
-1. Fix foreign key references
-2. Ensure unique values
-3. Provide required fields
-4. Use correct data types
+1. Check the runs/ folder of the project; the other runs are still compared
 
 **Log Example**:
 ```
-[14:06:00] ERROR-PJDB-007-Integrity error: foreign key constraint violation
+[15:07:00] WARNING-MEAS-007-runs/x.jsonl: not a run file
 ```
 
 ---
 
-### PJDB-008: Project Database Read Data Error
-**Description**: Reading the rows of a project database table failed  
+### MEAS-008: Roles Not Saved
+**Description**: The instruments chosen for the roles of the measurements could not be saved  
 **Common Cause**:
-- Table missing or renamed
-- Connection lost while reading
-- Insufficient privileges on the table
+- A measurement file cannot be written
 
 **Solution**:
-1. Check that the table exists in the project database
-2. Check the connection and try again
-3. Check the database user's privileges
+1. Check the permissions of the project folder and choose the instruments again
 
 **Log Example**:
 ```
-[14:07:00] ERROR-PJDB-008-Error reading data from 'measurements': connection closed
+[15:08:00] WARNING-MEAS-008-cannot write ripple.rpl
 ```
 
 ---
 
-### PJDB-009: Project Database Delete Error
-**Description**: Deleting the project database failed (or no database name is set for the project)  
+### MEAS-009: Measurement Not Created
+**Description**: A new measurement could not be added to the project  
 **Common Cause**:
-- Project database name not specified
-- Other sessions are still connected to the database
-- Insufficient privileges to drop the database
+- A file with that name already exists
+- The type of measurement is not available
+- The project file cannot be written
 
 **Solution**:
-1. Check that the project has a database name
-2. Close the other connections to the database and try again
-3. Check the database user's privileges
+1. Choose another name or type
+2. Check the permissions of the project folder
 
 **Log Example**:
 ```
-[14:08:00] ERROR-PJDB-009-Error deleting database 'dcdc_test': database is being accessed by other users
+[15:09:00] WARNING-MEAS-009-a file named cable.cbl already exists
+```
+
+---
+
+### MEAS-010: Existing File Not Added
+**Description**: An existing file could not be added to the project as a measurement  
+**Common Cause**:
+- The file is not a measurement file, or its type is unknown
+- The file is outside the project folder
+
+**Solution**:
+1. Copy the file into the project folder
+2. Check that its module is installed
+
+**Log Example**:
+```
+[15:10:00] WARNING-MEAS-010-old.dat is not a measurement file
+```
+
+---
+
+## AST - Cables, Devices and DUTs Registry Errors (AST-XXX)
+
+Errors of the registries of the cables and devices and of the devices under test (DUTs), and of their labels.
+
+### AST-001: Registry Operation Failed
+**Description**: A card of the registry could not be created, changed, retired or deleted  
+**Common Cause**:
+- The registry file is read-only or on a disconnected drive
+- The card is used by measurements and cannot be deleted
+- A value of the card is not valid
+
+**Solution**:
+1. Read the message: it says which card and why
+2. Check the permissions of the registry file (OLA_ASSETS_FILE)
+
+**Log Example**:
+```
+[16:01:00] ERROR-AST-001-CBL-0003 is used by 4 runs
+```
+
+---
+
+### AST-002: Label Not Made
+**Description**: A label (PDF, PNG, SVG) could not be made or saved  
+**Common Cause**:
+- The destination folder is read-only
+- The QR code library (segno) is missing
+
+**Solution**:
+1. Choose another destination
+2. Install the dependencies of the program again
+
+**Log Example**:
+```
+[16:02:00] ERROR-AST-002-cannot write label.pdf
+```
+
+---
+
+### AST-003: Registry Not Readable
+**Description**: The file of a registry (cables and devices, or DUTs) is damaged or cannot be read  
+**Common Cause**:
+- The file was edited by hand and is no longer valid JSON
+- The file is on a drive that is not connected
+
+**Solution**:
+1. Restore the file from a backup, or move it away to start a new one
+2. The program works without it: only the cards are missing
+
+**Log Example**:
+```
+[16:03:00] WARNING-AST-003-assets.json (damaged or not readable)
 ```
 
 ---
@@ -2445,7 +2539,6 @@ To add a new error code:
 | **VISA** | 001-099 | Instrument communication errors |
 | **FILE** | 001-099 | File system errors |
 | **VALID** | 001-099 | Input validation errors |
-| **DB** | 001-099 | Database errors |
 | **NET** | 001-099 | Generic network errors |
 | **UI** | 001-099 | User interface errors |
 | **DL** | 001-099 | Datalogger configuration errors |
@@ -2457,7 +2550,8 @@ To add a new error code:
 | **SCPI** | 001-099 | SCPI command specific errors |
 | **CALL** | 001-099 | Instrument call (planner/executor) errors |
 | **DATA** | 001-099 | Data acquisition/processing errors |
-| **PJDB** | 001-099 | Project database errors |
+| **MEAS** | 001-099 | Measurement files, runs and results |
+| **AST** | 001-099 | Registries of cables, devices and DUTs, labels |
 | **SYS** | 001-099 | System-level errors |
 | **TRN** | 001-099 | Instrument transport (TCP/serial) errors |
 | **GPIB** | 001-099 | GPIB adapter errors (configuration, driver, bus scan) |
@@ -2471,6 +2565,7 @@ To add a new error code:
 **Author**: Open Lab Automation Team
 
 ### Changelog
+- **v2.1** (November 18, 2026): every message box of the application shows its code. Added FILE-005, FILE-006, PROJ-009, PROJ-010, INST-009..011, the **MEAS** category (10 codes: measurement files, runs, results) and the **AST** category (3 codes: registries and labels). A message whose exception carries no code is SYS-007.
 - **v2.0** (February 4, 2026): Major expansion with 8 new error categories
   - Added **PROJ** category (8 codes): Project file management errors
   - Added **INST** category (8 codes): Instrument configuration errors
@@ -2478,7 +2573,7 @@ To add a new error code:
   - Added **LIB** category (8 codes): Instrument library errors
   - Added **SCPI** category (7 codes): SCPI command specific errors
   - Added **DATA** category (8 codes): Data acquisition/processing errors
-  - Added **PJDB** category (9 codes): Project database errors
+  - Added **PJDB** category (9 codes): Project database errors (removed in November 2026 with the PostgreSQL storage)
   - Added **SYS** category (7 codes): System-level errors
   - Total: **99 error codes** covering comprehensive error scenarios
   - All new exception classes added to errorhandler.py

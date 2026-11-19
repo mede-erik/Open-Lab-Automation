@@ -731,7 +731,7 @@ def test_sparameters_example_in_the_docs_is_valid_and_runs():
 
 
 def test_time_log_example_in_the_docs_is_valid_and_runs():
-    """The example of docs/time-log.md is a real file: it validates and runs."""
+    """The examples of docs/time-log.md are real files: they validate and run."""
     import json as _json
 
     from ola.registry import default_registry
@@ -742,55 +742,34 @@ def test_time_log_example_in_the_docs_is_valid_and_runs():
     block = re.search(r"```json temperatures\.tlg\n(.*?)```", text, re.S)
     assert block, "example block not found in docs/time-log.md"
     params = _json.loads(block.group(1))
-    params.pop("duration_s")
-    params.update(samples=3, interval_s=0.01)
+    params.pop("duration_s")  # the example is shortened: every source takes 3 samples, fast
+    for source in params["sources"]:
+        source.update(interval_s=0.01, samples=3)
     m = default_registry(user_dir="/nonexistent").create("time_log", params)
     assert m.validate() == [], m.validate()
     handles = {
         "instruments": [
             FakeHandle("dmm1", {"read_voltage": 5.0}),
             FakeHandle("daq", {"measure_temperature": 25.0}),
+            FakeHandle("psu1", {"read_voltage": 12.0, "read_current": 0.5}),
         ]
     }
     runner = run_to_end(Runner(m, handles))
     assert runner.state.value == "finished", runner.error
-    rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]
-    assert len(rows) == 3 and rows[0]["vout"] == 5.0 and rows[0]["temp1"] == 25.0
-    for name in ("duration_s", "samples", "t_s", "instruments"):
+    rows = [e.data for e in runner.drain() if e.kind == "point"]
+    dmm = [r["values"] for r in rows if r["table"] == "dmm"]
+    assert len(dmm) == 3 and dmm[0]["vout"] == 5.0
+    assert any(r["table"] == "psu" and r["values"]["i"] == 0.5 for r in rows)
+    old = default_registry(user_dir="/nonexistent").create(
+        "time_log",
+        _json.loads(re.search(r"```json old-temperatures\.tlg\n(.*?)```", text, re.S).group(1))
+        | {"samples": 3, "interval_s": 0.01},
+    )
+    assert old.validate() == [], old.validate()
+    for name in ("duration_s", "samples", "t_s", "instruments", "sources", "interval_s"):
         assert name in text, name
-
-
-def test_golden_example_in_the_docs_is_valid_and_gives_a_verdict(tmp_path):
-    """The tolerances of docs/golden.md are a real spec: a good cable passes, a worn one fails."""
-    import json as _json
-
-    from ola.compare import load_run
-    from ola.golden import check_against_golden
-    from tests.test_golden import cable_run
-    from ola.registry import default_registry
-
-    text = read(ROOT / "docs" / "golden.md")
-    block = re.search(r"```json tolerances\.json\n(.*?)```", text, re.S)
-    assert block, "example block not found in docs/golden.md"
-    spec = _json.loads(block.group(1))
-    registry = default_registry(user_dir="/nonexistent")
-    golden = load_run(cable_run(registry, tmp_path, "golden", 0.6))
-    good = load_run(cable_run(registry, tmp_path, "good", 0.6, stamp="20261104_100000"))
-    worn = load_run(cable_run(registry, tmp_path, "worn", 1.2, stamp="20261105_100000"))
-    assert check_against_golden(good, golden, spec).verdict == "PASS"
-    assert check_against_golden(worn, golden, spec).verdict == "FAIL"
-    for name in ("golden/", "min_overlap", "NO DATA", "set_golden", "upper", "lower"):
-        assert name in text, name
-
-
-def test_trend_doc_names_the_verdicts_and_the_figures_that_exist():
-    """docs/trend.md names verdicts and options of the code, and the figures of a cable run."""
-    from ola import trend
-
-    text = read(ROOT / "docs" / "trend.md")
-    for verdict in ("FAIL", "WARNING", "PASS", "NOT ENOUGH DATA"):
-        assert f"`{verdict}`" in text
-    assert trend.DEFAULT_FIGURE in text and "max_rate_per_year" in text
-    for option in ("--figure", "--limit", "--max-rate", "--warn-days", "--list-figures", "--csv"):
-        assert option in text, option
-        assert option in read(ROOT / "scripts" / "cable_trend.py"), option
+    scan = re.search(r"```json datalogger\.tlg\n(.*?)```", text, re.S)
+    assert scan, "the datalogger scan example is missing in docs/time-log.md"
+    scan_params = _json.loads(scan.group(1))
+    scan_module = default_registry(user_dir="/nonexistent").create("time_log", scan_params)
+    assert scan_module.validate() == []

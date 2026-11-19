@@ -39,7 +39,8 @@ read as an impedance.
 }
 ```
 
-The fields are those of the return-loss measurement ([`return-loss.md`](return-loss.md#the-file)): `sweep`, `device.label`,
+The fields are those of the return-loss measurement ([`return-loss.md`](return-loss.md#the-file)): `sweep`, `device.label`, `device.dut_id`
+and `device.version` (the antenna as a [DUT](duts.md)),
 `z0`, `vswr_max`, `frequencies_of_interest`, `limits` (on the **return loss** in dB, normally a minimum), `averages`,
 `confirm_setup`. The editor (*Edit* in the project window) is built from the module's `form.json`.
 

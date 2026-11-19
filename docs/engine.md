@@ -118,6 +118,7 @@ timer when `collect=True`).
 | `error` | `phase` (`run` / `teardown`), `type`, `message`, `code`, `traceback` |
 | `question` | `id`, `text`, `choices`, `default`, `data` (see "Asking the user") |
 | `answered` | `id`, `choice`, `auto` (true if given by an unattended run) |
+| `bench` | the timing report, once, just before the final `state` (only in benchmark mode, see [`benchmark.md`](benchmark.md)) |
 
 ## Files
 
@@ -136,6 +137,7 @@ back from `read_run()` under `run["tables"]`; `run["questions"]` has the questio
 {"kind": "log" | "error", ...}
 {"kind": "question", "id": ..., "text": ..., "choices": [...], "data": {...}}
 {"kind": "answered", "id": ..., "choice": "retry", "auto": false}
+{"kind": "bench", ...}      timing report, only when the benchmark mode was on
 {"kind": "end",   "state": "finished" | "stopped" | "failed", "error": null | {...}}
 ```
 
@@ -196,6 +198,8 @@ the window only draws it. A timer takes `runner.drain()` every 100 ms.
   impedance and the VSWR), and export to CSV and Touchstone. A measurement that produces only curves opens on
   this tab. What a module can ask of the window is in [`measurement-modules.md`](measurement-modules.md#curves-limits-and-rf-helpers).
 * **Log:** messages, warnings and errors.
+* **Benchmark:** only for a run started with the *Measure timing (benchmark)* box checked (or
+  with `OLA_BENCH=1`): the timing report of the run, shown when it ends. See [`benchmark.md`](benchmark.md).
 * **Questions:** when the measurement asks something (`ctx.ask`) a pop-up shows the question with one button per
   choice; the safe choice (for example *abort*) is the default and is in bold. The pop-up cannot be closed
   without an answer; if the run is stopped meanwhile it closes by itself. The answer goes to `runner.answer`.
@@ -228,8 +232,8 @@ to reach an instrument: the application gives it `connect(name) -> handle` (an o
 instruments are not connected and sends nothing; an instrument that cannot be reached is named in the message.
 
 **In the main window.** `frontend/ui/main_window.py` shows the project window as the *Measurements* tab (it replaces
-the old "Avvia Efficienza - in arrivo" placeholder). The old project flow of the main window (`eff_files`, left
-list) is untouched and still works on its own format.
+the old "Avvia Efficienza - in arrivo" placeholder). The left list of the main window shows the files of the
+project (instruments, oscilloscope settings and the measurements); its old `.eff` editor was removed.
 
 ## Connecting the instruments
 
@@ -263,5 +267,5 @@ window says so.
 ## Not done yet
 
 The measurement modules other than `time_log` and `efficiency`, trying the connection on real instruments, the driver system
-for Analog Discovery, the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`)
-and the retirement of the old C backend. The plan and the status are in [`PLAN.md`](../PLAN.md).
+for Analog Discovery and the serial-text step fields for the LiteVNA67 (`until`, `lines`, `size`, `flush`).
+The old C backend has been retired. The plan and the status are in [`PLAN.md`](../PLAN.md).

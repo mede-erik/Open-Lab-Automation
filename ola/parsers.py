@@ -12,6 +12,7 @@ Parsers are pure functions, no I/O; they receive the raw results of the listed s
 
 from __future__ import annotations
 
+import re
 import struct
 import sys
 from array import array
@@ -151,9 +152,57 @@ def vna_sparameters(
     return {"frequency": array("d", freq), "parameters": parameters, "calibrated": state}
 
 
+_HP6030_READBACK = re.compile(r"^\s*([NLF])\s*([VA])\s*([-+]?\d*\.?\d+)\s*$")
+
+
+def _hp6030_readback(answer: Any, quantity: str, call: str) -> float:
+    """The readback of an HP 6030-series supply (6034A): ``<status><unit><number>``.
+
+    The status letter is ``N`` (normal), ``L`` (limit mode) or ``F`` (a fault, a disabled supply, or
+    no measurement taken: the manual gives ``FV999999``); the unit letter is ``V`` or ``A``. The
+    supply reads the load-dependent quantity only: the current while it is a voltage source and the
+    voltage while it is a current source, so a readback of the other quantity is refused.
+    """
+    text = str(answer).strip()
+    match = _HP6030_READBACK.match(text)
+    if match is None:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': {text[:40]!r} is not a readback of the supply (a status letter, "
+            "V or A, and a number)",
+            call=call,
+        )
+    status, unit, number = match.groups()
+    if status == "F":
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the supply answered {text!r}: it is unregulated, disabled or in a "
+            "fault mode, or no measurement was taken",
+            call=call,
+        )
+    if unit != quantity:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the supply reads {'current' if unit == 'A' else 'voltage'}: it can "
+            "only read the quantity it does not regulate (the current in voltage mode, the "
+            "voltage in current mode)",
+            call=call,
+        )
+    return float(number)
+
+
+def hp6030_readback_voltage(answer: Any, call: str = "read_voltage") -> float:
+    """Voltage, in volts, of an HP 6030-series readback (see ``_hp6030_readback``)."""
+    return _hp6030_readback(answer, "V", call)
+
+
+def hp6030_readback_current(answer: Any, call: str = "read_current") -> float:
+    """Current, in amperes, of an HP 6030-series readback (see ``_hp6030_readback``)."""
+    return _hp6030_readback(answer, "A", call)
+
+
 PARSERS: Dict[str, Callable[..., Any]] = {
     "siglent_waveform": siglent_waveform,
     "vna_sparameters": vna_sparameters,
+    "hp6030_readback_voltage": hp6030_readback_voltage,
+    "hp6030_readback_current": hp6030_readback_current,
 }
 
 

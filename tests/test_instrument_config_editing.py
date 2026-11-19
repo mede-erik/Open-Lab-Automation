@@ -361,7 +361,7 @@ def test_a_datalogger_with_slots_shows_its_modules_and_opens_the_slot_dialog(
     select(dialog, "DAQ")
     assert not hasattr(dialog, "channel_table")  # slots, not a channel table
     summary = " ".join(texts(dialog.editor_widget))
-    assert "1/2" in summary and "34901A" in summary and "2 ch" in summary
+    assert "1/3" in summary and "34901A" in summary and "2 ch" in summary
     opened = []
 
     class FakeSlots:
@@ -376,7 +376,7 @@ def test_a_datalogger_with_slots_shows_its_modules_and_opens_the_slot_dialog(
     monkeypatch.setattr(module, "DataloggerSlotConfigDialog", FakeSlots)
     next(b for b in dialog.editor_widget.findChildren(QPushButton) if "⚙" in b.text()).click()
     assert opened == ["DAQ"] and saved(path)[0]["slots"][1]["module_id"] == "34902A"
-    assert "2/2" in " ".join(texts(dialog.editor_widget))
+    assert "2/3" in " ".join(texts(dialog.editor_widget))
 
 
 # ---------------------------------------------------------------- delete and menu
@@ -489,8 +489,11 @@ def test_adding_an_instrument_from_the_library(app, tmp_path, library, monkeypat
     entry = saved(path)[0]
     assert entry["instrument_type"] == "power_supply" and entry["instance_name"] == "BENCH"
     assert entry["model"] == "Keysight E36311A" and entry["model_id"] == "PSU_Keysight_E36311A"
-    assert entry["series"] == "Keysight_E36300_Series" and entry["channels"] == []
+    assert entry["series"] == "Keysight_E36300_Series"
     assert entry["num_channels"] == 3
+    # the new instrument is in the file with all its channels (disabled, with the model limits)
+    assert [c["enabled"] for c in entry["channels"]] == [False, False, False]
+    assert all(c["max_voltage"] and c["max_current"] for c in entry["channels"])
     assert dialog.list_widget.count() == 1 and dialog.list_widget.currentRow() == 0
     assert dialog.channel_table.rowCount() == 3  # the new entry is selected and shown
 
@@ -602,7 +605,7 @@ def scan_buttons(pop):
     return {b.text(): b for b in pop.findChildren(QPushButton)}
 
 
-def test_the_scan_lists_resources_filters_usb_and_applies_the_address(
+def test_the_scan_lists_resources_filters_by_kind_and_applies_the_address(
     app, tmp_path, library, monkeypatch
 ):
     addresses = [
@@ -620,13 +623,15 @@ def test_the_scan_lists_resources_filters_usb_and_applies_the_address(
     def interact(pop):
         table = pop.findChild(QTableWidget)
         seen["rows"] = [
-            (table.item(r, 0).text(), table.item(r, 1).text(), table.item(r, 2).text())
+            (table.item(r, 1).text(), table.item(r, 2).text(), table.item(r, 3).text())
             for r in range(table.rowCount())
         ]
-        usb = pop.findChild(QCheckBox)
-        usb.setChecked(True)
+        boxes = {c.text(): c for c in pop.findChildren(QCheckBox)}
+        for name in ("LAN", "RS232", "GPIB"):  # keep only the USB ones
+            boxes[name].setChecked(False)
         seen["usb_rows"] = table.rowCount()
-        usb.setChecked(False)
+        for name in ("LAN", "RS232", "GPIB"):
+            boxes[name].setChecked(True)
         buttons = scan_buttons(pop)
         buttons["Copy address"].click()  # nothing selected: nothing is copied
         table.setCurrentCell(1, 0)
@@ -663,7 +668,7 @@ def test_the_scan_says_when_pyvisa_is_missing(app, tmp_path, library, monkeypatc
     monkeypatch.setattr(module, "PYVISA_AVAILABLE", False)
     dialog, _ = make(tmp_path, library, [PSU])
     dialog.open_network_scan_dialog()
-    assert isolated == [("information", "Scan not available")]
+    assert isolated == [("warning", "Scan not available")]  # a problem: with its code (VISA-005)
 
 
 def test_a_scan_that_fails_is_reported(app, tmp_path, library, monkeypatch, isolated):
@@ -798,7 +803,7 @@ def test_a_resource_that_answers_with_write_and_read_still_gets_its_idn(
 
     def look(pop):
         table = pop.findChild(QTableWidget)
-        seen["idn"] = table.item(0, 1).text()
+        seen["idn"] = table.item(0, 2).text()
 
     force_exec(monkeypatch, look, QDialog.DialogCode.Rejected)
     dialog.open_network_scan_dialog()

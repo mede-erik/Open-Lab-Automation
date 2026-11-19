@@ -6,7 +6,6 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -175,11 +174,3 @@ def test_instrument_shell_simulated_session(library, tmp_path):
 def test_instrument_shell_missing_library(tmp_path):
     result = run("instrument_shell.py", "--library", str(tmp_path / "missing.json"))
     assert result.returncode != 0 and "library not found" in result.stderr
-
-
-@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
-def test_backend_build_script_is_valid_bash():
-    result = subprocess.run(
-        ["bash", "-n", os.path.join(REPO, "backend", "build.sh")], capture_output=True
-    )
-    assert result.returncode == 0, result.stderr

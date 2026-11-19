@@ -83,11 +83,6 @@ def test_crossings_for_the_minus_3_db_points():
     assert rf.crossings(freq, [-10] * 5, -3) == []
 
 
-def test_span_text():
-    assert rf.span_text([1e6, 6e9] + [2e6] * 399) == "1 MHz .. 6 GHz, 401 points"
-    assert rf.span_text([]) is None
-
-
 # ---- Touchstone ---------------------------------------------------------------------------------
 FREQ = [1e6, 2e6, 3e6]
 S11 = [0.1 + 0.05j, 0.2 - 0.1j, 0.3j]

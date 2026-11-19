@@ -58,17 +58,18 @@ def test_the_qr_text():
 def test_codes_count_up_per_kind(registry):
     a = registry.create("cable", "RG316 SMA-SMA", "1 m", {"length_m": 1.0}, owner="lab")
     b = registry.create("cable", "RG58 N-N")
-    c = registry.create("antenna", "whip")
-    assert (a.id, b.id, c.id) == ("CBL-0001", "CBL-0002", "ANT-0001")
+    c = registry.create("amplifier", "LNA")
+    assert (a.id, b.id, c.id) == ("CBL-0001", "CBL-0002", "AMP-0001")
     assert a.kind == "cable" and a.attributes == {"length_m": 1.0} and a.owner == "lab"
     assert len(a.created) == 10 and a.created[4] == "-"  # a date
     assert [x.id for x in registry.list("cable")] == ["CBL-0001", "CBL-0002"]
 
 
 def test_every_kind_has_a_prefix_and_suggests_attributes():
-    from ola.assets import KINDS, PREFIX_KIND
+    from ola.assets import KINDS
 
-    assert {v["prefix"] for v in KINDS.values()} == set(PREFIX_KIND)
+    prefixes = [v["prefix"] for v in KINDS.values()]
+    assert all(prefixes) and len(prefixes) == len(set(prefixes))
     assert [n for n, _ in KINDS["cable"]["attributes"]] == ["cable_type", "connectors", "length_m"]
 
 
@@ -121,7 +122,7 @@ def test_update_changes_a_card_but_not_its_code_or_kind(registry):
     with pytest.raises(AssetError, match="code and the kind are fixed"):
         registry.update(cable.id, id="CBL-9999")
     with pytest.raises(AssetError, match="code and the kind are fixed"):
-        registry.update(cable.id, kind="antenna")
+        registry.update(cable.id, kind="amplifier")
     with pytest.raises(AssetError, match="name cannot be empty"):
         registry.update(cable.id, name=" ")
     with pytest.raises(AssetError, match="no cable or device"):

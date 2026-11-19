@@ -59,9 +59,9 @@ def test_project_references_existing_files(path):
     project = _load(path)
     directory = os.path.dirname(path)
     assert project["project_name"]
-    referenced = (
-        [project["inst_file"]] + project.get("was_files", []) + project.get("eff_files", [])
-    )
+    referenced = [project["inst_file"]] + project.get("was_files", []) + [
+        m["file"] for m in project.get("measurements", [])
+    ]
     for name in referenced:
         assert os.path.isfile(os.path.join(directory, name)), f"{_rel(path)}: {name} missing"
 

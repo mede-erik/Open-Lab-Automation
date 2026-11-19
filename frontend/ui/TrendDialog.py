@@ -77,6 +77,7 @@ class TrendDialog(QDialog):
         grid.addWidget(self.lower_worse, 4, 0, 1, 4)
         root.addLayout(grid)
         self.plot = TracePlot()
+        self.plot.empty_text = self._t("plot_no_data")
         root.addWidget(self.plot, 1)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)

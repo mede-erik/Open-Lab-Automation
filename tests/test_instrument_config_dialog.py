@@ -301,7 +301,8 @@ def test_network_analyzer_ports_and_sweep(app, tmp_path):
     editor = panel(dialog, NetworkAnalyzerPanel)
     assert editor is not None
     entry = saved(path)["instruments"][0]
-    assert "sweep" not in entry  # nothing is written just by looking at it
+    # the file has the usual sweep of the model from the start, also for an instrument never opened
+    assert entry["sweep"]["points"] == 201 and len(entry["ports"]) == 2
     editor.start.setText("1M")
     editor.stop.setText("100M")
     editor.points.setValue(401)

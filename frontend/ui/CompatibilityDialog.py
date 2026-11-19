@@ -38,7 +38,6 @@ COLUMNS = (
     "compat_col_previous",
     "compat_col_need",
 )
-BLOCKING_COLOR = "#b00020"
 
 
 class CompatibilityDialog(QDialog):

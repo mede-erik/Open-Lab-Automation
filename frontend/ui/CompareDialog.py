@@ -44,7 +44,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
@@ -61,6 +60,7 @@ from frontend.ui.trace_plot import SmithChart, TracePlot
 from ola import compare, golden
 from ola.compare import CompareError, RunData
 from ola.run_view import VIEW_SMITH, format_si, trace_views, trace_xy
+from frontend.core.errorhandler import show_problem
 
 NO_GROUP = ""
 REFERENCE_MARK = "★ "
@@ -166,6 +166,7 @@ class CompareDialog(QDialog):
         row.addWidget(self.log_box)
         layout.addLayout(row)
         self.plot, self.smith = TracePlot(), SmithChart()
+        self.plot.empty_text = self._t("plot_no_data")
         self.stack = QStackedWidget()
         self.stack.addWidget(self.plot)
         self.stack.addWidget(self.smith)
@@ -199,6 +200,7 @@ class CompareDialog(QDialog):
             box.activated.connect(lambda _i: self._draw_tables())
         layout.addLayout(row)
         self.table_plot = TracePlot()
+        self.table_plot.empty_text = self._t("plot_no_data")
         layout.addWidget(self.table_plot, 1)
         return page
 
@@ -272,7 +274,8 @@ class CompareDialog(QDialog):
     def add_dialog(self) -> None:
         """Choose run files to add."""
         paths, _ = QFileDialog.getOpenFileNames(
-            self, self._t("cmp_open_title"), self.start_dir, "Run files (*.jsonl)"
+            self, self._t("cmp_open_title"), self.start_dir,
+            f"{self._t('file_filter_runs')} (*.jsonl)",
         )
         self.add_files(paths)
 
@@ -287,8 +290,11 @@ class CompareDialog(QDialog):
             except CompareError as exc:
                 errors.append(str(exc))
         if errors:
-            QMessageBox.warning(
-                self, self._t("cmp_title"), self._t("cmp_load_failed", errors="\n".join(errors))
+            show_problem(
+                self,
+                self._t("cmp_title"),
+                self._t("cmp_load_failed", errors="\n".join(errors)),
+                code="MEAS-007",
             )
         self._fill_list()
 
@@ -711,7 +717,8 @@ class CompareDialog(QDialog):
         """Add a golden sample of the project and make it the reference."""
         folder = Path(self.project_dir()) / golden.GOLDEN_DIR
         path, _ = QFileDialog.getOpenFileName(
-            self, self._t("cmp_g_open"), str(folder), "Run files (*.jsonl)"
+            self, self._t("cmp_g_open"), str(folder),
+            f"{self._t('file_filter_runs')} (*.jsonl)",
         )
         if path:
             self.use_as_golden(path)
@@ -731,8 +738,13 @@ class CompareDialog(QDialog):
         try:
             action()
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("cmp_title"), self._t("cmp_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("cmp_title"),
+                self._t("cmp_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.stats_label.setText(self._t("cmp_saved", path=path))

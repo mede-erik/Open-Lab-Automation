@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Open Lab Automation
+GenericName=Measurement automation
+Comment=Automated electrical measurements with bench instruments
+Exec=open-lab-automation
+Icon=open-lab-automation
+Terminal=false
+Categories=Science;Electronics;Engineering;
+Keywords=measurement;instruments;SCPI;oscilloscope;VNA;
+StartupWMClass=OpenLabAutomation

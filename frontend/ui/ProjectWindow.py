@@ -33,11 +33,12 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -56,6 +57,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from frontend.ui.layout_utils import FlowLayout
 from frontend.ui.efficiency_widgets import text_color
 from frontend.core.Translator import Translator
 from frontend.ui.module_translator import CatalogTranslator
@@ -65,6 +67,7 @@ from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
 from ola.runs import export_points_csv
+from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +192,8 @@ class JsonParamsDialog(QDialog):
 class ProjectWindow(QMainWindow):
     """The window of a project (see the module docstring)."""
 
+    project_changed = pyqtSignal()  # the project or its list of measurements was (re)drawn
+
     def __init__(
         self,
         project: Optional[Project] = None,
@@ -200,6 +205,7 @@ class ProjectWindow(QMainWindow):
         parent: Optional[QWidget] = None,
         wiring_before_run: bool = False,
         on_wiring_preference: Optional[Callable[[bool], None]] = None,
+        duts: Optional[Any] = None,
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
@@ -215,6 +221,7 @@ class ProjectWindow(QMainWindow):
         self.translator, self.connect = translator, connect
         self.connector_factory, self.connector = connector_factory, None
         self.assets = assets  # the registry of cables and devices (ola.assets), or None
+        self.duts = duts  # the archive of the devices under test (ola.duts), or None
         self.registry = registry or default_registry()
         self.session: Optional[ProjectSession] = None
         self.run_windows: list = []
@@ -265,7 +272,7 @@ class ProjectWindow(QMainWindow):
         self.table.itemDoubleClicked.connect(lambda _i: self.edit_measurement())
         root.addWidget(self.table, 3)
 
-        row = QHBoxLayout()
+        row = FlowLayout()  # the buttons go on a new line when the window is narrow
         self.buttons: Dict[str, QPushButton] = {}
         for key, handler in (
             ("prj_new", self.new_measurement),
@@ -281,7 +288,9 @@ class ProjectWindow(QMainWindow):
             button.clicked.connect(lambda _c=False, h=handler: h())
             self.buttons[key] = button
             row.addWidget(button)
-        row.addStretch(1)
+        self.bench_check = QCheckBox(self._t("prj_bench"))
+        self.bench_check.setToolTip(self._t("prj_bench_tip"))
+        row.addWidget(self.bench_check)
         root.addLayout(row)
 
         root.addWidget(QLabel(self._t("prj_runs")))
@@ -305,12 +314,32 @@ class ProjectWindow(QMainWindow):
         row.addStretch(1)
         root.addLayout(row)
 
+    def retranslate(self) -> None:
+        """Show the window again in the language of the application (it was changed while the
+        window is open). The state is in the session, not in the widgets, so the window is built
+        again and filled from the session."""
+        lang = getattr(self.translator, "current_lang", None)
+        if lang:
+            for catalog in (self.tr_, self.wir_, self.cal_):
+                catalog.set_language(lang)
+        self.app_t = (self.translator or Translator()).t
+        bench = self.bench_check.isChecked()
+        self.menuBar().clear()
+        self._build_ui()  # a new central widget: the old one is deleted by Qt
+        self.bench_check.setChecked(bench)
+        self.setWindowTitle(
+            f"{self._t('prj_title')} - {self.session.project.name}"
+            if self.session is not None
+            else self._t("prj_title")
+        )
+        self._refresh()
+
     # ================================================================ the project
     def set_project(self, project: Project) -> None:
         """Show this project (``connect`` is kept)."""
         self._close_connector()
         self.session = ProjectSession(
-            project, self.registry, connect=self.connect, assets=self.assets
+            project, self.registry, connect=self.connect, assets=self.assets, duts=self.duts
         )
         if self.connector_factory is not None:  # built for this project, closed when it changes
             self.connector = self.connector_factory(self.session)
@@ -343,8 +372,11 @@ class ProjectWindow(QMainWindow):
             return
         project = Project.new(name.strip(), folder)
         if project.path.exists():
-            QMessageBox.warning(
-                self, self._t("prj_title"), self._t("prj_exists", path=str(project.path))
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_exists", path=str(project.path)),
+                code="PROJ-008",
             )
             return
         project.save()
@@ -352,7 +384,8 @@ class ProjectWindow(QMainWindow):
 
     def open_project(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, self._t("prj_open_project"), "", "Project (*.json)"
+            self, self._t("prj_open_project"), "",
+            f"{self._t('file_filter_project')} (*.json)",
         )
         if path:
             self.open_path(path)
@@ -363,7 +396,7 @@ class ProjectWindow(QMainWindow):
         try:
             project = Project.load(path)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_open_failed", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_open_failed", error=exc), code="PROJ-005", exception=exc, level="critical")
             return False
         self.set_project(project)
         return True
@@ -375,7 +408,7 @@ class ProjectWindow(QMainWindow):
             self,
             self._t("prj_choose_inst"),
             str(self.session.project.directory),
-            "Instruments (*.inst)",
+            f"{self._t('file_filter_instruments')} (*.inst)",
         )
         if not path:
             return
@@ -384,7 +417,7 @@ class ProjectWindow(QMainWindow):
                 raise MeasurementError(self._t("prj_inst_outside"))
             self.session.set_instrument_file(Path(path).name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="PROJ-010", exception=exc)
             return
         self._refresh()
 
@@ -394,6 +427,40 @@ class ProjectWindow(QMainWindow):
         if self.session is None or not 0 <= row < len(self.session.project.measurements):
             return None
         return self.session.project.measurements[row]
+
+    def show_measurement(self, measurement_id: str) -> None:
+        """Redraw the list of measurements (after the project was changed from outside) and
+        select this one."""
+        self._refresh()
+        self._select(measurement_id)
+
+    def ref_for_file(self, file_name: str) -> Optional[MeasurementRef]:
+        """The measurement of the open project that lives in this file (None if there is none)."""
+        if self.session is None:
+            return None
+        for ref in self.session.project.measurements:
+            if ref.file == file_name:
+                return ref
+        return None
+
+    def edit_file(self, file_name: str) -> bool:
+        """Open the editor of the measurement in this file; False if no measurement uses it."""
+        ref = self.ref_for_file(file_name)
+        if ref is None:
+            return False
+        self._select(ref.id)
+        self.edit_measurement()
+        return True
+
+    def remove_file(self, file_name: str) -> bool:
+        """Take the measurement in this file out of the project (asks whether to delete the
+        file); False if no measurement uses it."""
+        ref = self.ref_for_file(file_name)
+        if ref is None:
+            return False
+        self._select(ref.id)
+        self.remove_measurement()
+        return True
 
     def _refresh(self) -> None:
         keep = self._selected().id if self._selected() else None
@@ -429,6 +496,7 @@ class ProjectWindow(QMainWindow):
             self.table.resizeColumnsToContents()
             self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self._selection_changed()
+        self.project_changed.emit()
 
     def _selection_changed(self) -> None:
         self._refresh_runs()
@@ -460,7 +528,7 @@ class ProjectWindow(QMainWindow):
         try:
             ref = self.session.create(type_id, name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-009", exception=exc)
             return
         self._refresh()
         self._select(ref.id)
@@ -469,6 +537,33 @@ class ProjectWindow(QMainWindow):
         for row, ref in enumerate(self.session.project.measurements):
             if ref.id == measurement_id:
                 self.table.selectRow(row)
+
+    def _inst_entries(self) -> Dict[str, Dict[str, Any]]:
+        """The instruments of the project's .inst file, by name (what a measurement can use)."""
+        from ola.inst_file import load_inst
+
+        project = self.session.project if self.session is not None else None
+        if project is None or not project.inst_file:
+            return {}
+        try:
+            entries, _ = load_inst(project.directory / project.inst_file)
+        except ValueError:
+            return {}
+        return {str(e["instance_name"]): e for e in entries if e.get("instance_name")}
+
+    def _library_calls(self, entry: Dict[str, Any]) -> List[Any]:
+        """The readings an instrument's model has inside (``ola.readings.Readable``): voltage and
+        current of a supply, of a load, the value of a meter... None if it is not in the library."""
+        from frontend.ui.connector_setup import default_library_path, load_library
+        from ola.readings import readable_calls
+
+        try:
+            library = load_library(default_library_path())
+        except Exception:  # the window still opens: the calls are typed by hand then
+            return []
+        key = entry.get("model_id") or entry.get("model") or ""
+        model_id = library.resolve_model_id(key) if key else None
+        return readable_calls(library, model_id) if model_id else []
 
     def edit_measurement(self) -> None:
         """Open the editor of the selected measurement's type."""
@@ -484,6 +579,18 @@ class ProjectWindow(QMainWindow):
                     self.translator,
                     self.session.instruments,
                     parent=self,
+                    duts=self.duts,
+                )
+            elif ref.type == "time_log":
+                from frontend.ui.TimeLogEditorDialog import TimeLogEditorDialog
+
+                dialog = TimeLogEditorDialog(
+                    str(self.session.path(ref)),
+                    self._inst_entries(),
+                    validate=lambda params: self.registry.create("time_log", params).validate(),
+                    calls=self._library_calls,
+                    translator=self.translator,
+                    parent=self,
                 )
             elif load_form_spec(self.registry.get(ref.type)) is not None:
                 from frontend.ui.FormEditorDialog import FormEditorDialog
@@ -494,13 +601,15 @@ class ProjectWindow(QMainWindow):
                     ref.type,
                     self.translator,
                     self.session.instruments,
+                    role_instruments=self.session.instruments_by_role(self.registry.get(ref.type)),
                     assets=self.assets,
                     parent=self,
+                    duts=self.duts,
                 )
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-001", exception=exc, level="critical")
             return
         dialog.exec()
         self._refresh()
@@ -514,7 +623,7 @@ class ProjectWindow(QMainWindow):
         try:
             diagram = self.session.wiring(ref, self.wir_.lang)
         except (WiringError, MeasurementError) as exc:
-            QMessageBox.warning(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc))
+            show_problem(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc), code="MEAS-005", exception=exc)
             return None
         if diagram is None:
             return None
@@ -542,18 +651,22 @@ class ProjectWindow(QMainWindow):
         project = self.session.project
         try:
             if library is None:
-                raise ConnectionProblem("the instrument library is not available")
+                raise ConnectionProblem(self._t("prj_cal_no_library"))
             if not project.inst_file:
-                raise ConnectionProblem("the project has no instrument file (.inst)")
+                raise ConnectionProblem(self._t("prj_cal_no_inst"))
             entries = read_inst_entries(project.directory / project.inst_file)
         except ConnectionProblem as exc:
-            QMessageBox.warning(
-                self, self.cal_.t("cal_title"), self.cal_.t("cal_no_connection", error=exc)
+            show_problem(
+                self,
+                self.cal_.t("cal_title"),
+                self.cal_.t("cal_no_connection", error=exc),
+                code="VISA-001",
+                exception=exc,
             )
             return
         analyzers = flow.network_analyzers(library, entries)
         if not analyzers:
-            QMessageBox.information(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"))
+            show_problem(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"), code="INST-005")
             return
         from frontend.ui.CalibrationDialog import CalibrationDialog
 
@@ -639,9 +752,13 @@ class ProjectWindow(QMainWindow):
         if not proceed:
             return
         try:
-            runner, run_file = self.session.build_runner(ref, accepted_differences=accepted)
+            runner, run_file = self.session.build_runner(
+                ref,
+                accepted_differences=accepted,
+                bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
+            )
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
             return
         from frontend.ui.RunWindow import RunWindow
 
@@ -728,8 +845,13 @@ class ProjectWindow(QMainWindow):
         try:
             n = export_points_csv(path, target)
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("prj_title"), self._t("prj_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         QMessageBox.information(

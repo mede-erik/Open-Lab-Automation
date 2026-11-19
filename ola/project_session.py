@@ -32,9 +32,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from . import bench as ola_bench
 from .assets import normalize_code, snapshots_for
+from .duts import dut_snapshots_for
 from .compat import Finding, check_network_analyzer, check_role, observed_of
 from .deembed import latest_cable_run
+from .inst_file import fits_role, load_inst
 from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
 from .registry import ModuleInfo, ModuleRegistry
@@ -81,15 +84,20 @@ class ProjectSession:
         instruments: Optional[Sequence[str]] = None,
         run_dir: Optional[Path] = None,
         assets: Optional[Any] = None,
+        duts: Optional[Any] = None,
     ):
         """``instruments``: the names of the project's instruments; by default those of the
         ``.inst`` file of the project. ``run_dir``: where the run files go (default: the
         ``runs`` folder of the project). ``assets``: the registry of cables and devices
         (``ola.assets.AssetRegistry``): the card of every object a measurement names is saved in
-        the header of its runs."""
+        the header of its runs. ``duts``: the archive of the devices under test
+        (``ola.duts.DutRegistry``): the card of the DUT a measurement names, with its versions, is
+        saved there too."""
         self.project, self.registry, self.connect = project, registry, connect
         self._instruments = list(instruments) if instruments is not None else None
         self.assets = assets
+        self.duts = duts
+        self.resistor_kits: Optional[Any] = None  # ``ola.resistor_kits.KitRegistry`` (default file)
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
         self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
 
@@ -104,6 +112,26 @@ class ProjectSession:
         return instrument_names(
             self.project.directory / check_plain_filename(self.project.inst_file)
         )
+
+    def instruments_by_role(self, info: ModuleInfo) -> Dict[str, List[str]]:
+        """For each role of a measurement type, the names of the project's instruments that can
+        take it (``ola.inst_file.fits_role``): a supply role does not list a datalogger. When the
+        types of the instruments are not known (no instrument file), every role gets all names."""
+        names = self.instruments
+        entries: Dict[str, Dict[str, Any]] = {}
+        if self._instruments is None and self.project.inst_file:
+            try:
+                path = self.project.directory / check_plain_filename(self.project.inst_file)
+                entries = {
+                    str(e.get("instance_name")): e for e in load_inst(path)[0]
+                    if e.get("instance_name")
+                }
+            except (ValueError, MeasurementError):
+                entries = {}
+        return {
+            role.name: [n for n in names if n not in entries or fits_role(entries[n], role)]
+            for role in info.roles
+        }
 
     def module_types(self) -> List[ModuleInfo]:
         """The measurement types that can be added."""
@@ -158,6 +186,24 @@ class ProjectSession:
             starting = getattr(module, "default_params", None)
             params = dict(starting()) if callable(starting) else {}
         ref = self.project.add_measurement(type, name, self.registry, params)
+        self.project.save()
+        return ref
+
+    def adopt(self, file_name: str, name: str = "") -> MeasurementRef:
+        """Add an existing measurement file of the project folder to the project and save it.
+        The type is read from the file; ``MeasurementError`` if it is not a measurement file of
+        a known type or is already in the project."""
+        check_plain_filename(file_name)
+        if any(m.file.lower() == file_name.lower() for m in self.project.measurements):
+            raise MeasurementError(f"{file_name} is already in the project")
+        content = MeasurementFile.load(self.project.directory / file_name)
+        info = self.registry.get(content.type)  # unknown type -> MeasurementError
+        taken = {m.id for m in self.project.measurements}
+        n = 1
+        while f"m{n}" in taken:
+            n += 1
+        ref = MeasurementRef(f"m{n}", info.id, name.strip() or Path(file_name).stem, file_name)
+        self.project.measurements.append(ref)
         self.project.save()
         return ref
 
@@ -281,10 +327,16 @@ class ProjectSession:
         ref: MeasurementRef,
         unattended: Optional[str] = None,
         accepted_differences: Optional[List[Finding]] = None,
+        bench: Optional[bool] = None,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
         file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
-        file or module, instrument not reachable)."""
+        file or module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
+        the opening of the connections on; None follows the ``OLA_BENCH`` environment variable."""
+        if bench is None:
+            bench = ola_bench.env_enabled()
+        if bench:
+            ola_bench.enable(fresh=True)  # so opening the connections is measured too
         row = next((r for r in self.rows() if r.ref.id == ref.id), None)
         if row is None or row.info is None or row.problem:
             raise MeasurementError(row.problem if row else f"no measurement {ref.id!r}")
@@ -297,19 +349,22 @@ class ProjectSession:
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
         handles = self.bind(measurement_file, row.info, cancel)
         measurement = self.registry.create(
-            ref.type, self.resolve_golden(self.resolve_correction(measurement_file.params))
+            ref.type,
+            self.resolve_kits(
+                self.resolve_golden(self.resolve_correction(measurement_file.params))
+            ),
         )
-        runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel)
+        runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel, bench=bench)
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        path = self.run_dir / f"{Path(ref.file).stem}_{stamp}.jsonl"
-        suffix = 2
-        while path.exists():  # two runs in the same second
-            path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{suffix}.jsonl"
-            suffix += 1
+        # the run id is in the name: two people starting in the same second never collide
+        path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{runner.run_id}.jsonl"
         extra: Dict[str, Any] = {}
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
             extra["assets"] = cards
+        dut_cards = dut_snapshots_for(measurement_file.params, self.duts)
+        if dut_cards:  # the same for the device under test, with its versions
+            extra["duts"] = dut_cards
         if accepted_differences:  # the user went on although an instrument has less than before
             extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(
@@ -321,6 +376,27 @@ class ProjectSession:
         )
         runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
+
+    def resolve_kits(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """The parameters with the resistors of a kit written out: a resistor of a load that is
+        ``{"kit": "PWR", "ref": "R22"}`` (or ``{"ref": "R22"}`` with ``resistor_kit``) becomes the
+        values of that resistor in the kit, saved in the header of the run, so it is known later
+        which values were used. ``MeasurementError`` for an unknown kit or resistor. Parameters
+        without a reference are returned unchanged."""
+        from .resistor_kits import KitError, KitRegistry
+        from .resistors import has_refs
+
+        if not has_refs(params.get("loads")):
+            return params
+        try:
+            kits = self.resistor_kits if self.resistor_kits is not None else KitRegistry()
+            resolved = json.loads(json.dumps(params))
+            resolved["loads"] = kits.resolve_loads(
+                resolved["loads"], str(params.get("resistor_kit") or "")
+            )
+        except KitError as exc:
+            raise MeasurementError(str(exc)) from exc
+        return resolved
 
     def resolve_golden(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """The parameters with the golden sample found: ``golden.name`` becomes the file of that
@@ -371,7 +447,7 @@ class ProjectSession:
             if not code:
                 continue
             folders = [self.run_dir, *self.extra_run_dirs]
-            found = latest_cable_run(code, folders, kinds)
+            found = latest_cable_run(code, folders, kinds, self.assets)
             if found is None:
                 what = " or ".join(kinds)
                 raise MeasurementError(
@@ -425,9 +501,16 @@ class ProjectSession:
 
 
 def _belongs(path: Path, stem: str) -> bool:
-    """``stem_<date>_<time>[_n].jsonl`` and not the run of another measurement whose file name
+    """``stem_<date>_<time>_<run id>.jsonl`` and not the run of another measurement whose file name
     merely starts with the same letters (``eff_2.eff`` and ``eff.eff``)."""
     start = len(stem) + 1
     rest = path.stem[start:]
     parts = rest.split("_")
-    return len(parts) in (2, 3) and parts[0].isdigit() and len(parts[0]) == 8
+    return (
+        len(parts) == 3
+        and parts[0].isdigit()
+        and len(parts[0]) == 8
+        and parts[1].isdigit()
+        and len(parts[1]) == 6
+        and bool(parts[2])
+    )

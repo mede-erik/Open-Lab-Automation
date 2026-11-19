@@ -1,7 +1,7 @@
 # ola_native – low-latency instrument transport
 
 Rust implementation of the byte-stream link to instruments (TCP/LXI and serial), exposed
-to Python through PyO3. It replaces the C backend (`backend/`) for I/O.
+to Python through PyO3. It replaced the former C backend (removed in November 2026) for I/O.
 
 * TCP: `TCP_NODELAY`, deadline-bounded buffered reads, command + terminator in one write.
 * Serial / USB-CDC: baud, data bits, parity, stop bits.

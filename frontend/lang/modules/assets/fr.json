@@ -69,6 +69,7 @@
   "ast_h_date": "Date",
   "ast_h_measurement": "Mesure",
   "ast_h_state": "Résultat",
+  "ast_h_variant": "Variante",
   "ast_h_file": "Fichier d'exécution",
   "ast_state_finished": "terminée",
   "ast_state_stopped": "arrêtée",
@@ -81,6 +82,7 @@
   "lbl_lines": "Lignes",
   "lbl_field_id": "Code (toujours)",
   "lbl_field_name": "Nom",
+  "lbl_field_version": "Version",
   "lbl_field_description": "Ce que c'est",
   "lbl_field_specs": "Données principales",
   "lbl_field_connectors": "Connecteurs",
@@ -115,5 +117,6 @@
   "ast_t_limit_line": "limite",
   "ast_t_days": "jours depuis le {date}",
   "ast_t_failed": "Impossible d'enregistrer : {error}",
-  "ast_t_saved": "Enregistré : {path}"
+  "ast_t_saved": "Enregistré : {path}",
+  "ast_unreadable": "endommagé ou illisible"
 }

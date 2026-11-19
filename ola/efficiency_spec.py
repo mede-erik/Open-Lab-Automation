@@ -65,7 +65,9 @@ from .formula import FUNCTIONS, Formula, FormulaError
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TOP_KEYS = ("variables", "timing", "derived", "startup", "shutdown", "power_order", "golden")
+TOP_KEYS = (
+    "variables", "timing", "derived", "startup", "shutdown", "power_order", "golden", "device",
+)
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
 
@@ -768,6 +770,31 @@ class _Checker:
         return order
 
 
+def _check_device(c: "_Checker", device: Any) -> None:
+    """The converter under test, if the file names one (all optional): a ``name`` written by hand,
+    a ``dut_id`` of the archive of the devices under test (``DUT-0001``) with its ``version``
+    (free text), and a ``variant``, a few named values that changed since the last run (a part
+    of the bill of materials, a fan on or off: ``ola.variants``)."""
+    if device is None:
+        return
+    from .assets import normalize_code
+    from .variants import problem as variant_problem
+
+    allowed = {"name", "dut_id", "version", "variant"}
+    if not isinstance(device, dict) or set(device) - allowed:
+        c.error("device", "the device has: " + ", ".join(sorted(allowed)))
+        return
+    for key in ("name", "version"):
+        if not isinstance(device.get(key, ""), str):
+            c.error(f"device.{key}", f"the {key} must be text")
+    code = device.get("dut_id")
+    if code not in (None, "") and not (isinstance(code, str) and normalize_code(code)):
+        c.error("device.dut_id", "not a code (it looks like DUT-0001)")
+    message = variant_problem(device.get("variant"))
+    if message:
+        c.error("device.variant", message)
+
+
 def _analyse(
     params: Any, bound: Optional[Collection[str]], checker: Optional[CallChecker]
 ) -> Tuple[Optional[EfficiencySpec], List[Problem]]:
@@ -776,6 +803,7 @@ def _analyse(
         c.error("", "the parameters must be an object with 'variables', 'sweeps', 'timing'...")
         return None, c.problems
     c.unknown_keys(params, TOP_KEYS, "")
+    _check_device(c, params.get("device"))
     variables = c.variables(params.get("variables"))
     timing = c.timing(params.get("timing"))
     if c.checker is not None:

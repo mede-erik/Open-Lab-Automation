@@ -36,6 +36,7 @@
   "gpb_invalid": "Invalid configuration: {error}",
   "gpb_detected": "Adapters added: {count}. Check them and press Save.",
   "gpb_detected_none": "No new adapter found",
+  "gpb_none_configured": "No GPIB adapter configured and none detected: connect it and press “Detect connected adapters”, or press “Add”.",
   "gpb_check": "Check driver and adapter",
   "gpb_checking": "Checking...",
   "gpb_check_failed": "Check failed: {error}",

@@ -37,7 +37,7 @@ From the volts at the probe tip:
 
 | Field | Meaning |
 |---|---|
-| `device.label`, `device.asset_id` | what is measured, and its code in the registry ([`assets.md`](assets.md)); the name is filled from the card |
+| `device.label`, `device.dut_id`, `device.version` | what is measured, and its code and version in the DUT archive ([`duts.md`](duts.md)); the name is filled from the card |
 | `device.nominal_v` | the output voltage, to give the ripple as a percentage (optional) |
 | `scope.channel` | the channel of the oscilloscope |
 | `scope.probe_attenuation` | 1 for a coax connection or a 1:1 probe, 10 for a 10:1 probe. Set the same on the probe |

@@ -33,6 +33,8 @@ QUESTION_OUTPUTS_ON = "outputs_on"  # outputs already on will be switched off: c
 QUESTION_CALIBRATION = (
     "calibration"  # an instrument must be calibrated / connected: continue / abort
 )
+QUESTION_ZERO = "zero"  # short the terminals of a channel (and connect them back): zero its offset
+QUESTION_LOAD = "load"  # connect this load of resistors by hand: the diagram is in the data
 QUESTION_GENERIC = "generic"
 
 
@@ -45,6 +47,10 @@ def question_kind(question: Mapping[str, Any]) -> str:
         return QUESTION_OUTPUTS_ON
     if data.get("kind") == "calibration":
         return QUESTION_CALIBRATION
+    if data.get("kind") == "load":
+        return QUESTION_LOAD
+    if data.get("kind") == "zero":
+        return QUESTION_ZERO
     return QUESTION_GENERIC
 
 
@@ -79,6 +85,7 @@ class RunModel:
         self.last_t: Optional[float] = None
         self.end_t: Optional[float] = None
         self.waited_s: float = 0.0  # time spent waiting for the user (not counted in the ETA)
+        self.bench: Optional[Dict[str, Any]] = None  # timing report, when the benchmark was on
         self._asked_at: Dict[str, float] = {}
 
     # ----- following the run ------------------------------------------------------------------
@@ -118,6 +125,8 @@ class RunModel:
         elif event.kind == "error":
             self.error = data
             self.logs.append((event.t, "error", data.get("message", "")))
+        elif event.kind == "bench":
+            self.bench = dict(data)
         elif event.kind == "question":
             self.pending[data["id"]] = dict(data)
             self._asked_at[data["id"]] = event.t

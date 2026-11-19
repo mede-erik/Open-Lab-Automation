@@ -20,7 +20,9 @@ import math
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence
+
+from . import bench
+from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 API_VERSION = 1
 
@@ -45,6 +47,9 @@ class Role:
     required: bool = True
     multiple: bool = False  # the role may be bound to several instruments
     description: str = ""
+    accepts: Tuple[str, ...] = ()
+    """Instrument types that can take the role (``multimeter``, ``datalogger``...). Empty: the
+    ``category`` itself (any type for ``any``). See ``ola.inst_file.role_types``."""
 
 
 class InstrumentHandle(Protocol):
@@ -204,13 +209,14 @@ class MeasurementContext:
             time.sleep(max(0.0, seconds))
             return
         end = time.monotonic() + max(0.0, seconds)
-        while True:
-            self.checkpoint()
-            remaining = end - time.monotonic()
-            if remaining <= 0:
-                return
-            if self._stop.wait(min(remaining, 0.05)):
-                raise Stopped()
+        with bench.span("wait", "sleep"):
+            while True:
+                self.checkpoint()
+                remaining = end - time.monotonic()
+                if remaining <= 0:
+                    return
+                if self._stop.wait(min(remaining, 0.05)):
+                    raise Stopped()
 
 
 class Measurement:

@@ -56,7 +56,9 @@ from ola.assets import (
     index_runs,
     last_measurement_line,
     normalize_code,
+    runs_of,
 )
+from frontend.core.errorhandler import show_problem
 
 RunDirs = Union[Sequence[Union[str, Path]], Callable[[], Sequence[Union[str, Path]]]]
 
@@ -71,7 +73,10 @@ class AssetHistoryDialog(QDialog):
         translator: Any = None,
         parent: Optional[QWidget] = None,
         run_dirs: Sequence[Union[str, Path]] = (),
+        trend: bool = True,
     ):
+        """``trend``: offer the trend of a figure against the date (the ageing of a cable; not
+        for a device under test)."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("assets", translator)
         self._t = self.tr_.t
@@ -83,18 +88,24 @@ class AssetHistoryDialog(QDialog):
         root = QVBoxLayout(self)
         if not self.runs:
             root.addWidget(QLabel(self._t("ast_h_none", code=asset.id)))
-        self.table = QTableWidget(len(self.runs), 4)
-        self.table.setHorizontalHeaderLabels(
-            [self._t(k) for k in ("ast_h_date", "ast_h_measurement", "ast_h_state", "ast_h_file")]
-        )
+        # a column for the variant of the run (a part changed, a fan on) only if any run has one
+        with_variant = any(r.variant for r in self.runs)
+        keys = ["ast_h_date", "ast_h_measurement", "ast_h_state"]
+        keys += ["ast_h_variant"] if with_variant else []
+        keys += ["ast_h_file"]
+        self.table = QTableWidget(len(self.runs), len(keys))
+        self.table.setHorizontalHeaderLabels([self._t(k) for k in keys])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         for row, ref in enumerate(self.runs):
-            for col, text in enumerate(
-                (ref.when, ref.measurement, self._t(f"ast_state_{ref.state}"), ref.path.name)
-            ):
+            cells = [ref.when, ref.measurement, self._t(f"ast_state_{ref.state}")]
+            cells += [ref.variant] if with_variant else []
+            cells += [ref.path.name]
+            for col, text in enumerate(cells):
                 self.table.setItem(row, col, QTableWidgetItem(text))
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            len(keys) - 1, QHeaderView.ResizeMode.Stretch
+        )
         root.addWidget(self.table, 1)
         row_buttons = QHBoxLayout()
         row_buttons.addStretch(1)
@@ -106,6 +117,7 @@ class AssetHistoryDialog(QDialog):
         self.trend_btn.clicked.connect(self.show_trend)
         close = QPushButton(self._t("ast_close"))
         close.clicked.connect(self.accept)
+        self.trend_btn.setVisible(trend)
         row_buttons.addWidget(self.trend_btn)
         row_buttons.addWidget(self.compare_btn)
         row_buttons.addWidget(close)
@@ -225,7 +237,7 @@ class AssetsDialog(QDialog):
         self._shown = self.registry.list(kind, self.retired_box.isChecked())
         self.table.setRowCount(len(self._shown))
         for row, asset in enumerate(self._shown):
-            runs = self.index.get(asset.id, [])
+            runs = runs_of(asset, self.index)
             status = self._t("ast_retired") if asset.retired else self._t("ast_active")
             cells = (asset.id, self._t(f"ast_kind_{asset.kind}"), asset.name, asset.description,
                      asset.created, str(len(runs)), status)  # fmt: skip
@@ -306,7 +318,7 @@ class AssetsDialog(QDialog):
                 self.registry.update(asset.id, save=False, retired=retire)
             self.registry.save()
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def delete_selected(self) -> None:
@@ -314,7 +326,7 @@ class AssetsDialog(QDialog):
         if len(chosen) != 1:
             return
         asset = chosen[0]
-        used = len(self.index.get(asset.id, []))
+        used = len(runs_of(asset, self.index))
         text = self._t("ast_confirm_delete", code=asset.id, name=asset.name)
         if used:
             text += "\n" + self._t("ast_confirm_delete_used", n=used)
@@ -324,7 +336,7 @@ class AssetsDialog(QDialog):
         try:
             self.registry.delete(asset.id)
         except (AssetError, OSError) as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("ast_error", error=exc))
+            show_problem(self, self.windowTitle(), self._t("ast_error", error=exc), code="AST-001", exception=exc, level="critical")
         self.refresh()
 
     def make_labels(self) -> None:
@@ -336,7 +348,7 @@ class AssetsDialog(QDialog):
             return
 
         def latest(asset: Asset) -> str:
-            runs = self.index.get(asset.id, [])
+            runs = runs_of(asset, self.index)
             return last_measurement_line(runs[-1] if runs else None)
 
         self.label_tool = LabelDialog(chosen, self.translator, latest, self)
@@ -347,7 +359,7 @@ class AssetsDialog(QDialog):
         chosen = self.selected()
         if len(chosen) != 1:
             return
-        runs = self.index.get(chosen[0].id, [])
+        runs = runs_of(chosen[0], self.index)
         self.history_tool = AssetHistoryDialog(
             chosen[0], runs, self.translator, self, self.run_dirs()
         )

@@ -53,5 +53,9 @@
   "prj_export": "CSV exportieren",
   "prj_export_done": "{n} Zeilen nach {path} geschrieben",
   "prj_export_failed": "Export fehlgeschlagen: {error}",
-  "prj_confirm_close": "{n} Messung(en) laufen. Stoppen und schließen?"
+  "prj_confirm_close": "{n} Messung(en) laufen. Stoppen und schließen?",
+  "prj_bench": "Zeiten messen (Benchmark)",
+  "prj_bench_tip": "Misst jeden Instrumentenaufruf und jede Phase der nächsten Messung und zeigt einen Bericht im Reiter Benchmark. Die zusätzliche Verzögerung ist klein (etwa 30 Mikrosekunden pro Aufruf).",
+  "prj_cal_no_library": "die Geräte-Bibliothek ist nicht verfügbar",
+  "prj_cal_no_inst": "das Projekt hat keine Gerätedatei (.inst)"
 }

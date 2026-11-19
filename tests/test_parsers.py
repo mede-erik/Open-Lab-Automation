@@ -13,7 +13,12 @@ from ola.call_errors import ResponseNotRecognisedError
 from ola.call_planner import plan_call
 from ola.instrument import Instrument
 from ola.library import Library
-from ola.parsers import siglent_waveform
+from ola.parsers import (
+    get_parser,
+    hp6030_readback_current,
+    hp6030_readback_voltage,
+    siglent_waveform,
+)
 from ola.sim import SimTransport
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -136,3 +141,28 @@ def test_read_waveform_resolution_argument():
     )
     assert plan8.steps[1]["text"] == ":WAVeform:WIDTh BYTE"
     assert plan16.steps[1]["text"] == ":WAVeform:WIDTh WORD"
+
+
+def test_hp6030_readback_gives_the_load_dependent_quantity():
+    assert hp6030_readback_current("NA01.234") == 1.234
+    assert hp6030_readback_current("NA 1.234\r\n") == 1.234
+    assert hp6030_readback_voltage("LV12.5") == 12.5  # limit mode is a valid measurement
+
+
+def test_hp6030_readback_refuses_the_quantity_it_does_not_read():
+    with pytest.raises(ResponseNotRecognisedError, match="reads current"):
+        hp6030_readback_voltage("NA01.234")  # a voltage source reads the current only
+    with pytest.raises(ResponseNotRecognisedError, match="reads voltage"):
+        hp6030_readback_current("NV12.000")
+
+
+def test_hp6030_readback_refuses_a_fault_and_an_unknown_answer():
+    with pytest.raises(ResponseNotRecognisedError, match="unregulated, disabled"):
+        hp6030_readback_current("FV999999")
+    with pytest.raises(ResponseNotRecognisedError, match="not a readback"):
+        hp6030_readback_current("hello")
+
+
+def test_the_hp6030_parsers_are_registered():
+    assert get_parser("hp6030_readback_voltage") is hp6030_readback_voltage
+    assert get_parser("hp6030_readback_current") is hp6030_readback_current

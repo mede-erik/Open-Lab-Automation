@@ -10,7 +10,10 @@ a unique ``instance_name`` (the name measurements use), and either a ``model_id`
 the values by hand). Besides that an entry may carry:
 
 * ``channels`` (and ``slots`` with channels for a datalogger): ``enabled``, ``name`` and the
-  limits ``max_voltage``, ``max_current`` and ``max_power`` of a supply or a load;
+  limits ``max_voltage``, ``max_current`` and ``max_power`` of a supply or a load; for a datalogger
+  also, each left out when it is the default, ``range`` (a fixed one), ``nplc`` (the integration
+  time in power line cycles), ``zero`` (zero the offset with the inputs shorted, before the
+  measurement) and ``impedance`` (``auto`` or ``10M``), see ``ola.channel_setup``;
 * ``serial``: the RS-232 settings that differ from the ones of the library (``baud``,
   ``data_bits``, ``parity``, ``stop_bits``, ``flow_control``), for an ``ASRL`` address;
 * ``timeout_ms``: how long to wait for an answer;
@@ -28,6 +31,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+from .fileio import atomic_write_json
 
 Problem = Tuple[str, Dict[str, Any]]
 
@@ -79,6 +84,25 @@ def entry_type(entry: Dict[str, Any]) -> str:
     return TYPE_ALIASES.get(raw, raw)
 
 
+def role_types(role: Any) -> Optional[frozenset]:
+    """The instrument types that can take a measurement role (``ola.measurement.Role``), or None
+    when any instrument can: the types the role lists in ``accepts``, otherwise its ``category``
+    (``any`` takes every type)."""
+    listed = [str(a).strip().lower() for a in (getattr(role, "accepts", ()) or ())]
+    if listed:
+        return frozenset(TYPE_ALIASES.get(a, a) for a in listed)
+    category = str(getattr(role, "category", "any") or "any").strip().lower()
+    return None if category == "any" else frozenset({TYPE_ALIASES.get(category, category)})
+
+
+def fits_role(entry: Dict[str, Any], role: Any) -> bool:
+    """True if the instrument of this entry can take the role. An entry with no type is not
+    excluded (it cannot be told what it is)."""
+    types = role_types(role)
+    kind = entry_type(entry)
+    return types is None or not kind or kind in types
+
+
 # ====================================================================== the file
 def load_inst(path) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """The entries of an ``.inst`` file and its other top-level keys (kept for ``save_inst``).
@@ -102,7 +126,7 @@ def save_inst(path, entries: Sequence[Dict[str, Any]], extra: Optional[Dict[str,
     """Write the entries (and the other keys that were in the file) to ``path``."""
     data = dict(extra or {})
     data["instruments"] = list(entries)
-    Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    atomic_write_json(path, data)
 
 
 def unique_name(base: str, taken: Sequence[str], suffix: str = "_copy") -> str:
@@ -292,6 +316,14 @@ def check_entry(
     elif kind in ("oscilloscope", "datalogger", "multimeter"):
         if not enabled_channels(entry):
             problems.append(("no_channel", {}))
+        if kind == "datalogger":
+            from .channel_setup import channel_problems  # the settings of the channels
+
+            for ch in enabled_channels(entry):
+                for error in channel_problems(ch):
+                    problems.append(
+                        ("channel_setting", {"channel": ch.get("name", "?"), "error": error})
+                    )
     elif kind == "network_analyzer":
         if not [p for p in entry.get("ports") or [] if isinstance(p, dict) and p.get("enabled")]:
             problems.append(("no_port", {}))

@@ -82,11 +82,6 @@ class Fixture:
 
 
 # ----- reading a fixture ----------------------------------------------------------------------
-def _grid(freq: Sequence[float], source: str) -> None:
-    if len(freq) < 2 or any(b <= a for a, b in zip(freq, freq[1:])):
-        raise DeembedError(f"{source}: needs at least 2 increasing frequencies")
-
-
 def load_fixture_run(path: Union[str, Path]) -> Fixture:
     """The fixture of a run file: a **cable** measured in transmission (``S21``: matched), in
     reflection (only its size is known) or by its loss; an **attenuator** (``S21``, and its ``S11``

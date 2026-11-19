@@ -39,7 +39,8 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
      "set": {"instrument": "psu1", "call": "set_voltage", "args": {"channel_number": 1}},
      "sweep": {"values": [9, 12, 15]},
      "reads": {"psu": {"instrument": "psu1", "call": "read_voltage", "args": {"channel_number": 1}},
-               "daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "101"}}},
+               "daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "101"}}},
      "verify": {"read": "daq", "tol_rel": 0.01, "tol_abs": 0.02},
      "limits": {"min": 5, "max": 20},
      "output": {"on": {"instrument": "psu1", "call": "output_on"},
@@ -52,9 +53,11 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
                 "state": {"instrument": "psu2", "call": "output_state_query"},
                 "mode": "always_on"}},
     {"name": "iin",
-     "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "102"}, "scale": 10}}},
+     "reads": {"daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "102"}, "scale": 10}}},
     {"name": "vout",
-     "reads": {"daq": {"instrument": "daq1", "call": "read_ch", "args": {"channels": "103"}}}}
+     "reads": {"daq": {"instrument": "daq1", "call": "measure_dc_voltage",
+                         "args": {"range": "AUTO", "resolution": "AUTO", "channels": "103"}}}}
   ],
   "timing": {"settle_s": 8, "samples": 5, "interval_s": 10, "cooldown_s": 600},
   "power_order": ["vin", "iout"],
@@ -71,6 +74,11 @@ What happens to the outputs is **your choice, parameter by parameter** (see "Out
 The names (`vin`, `vout`, `vaux`...) are yours. The `call` names are those of the instrument library, so the
 same file works with any supply, load or data logger the library knows. The instruments (`psu1`, `daq1`...)
 are the names of the instruments of the project.
+
+The data logger of the example is a Keysight 34972A: its reading of a voltage is `measure_dc_voltage`, with
+the arguments `range`, `resolution` and `channels` (`AUTO` lets the instrument choose). `read_ch` exists only
+in the simulated laboratory used by the tests. For another model, look at the calls of its entry in the
+instrument library (`Instruments_LIB/TESTING.md` explains how they are written).
 
 ### A parameter
 
@@ -263,6 +271,19 @@ Two tables, written while the measurement runs ([engine.md](engine.md#files)):
   and the readings.
 
 `ola.runs.export_points_csv(run, csv)` exports `points`; add `table="samples"` for the other one.
+
+## The converter under test
+
+The file can name the converter it measures, in `device`, all optional: `name` (typed by hand), `dut_id` and
+`version` (a [DUT of the archive](duts.md) and its version), and `variant` (what changed since another run, a few
+`name = value` lines: `R100 = 100 ohm`, `fan = off`). It is **optional**: an efficiency measurement runs the same
+without it. The editor has the boxes under the name of the parameters; choosing a DUT fills the name and the version in
+use.
+
+A DUT is not a card of the registry of cables and devices ([assets.md](assets.md)): a device under test is not part of the
+set-up of a measurement (only cables, amplifiers, attenuators and adapters are, see there). With a `dut_id` the card of that
+day, with its versions, is saved in the header of the run, and the variant stays with the results: see
+[`duts.md`](duts.md#the-variant-of-a-run).
 
 ## Not done yet
 

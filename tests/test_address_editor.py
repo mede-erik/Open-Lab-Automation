@@ -211,7 +211,7 @@ def test_a_gpib_address_must_be_between_1_and_30(app, warnings, value):
     dialog = gpib_editor()
     dialog.fields["gpib_addr"].setText(value)
     assert dialog.get_address() is None
-    assert warnings and "1 e 30" in warnings[0]
+    assert warnings and "1 to 30" in warnings[0]
 
 
 def test_an_adapter_that_cannot_make_the_address_is_reported(app, warnings):
@@ -240,4 +240,42 @@ def test_a_serial_port_that_is_not_a_port_is_reported(app, warnings):
     dialog.conn_combo.setCurrentText("SERIAL")
     dialog.fields["com_port"].setText("not a port!")
     assert dialog.get_address() is None
-    assert warnings and "Porta seriale" in warnings[0]
+    assert warnings and "serial port" in warnings[0]
+
+
+# ---------------------------------------------------------------- the type of an existing address
+@pytest.mark.parametrize(
+    "address,kind",
+    [
+        ("ASRL3::INSTR", "SERIAL"),
+        ("TCPIP0::192.168.1.5::inst0::INSTR", "LXI (VXI-11)"),
+        ("TCPIP0::192.168.1.5::hislip0::INSTR", "LXI (HiSLIP)"),
+        ("TCPIP0::192.168.1.5::5025::SOCKET", "LXI (Socket)"),
+        ("USB0::0x0957::0x2007::MY1::INSTR", "USB-TMC"),
+        ("GPIB0::7::INSTR", "GPIB"),
+    ],
+)
+def test_an_existing_address_opens_on_its_connection_type(app, address, kind):
+    dialog = editor(address)
+    assert dialog.conn_combo.currentText() == kind
+    assert dialog.get_address() == address  # nothing changed: the same address back
+
+
+def test_an_address_the_model_does_not_list_is_kept_and_reported(app):
+    dialog = editor("ASRL3::INSTR")
+    dialog.templates = {"LXI (VXI-11)": "TCPIP0::{ip}::inst0::INSTR"}
+    dialog.address_type = dialog.type_of_address(dialog.address)
+    dialog.conn_combo.clear()
+    dialog.conn_combo.addItems(list(dialog.templates))
+    assert dialog.address_type is None
+    assert dialog.get_address() == "ASRL3::INSTR"  # the empty fields do not replace it
+    dialog.fields["ip"].setText("10.0.0.2")
+    assert dialog.get_address() == "TCPIP0::10.0.0.2::inst0::INSTR"
+
+
+def test_the_labels_of_the_fields_are_translated(app):
+    dialog = editor("TCPIP0::192.168.1.5::inst0::INSTR")
+    labels = [
+        dialog.fields_layout.labelForField(edit).text() for edit in dialog.fields.values()
+    ]
+    assert labels == ["IP address"]

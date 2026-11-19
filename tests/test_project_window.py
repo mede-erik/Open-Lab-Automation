@@ -400,3 +400,18 @@ def test_a_closed_window_does_not_offer_the_mapping(window, app):
     for _ in range(3):
         app.processEvents()
     assert not window._mapping_timer.isActive()
+
+
+def test_a_time_log_opens_its_own_editor_with_the_project_instruments(window, monkeypatch):
+    from frontend.ui.TimeLogEditorDialog import TimeLogEditorDialog
+
+    ref = window.session.create("time_log", "Log")
+    window._refresh()
+    window._select(ref.id)
+    opened = []
+    monkeypatch.setattr(TimeLogEditorDialog, "exec", lambda self: opened.append(self) or 0)
+    window.edit_measurement()
+    assert len(opened) == 1 and opened[0].path.endswith(ref.file)
+    assert set(opened[0].instruments) == set(window._inst_entries())
+    assert isinstance(window._library_calls({"model": "no such model"}), list)
+    assert window._library_calls({"model": "no such model"}) == []

@@ -31,7 +31,6 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 FLOOR_DB = -300.0
 Complex = Union[complex, float, int]
-Number = Union[float, int]
 
 
 class RfError(ValueError):
@@ -359,13 +358,6 @@ def _decode(a: float, b: float, fmt: str) -> complex:
         return complex(a, b)
     magnitude = a if fmt == "MA" else 10 ** (a / 20.0)
     return cmath.rect(magnitude, math.radians(b))
-
-
-def span_text(freq: Sequence[float]) -> Optional[str]:
-    """``"1 MHz .. 6 GHz, 401 points"`` for a title or a log line; None if there are no points."""
-    if not freq:
-        return None
-    return f"{_hz(min(freq))} .. {_hz(max(freq))}, {len(freq)} points"
 
 
 def _hz(f: float) -> str:

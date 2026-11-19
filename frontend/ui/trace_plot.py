@@ -18,7 +18,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen, QPolygonF
 from PyQt6.QtWidgets import QWidget
 
-from frontend.ui.plot_widget import LINE_COLORS
+from frontend.ui.plot_widget import LINE_COLORS, draw_empty_chart
 from ola import rf
 from ola.run_view import format_si, log_ticks, nice_ticks
 
@@ -42,6 +42,7 @@ class TracePlot(QWidget):
         self.xlabel = self.ylabel = ""
         self.x_unit = ""  # unit of x for the tick labels ("Hz": 1 MHz, 2 GHz...)
         self.log_x = False
+        self.empty_text = ""  # shown while there is no data (the panel gives it, translated)
         self._hover: Optional[float] = None
         self._plot = QRectF()
         self.setMouseTracking(True)
@@ -113,7 +114,7 @@ class TracePlot(QWidget):
         metrics = QFontMetrics(self.font())
         bounds = self.ranges()
         if bounds is None:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "-")
+            draw_empty_chart(painter, self.rect(), text, grid, self.empty_text)
             return
         xmin, xmax, ymin, ymax = bounds
         if self.log_x:

@@ -114,8 +114,9 @@ def test_calibration_says_when_the_instrument_file_cannot_be_read(window, librar
 def test_calibration_says_when_there_is_no_network_analyzer(window, library, popups):
     use_inst_file(window, library, [PSU])
     window.calibrate_analyzer()
-    assert [p[0] for p in popups] == ["information"]
+    assert [p[0] for p in popups] == ["warning"]
     assert "analyzer" in popups[0][2].lower() or "vna" in popups[0][2].lower()
+    assert popups[0][2].endswith("[INST-005]")
 
 
 def test_calibration_opens_its_window_for_the_analyzers_of_the_project(
@@ -226,3 +227,25 @@ def test_without_a_selection_nothing_runs(window, monkeypatch):
     )
     window.run_measurement()
     assert window.run_windows == []
+
+
+# ---------------------------------------------------------------- benchmark switch
+@pytest.mark.parametrize("checked, expected", [(False, None), (True, True)])
+def test_the_benchmark_box_decides_the_bench_option_of_the_run(
+    window, monkeypatch, popups, checked, expected
+):
+    from ola.measurement import MeasurementError
+
+    window.table.selectRow(0)
+    window.wiring_before_run = False
+    monkeypatch.setattr(window, "_check_compatibility", lambda ref: (True, None))
+    seen = {}
+
+    def build(*args, **kwargs):
+        seen.update(kwargs)
+        raise MeasurementError("stop here")
+
+    monkeypatch.setattr(window.session, "build_runner", build)
+    window.bench_check.setChecked(checked)
+    window.run_measurement()
+    assert seen["bench"] is expected  # None: the OLA_BENCH variable decides

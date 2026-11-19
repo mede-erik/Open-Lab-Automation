@@ -1,8 +1,7 @@
 # AGENTS.md — Open Lab Automation
 
-> Compact guidance for code assistants working in this repository. The executable source
-> (code, `pyproject.toml`, `.github/workflows/ci.yml`) is the authority: if this file and the
-> code disagree, trust the code and fix this file.
+> Compact guidance for OpenCode/Claude Code sessions. If the repo says one thing and
+> this file says another, trust the executable source (code + config + CI scripts).
 
 ---
 
@@ -10,97 +9,117 @@
 
 | Action | Command | Note |
 |--------|---------|------|
-| Get the instrument library | `git submodule update --init` | `Instruments_LIB/` is a submodule; library tests need it. |
-| Install dependencies | `pip install -r requirements.txt` | Runtime and dev packages. |
-| Run the app | `python frontend/launcher.py` | Sets `PYTHONPATH`. |
-| Run the app directly | `python -m frontend.main` | Useful to debug import paths. |
-| Run a module window alone | `python -m frontend.ui.ProjectWindow [project.json]` | Also `RunWindow`, `EfficiencyEditorDialog`, `CompareDialog`. |
-| Terminal instrument shell | `python scripts/instrument_shell.py [--sim]` | `--sim` needs no hardware. |
-| Dry run of a call | `python scripts/dry_run_call.py --model MODEL --call NAME` | Shows the commands; sends nothing. |
-| Optional Rust transport | `cd native && maturin build --release` | Without it the pure-Python transport is used. |
-| Rust tests | `cd native && cargo test` | |
-| Lint (new code) | `flake8 ola tests scripts` | Settings in `.flake8`. |
-| Translations | `python scripts/check_translations.py` | Run before committing new keys. |
-| Tests | `QT_QPA_PLATFORM=offscreen pytest` | See **Testing**. |
+| Get the library | `git submodule update --init` | `Instruments_LIB` is a separate repository. |
+| Install deps | `pip install -r requirements.txt` | |
+| Run app | `python frontend/launcher.py` | Preferred — sets `PYTHONPATH`. |
+| Run directly | `python -m frontend.main` | Works from repo root. |
+| Test | `QT_QPA_PLATFORM=offscreen pytest` | See **Testing** section. |
+| Translations | `python scripts/check_translations.py` | Run before committing new translation keys. |
+| Lint (new code) | `flake8 ola tests scripts` | Must be clean. |
+| Lint (real errors) | `flake8 --select=E9,F63,F7,F82 .` | Whole repository. |
+| Copyright header | `python scripts/add_copyright_headers.py [FILE...]` | `--check` only lists the files without it. |
+| Try an instrument | `python scripts/instrument_shell.py [--sim]` | `scripts/dry_run_call.py` shows the commands of a call without hardware. |
 
-CI order (`.github/workflows/ci.yml`): lint and translations → build the legacy C backend → `pytest` → native Rust transport → PostgreSQL tests. Details: `docs/CI.md`.
-
----
-
-## Architecture
-
-| Layer | Location | Role |
-|-------|----------|------|
-| GUI | `frontend/` (`launcher.py`, `main.py`, `ui/`, `lang/`) | PyQt6. One file per window or dialog. |
-| Core (Qt-side helpers) | `frontend/core/` | Validation, error handling, project database I/O, i18n, logging. |
-| **Engine** | `ola/`, `native/` | Qt-free: transport, steps, call planner, instrument handles, measurement runner, measurement modules. **This is where new behaviour goes.** |
-| Instrument library | `Instruments_LIB/` (submodule) | `instruments_lib.json` + `schema/`: the logical calls and how each model implements them. Data only. |
-| Legacy C backend | `backend/` | Raw TCP via ctypes. Not used by the GUI or `ola/`. Scheduled for removal: do not extend. |
-| Tests | `tests/`, `test_*.py` at the root | See **Testing**. |
-
-The engine's own description (layers, transports, the measurement runner, the project format) is in
-the **Engine** section of `README.md` and in `docs/engine.md`. Do not duplicate it here.
-
-### How an instrument is driven
-
-```
-measurement module (ola/modules/<name>/)   what to measure: setup / run / teardown
-    handle.call("set_voltage", value=5)    logical calls, never raw SCPI in the module
-        -> ola/call_planner.py + Instruments_LIB   plan of steps for this model
-        -> ola/instrument.py                       write / query / read / delay, one lock per instrument
-        -> ola/transport.py | _visa.py | prologix.py | serial (native/)
-```
-
-- Measurement modules are found from `module.json` (`ola/registry.py`). Finding a module never runs its code; a non-built-in module needs explicit permission (`allow_user_code`).
-- Modules reach instruments only through `ctx.instrument(role).call(name, **args)`.
-- Simulated instruments (`ola/sim*.py`, `ola/demo_lab.py`) let every measurement run without hardware.
-
----
-
-## Rules
-
-- **Logical calls only.** Do not build SCPI strings in the GUI or in modules. Use the library's calls (`PulseGeneratorDialog.py` included).
-- **Error codes.** Every error is an exception with a stable code (`TRN-xxx`, `CALL-xxx`, or the code of its resource; see `ERROR_CODES.md`). Engine code raises `ola/errors.py` / `ola/call_errors.py` types. In the GUI, show errors through `frontend/core/errorhandler.py` (`handle_error(exc, user_message)`) rather than ad-hoc `try/except` with message boxes.
-- **i18n.** Every new user-visible string needs a key in all five locale files (`it`, `en`, `fr`, `es`, `de`) under `frontend/lang/`; the strings of the project and run windows are in `frontend/lang/modules/<area>/<lang>.json`. `check_translations.py` enforces it.
-- **No bare `except:`.** Name the exception type and log it (`frontend/core/logger.py`).
-- **No `time.sleep()` in the GUI thread.** Use `QTimer.singleShot()`.
-- **One file per dialog** under `frontend/ui/`, layout and signal wiring only. Business logic goes to `ola/` (or `frontend/core/` for database and project I/O).
-- **Documentation travels with code.** A new module needs a guide in `docs/` and a row in the README Engine table: `tests/test_docs.py` fails otherwise.
-- **Do not extend `backend/`.** Legacy; it will be removed once nothing needs it.
-- **Deprecated, do not use:** `frontend/core/models.py`, `frontend/core/DatabaseManager.py`. Use `ProjectDatabaseManager`.
-
----
-
-## Instrument library
-
-- Adding an instrument: add the model to `Instruments_LIB/instruments_lib.json` (new models are `"experimental": true` until tried on hardware), using the call names of `Instruments_LIB/schema/` and `docs/COMMANDS.md`.
-- New logical calls for a category belong in `Instruments_LIB/schema/`, not in code.
-- The library is its own repository (`mede-erik/Instruments_LIB`). Changes there are committed and merged there first, then the submodule pointer is updated here.
-- Check the library with `python -m pytest tests/test_library_integrity.py` and, in the library repo, `Tests/check_conformance.py`.
-
----
-
-## Testing
-
-Tests live in `tests/` (engine, whole-library integrity, `frontend/core`, scripts, GUI smoke tests) and in `test_basic_import.py` / `test_instrument_library.py` at the root.
-
-```bash
-QT_QPA_PLATFORM=offscreen pytest      # everything
-pytest -m "not gui"                    # without Qt widgets
-pytest tests/test_library_integrity.py # every call of every library model (needs the submodule)
-pytest tests/test_docs.py              # docs stay in sync with the code
-```
-
-What to run after a change:
-
-- a library usage, a dialog or an error code: the full suite (integrity, GUI smoke and error-code tests catch exactly these);
-- documentation: `tests/test_docs.py` (docstrings, README engine table, error codes, relative links, the example in `docs/measurement-modules.md`).
+Order when it matters: `python scripts/check_translations.py && flake8 ola tests scripts && pytest`
 
 ---
 
 ## Gotchas
 
-- `Instruments_LIB/` is empty until `git submodule update --init`. Tests that read the library and the link from `docs/ripple.md` into it fail without it.
-- `.gitignore` excludes only `*_old.py`, `*_debug.py`, `*.backup`, `*.bak`, `check_*.py`; test files are tracked.
-- The GPIB adapter stack (`ola/gpib_*.py`, `ola/prologix.py`) needs the driver of the adapter; `gpib_linux.py` runs its set-up through `pkexec`. Tests use stand-ins.
-- Use `QT_QPA_PLATFORM=offscreen` for any test that creates a window.
+- **CI** is `.github/workflows/ci.yml` (translations → lint → tests on Python 3.12 / 3.13 → Rust transport → tests against the library `main`). It runs on every push and pull request; the runner is set by the repository variable `CI_RUNS_ON`. Details: `docs/CI.md`.
+- **`.gitignore` excludes** `*_old.py`, `*_debug.py`, `debug_*.py`, `check_*.py` (except `scripts/check_*.py`), `*.backup`, `*.bak`, `.vscode/` and `*.code-workspace`. Test files are tracked.
+- **`Instruments_LIB` is a git submodule.** Change the library in its own repository; here only the pointer moves, in a separate pull request.
+- **Stacked pull requests are a trap.** If a pull request is based on the branch of another one, merging it after the first lands it in that branch, not in `main`. Base every pull request on `main`.
+- **The PostgreSQL storage and the old `.eff` editor were removed in November 2026**: the results are the run files (`runs/`, JSON Lines).
+- **The former C backend was removed in November 2026**: `ola/transport.py` and `native/` replace it.
+- **Documentation and code comments are in English.** The UI strings are in the locale files.
+
+---
+
+## Architecture
+
+```
+GUI (frontend/ui) ──► Core (frontend/core) ──► Engine (ola/, native/) ──► Instruments
+ Remote control tab     validation, errors,      planner, steps, runner,    VISA, TCP, serial,
+ Measurements tab       i18n, logging            transport, drivers,        GPIB adapters,
+                                                 measurement modules        drivers (SDK)
+                                    Instruments_LIB (submodule): models and call schemas
+```
+
+| Layer | Location | Role |
+|-------|----------|------|
+| Entry points | `frontend/launcher.py`, `frontend/main.py` | App bootstrap |
+| UI dialogs | `frontend/ui/*.py` | One file per window/dialog. Layout & signal wiring only — **no business logic**. |
+| Core library | `frontend/core/*.py` | Validation, error handling, i18n, logging |
+| Engine | `ola/`, `native/` | Qt-free transport, steps, call planner, drivers, measurement runner and modules. See the section *Engine (`ola/` and `native/`)* of `README.md` and `docs/engine.md`. |
+| Measurement modules | `ola/modules/<id>/` | `module.json`, `measurement.py`, `form.json`, `wiring.json`; guide in `docs/`. |
+| Instrument library | `Instruments_LIB/instruments_lib.json`, `Instruments_LIB/schema/` | Models, interfaces, limits, and the logical calls of each category. |
+| Translations | `frontend/lang/*.json`, `frontend/lang/modules/*/` | One file per locale. Accessed via `Translator.t(key)`. |
+
+### Instrument I/O
+
+Everything the GUI and the measurements ask of an instrument is a **logical call** (`handle.call("set_voltage", value=5)`). The planner builds the steps from the model's entry in the library, the executor runs them under one lock per instrument, and the transport carries them: Rust or pure-Python TCP and serial, pyvisa (USB-TMC, GPIB, VXI-11), Prologix GPIB adapters. Instruments with `access: driver` (Analog Discovery, LiteVNA) are handed to a driver in `ola/drivers/`. Manual instruments (no remote control) ask the operator through a pop-up.
+
+### Rules
+
+- **Error handling**: Never raw `try/except` + `QMessageBox`. Call `errorhandler.handle_error(exc, user_message)` or raise a custom error with an `[RESOURCE-XXX]` code. See `ERROR_CODES.md`.
+- **I18n**: Every new string used in the UI must have a key in **all** locale files (`it.json`, `en.json`, `fr.json`, `es.json`, `de.json`).
+- **No SCPI guessing**: the software never builds SCPI strings; a call missing from the library means "not supported by this instrument" (`CALL-001`), never a guessed command. This applies to `PulseGeneratorDialog.py` and to every measurement.
+- **One file per dialog**: Each `QDialog`/`QMainWindow` in its own file under `frontend/ui/`.
+- **No `time.sleep()` in GUI thread**: Use `QTimer.singleShot()` for delayed operations, and stop the timer when the window closes.
+- **No bare `except:`**: Always specify the exception type. Log the error.
+- **Copyright header** on every new source file (`python scripts/add_copyright_headers.py FILE...`).
+- **Safety in measurements**: `teardown` always runs and puts the instruments in a safe state; limits come from the library and are checked before anything is sent.
+- **Test status**: The list "Software test status" in `README.md` is the to-do list of what is still not tested on real hardware. When you add a feature, add it there unchecked, in its category, with sub-items for its parts. Check a box only after the feature ran on the real instrument (never on the simulated bench), and write the model next to it. Never check a box for a test that did not run.
+
+---
+
+## Testing
+
+Tests live in `tests/` (engine, measurement modules, whole-library integrity, `frontend/core`, scripts, GUI windows built offscreen); `test_basic_import.py` and `test_instrument_library.py` at the repo root cover the core imports and the instrument library (`git submodule update --init` is needed for the library tests). What each file covers and how CI runs them: `docs/CI.md`.
+
+```bash
+QT_QPA_PLATFORM=offscreen pytest   # everything (tests/ + test_*.py at root)
+pytest -m "not gui"                # without the Qt widgets
+pytest tests/test_library_integrity.py   # every call of every library model
+```
+
+Some tests keep the documentation in sync: public items of `ola/` need a docstring, every `ola/` file and module must be in the README engine table, every `TRN-xxx` / `CALL-xxx` code must be in `ERROR_CODES.md`, relative links must not be broken. When you change the library usage, a dialog or an error code, run the suite: the integrity, window and error-code tests are meant to catch exactly those changes.
+
+---
+
+## Packaging and releases
+
+Packages are built by `.github/workflows/package.yml` and published as GitHub releases: the
+pre-release `nightly` at every commit on `main`, a fixed release for every tag `vX.Y.Z`. The
+recipes are in `packaging/` (read `packaging/README.md` first), the steps in
+`scripts/build_package.py`. Windows: installer + zip; Linux: `.deb`, `.rpm`, tar.gz; Arch:
+`packaging/arch/PKGBUILD`.
+
+- **Placeholder icon.** `frontend/assets/icons/icona.png` is a copy of `oscilloscope.png` and is the
+  single place for the program icon (Windows exe, Linux menu entry). Replace that file when the
+  real icon exists; see `packaging/README.md` for the sizes.
+- **Version in three places:** `pyproject.toml`, `frontend/appinfo.json` and `pkgver` in
+  `packaging/arch/PKGBUILD` (`tests/test_packaging.py` checks they agree).
+- **After a release, bump the version** in those three places to the next one: otherwise the nightly
+  builds (`X.Y.Z-nightly...`) sort older than the release `X.Y.Z`.
+- A data folder the program reads at run time (next to `frontend/`, `ola/`, `Instruments_LIB/`) must
+  also be listed in `packaging/pyinstaller/ola.spec`, at the same relative path.
+- The repository URL (`frontend/appinfo.json`, `packaging/`) is `mede-erik/Open-Lab-Automation`;
+  update it if the repository moves to the Open Lab Instruments organization.
+- Instrument library in the packages: nightly takes the newest commit of the library's `main`; alpha, beta, rc and final
+  take the latest published release of `Instruments_LIB` (see `packaging/README.md`, "Which instrument library goes in a package").
+  Publish the library release before tagging the program.
+- Open points: the Windows installer is not signed and is English only.
+
+---
+
+---
+
+## Extending instruments
+
+1. Add the model to `Instruments_LIB/instruments_lib.json` (in the library repository) following `Instruments_LIB/TESTING.md`; the call names and arguments are fixed per category by `Instruments_LIB/schema/*.json`.
+2. A model overrides, removes (`null`) or patches (`{"patch": …}`) the commands of its series; the resolution is in `ola/library.py`.
+3. If the instrument has no text protocol (a vendor SDK), add a driver in `ola/drivers/` and set `access: driver` in the library.
+4. If a new category is needed, add its schema in `Instruments_LIB/schema/` and the type in `LoadInstruments.py`.
+5. Test it with `python scripts/dry_run_call.py` and `python scripts/instrument_shell.py`, then run `pytest tests/test_library_integrity.py`.

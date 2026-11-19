@@ -1,12 +1,6 @@
 # GUI Framework
 PyQt6>=6.11.0
 
-# Database connectivity
-psycopg2-binary>=2.9.12
-
-# Security and encryption
-cryptography>=49.0.0
-
 # Instrument communication
 pyvisa>=1.16.2
 pyvisa-py>=0.8.1

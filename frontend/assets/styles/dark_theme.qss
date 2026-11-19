@@ -95,7 +95,7 @@ QPushButton:pressed {
 
 QPushButton:disabled {
     background-color: #2a2a2a;
-    color: #666;
+    color: #959595;
     border: 1px solid #444;
 }
 
@@ -106,6 +106,7 @@ QLineEdit {
     border: 1px solid #666;
     padding: 4px 8px;
     border-radius: 4px;
+    placeholder-text-color: #a8a8a8;
 }
 
 QLineEdit:focus {
@@ -123,19 +124,20 @@ QComboBox {
 
 QComboBox::drop-down {
     border: none;
+    width: 22px;
 }
 
 QComboBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 4px solid #f0f0f0;
+    image: url("@ICONS@/arrow_down_dark.svg");
+    width: 12px;
+    height: 12px;
 }
 
 QComboBox QAbstractItemView {
     background-color: #3c3c3c;
     color: #f0f0f0;
-    selection-background-color: #4a9eff;
+    selection-background-color: #2f6fbd;
+    selection-color: #ffffff;
 }
 
 /* List widget styling */
@@ -151,7 +153,8 @@ QListWidget::item {
 }
 
 QListWidget::item:selected {
-    background-color: #4a9eff;
+    background-color: #2f6fbd;
+    color: #ffffff;
 }
 
 QListWidget::item:hover {
@@ -172,7 +175,8 @@ QTableWidget::item {
 }
 
 QTableWidget::item:selected {
-    background-color: #4a9eff;
+    background-color: #2f6fbd;
+    color: #ffffff;
 }
 
 QHeaderView::section {
@@ -190,13 +194,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: #555;
+    background: #8b949e;
     border-radius: 7px;
     min-height: 20px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #666;
+    background: #aab2bd;
 }
 
 QScrollBar::add-line:vertical,
@@ -211,13 +215,13 @@ QScrollBar:horizontal {
 }
 
 QScrollBar::handle:horizontal {
-    background: #555;
+    background: #8b949e;
     border-radius: 7px;
     min-width: 20px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: #666;
+    background: #aab2bd;
 }
 
 QScrollBar::add-line:horizontal,
@@ -234,10 +238,33 @@ QGroupBox {
     padding-top: 10px;
 }
 
+/* a group box with a tick needs room for it above the frame */
+QGroupBox[checkable="true"] {
+    margin-top: 24px;
+    padding-top: 14px;
+}
+
 QGroupBox::title {
     subcontrol-origin: margin;
+    subcontrol-position: top left;
     left: 10px;
-    padding: 0 5px 0 5px;
+    padding: 3px 5px;  /* taller than the 16 px tick, or the tick is cut */
+}
+
+/* the tick of a group box that can be switched on and off: drawn like the one of a check box (the
+   native one was cut by the margin of the title) */
+QGroupBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #8b949e;
+    border-radius: 2px;
+    background-color: #3c3c3c;
+}
+
+QGroupBox::indicator:checked {
+    background-color: #4a9eff;
+    border: 1px solid #4a9eff;
+    image: url("@ICONS@/check_dark.svg");
 }
 
 /* Text edit styling */
@@ -261,6 +288,25 @@ QSpinBox:focus, QDoubleSpinBox:focus {
     border: 2px solid #4a9eff;
 }
 
+QSpinBox::up-button, QDoubleSpinBox::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    width: 18px;
+    border: none;
+    background: transparent;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url("@ICONS@/arrow_up_dark.svg");
+    width: 10px;
+    height: 10px;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url("@ICONS@/arrow_down_dark.svg");
+    width: 10px;
+    height: 10px;
+}
+
 /* Check box styling */
 QCheckBox {
     color: #f0f0f0;
@@ -269,7 +315,7 @@ QCheckBox {
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
-    border: 1px solid #666;
+    border: 1px solid #8b949e;
     border-radius: 2px;
     background-color: #3c3c3c;
 }
@@ -277,6 +323,7 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: #4a9eff;
     border: 1px solid #4a9eff;
+    image: url("@ICONS@/check_dark.svg");
 }
 
 /* Radio button styling */
@@ -287,7 +334,7 @@ QRadioButton {
 QRadioButton::indicator {
     width: 16px;
     height: 16px;
-    border: 1px solid #666;
+    border: 1px solid #8b949e;
     border-radius: 8px;
     background-color: #3c3c3c;
 }
@@ -337,18 +384,14 @@ QTableWidget {
 
 QTableWidget QLineEdit {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
 
 QTableWidget QComboBox {
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
     padding: 2px 4px;
     font-size: 10px;
 }
@@ -356,7 +399,45 @@ QTableWidget QComboBox {
 QTableWidget QCheckBox {
     padding: 2px;
     min-height: 0;
-    max-height: none;
     min-width: 0;
-    max-width: none;
+}
+
+/* ===== INFO TEXT (instead of colours written in the code) ===== */
+QLabel[class="infobox"] {
+    background-color: #2f3b4a;
+    color: #dfe6ee;
+    padding: 8px 10px;
+    border-radius: 5px;
+}
+
+QLabel[class="accent"] {
+    color: #6cb6ff;
+    padding: 4px 2px;
+}
+
+QLabel[class="muted"] {
+    color: #9aa3ab;
+    padding: 4px 2px;
+}
+
+QLabel[class="error"] {
+    color: #ff6b6b;
+}
+
+QLabel[class="ok"] {
+    color: #6bd68a;
+}
+
+QLabel[class="warning"] {
+    color: #ffb347;
+}
+
+QPushButton[class="action"] {
+    padding: 10px 12px;
+    font-weight: bold;
+}
+
+/* a table whose cells hold widgets: they fill the cell (the padding of the items would shrink them) */
+QTableWidget[class="widgetcells"]::item {
+    padding: 0px;
 }

@@ -10,7 +10,7 @@ The projects in this folder are **fictitious**: they show what the software does
 | `test_instruments.inst` | the instruments of the project |
 | `osc1.was` | oscilloscope settings (timebase, vertical scales, trigger) |
 | `Wav_setup.was` | a second oscilloscope setting (1 channel, 50 mV/div, 10 ms/div) |
-| `eff.eff` | efficiency sweep of the `Vaux` supply from 5 V to 10 V in 5 points |
+| `eff.eff` | efficiency measurement (current format): the input voltage `vin` of the `HC` supply (channel 2) takes 12, 15 and 18 V, the load current `iout` goes from 0.2 A to 1 A in 5 points, `vaux` is fixed at 12 V; 15 points, about a minute. The values are invented |
 
 ### Instruments
 

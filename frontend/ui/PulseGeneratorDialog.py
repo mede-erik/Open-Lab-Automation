@@ -18,17 +18,19 @@ Date: 2025-11-20
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QPushButton, QLabel, QGroupBox,
-    QRadioButton, QDoubleSpinBox, QMessageBox, QWidget
+    QRadioButton, QDoubleSpinBox, QMessageBox, QWidget, QApplication, QSizePolicy
 )
-from PyQt6.QtCore import Qt
 import json
 import os
 import numpy as np
 
 from frontend.core.LoadInstruments import LoadInstruments
 from frontend.core.Translator import Translator
-from frontend.core.errorhandler import ErrorHandler, ErrorCode
+from frontend.core.errorhandler import ErrorHandler
 from ola.pulse_power import check_pulse_power, max_amplitude, max_base_level, max_duty
+from frontend.ui.layout_utils import resize_to_screen
+from frontend.ui.theme_utils import set_class
+from frontend.core.errorhandler import show_problem
 
 # Logical calls the Pulse Generator needs from an electronic load (see schema/electronic_load.json).
 # A model that does not define all of them cannot be used here: there is no generic fallback.
@@ -42,6 +44,14 @@ try:
     matplotlib.use('Qt5Agg')
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
     from matplotlib.figure import Figure
+
+    class _FillCanvas(FigureCanvasQTAgg):
+        """A canvas that fills the room it is given: the default one keeps the aspect ratio of the
+        figure and is centred, which leaves blank bands above and below the plot."""
+
+        def hasHeightForWidth(self):
+            return False
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -75,8 +85,8 @@ class PulseGeneratorDialog(QDialog):
         self.error_handler = ErrorHandler()
 
         self.setWindowTitle(self.translator.t('pulse_generator_tool'))
-        self.setMinimumWidth(1000)
-        self.setMinimumHeight(600)
+        self.setMinimumSize(700, 560)
+        resize_to_screen(self, 1000, 640)
 
         self.current_instrument = None
         self.current_capabilities = None
@@ -105,12 +115,18 @@ class PulseGeneratorDialog(QDialog):
         inst_layout = QFormLayout()
 
         self.instrument_combo = QComboBox()
+        # a long text ("no load in the project") is cut, it does not widen the panel
+        self.instrument_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.instrument_combo.setMinimumContentsLength(24)
         self.instrument_combo.currentIndexChanged.connect(self.on_instrument_changed)
         inst_layout.addRow(self.translator.t('electronic_load') + ":", self.instrument_combo)
 
         self.instrument_info_label = QLabel("")
         self.instrument_info_label.setWordWrap(True)
-        self.instrument_info_label.setStyleSheet("color: #666; font-size: 10px;")
+        set_class(self.instrument_info_label, "muted")
+        self.instrument_info_label.setStyleSheet("font-size: 10px;")
+        self.instrument_info_label.setVisible(False)  # shown when there is something to say
         inst_layout.addRow(self.instrument_info_label)
 
         inst_group.setLayout(inst_layout)
@@ -122,7 +138,8 @@ class PulseGeneratorDialog(QDialog):
 
         # Operating Mode
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["CC (Constant Current)", "CV (Constant Voltage)", "CP (Constant Power)"])
+        for mode in ("CC", "CV", "CP"):
+            self.mode_combo.addItem(self.translator.t(f"pulse_mode_{mode.lower()}"), mode)
         params_layout.addRow(self.translator.t('pulse_mode') + ":", self.mode_combo)
 
         # Amplitude
@@ -194,8 +211,10 @@ class PulseGeneratorDialog(QDialog):
         self.continuous_radio = QRadioButton(self.translator.t('pulse_continuous'))
         self.continuous_radio.setChecked(True)
         self.single_radio = QRadioButton(self.translator.t('pulse_single'))
+        count_layout.setSpacing(24)
         count_layout.addWidget(self.continuous_radio)
         count_layout.addWidget(self.single_radio)
+        count_layout.addStretch(1)
         params_layout.addRow(self.translator.t('pulse_count') + ":", count_layout)
 
         params_group.setLayout(params_layout)
@@ -219,7 +238,8 @@ class PulseGeneratorDialog(QDialog):
 
         # Status
         self.status_label = QLabel(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_stopped')}")
-        self.status_label.setStyleSheet("font-weight: bold; color: #c00;")
+        set_class(self.status_label, "muted")
+        self.status_label.setStyleSheet("font-weight: bold;")
         left_layout.addWidget(self.status_label)
 
         left_layout.addStretch()
@@ -232,7 +252,8 @@ class PulseGeneratorDialog(QDialog):
         close_button_layout.addWidget(self.close_button)
         left_layout.addLayout(close_button_layout)
 
-        main_layout.addWidget(left_widget, 1)
+        left_widget.setMinimumWidth(400)
+        main_layout.addWidget(left_widget, 0)  # the parameters keep their width
 
         # === RIGHT SIDE: WAVEFORM PREVIEW ===
         if MATPLOTLIB_AVAILABLE:
@@ -245,11 +266,12 @@ class PulseGeneratorDialog(QDialog):
 
             # Matplotlib canvas
             self.figure = Figure(figsize=(6, 4))
-            self.canvas = FigureCanvasQTAgg(self.figure)
+            self.canvas = _FillCanvas(self.figure)
             self.ax = self.figure.add_subplot(111)
-            right_layout.addWidget(self.canvas)
+            self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            right_layout.addWidget(self.canvas, 1)  # the plot takes all the height
 
-            main_layout.addWidget(right_widget, 1)
+            main_layout.addWidget(right_widget, 1)  # the plot takes the rest
 
             # Initial empty plot
             self.plot_pulse_waveform()
@@ -262,10 +284,11 @@ class PulseGeneratorDialog(QDialog):
             # Find project JSON file
             project_files = [f for f in os.listdir(self.project_dir) if f.endswith('.json')]
             if not project_files:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_project_file_found')
+                    self.translator.t('no_project_file_found'),
+                    code="PROJ-001",
                 )
                 return
 
@@ -276,19 +299,21 @@ class PulseGeneratorDialog(QDialog):
             # Load instruments from .inst file
             inst_file_name = project_data.get('inst_file')
             if not inst_file_name:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_inst_file_in_project')
+                    self.translator.t('no_inst_file_in_project'),
+                    code="PROJ-007",
                 )
                 return
 
             inst_file_path = os.path.join(self.project_dir, inst_file_name)
             if not os.path.exists(inst_file_path):
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    f"{self.translator.t('inst_file_not_found')}: {inst_file_name}"
+                    f"{self.translator.t('inst_file_not_found')}: {inst_file_name}",
+                    code="PROJ-007",
                 )
                 return
 
@@ -298,28 +323,38 @@ class PulseGeneratorDialog(QDialog):
             instruments = inst_data.get('instruments', [])
 
             # Filter only electronic loads
-            electronic_loads = [inst for inst in instruments if inst.get('instrument_type') == 'electronic_load']
+            # (a manual load has no remote control: pulses cannot be sent to it)
+            electronic_loads = [
+                inst for inst in instruments
+                if inst.get('instrument_type') == 'electronic_load' and not inst.get('is_manual')
+            ]
 
             if not electronic_loads:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_load_available')
+                    self.translator.t('no_load_available'),
+                    code="TOOL-002",
                 )
-                self.instrument_combo.addItem(self.translator.t('no_load_available'))
+                # the sentence is a message under the (empty) list, where it can wrap
+                self.instrument_combo.setEnabled(False)
+                set_class(self.instrument_info_label, "warning")
+                self.instrument_info_label.setText(self.translator.t('no_load_available'))
+                self.instrument_info_label.setVisible(True)
                 return
 
             # Populate combo box
             for load in electronic_loads:
-                name = load.get('name', 'Unnamed')
-                model = load.get('model', 'Unknown')
-                display_name = f"{name} ({model})"
+                name = load.get('instance_name') or load.get('name') or 'Unnamed'
+                model = load.get('model')
+                display_name = f"{name} ({model})" if model else str(name)
                 self.instrument_combo.addItem(display_name, load)
 
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"Error loading instruments from project: {str(e)}"
+                self.translator.t("err_pulse_instruments_failed").format(error=e),
+                code="PROJ-005",
             )
 
     def on_instrument_changed(self, index):
@@ -345,10 +380,12 @@ class PulseGeneratorDialog(QDialog):
             )
 
             if not self.current_capabilities:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    f"{self.translator.t('pulse_missing_capabilities')}\n[TOOL-007]"
+                    f"{self.translator.t('pulse_missing_capabilities')}\n[TOOL-007]",
+                    code="TOOL-007",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 return
@@ -359,10 +396,12 @@ class PulseGeneratorDialog(QDialog):
             )
 
             if not self.current_scpi_commands:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    f"{self.translator.t('pulse_no_commands')}\n[TOOL-003]"
+                    f"{self.translator.t('pulse_no_commands')}\n[TOOL-003]",
+                    code="TOOL-003",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 return
@@ -371,18 +410,22 @@ class PulseGeneratorDialog(QDialog):
             missing_commands = [cmd for cmd in REQUIRED_CALLS if cmd not in self.current_scpi_commands]
 
             if missing_commands:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
                     f"{self.translator.t('pulse_missing_commands_error')}:\n" +
                     f"{', '.join(missing_commands)}\n\n" +
-                    f"{self.translator.t('pulse_update_library_suggestion')}\n[TOOL-003]"
+                    f"{self.translator.t('pulse_update_library_suggestion')}\n[TOOL-003]",
+                    code="TOOL-003",
+                    level="critical",
                 )
                 self.start_button.setEnabled(False)
                 self.instrument_info_label.setText(
                     f"❌ {self.translator.t('pulse_not_supported')}"
                 )
-                self.instrument_info_label.setStyleSheet("color: #c00; font-weight: bold;")
+                set_class(self.instrument_info_label, "error")
+                self.instrument_info_label.setStyleSheet("font-weight: bold;")
+                self.instrument_info_label.setVisible(True)
                 return
 
             # Update UI with capabilities (nuovo formato: capabilities.channels[] o flat)
@@ -408,7 +451,9 @@ class PulseGeneratorDialog(QDialog):
                 f"{shown(max_power, 'W')}"
             )
             self.instrument_info_label.setText(info_text)
-            self.instrument_info_label.setStyleSheet("color: #0a0; font-weight: bold;")
+            set_class(self.instrument_info_label, "ok")
+            self.instrument_info_label.setStyleSheet("font-weight: bold;")
+            self.instrument_info_label.setVisible(True)
 
             # Enable start button
             self.start_button.setEnabled(True)
@@ -419,7 +464,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"Error loading instrument capabilities: {str(e)}"
+                self.translator.t("err_pulse_capabilities_failed").format(error=e),
+                code="LIB-003",
             )
             self.start_button.setEnabled(False)
 
@@ -433,13 +479,14 @@ class PulseGeneratorDialog(QDialog):
         max_current = self.current_limits.get('max_current') or 100.0
 
         if value > max_current:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('error'),
                 self.translator.t('pulse_amplitude_exceeded').format(
                     value=value,
                     max=max_current
-                ) + f"\n[TOOL-004]"
+                ) + "\n[TOOL-004]",
+                code="TOOL-004",
             )
             self.amplitude_spin.setValue(max_current)
 
@@ -457,13 +504,14 @@ class PulseGeneratorDialog(QDialog):
         max_current = self.current_limits.get('max_current') or 100.0
 
         if value > max_current:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('error'),
                 self.translator.t('pulse_base_level_exceeded').format(
                     value=value,
                     max=max_current
-                ) + f"\n[TOOL-004]"
+                ) + "\n[TOOL-004]",
+                code="TOOL-004",
             )
             self.base_level_spin.setValue(max_current)
 
@@ -553,12 +601,13 @@ class PulseGeneratorDialog(QDialog):
                 self.frequency_spin.setValue(max(value, self.frequency_spin.minimum()))
                 shown, unit = t('pulse_frequency'), f"{value} Hz"
 
-        QMessageBox.warning(
+        show_problem(
             self,
             t('error'),
             self._power_message(result, max_power)
             + "\n" + t('pulse_power_corrected').format(parameter=shown, value=unit)
             + "\n[TOOL-008]",
+            code="TOOL-008",
         )
 
     def _power_allowed_to_start(self, amplitude, base_level, duty):
@@ -586,7 +635,7 @@ class PulseGeneratorDialog(QDialog):
 
     def _refuse_start(self, message):
         """Tell why the pulse does not start and release the connection to the load."""
-        QMessageBox.critical(self, self.translator.t('error'), f"{message}\n[TOOL-008]")
+        show_problem(self, self.translator.t('error'), f"{message}\n[TOOL-008]", code="TOOL-008", level="critical")
         if self.visa_instr:
             try:
                 self.visa_instr.close()
@@ -636,23 +685,33 @@ class PulseGeneratorDialog(QDialog):
                     # Low level
                     current_array[i] = base_level
 
-            # Clear and plot
+            # Clear and plot, in the colours of the theme (a white plot in the dark theme hurts)
+            colors = self._plot_colors()
+            self.figure.set_facecolor(colors['figure'])
             self.ax.clear()
-            self.ax.plot(time_array, current_array, 'b-', linewidth=2)
-            self.ax.axhline(y=0, color='gray', linestyle='--', alpha=0.3)
-            self.ax.grid(True, alpha=0.3)
-            self.ax.set_xlabel(self.translator.t('pulse_time_us'))
-            self.ax.set_ylabel(self.translator.t('pulse_current_a'))
-            self.ax.set_title(self.translator.t('pulse_waveform_preview'))
+            self.ax.set_facecolor(colors['axes'])
+            self.ax.plot(time_array, current_array, '-', color=colors['line'], linewidth=2)
+            self.ax.axhline(y=0, color=colors['text'], linestyle='--', alpha=0.3)
+            self.ax.grid(True, color=colors['grid'], alpha=0.5)
+            self.ax.set_xlabel(self.translator.t('pulse_time_us'), color=colors['text'])
+            self.ax.set_ylabel(self.translator.t('pulse_current_a'), color=colors['text'])
+            self.ax.tick_params(colors=colors['text'])
+            for spine in self.ax.spines.values():
+                spine.set_color(colors['spine'])
+            # room above the pulse for its label (the title is the label above the plot)
+            low, high = min(0.0, base_level), max(amplitude, base_level)
+            span = (high - low) or 1.0
+            self.ax.set_ylim(low - 0.05 * span, high + 0.25 * span)
 
             # Add annotations
             self.ax.annotate(
-                f'Peak: {amplitude:.3f}A',
-                xy=(rise_time_us + width_us/2, amplitude),
-                xytext=(10, 10),
+                f"{self.translator.t('pulse_peak')}: {amplitude:.3f} A",
+                xy=(rise_time_us + width_us / 2, amplitude),
+                xytext=(12, 8),
                 textcoords='offset points',
                 fontsize=9,
-                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.7)
+                color='#1b1b1b',
+                bbox=dict(boxstyle='round,pad=0.4', fc='#ffd54f', ec='none', alpha=0.95)
             )
 
             self.figure.tight_layout()
@@ -660,6 +719,17 @@ class PulseGeneratorDialog(QDialog):
 
         except Exception as e:
             print(f"Error plotting waveform: {e}")
+
+    @staticmethod
+    def _plot_colors():
+        """Colours of the plot for the theme in use (the application declares it, see
+        ``main_window.load_theme_file``; without a theme the plot is light)."""
+        app = QApplication.instance()
+        if app is not None and app.property('ola_dark_theme'):
+            return {'figure': '#232629', 'axes': '#2a2d30', 'text': '#f0f0f0', 'grid': '#555555',
+                    'spine': '#8b949e', 'line': '#6cb6ff'}
+        return {'figure': '#ffffff', 'axes': '#ffffff', 'text': '#2c3e50', 'grid': '#bdc3c7',
+                'spine': '#7d8a97', 'line': '#2271b3'}
 
     def update_waveform(self):
         """Update waveform plot"""
@@ -682,18 +752,21 @@ class PulseGeneratorDialog(QDialog):
     def start_pulse(self):
         """Start pulse generation"""
         if not PYVISA_AVAILABLE:
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                self.translator.t('pyvisa_not_available')
+                self.translator.t('pyvisa_not_available'),
+                code="VISA-005",
+                level="critical",
             )
             return
 
         if not self.current_instrument or not self.current_scpi_commands:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                f"{self.translator.t('no_instrument_selected')}\n[TOOL-001]"
+                f"{self.translator.t('no_instrument_selected')}\n[TOOL-001]",
+                code="TOOL-001",
             )
             return
 
@@ -701,10 +774,12 @@ class PulseGeneratorDialog(QDialog):
             # Get VISA address
             visa_address = self.current_instrument.get('visa_address')
             if not visa_address:
-                QMessageBox.critical(
+                show_problem(
                     self,
                     self.translator.t('error'),
-                    self.translator.t('no_visa_address')
+                    self.translator.t('no_visa_address'),
+                    code="INST-005",
+                    level="critical",
                 )
                 return
 
@@ -740,7 +815,8 @@ class PulseGeneratorDialog(QDialog):
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
             self.status_label.setText(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_running')}")
-            self.status_label.setStyleSheet("font-weight: bold; color: #0a0;")
+            set_class(self.status_label, "ok")
+            self.status_label.setStyleSheet("font-weight: bold;")
 
             QMessageBox.information(
                 self,
@@ -751,7 +827,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"{self.translator.t('pulse_start_failed')}: {str(e)}\n[TOOL-005]"
+                f"{self.translator.t('pulse_start_failed')}: {str(e)}",
+                code="TOOL-005",
             )
 
     def stop_pulse(self):
@@ -774,7 +851,8 @@ class PulseGeneratorDialog(QDialog):
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
             self.status_label.setText(f"{self.translator.t('pulse_status')}: {self.translator.t('pulse_stopped')}")
-            self.status_label.setStyleSheet("font-weight: bold; color: #c00;")
+            set_class(self.status_label, "muted")
+            self.status_label.setStyleSheet("font-weight: bold;")
 
             QMessageBox.information(
                 self,
@@ -785,7 +863,8 @@ class PulseGeneratorDialog(QDialog):
         except Exception as e:
             self.error_handler.handle_error(
                 e,
-                f"{self.translator.t('pulse_stop_failed')}: {str(e)}\n[TOOL-005]"
+                f"{self.translator.t('pulse_stop_failed')}: {str(e)}",
+                code="TOOL-005",
             )
 
     def closeEvent(self, event):
