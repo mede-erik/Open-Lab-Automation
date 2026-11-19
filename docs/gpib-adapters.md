@@ -111,5 +111,8 @@ terminator, escaped. It waits at most 3 s between two characters of an answer (`
 `GPIB-001`...`GPIB-009` (adapter not found, driver missing, firmware not loaded, no instrument answers,
 timeout, invalid configuration, operation not supported, Linux set-up failed, Secure Boot): see [`ERROR_CODES.md`](../ERROR_CODES.md).
 
-Not tried yet on real hardware: the tests use a simulated VISA library, a simulated Prologix and a
-simulated Linux system (the generated script is checked with `bash -n`).
+Tested on real hardware: a Keysight 82357B on **Windows** (bus scan and console). Not verified yet: the
+measurement in a project, and **Linux** (the tester hit driver problems on his own set-up). The step-by-step
+test and what to send back when a test fails are in [`gpib-testing.md`](gpib-testing.md). The unit tests
+use a simulated VISA library, a simulated Prologix and a simulated Linux system (the generated script is
+checked with `bash -n`).

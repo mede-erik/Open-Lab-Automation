@@ -369,9 +369,9 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 
 ### Instrument connection
 
-- [ ] USB-GPIB adapter (Agilent/Keysight 82357B) through the GPIB adapter tool
-  - [ ] on Windows (Connection Expert output)
-  - [ ] on Linux (kernel and `linux-gpib` setup)
+- [ ] USB-GPIB adapter (Agilent/Keysight 82357B) through the GPIB adapter tool, test guide in [`docs/gpib-testing.md`](docs/gpib-testing.md)
+  - [ ] on Windows (Connection Expert output): bus scan and console working (tester's result); the instrument model is still to be written, and the measurement in a project is not tested yet
+  - [ ] on Linux (kernel and `linux-gpib` setup): not verified, the tester hit driver problems on his own set-up (not in the program)
 - [ ] LAN (LXI), USB-TMC and serial connections from the instrument editor
 - [ ] Serial settings overridden per instrument (baud, parity, stop bits, flow control)
 
