@@ -59,6 +59,7 @@ tests the `.deb`/`.rpm` in Docker containers; the Windows job needs Inno Setup 6
 | Error codes: every code used in the source is documented in `ERROR_CODES.md` | `tests/test_core_errorhandler.py` |
 | Translation keys used by the code exist in every locale | `tests/test_core_i18n_logging.py` |
 | Command-line tools (`check_translations`, `dry_run_call`, `instrument_shell --sim`) run as subprocesses | `tests/test_scripts_cli.py` |
+| Documentation stays true to the code: docstrings on public `ola/` items, every `ola/` module in the README engine table, TRN/CALL codes in `ERROR_CODES.md`, relative links of README and `docs/` resolve, the example of `docs/measurement-modules.md` runs | `tests/test_docs.py` |
 | Packaging files: versions agree (`pyproject.toml`, `appinfo.json`, `PKGBUILD`), the build recipes name files that exist, the version of a release comes from the tag | `tests/test_packaging.py` |
 | GUI smoke tests: every window/dialog is built and shown offscreen with the example project, without error boxes; the main window opens a project | `tests/test_gui_smoke.py` |
 

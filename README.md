@@ -5,6 +5,23 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 > [!IMPORTANT]  
 > This software is under active development. Features and stability may change, and some parts may be incomplete or experimental. Most instrument models in the library are marked **experimental**: they are written from the manuals and have not been tried on a real instrument (see [Supported instruments](#supported-instruments)).
 
+## Contents
+
+- [Main Features](#main-features)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Getting Started](#getting-started)
+  - [Installation](#installation) · [Trying an instrument from the terminal](#trying-an-instrument-from-the-terminal) · [Running the tests](#running-the-tests) · [Supported instruments](#supported-instruments) · [Quick Start](#quick-start) · [Example Projects](#example-projects)
+- [Engine (`ola/` and `native/`)](#engine-ola-and-native)
+- [File List and Description](#file-list-and-description)
+- [Troubleshooting](#troubleshooting)
+- [Software test status](#software-test-status)
+- [Future features](#future-features)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
 ## Main Features
 
 - **Instrument library and logical calls**
@@ -285,6 +302,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `TESTING.md` — How to test an instrument of the library and report the result
 - `frontend/ui/` — Dialog boxes and UI components (one file per window)
   - `RemoteControlTab.py` — Remote control panel
+  - `GpibAdapterDialog.py`, `GpibDevicePickerDialog.py` — GPIB adapter profiles and the instrument picker on the GPIB bus (guide: [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
@@ -307,6 +325,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `LoadInstruments.py` — Instrument library interface used by the GUI
   - `errorhandler.py` — Centralized error handling with standardized error codes ([RESOURCE-XXX] format)
   - `validator.py` — Input validation functions
+  - `gpib_settings.py` — Saved GPIB adapter settings (see [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `tools.py` — Reusable utility functions
   - `Translator.py` — Multi-language translation system
 

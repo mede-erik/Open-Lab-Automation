@@ -2467,6 +2467,7 @@ set to "talk only" or to another interface (RS-232/LAN), identification command 
 add the instrument's identification command (e.g. `ID?` for older HP instruments), raise the scan timeout
 
 ### GPIB-005: Command Timeout
+**Informational**: this code is documented for reference but is not raised by the current code. A timeout reaches the user as `TRN-003`, so look for that code.  
 **Description**: An instrument did not answer a command in time (shown as `TRN-003` by the connection)  
 **Solution**: Raise the command timeout of the adapter, check the command and the terminators
 
