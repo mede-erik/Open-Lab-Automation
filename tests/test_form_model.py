@@ -249,7 +249,6 @@ def test_the_device_under_test_of_the_forms_comes_from_the_dut_archive(registry)
         "ripple": ("device", None),
         "regulation": ("device", None),
         "bode": ("device", None),
-        "resistive_efficiency": ("device", None),
     }
     for module, (group, category) in wanted.items():
         fields = load_form_spec(registry.get(module)).fields()

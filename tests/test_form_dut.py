@@ -155,7 +155,7 @@ def test_the_form_strings_for_the_dut_are_in_every_language():
         with open(os.path.join(here, "..", "frontend", "lang", "modules", "form", f"{lang}.json"),
                   encoding="utf-8") as f:  # fmt: skip
             assert json.load(f)["form_version_placeholder"].strip()
-        for module in ("bode", "regulation", "ripple", "resistive_efficiency", "return_loss",
+        for module in ("bode", "regulation", "ripple", "return_loss",
                        "antenna", "filter"):  # fmt: skip
             path = os.path.join(here, "..", "ola", "modules", module, "form.json")
             with open(path, encoding="utf-8") as f:

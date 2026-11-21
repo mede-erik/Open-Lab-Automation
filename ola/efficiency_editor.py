@@ -112,7 +112,9 @@ class EfficiencyEditor:
         params: Optional[dict] = None,
         instruments: Optional[Collection[str]] = None,
         checker: Optional[CallChecker] = None,
+        type: str = "efficiency",
     ):
+        self.type = type  # "efficiency" (.eff) or "resistive_efficiency" (.rfe)
         self.params: dict = copy.deepcopy(params) if params else {"variables": []}
         self.params.setdefault("variables", [])
         self.instruments = None if instruments is None else sorted(instruments)
@@ -121,8 +123,9 @@ class EfficiencyEditor:
 
     # ----- loading and saving ------------------------------------------------------------------
     @staticmethod
-    def template(instruments: Sequence[str] = ()) -> dict:
-        """A starting point for a converter: input and output voltage and current, efficiency."""
+    def template(instruments: Sequence[str] = (), load: bool = False) -> dict:
+        """A starting point for a converter: input and output voltage and current, efficiency.
+        With ``load`` the output current is not set: the load is a set of resistors (``.rfe``)."""
         first = instruments[0] if instruments else ""
 
         def reading() -> dict:
@@ -131,6 +134,28 @@ class EfficiencyEditor:
         def setter() -> dict:
             return {"instrument": first, "call": ""}
 
+        if load:
+            return {
+                "variables": [
+                    {"name": "vin", "set": setter(), "sweep": {"values": [9, 12, 15]}},
+                    {
+                        "name": "rload",
+                        "load": {
+                            "loads": [{"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 10}],
+                            "switching": {"mode": "manual"},
+                            "vout": "vout@daq",
+                        },
+                    },
+                    {"name": "iin", "reads": reading()},
+                    {"name": "vout", "reads": reading()},
+                ],
+                "timing": {"settle_s": 5, "samples": 3, "interval_s": 2},
+                "derived": {
+                    "pin": "vin * iin@daq",
+                    "pout": "vout@daq * vout@daq / rload",
+                    "efficiency": "100 * pout / pin",
+                },
+            }
         return {
             "variables": [
                 {
@@ -154,14 +179,14 @@ class EfficiencyEditor:
     def from_file(cls, path: str, **kwargs: Any) -> "EfficiencyEditor":
         """Open a ``.eff`` file (a measurement file of type ``efficiency``)."""
         measurement = MeasurementFile.load(path)
-        if measurement.type != "efficiency":
+        if measurement.type not in ("efficiency", "resistive_efficiency"):
             raise EditorError(f"{path} is a '{measurement.type}' file, not an efficiency file")
-        return cls(measurement.params, **kwargs)
+        return cls(measurement.params, type=measurement.type, **kwargs)
 
     def to_measurement_file(self) -> MeasurementFile:
         """The measurement file to save: the params and the instruments they use as role binding."""
         return MeasurementFile(
-            type="efficiency",
+            type=self.type,
             module_version="1.0.0",
             role_bindings={"instruments": self.used_instruments()},
             params=copy.deepcopy(self.params),
@@ -349,6 +374,8 @@ class EfficiencyEditor:
         """``none`` (not set / nothing), ``fixed``, ``list``, ``points``, ``step`` or ``log``."""
         self._check(index)
         var = self.variables[index]
+        if "load" in var:
+            return "list"  # the loads are its values
         if "value" in var:
             return "fixed"
         sweep = var.get("sweep")
@@ -534,7 +561,9 @@ class EfficiencyEditor:
     def problems(self) -> List[Problem]:
         """The problems of the parameters now (cached until the next change)."""
         if self._problems is None:
-            self._problems = validate_params(self.params, self.instruments, self.checker)
+            self._problems = validate_params(
+                self.params, self.instruments, self.checker, self.type == "resistive_efficiency"
+            )
         return self._problems
 
     def problems_at(self, prefix: str) -> List[Problem]:

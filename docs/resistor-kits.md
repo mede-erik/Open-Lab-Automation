@@ -6,7 +6,8 @@ multiplexer that connects it if it is always wired to the same one. A measuremen
 writing the values again.
 
 The logic is in [`ola/resistor_kits.py`](../ola/resistor_kits.py) (no Qt); the window is `frontend/ui/ResistorKitsDialog.py`.
-Today the [efficiency with a resistive load](resistive-efficiency.md) uses them.
+Today the [efficiency with a resistive load](resistive-efficiency.md) uses them: its editor picks resistors from a kit and
+can save the resistors typed in as a new kit (an existing kit is never changed).
 
 ## The window (*Tools* > *Resistor kits...*)
 

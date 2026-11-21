@@ -36,13 +36,22 @@ At the end, and after any error or stop, the ``shutdown`` calls are made and the
 switched off in the reverse ``power_order`` -- except those marked ``always_on``, which this
 measurement never switches off (for example an auxiliary supply that keeps a microcontroller
 without non-volatile memory alive).
+
+Resistive load (only when ``allow_load`` is set, the ``.rfe`` measurement): a parameter that is a
+``load`` steps through resistors instead of setting an instrument. Every time the load changes the
+outputs the program manages are switched off, the load is connected (the operator is asked, with a
+drawing, or the relays of a multiplexer are closed), the measurement waits ``settle_s`` and the
+outputs are switched on again. Every reading of the output voltage is used to check the power in
+the resistors: if one is above its rating the measurement stops. The relays are opened at the end.
 """
 
 import statistics
 import time
 
-from ola.golden import finish, recording
 from ola.efficiency_spec import SpecError, parse_params, validate_params
+from ola.golden import finish, recording
+from ola.labels import render_svg
+from ola.resistors import describe, schematic
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.sweep import iter_points
 
@@ -50,20 +59,33 @@ from ola.sweep import iter_points
 class Efficiency(Measurement):
     """Efficiency (or any quantity computed from set and read parameters) over a sweep."""
 
+    allow_load = False  # True for the efficiency with a resistive load (.rfe)
+
     def validate(self):
         """Parameter problems that stop the measurement from starting, as text."""
-        return [str(p) for p in validate_params(self.params) if p.severity == "error"]
+        problems = validate_params(self.params, allow_load=self.allow_load)
+        return [str(p) for p in problems if p.severity == "error"]
 
     def setup(self, ctx: MeasurementContext) -> None:
         """Parse the parameters and find the instrument of every call, before touching anything."""
         try:
-            self._spec = parse_params(self.params)
+            self._spec = parse_params(self.params, allow_load=self.allow_load)
         except SpecError as exc:
             raise MeasurementError(str(exc)) from exc
         self._handles = {h.name: h for h in ctx.instruments("instruments")}
         self._touched = False  # becomes True when the first instrument is changed
+        self._closed = []  # relays of the multiplexer that are closed now
+        self._load = None  # the load that is connected now
         used = set()
         for var in self._spec.variables.values():
+            if var.load is not None:
+                if var.load.unresolved:
+                    raise MeasurementError(
+                        "the resistors of a kit were not resolved: the project looks them up when "
+                        "the measurement starts"
+                    )
+                if var.load.instrument:
+                    used.add(var.load.instrument)
             if var.set:
                 used.add(var.set.instrument)
             used.update(r.instrument for r in var.reads.values())
@@ -98,6 +120,10 @@ class Efficiency(Measurement):
         ctx = recording(ctx, "efficiency", self.params, summary_row=False, derive=self.derived)
         spec = self._spec
         setters = [v for v in spec.variables.values() if v.set is not None]
+        load_var = next((v for v in spec.variables.values() if v.load is not None), None)
+        loads = {}
+        if load_var is not None:
+            loads = {load.resistance()[0]: load for load in load_var.load.loads}
         total = spec.point_count()
         last = {}  # last value sent for every parameter
         self._accepted = {}  # parameter -> setpoint whose mismatch the user chose to skip
@@ -107,7 +133,7 @@ class Efficiency(Measurement):
         managed = [spec.variables[name] for name in spec.power_order]
         cooled = [v for v in managed if v.output.mode == "off_during_cooldown"]
         sweep_length = spec.sweep_length()
-        powered_down = False
+        down = []  # parameters whose output was switched off, to be switched on after setting
         started = False
         self._confirm_outputs_already_on(ctx)
         self._touched = True  # from here on teardown has things to put back
@@ -115,8 +141,15 @@ class Efficiency(Measurement):
             ctx.checkpoint()
             if index and spec.cooldown_count() and index % sweep_length == 0:
                 self._cooldown(ctx, cooled, last, index // sweep_length, total)
-                powered_down = bool(cooled)
+                down = list(cooled)
             targets = {v.name: point.get(v.name, v.value) for v in setters}
+            if load_var is not None:
+                load = loads[point[load_var.name]]
+                targets[load_var.name] = point[load_var.name]
+                targets[f"{load_var.name}_min"] = load.resistance()[1]
+                targets[f"{load_var.name}_max"] = load.resistance()[2]
+                if load is not self._load:
+                    down = self._change_load(ctx, load_var.load, load, managed, down, last)
             attempt = 1
             while True:
                 self._apply(setters, targets, last)
@@ -125,9 +158,9 @@ class Efficiency(Measurement):
                         self._ensure_on(ctx, var)
                     self._calls(spec.startup)
                     started = True
-                elif powered_down:
-                    self._outputs_on(cooled)
-                    powered_down = False
+                elif down:
+                    self._outputs_on(down)
+                    down = []
                 ctx.sleep(spec.timing.settle_s)
                 result = self._sample_point(ctx, index, attempt, targets)
                 if result is not None:
@@ -171,8 +204,70 @@ class Efficiency(Measurement):
             except Exception as exc:  # keep going: the other outputs must still be switched off
                 ctx.log(f"shutdown {call.instrument}.{call.call} failed: {exc}", "error")
                 first_error = first_error or exc
+        if self._closed:  # the converter is off now: the relays can be opened
+            try:
+                self._open_relays()
+            except Exception as exc:
+                ctx.log(f"could not open the relays {','.join(self._closed)}: {exc}", "error")
+                first_error = first_error or exc
         if first_error is not None:
             raise first_error
+
+    # ----- the resistive load -----------------------------------------------------------------
+    def _change_load(self, ctx, spec, load, managed, down, last):
+        """Connect ``load`` with the managed outputs off; returns the outputs to switch on again.
+
+        The converter is never powered while the load changes: the outputs that are on are
+        switched off first (those already off for a cooldown are not touched twice)."""
+        if self._load is not None:
+            self._outputs_off([v for v in managed if v.name not in {d.name for d in down}])
+        for var in managed:
+            last.pop(var.name, None)  # set again before it is switched on again
+        if spec.mode == "mux":
+            self._open_relays()
+            channels = load.channels()
+            self._handles[spec.instrument].call("close_channel", channels=",".join(channels))
+            self._closed = channels
+            ctx.sleep(spec.settle_s)
+        else:
+            words = describe(load)
+            text = (
+                f"Connect the load '{load.name}': {words}, to the output of the converter. "
+                "The converter is switched off. Then continue."
+            )
+            data = {
+                "kind": "load",
+                "load": load.name,
+                "r_ohm": load.resistance()[0],
+                "description": words,
+                "svg": render_svg(schematic(load)),
+            }
+            if ctx.ask(text, ["continue", "abort"], default="abort", data=data) == "abort":
+                raise Stopped()
+            ctx.sleep(spec.settle_s)
+        self._load = load
+        self._load_spec = spec
+        return list(managed)
+
+    def _open_relays(self) -> None:
+        if self._closed:
+            instrument = self._load_spec.instrument
+            self._handles[instrument].call("open_channels", channels=",".join(self._closed))
+            self._closed = []
+
+    def _guard(self, reading) -> None:
+        """Stop if a resistor of the connected load is above its rating at the voltage read."""
+        if self._load is None:
+            return
+        label = self._load_spec.vout
+        if "@" not in label:
+            label = f"{label}@{next(iter(self._spec.variables[label].reads))}"
+        resistor, fraction = self._load.most_loaded(reading[label])
+        if resistor is not None and fraction > 1.0:
+            raise MeasurementError(
+                f"the resistor {resistor.name} of the load {self._load.name} dissipates "
+                f"{fraction * 100:.0f} % of its rating at {reading[label]:.4g} V: stopped"
+            )
 
     # ----- steps of a point -------------------------------------------------------------------
     def _calls(self, calls) -> None:
@@ -294,6 +389,7 @@ class Efficiency(Measurement):
         for k in range(timing.samples):
             ctx.checkpoint()
             reading = self._read_all()
+            self._guard(reading)
             samples.append(reading)
             ctx.emit_point(
                 {"point": index, "attempt": attempt, "sample": k, **targets, **reading},

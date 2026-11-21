@@ -373,6 +373,28 @@ def schematic(load: Load) -> Drawing:
     return drawing
 
 
+def refs_problems(raw: Any, path: str = "loads") -> List[Tuple[str, str]]:
+    """The references to a kit of resistors (``{"kit": "PWR", "ref": "R22"}``) as far as they can be
+    checked without the kit: ``[(path, message)]``. A reference names its kit and its resistor."""
+    out: List[Tuple[str, str]] = []
+    if isinstance(raw, list):
+        for i, item in enumerate(raw):
+            out += refs_problems(item, f"{path}[{i}]")
+        return out
+    if not isinstance(raw, Mapping):
+        return out
+    if "ref" in raw and "r_ohm" not in raw:
+        if not isinstance(raw["ref"], str) or not raw["ref"].strip():
+            out.append((f"{path}.ref", "the name of the resistor in the kit is missing"))
+        if not isinstance(raw.get("kit"), str) or not raw["kit"].strip():
+            out.append((path, 'a resistor from a kit names the kit: write "kit" in it'))
+        return out
+    for key in ("series", "parallel"):
+        if key in raw:
+            out += refs_problems(raw[key], f"{path}.{key}")
+    return out
+
+
 def channels_of(loads: Sequence[Load]) -> List[str]:
     """Every relay that any load uses, without repeats."""
     seen: List[str] = []
@@ -385,5 +407,5 @@ def channels_of(loads: Sequence[Load]) -> List[str]:
 
 __all__ = [
     "Group", "Load", "LoadError", "Resistor", "channels_of", "describe", "has_refs", "parse_load",
-    "parse_loads", "schematic",
+    "parse_loads", "refs_problems", "schematic",
 ]  # fmt: skip
