@@ -105,4 +105,6 @@ def test_an_instrument_without_a_model_has_no_empty_brackets(tab, tmp_path):
     tab.load_instruments(write_inst(tmp_path))
     titles = [g.title() for g in tab.findChildren(QtWidgets.QGroupBox)]
     assert not any("()" in t for t in titles), titles
-    assert any(t == "BENCH" for t in titles) and any(t == "LOAD (EL4913A)" for t in titles)
+    # BENCH is a manual supply: it is not shown in the tab at all
+    assert not any(t.startswith("BENCH") for t in titles), titles
+    assert any(t == "LOAD (EL4913A)" for t in titles)
