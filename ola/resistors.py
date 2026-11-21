@@ -39,7 +39,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 from .labels import Box, Drawing, Line, Text
 
-MAX_DEPTH = 6
+MAX_DEPTH = 16  # a network found by ola.combinations from a kit of 15 resistors can be this deep
 MAX_RESISTORS = 64
 
 

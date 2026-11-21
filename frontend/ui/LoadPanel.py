@@ -18,12 +18,14 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -38,6 +40,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.core.errorhandler import show_problem
+from ola.combinations import Plan, PlanError, loads_from_plan, plan_loads, tree_text
 from ola.resistor_kits import Kit, KitError, KitRegistry, kit_from_loads
 from ola.run_view import parse_si
 
@@ -173,6 +176,179 @@ class _NewLoad(QDialog):
         return out if out.get("r_ohm") else None
 
 
+class _PlanDialog(QDialog):
+    """Calculate the loads for a range of output current from a kit of resistors."""
+
+    def __init__(
+        self,
+        registry: KitRegistry,
+        t: Callable[..., str],
+        previous: Optional[dict] = None,
+        parent: QWidget = None,
+    ):
+        super().__init__(parent)
+        self._t = t
+        self.registry = registry
+        self.plan: Optional[Plan] = None
+        self.resistors: List[dict] = []
+        self.setWindowTitle(t("eff_plan_title"))
+        self.resize(900, 560)
+        layout = QVBoxLayout(self)
+        note = QLabel(t("eff_plan_help"))
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        form = QFormLayout()
+        self.kits = QComboBox()
+        self.kits.addItems(registry.names())
+        form.addRow(t("eff_load_kit"), self.kits)
+        self.kind = QComboBox()
+        self.kind.addItem(t("eff_plan_regulated"), "regulated")
+        self.kind.addItem(t("eff_plan_unregulated"), "unregulated")
+        self.kind.currentIndexChanged.connect(self._kind_changed)
+        form.addRow(t("eff_plan_kind"), self.kind)
+        self.fields: Dict[str, QLineEdit] = {}
+        for key, tip in (
+            ("vout_v", "V"),
+            ("ratio", "0.5"),
+            ("vin_v", "V"),
+            ("i_min", "A"),
+            ("i_max", "A"),
+            ("points", ""),
+            ("margin_pct", "%"),
+        ):
+            edit = QLineEdit()
+            edit.setPlaceholderText(tip)
+            edit.textChanged.connect(self._invalidate)
+            self.fields[key] = edit
+            form.addRow(t(f"eff_plan_{key}"), edit)
+        self._form = form
+        layout.addLayout(form)
+        row = QHBoxLayout()
+        self.calculate_button = QPushButton(t("eff_plan_calculate"))
+        self.calculate_button.clicked.connect(self.calculate)
+        row.addWidget(self.calculate_button)
+        self.summary = QLabel()
+        self.summary.setWordWrap(True)
+        row.addWidget(self.summary, 1)
+        layout.addLayout(row)
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(
+            [
+                t(f"eff_plan_col_{c}")
+                for c in ("target", "combo", "ohm", "current", "dev", "load", "moves")
+            ]
+        )
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        layout.addWidget(self.table, 1)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+        previous = previous or {}
+        if previous.get("kit") in registry.names():
+            self.kits.setCurrentText(previous["kit"])
+        self.kind.setCurrentIndex(max(0, self.kind.findData(previous.get("kind", "regulated"))))
+        defaults = {"margin_pct": 80, "points": 10, "i_min": 0}
+        for key, edit in self.fields.items():
+            value = previous.get(key, defaults.get(key))
+            edit.setText("" if value is None else f"{value:g}")
+        self._kind_changed()
+        self._invalidate()
+
+    def _kind_changed(self, *_args: Any) -> None:
+        regulated = self.kind.currentData() == "regulated"
+        for key, shown in (
+            ("vout_v", regulated),
+            ("ratio", not regulated),
+            ("vin_v", not regulated),
+        ):
+            self._form.setRowVisible(self.fields[key], shown)
+        self._invalidate()
+
+    def _invalidate(self, *_args: Any) -> None:
+        """An input changed: the table on screen is no longer the plan of the inputs."""
+        self.plan = None
+        self.table.setRowCount(0)
+        self.summary.setText("")
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+
+    def _number(self, key: str) -> Optional[float]:
+        text = self.fields[key].text().strip()
+        return parse_si(text) if text else None
+
+    def inputs(self) -> Dict[str, Any]:
+        """What the user typed (numbers, ``None`` for an empty or unreadable field)."""
+        info: Dict[str, Any] = {"kit": self.kits.currentText(), "kind": self.kind.currentData()}
+        for key in self.fields:
+            info[key] = self._number(key)
+        return info
+
+    def vout(self, info: Dict[str, Any]) -> Optional[float]:
+        """The output voltage: the nominal one, or the ratio times the input voltage."""
+        if info["kind"] == "regulated":
+            return info["vout_v"]
+        if info["ratio"] is None or info["vin_v"] is None:
+            return None
+        return info["ratio"] * info["vin_v"]
+
+    def calculate(self) -> None:
+        """Make the plan of the inputs and show it; the OK button is enabled if it worked."""
+        self._invalidate()
+        info = self.inputs()
+        kit = self.registry.get(info["kit"])
+        needed = ("i_min", "i_max", "points", "margin_pct")
+        if kit is None or self.vout(info) is None or any(info[k] is None for k in needed):
+            self.summary.setText(self._t("eff_plan_missing"))
+            return
+        self.resistors = [
+            {"kit": kit.name, "ref": r.name, "name": r.name, "r_ohm": r.r_ohm, "power_w": r.power_w}
+            for r in kit.resistors
+        ]
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            self.plan = plan_loads(
+                self.resistors,
+                self.vout(info),
+                info["i_min"],
+                info["i_max"],
+                int(info["points"]),
+                margin=info["margin_pct"] / 100,
+            )
+        except PlanError as exc:
+            self.summary.setText(str(exc))
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        names = [r.name for r in kit.resistors]
+        self.table.setRowCount(len(self.plan.points))
+        for row, p in enumerate(self.plan.points):
+            cells = (
+                f"{p.target_a:.3f} A",
+                tree_text(p.tree, names),
+                f"{p.r_ohm:.4g}",
+                f"{p.current_a:.3f} A",
+                f"{p.deviation_pct:+.1f} %",
+                f"{p.load_pct:.0f} %",
+                str(p.changes),
+            )
+            for column, text in enumerate(cells):
+                self.table.setItem(row, column, QTableWidgetItem(text))
+        text = self._t("eff_plan_done", n=len(self.plan.points), moves=self.plan.changes)
+        if self.plan.open_circuit:
+            text += " " + self._t("eff_plan_open")
+        self.summary.setText(text)
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(self.plan.points))
+
+    def loads(self) -> List[dict]:
+        """The loads of the plan, as references to the kit."""
+        refs = [{"kit": r["kit"], "ref": r["ref"]} for r in self.resistors]
+        return loads_from_plan(self.plan, refs) if self.plan else []
+
+
 class LoadPanel(QGroupBox):
     """Edits one ``load`` block (see the module docstring); ``changed`` is emitted after an edit."""
 
@@ -205,6 +381,7 @@ class LoadPanel(QGroupBox):
         for key, handler in (
             ("add_kit", self.add_from_kit),
             ("add_new", self.add_new),
+            ("plan", self.plan_from_range),
             ("remove", self.remove_selected),
             ("save_kit", self.save_as_kit),
         ):
@@ -341,6 +518,24 @@ class LoadPanel(QGroupBox):
         dialog = _KitPick(self.registry, self._t, self)
         if dialog.exec():
             self._add(dialog.loads())
+
+    def plan_from_range(self) -> None:
+        """Calculate the loads for a range of output current from a kit (replaces the list)."""
+        try:
+            names = self.registry.names()
+        except KitError as exc:
+            show_problem(self, self._t("eff_load"), str(exc), code="MEAS-001", exception=exc)
+            return
+        if not names:
+            QMessageBox.information(self, self._t("eff_load"), self._t("eff_load_no_kits"))
+            return
+        dialog = _PlanDialog(self.registry, self._t, self.block.get("plan"), self)
+        if dialog.exec() and dialog.plan is not None:
+            info = {k: v for k, v in dialog.inputs().items() if v is not None}
+            self.block["loads"] = dialog.loads()
+            self.block["plan"] = info
+            self._fill_table()
+            self.changed.emit()
 
     def add_new(self) -> None:
         """Type in a resistor."""

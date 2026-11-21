@@ -52,7 +52,8 @@ already on: an output that is on is left alone, one that is off is switched on (
 A parameter can also be a **resistive load** (``"load"``, only in the resistive efficiency,
 ``.rfe``): the load of the converter is not an instrument but resistors, and the sweep is the list
 of the loads: ``{"name": "rload", "load": {"loads": [...], "vout": "vout@daq", "max_vout_v": 12,
-"switching": {"mode": "manual" | "mux", ...}}}``. Its value is the nominal resistance of the
+"switching": {"mode": "manual" | "mux", ...}, "plan": {...}}}``; ``plan`` only remembers the inputs
+the loads were calculated from (``ola/combinations.py``). Its value is the nominal resistance of the
 load; the formulas also see ``rload_min`` and ``rload_max`` (the tolerance of the resistors). See
 ``docs/resistive-efficiency.md``.
 
@@ -479,7 +480,9 @@ class _Checker:
         if not isinstance(raw, dict):
             self.error(path, 'must be an object like {"loads": [...], "switching": {...}}')
             return None
-        self.unknown_keys(raw, ("loads", "switching", "vout", "max_vout_v"), path)
+        self.unknown_keys(raw, ("loads", "switching", "vout", "max_vout_v", "plan"), path)
+        if "plan" in raw and not isinstance(raw["plan"], dict):
+            self.error(f"{path}.plan", "must be an object (the inputs of the plan of the loads)")
         loads_raw = raw.get("loads")
         problems = refs_problems(loads_raw, f"{path}.loads")
         for where, message in problems:

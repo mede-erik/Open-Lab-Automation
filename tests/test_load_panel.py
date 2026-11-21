@@ -235,3 +235,67 @@ def test_the_relay_instrument_is_not_offered(app):
     panel = LoadPanel(lambda key, **kw: key, ["daq"])
     panel.set_block({"loads": [], "switching": {"mode": "manual"}})
     assert not panel._form.isRowVisible(panel.instrument)
+
+
+@pytest.mark.gui
+def test_the_plan_dialog_calculates_the_loads_from_a_kit(app, tmp_path):
+    from frontend.ui.LoadPanel import _PlanDialog
+
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(
+        Kit(
+            "PWR",
+            [KitResistor(f"R{i}", v, 1, 100) for i, v in enumerate((12, 10, 5, 2, 1, 12, 5))],
+        )
+    )
+    dialog = _PlanDialog(kits, lambda key, **kw: key)
+    ok = dialog.buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Ok)
+    assert not ok.isEnabled()  # nothing calculated yet
+    for key, text in (("vout_v", "12"), ("i_min", "0"), ("i_max", "10"), ("points", "11")):
+        dialog.fields[key].setText(text)
+    dialog.fields["margin_pct"].setText("100")
+    dialog.calculate()
+    assert ok.isEnabled() and dialog.table.rowCount() == 10
+    loads = dialog.loads()
+    assert len(loads) == 10 and loads[0] == {"name": "1 A", "kit": "PWR", "ref": "R0"}
+    assert all("r_ohm" not in json.dumps(load) for load in loads)  # kit references only
+    dialog.fields["i_max"].setText("12")
+    assert not ok.isEnabled() and dialog.table.rowCount() == 0  # an input changed: recalculate
+    # a converter that is not regulated: the output voltage is the ratio times the input
+    dialog.kind.setCurrentIndex(dialog.kind.findData("unregulated"))
+    dialog.fields["ratio"].setText("0.5")
+    dialog.fields["vin_v"].setText("24")
+    assert dialog.vout(dialog.inputs()) == 12
+
+
+@pytest.mark.gui
+def test_the_plan_replaces_the_loads_and_is_remembered(app, tmp_path, monkeypatch):
+    from frontend.ui import LoadPanel as module
+
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(Kit("PWR", [KitResistor(f"R{i}", v, 1, 100) for i, v in enumerate((12, 10, 5, 2, 1))]))
+
+    class Fake(module._PlanDialog):
+        def exec(self):
+            for key, text in (("vout_v", "12"), ("i_min", "1"), ("i_max", "4"), ("points", "4")):
+                self.fields[key].setText(text)
+            self.fields["margin_pct"].setText("100")
+            self.calculate()
+            return 1
+
+    monkeypatch.setattr(module, "_PlanDialog", Fake)
+    panel = module.LoadPanel(lambda key, **kw: key, registry=kits)
+    panel.set_block({"loads": [{"r_ohm": 10}], "switching": {"mode": "manual"}})
+    seen = []
+    panel.changed.connect(lambda: seen.append(1))
+    panel.plan_from_range()
+    assert len(panel.block["loads"]) == 4 and seen
+    assert panel.block["plan"]["kit"] == "PWR" and panel.block["plan"]["i_max"] == 4
+    assert panel.table.rowCount() == 4
+    assert "(kit)" not in [panel.table.item(r, 1).text() for r in range(4)]
+    # the file is valid with these loads
+    editor = EfficiencyEditor(
+        EfficiencyEditor.template(["psu"], load=True), type="resistive_efficiency"
+    )
+    editor.set("variables[1].load", dict(panel.block))
+    assert not [p for p in editor.problems() if "load.loads" in p.path and p.severity == "error"]

@@ -67,6 +67,28 @@ were used. In the editor, **Add from a kit...** picks the resistors of a kit (on
 one load), **New load...** types one in, and **Save as a kit...** saves the resistors typed in as a **new** kit: a kit that
 exists is never changed.
 
+## Loads for a range of output current
+
+In the editor, **Plan from a current range...** calculates the loads for you. You give the kit, the output voltage and the currents
+you want, for example 0 to 10 A in 11 points at 12 V, and the program combines **all** the resistors of the kit, in series and in
+parallel, nested as far as needed, each physical resistor at most once per load, so that the current at that voltage is as near as
+possible to equally spaced targets. It then shows the table (target, combination, resistance, real current, how far it is in
+percent of a step, the share of its rating the most loaded resistor carries, and how many resistors must be moved from the previous
+point) and, if you accept, **replaces the list of loads** (the resistors stay references to the kit).
+
+* **Output voltage**: *regulated* (a fixed value) or *not regulated*: the conversion ratio times a reference input voltage.
+  The plan is only a guide for choosing resistors: in the measurement the current of each point is always the output voltage read
+  divided by the resistance, so for a converter that is not regulated the points are equidistant only at the reference voltage.
+* **Largest share of the rating** (default 80 %): no resistor of the network carries more than this share of its rating at the
+  output voltage, so a resistor of 1 ohm alone is never offered at 12 V with a rating of 100 W (144 W).
+* **Fewest moves**: among the combinations near each target the plan prefers the path that moves the fewest resistors from one
+  point to the next. The cost of a point is 10 times its distance from the target (in steps) plus the resistors moved.
+* **0 A** (no load) is not a load: if the range starts at 0 the plan leaves that point out; make it with the output open.
+* **Speed**: the search is in Rust (`native/src/combos.rs`): 15 resistors take about 2 s, 20 about 8 s. Without the native module the
+  same steps run in Python, with the same result, about 15 times slower. The method is described in
+  [`ola/combinations.py`](../ola/combinations.py).
+* The inputs are saved in `load.plan` (only to show them again next time; the measurement uses `loads`).
+
 ## What happens at every load change
 
 1. The outputs that the program manages (the supply) are **switched off**.
@@ -84,8 +106,8 @@ The calls of the efficiency (`set_voltage`, `output_on` / `output_off`, readings
 
 ## Not done yet
 
-* The program does not yet compute **combinations of resistors** (series / parallel of a kit) to reach a range of output
-  current with equidistant points: for now you write the loads you want.
+* The learning sweep (a quick first pass to measure the output voltage of a converter that is not regulated, and re-plan from it) is not done yet.
+* The 0 A point (output open) is not a load of the sweep yet.
 * Not tested on real hardware (see the test status list in the README).
 * The old `.rfe` files of the previous format (`vin_v`, `loads` at the top, `switching`...) are not read: rewrite them as above.
   The `summary` table and the verdict of the previous module are gone; use the `derived` formulas and the golden sample.
