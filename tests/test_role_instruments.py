@@ -51,12 +51,11 @@ def test_a_role_takes_its_category_or_the_types_it_accepts():
     assert fits_role(ENTRIES[6], Role("o", "oscilloscope"))  # the plural spelling is understood
 
 
-def test_the_resistive_efficiency_editor_lists_the_right_instruments(tmp_path):
+def test_the_regulation_editor_lists_the_right_instruments(tmp_path):
     s = session(tmp_path)
-    by_role = s.instruments_by_role(s.registry.get("resistive_efficiency"))
+    by_role = s.instruments_by_role(s.registry.get("regulation"))
     assert by_role["supply"] == ["PSU", "OLD"]  # not the datalogger, not the multimeter
     assert by_role["meter"] == ["DMM", "DAQ", "OLD"]  # a multimeter or a datalogger
-    assert by_role["switch"] == ["DAQ", "SW", "OLD"]  # a datalogger or a switch unit
 
 
 def test_every_form_role_lists_only_its_own_kind(tmp_path):
@@ -79,7 +78,7 @@ def test_without_an_instrument_file_every_role_lists_all_names(tmp_path):
     project.save()
     registry = default_registry(user_dir=tmp_path / "none")
     s = ProjectSession(project, registry, instruments=["a", "b"])
-    by_role = s.instruments_by_role(s.registry.get("resistive_efficiency"))
+    by_role = s.instruments_by_role(s.registry.get("regulation"))
     assert all(names == ["a", "b"] for names in by_role.values())
 
 
@@ -118,11 +117,11 @@ def test_the_form_editor_offers_each_field_its_instruments(app, tmp_path):
     from frontend.ui.FormEditorDialog import FormEditorDialog
 
     s = session(tmp_path)
-    info = s.registry.get("resistive_efficiency")
+    info = s.registry.get("regulation")
     dialog = FormEditorDialog(
         str(tmp_path / "r.reh"),
         s.registry,
-        "resistive_efficiency",
+        "regulation",
         None,
         s.instruments,
         role_instruments=s.instruments_by_role(info),
@@ -134,4 +133,3 @@ def test_the_form_editor_offers_each_field_its_instruments(app, tmp_path):
     }
     assert combos["supply"] == ["PSU", "OLD"]
     assert combos["meter"] == ["DMM", "DAQ", "OLD"]
-    assert combos["switch"] == ["DAQ", "SW", "OLD"]

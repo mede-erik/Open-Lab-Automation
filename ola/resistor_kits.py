@@ -297,6 +297,49 @@ class KitRegistry:
         return self.resolve_node(loads, default_kit)
 
 
+def kit_from_loads(name: str, loads: Any, note: str = "") -> Kit:
+    """A new ``Kit`` with the resistors typed in the loads of a measurement (those that are not
+    references to a kit already), to save them as a kit of their own. The same resistor used in
+    two loads is kept once; ``KitError`` if two different resistors share a name, or there are
+    none."""
+    found: List[KitResistor] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+        elif isinstance(node, Mapping):
+            if "r_ohm" in node and "ref" not in node:
+                try:
+                    found.append(
+                        KitResistor(
+                            str(node.get("name") or f"R{len(found) + 1}"),
+                            float(node["r_ohm"]),
+                            float(node.get("tol_pct", 0.0)),
+                            node.get("power_w"),
+                            str(node.get("channel", "")),
+                        )
+                    )
+                except (TypeError, ValueError) as exc:
+                    raise KitError(f"a resistor of the loads cannot be used: {exc}") from exc
+            for key in ("series", "parallel"):
+                if key in node:
+                    walk(node[key])
+
+    walk(loads)
+    kit = Kit(name.strip(), [], note)
+    for resistor in found:
+        same = kit.get(resistor.name)
+        if same is None:
+            kit.resistors.append(resistor)
+        elif same != resistor:
+            raise KitError(f"two different resistors are called {resistor.name!r}")
+    if not kit.resistors:
+        raise KitError("the loads have no resistor of their own to save (all come from a kit)")
+    kit.check()
+    return kit
+
+
 __all__ = [
-    "Kit", "KitError", "KitRegistry", "KitResistor", "default_path",
+    "Kit", "KitError", "KitRegistry", "KitResistor", "default_path", "kit_from_loads",
 ]  # fmt: skip

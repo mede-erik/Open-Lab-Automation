@@ -571,7 +571,7 @@ class ProjectWindow(QMainWindow):
         if ref is None:
             return
         try:
-            if ref.type == "efficiency":
+            if ref.type in ("efficiency", "resistive_efficiency"):
                 from frontend.ui.EfficiencyEditorDialog import EfficiencyEditorDialog
 
                 dialog: QDialog = EfficiencyEditorDialog(

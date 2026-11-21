@@ -68,9 +68,11 @@ from frontend.ui.efficiency_widgets import (
 )
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
+from frontend.ui.LoadPanel import LoadPanel
 from ola.efficiency_editor import EditorError, EfficiencyEditor
 from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
+from ola.project import MeasurementFile
 from ola.variants import format_lines, parse_lines
 from frontend.core.errorhandler import show_problem
 
@@ -135,7 +137,9 @@ class EfficiencyEditorDialog(QDialog):
         self, params: Optional[dict], checker: Optional[CallChecker]
     ) -> EfficiencyEditor:
         kwargs = {"instruments": self.instruments or None, "checker": checker}
+        kind = self._file_type()
         if params is not None:
+            kwargs["type"] = kind
             return EfficiencyEditor(params, **kwargs)
         if self.file_path and os.path.isfile(self.file_path):
             try:
@@ -149,7 +153,17 @@ class EfficiencyEditorDialog(QDialog):
                     exception=exc,
                     level="critical",
                 )
-        return EfficiencyEditor(EfficiencyEditor.template(self.instruments), **kwargs)
+        kwargs["type"] = kind
+        template = EfficiencyEditor.template(self.instruments, kind == "resistive_efficiency")
+        return EfficiencyEditor(template, **kwargs)
+
+    def _file_type(self) -> str:
+        """``efficiency`` or ``resistive_efficiency``: what the file being edited is."""
+        try:
+            kind = MeasurementFile.load(self.file_path).type
+        except Exception:  # a new or unreadable file: the ordinary efficiency
+            return "efficiency"
+        return kind if kind == "resistive_efficiency" else "efficiency"
 
     # ================================================================ building the window
     def _build_ui(self) -> None:
@@ -270,6 +284,9 @@ class EfficiencyEditorDialog(QDialog):
         self.variant_edit.textChanged.connect(self._device_changed)
         name_row.addRow(self._t("eff_variant"), self.variant_edit)
         form_layout.addLayout(name_row)
+        self.load_panel = LoadPanel(self._t, self.instruments)
+        self.load_panel.changed.connect(self._load_edited)
+        form_layout.addWidget(self.load_panel)
         form_layout.addWidget(self._build_set_group())
         form_layout.addWidget(self._build_value_group())
         form_layout.addWidget(self._build_reads_group())
@@ -628,6 +645,13 @@ class EfficiencyEditorDialog(QDialog):
         self._load_parameter()
         self._after_change()
 
+    def _load_edited(self) -> None:
+        """The panel of a resistive load changed: store its block."""
+        if self._loading or self._current is None:
+            return
+        self.editor.set(f"variables[{self._current}].load", dict(self.load_panel.block))
+        self._after_change()
+
     def _mode_changed(self, _index: int) -> None:
         if self._loading or self._current is None:
             return
@@ -762,11 +786,24 @@ class EfficiencyEditorDialog(QDialog):
         self._update_dependent()
         self._apply_marks()
 
+    def _show_load_panel(self) -> None:
+        """A parameter that is a resistive load has its panel instead of set / value / output."""
+        index = self._current
+        block = self.editor.get(f"variables[{index}].load") if index is not None else None
+        is_load = isinstance(block, dict)
+        for widget in (self.set_group, self.value_group, self.verify_group, self.limits_group,
+                       self.output_group):  # fmt: skip
+            widget.setVisible(not is_load)
+        self.load_panel.setVisible(is_load)
+        if is_load and self.load_panel.block != block:
+            self.load_panel.set_block(block)
+
     def _update_dependent(self) -> None:
         """Show only the fields that mean something for the chosen mode."""
         index = self._current
         if index is None:
             return
+        self._show_load_panel()
         mode = self.editor.sweep_mode(index)
         shown = {
             "none": (), "fixed": ("value",), "list": ("values",),
