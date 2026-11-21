@@ -26,7 +26,7 @@ and the value of the parameter (its name in the formulas) is the nominal resista
             {"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
             {"kit": "PWR", "ref": "R47"}]}
        ],
-       "switching": {"mode": "mux", "instrument": "daq", "settle_s": 0.5},
+       "switching": {"mode": "manual", "settle_s": 0.5},
        "vout": "vout@daq",
        "max_vout_v": 6}},
     {"name": "iin", "reads": {"daq": {"instrument": "psu", "call": "read_current"}}},
@@ -43,9 +43,10 @@ and the value of the parameter (its name in the formulas) is the nominal resista
 
 * `loads`: each load is one resistor (`r_ohm`, `tol_pct`, `power_w`, `channel`) or a `series` / `parallel` group of resistors,
   nested as needed (see [`ola/resistors.py`](../ola/resistors.py)). Two loads must not have the same resistance.
-* `switching`: `manual` (the program asks you to connect each load, showing its schematic) or `mux` (the relays of the
-  `instrument`, a datalogger module or a switch unit, close the `channel` of every resistor of the load: every resistor needs one).
-  `settle_s` is the wait after connecting.
+* `switching`: `manual` (the program asks you to connect each load, showing its schematic). `settle_s` is the wait after connecting.
+  A **switch matrix** (relays that connect the resistors in series or in parallel by themselves) is planned for a future version:
+  the editor shows it as not yet usable. The engine still has a first, simple `mux` mode (the relays of an `instrument` close the
+  `channel` of every resistor of the load, so they end up in parallel), which is not offered by the editor and not supported.
 * `vout`: the reading of the output voltage (`vout@daq`) that checks the power in the resistors on **every** reading.
 * `max_vout_v`: the largest output voltage you expect; checked **before** the run against the rating of every resistor.
 * In the formulas, a load parameter called `rload` gives `rload` (nominal ohms), `rload_min` and `rload_max` (the resistance with
@@ -74,8 +75,8 @@ stops with a message that names it. At the end, after an error or a stop, the ou
 
 ## What the instruments must provide
 
-The calls of the efficiency (`set_voltage`, `output_on` / `output_off`, readings) and, for the relays, `close_channel` and
-`open_channels` on the multiplexer instrument.
+The calls of the efficiency (`set_voltage`, `output_on` / `output_off`, readings) (and, for the not yet supported `mux` mode, `close_channel` and
+`open_channels`).
 
 ## Not done yet
 

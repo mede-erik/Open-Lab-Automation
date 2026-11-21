@@ -131,7 +131,7 @@
   "eff_load_save_kit": "Guardar como kit...",
   "eff_load_mode": "Conexión",
   "eff_load_mode_manual": "A mano (el programa pregunta)",
-  "eff_load_mode_mux": "Relés del multiplexor",
+  "eff_load_mode_mux": "Matriz de conmutación (prevista para una versión futura: aún no utilizable)",
   "eff_load_instrument": "Instrumento multiplexor",
   "eff_load_settle": "Espera tras conectar (s)",
   "eff_load_vout": "Lectura de la tensión de salida",
@@ -152,5 +152,11 @@
   "eff_load_bad_value": "La resistencia debe ser un número mayor que 0 (puede escribir 4.7k).",
   "eff_load_kit_name": "Nombre del nuevo kit",
   "eff_load_kit_exists": "Ya existe un kit llamado '{name}': elija otro nombre (los kits existentes nunca se modifican).",
-  "eff_load_kit_saved": "Kit '{name}' guardado con {n} resistencia(s). Las cargas conservan sus valores; para usar el kit, añada las resistencias desde él."
+  "eff_load_kit_saved": "Kit '{name}' guardado con {n} resistencia(s). Las cargas conservan sus valores; para usar el kit, añada las resistencias desde él.",
+  "eff_args_title": "Argumentos de la llamada",
+  "eff_args_name": "Nombre",
+  "eff_args_value": "Valor",
+  "eff_args_add": "Añadir",
+  "eff_args_remove": "Quitar",
+  "eff_values_col": "Valor"
 }

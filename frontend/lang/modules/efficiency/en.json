@@ -131,7 +131,7 @@
   "eff_load_save_kit": "Save as a kit...",
   "eff_load_mode": "Connection",
   "eff_load_mode_manual": "By hand (the program asks)",
-  "eff_load_mode_mux": "Multiplexer relays",
+  "eff_load_mode_mux": "Switch matrix (planned for a future version: not usable yet)",
   "eff_load_instrument": "Multiplexer instrument",
   "eff_load_settle": "Wait after connecting (s)",
   "eff_load_vout": "Output voltage reading",
@@ -152,5 +152,11 @@
   "eff_load_bad_value": "The resistance must be a number above 0 (you can write 4.7k).",
   "eff_load_kit_name": "Name of the new kit",
   "eff_load_kit_exists": "There is already a kit called '{name}': choose another name (the existing kits are never changed).",
-  "eff_load_kit_saved": "Kit '{name}' saved with {n} resistor(s). The loads still hold their own values; to use the kit, add the resistors from it."
+  "eff_load_kit_saved": "Kit '{name}' saved with {n} resistor(s). The loads still hold their own values; to use the kit, add the resistors from it.",
+  "eff_args_title": "Arguments of the call",
+  "eff_args_name": "Name",
+  "eff_args_value": "Value",
+  "eff_args_add": "Add",
+  "eff_args_remove": "Remove",
+  "eff_values_col": "Value"
 }

@@ -126,3 +126,35 @@ def test_adding_resistors_from_a_kit_and_editing_the_connection(app, tmp_path):
     panel.remove_selected()
     assert len(dialog.editor.get("variables[1].load")["loads"]) == 1
     dialog.close()
+
+
+@pytest.mark.gui
+def test_the_matrix_is_shown_but_cannot_be_chosen(app):
+    from frontend.ui.LoadPanel import LoadPanel
+
+    panel = LoadPanel(lambda key, **kw: key)
+    item = panel.mode.model().item(panel.mode.findData("mux"))
+    assert not item.isEnabled() and panel.mode.findData("manual") == 0
+
+
+@pytest.mark.gui
+def test_the_values_and_the_arguments_are_edited_in_tables(app, tmp_path):
+    from frontend.ui.EfficiencyEditorDialog import EfficiencyEditorDialog
+    from frontend.ui.efficiency_widgets import ArgsDialog
+
+    editor = EfficiencyEditor(EfficiencyEditor.template(["psu"]))
+    path = tmp_path / "x.eff"
+    editor.save(str(path))
+    dialog = EfficiencyEditorDialog(str(path), None, ["psu"])
+    dialog.param_list.setCurrentRow(1)  # vin, a list of values
+    table = dialog.sweep_rows["values"][1]
+    assert table.text() == "9, 12, 15" and table.table.rowCount() == 3
+    table.add_row("18")
+    assert dialog.editor.get("variables[1].sweep.values") == [9, 12, 15, 18]
+    table.table.selectRow(0)
+    table.remove_selected()
+    assert dialog.editor.get("variables[1].sweep.values") == [12, 15, 18]
+    dialog.close()
+    args = ArgsDialog({"channel_number": 1, "mode": "dc"})
+    args.add_row("ok", "true")
+    assert args.args() == {"channel_number": 1, "mode": "dc", "ok": True}

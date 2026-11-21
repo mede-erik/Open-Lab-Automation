@@ -60,6 +60,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.efficiency_widgets import (
     text_color,
     CallEdit,
+    ValuesTable,
     format_number,
     format_number_list,
     mark_widget,
@@ -310,6 +311,17 @@ class EfficiencyEditorDialog(QDialog):
         splitter.setSizes([340, 800])
         return splitter
 
+    def _args_texts(self) -> Dict[str, str]:
+        """The texts of the table of the arguments of a call."""
+        return {
+            "args_title": self._t("eff_args_title"),
+            "title": self._t("eff_args_title"),
+            "name": self._t("eff_args_name"),
+            "value": self._t("eff_args_value"),
+            "add": self._t("eff_args_add"),
+            "remove": self._t("eff_args_remove"),
+        }
+
     def _call_edit(self, path: str, scoped: bool = True) -> CallEdit:
         edit = CallEdit(
             self.instruments,
@@ -318,6 +330,7 @@ class EfficiencyEditorDialog(QDialog):
                 "instrument": self._t("eff_ph_instrument"),
                 "call": self._t("eff_ph_call"),
                 "args": self._t("eff_ph_args"),
+                **self._args_texts(),
             },
         )
         field = _Field(edit, path, "call", scoped)
@@ -334,6 +347,20 @@ class EfficiencyEditorDialog(QDialog):
         self._fields.append(field)
         edit.textChanged.connect(lambda _t, f=field: self._field_changed(f))
         return edit
+
+    def _values_table(self, path: str) -> ValuesTable:
+        """The values of a sweep, one per row."""
+        table = ValuesTable(
+            {
+                "value": self._t("eff_values_col"),
+                "add": self._t("eff_args_add"),
+                "remove": self._t("eff_args_remove"),
+            }
+        )
+        field = _Field(table, path, "numlist", True)
+        self._fields.append(field)
+        table.textChanged.connect(lambda _t, f=field: self._field_changed(f))
+        return table
 
     def _choice(self, path: str, values: Sequence[str], labels: Dict[str, str]) -> QComboBox:
         box = QComboBox()
@@ -383,7 +410,10 @@ class EfficiencyEditorDialog(QDialog):
             ("points", "variables[{i}].sweep.points", "int", ""),
             ("step", "variables[{i}].sweep.step", "number", ""),
         ):
-            edit = self._line(path, kind, tip=tip)
+            if kind == "numlist":
+                edit = self._values_table(path)
+            else:
+                edit = self._line(path, kind, tip=tip)
             label = QLabel(self._t(f"eff_{key}"))
             form.addRow(label, edit)
             self.sweep_rows[key] = (label, edit)
@@ -854,6 +884,7 @@ class EfficiencyEditorDialog(QDialog):
                 "instrument": self._t("eff_ph_instrument"),
                 "call": self._t("eff_ph_call"),
                 "args": self._t("eff_ph_args"),
+                **self._args_texts(),
             },
         )
         field = _Field(edit, path, "call", False)

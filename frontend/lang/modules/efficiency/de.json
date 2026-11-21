@@ -131,7 +131,7 @@
   "eff_load_save_kit": "Als Kit speichern...",
   "eff_load_mode": "Anschluss",
   "eff_load_mode_manual": "Von Hand (das Programm fragt)",
-  "eff_load_mode_mux": "Multiplexer-Relais",
+  "eff_load_mode_mux": "Schaltmatrix (für eine spätere Version geplant: noch nicht nutzbar)",
   "eff_load_instrument": "Multiplexer-Gerät",
   "eff_load_settle": "Wartezeit nach dem Anschließen (s)",
   "eff_load_vout": "Messung der Ausgangsspannung",
@@ -152,5 +152,11 @@
   "eff_load_bad_value": "Der Widerstand muss eine Zahl über 0 sein (z. B. 4.7k).",
   "eff_load_kit_name": "Name des neuen Kits",
   "eff_load_kit_exists": "Es gibt schon ein Kit '{name}': anderen Namen wählen (bestehende Kits werden nie geändert).",
-  "eff_load_kit_saved": "Kit '{name}' mit {n} Widerstand/Widerständen gespeichert. Die Lasten behalten ihre Werte; um das Kit zu nutzen, Widerstände daraus hinzufügen."
+  "eff_load_kit_saved": "Kit '{name}' mit {n} Widerstand/Widerständen gespeichert. Die Lasten behalten ihre Werte; um das Kit zu nutzen, Widerstände daraus hinzufügen.",
+  "eff_args_title": "Argumente des Aufrufs",
+  "eff_args_name": "Name",
+  "eff_args_value": "Wert",
+  "eff_args_add": "Hinzufügen",
+  "eff_args_remove": "Entfernen",
+  "eff_values_col": "Wert"
 }

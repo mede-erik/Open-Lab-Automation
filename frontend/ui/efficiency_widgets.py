@@ -4,7 +4,9 @@
 
 """Small widgets and helpers used by the efficiency editor dialog.
 
-* ``CallEdit``: one line to describe a call of an instrument (instrument, call name, arguments).
+* ``CallEdit``: one line to describe a call of an instrument (instrument, call name, arguments);
+  the arguments can be typed as JSON or edited in a table (``ArgsDialog``).
+* ``ValuesTable``: a list of numbers (the values of a sweep) edited in a table, one per row.
 * ``parse_number`` / ``parse_number_list`` / ``format_number``: read and write numbers typed by
   the user without losing precision.
 * ``mark_widget``: draw a widget with a red (error) or amber (warning) border and a tooltip, which
@@ -17,7 +19,19 @@ import re
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLineEdit, QWidget
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 ERROR_COLOR = "#d32f2f"
 WARNING_COLOR = "#f9a825"
@@ -107,6 +121,150 @@ def mark_widget(widget: QWidget, severity: Optional[str], message: str = "") -> 
     widget.setToolTip(message)
 
 
+# ---- a list of numbers in a table ------------------------------------------------------------
+
+
+class ValuesTable(QWidget):
+    """The values of a sweep, one per row, with add / remove buttons. It reads and writes the same
+    text as a line (``"9, 12, 15"``) so that it can stand in for the line edit of a list: ``text``,
+    ``setText`` and the ``textChanged`` signal."""
+
+    textChanged = pyqtSignal(str)
+
+    def __init__(self, labels: Optional[Dict[str, str]] = None, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        texts = labels or {}
+        self._busy = False
+        self.table = QTableWidget(0, 1)
+        self.table.setHorizontalHeaderLabels([texts.get("value", "")])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setMaximumHeight(150)
+        self.table.itemChanged.connect(lambda _item: self._emit())
+        add = QPushButton(texts.get("add", "+"))
+        add.clicked.connect(self.add_row)
+        remove = QPushButton(texts.get("remove", "-"))
+        remove.clicked.connect(self.remove_selected)
+        buttons = QHBoxLayout()
+        buttons.addWidget(add)
+        buttons.addWidget(remove)
+        buttons.addStretch(1)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.table)
+        layout.addLayout(buttons)
+
+    def text(self) -> str:
+        """The values as one line, in row order (empty rows are left out)."""
+        cells = (self.table.item(r, 0) for r in range(self.table.rowCount()))
+        return ", ".join(c.text().strip() for c in cells if c is not None and c.text().strip())
+
+    def setText(self, text: str) -> None:  # noqa: N802 (the name of QLineEdit.setText)
+        """Show the values of a line (emits ``textChanged`` if they changed, like a line edit)."""
+        before = self.text()
+        self._busy = True
+        items = [t for t in re.split(r"[,;\s]+", text.strip()) if t]
+        self.table.setRowCount(len(items))
+        for row, item in enumerate(items):
+            self.table.setItem(row, 0, QTableWidgetItem(item))
+        self._busy = False
+        if self.text() != before:
+            self.textChanged.emit(self.text())
+
+    def add_row(self, value: str = "") -> None:
+        """A new row at the end (after the selected one if there is one), ready to type in."""
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setItem(row, 0, QTableWidgetItem(value if isinstance(value, str) else ""))
+        self.table.setCurrentCell(row, 0)
+        self.table.editItem(self.table.item(row, 0))
+        self._emit()
+
+    def remove_selected(self) -> None:
+        """Remove the selected rows."""
+        for row in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
+            self.table.removeRow(row)
+        self._emit()
+
+    def _emit(self) -> None:
+        if not self._busy:
+            self.textChanged.emit(self.text())
+
+
+# ---- the arguments of a call in a table ------------------------------------------------------
+
+
+class ArgsDialog(QDialog):
+    """The arguments of a call as a table of name and value (a number, ``true`` / ``false`` or
+    text), so that no JSON has to be typed."""
+
+    def __init__(
+        self,
+        args: Optional[dict],
+        labels: Optional[Dict[str, str]] = None,
+        parent: Optional[QWidget] = None,
+    ):
+        super().__init__(parent)
+        texts = labels or {}
+        self.setWindowTitle(texts.get("title", ""))
+        self.table = QTableWidget(0, 2)
+        self.table.setHorizontalHeaderLabels([texts.get("name", ""), texts.get("value", "")])
+        self.table.horizontalHeader().setStretchLastSection(True)
+        for name, value in (args or {}).items():
+            self.add_row(str(name), self._show(value))
+        add = QPushButton(texts.get("add", "+"))
+        add.clicked.connect(lambda: self.add_row())
+        remove = QPushButton(texts.get("remove", "-"))
+        remove.clicked.connect(self.remove_selected)
+        row = QHBoxLayout()
+        row.addWidget(add)
+        row.addWidget(remove)
+        row.addStretch(1)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.table)
+        layout.addLayout(row)
+        layout.addWidget(buttons)
+
+    @staticmethod
+    def _show(value: object) -> str:
+        return value if isinstance(value, str) else json.dumps(value)
+
+    @staticmethod
+    def _parse(text: str) -> object:
+        """``4`` -> 4, ``true`` -> True, ``1.5`` -> 1.5; anything else stays text."""
+        try:
+            value = json.loads(text)
+        except ValueError:
+            return text
+        return value if isinstance(value, (int, float, bool)) else text
+
+    def add_row(self, name: str = "", value: str = "") -> None:
+        """A new row."""
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setItem(row, 0, QTableWidgetItem(name))
+        self.table.setItem(row, 1, QTableWidgetItem(value))
+
+    def remove_selected(self) -> None:
+        """Remove the selected rows."""
+        for row in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
+            self.table.removeRow(row)
+
+    def args(self) -> dict:
+        """The arguments of the table (rows without a name are left out)."""
+        out: dict = {}
+        for row in range(self.table.rowCount()):
+            name = (self.table.item(row, 0).text() if self.table.item(row, 0) else "").strip()
+            cell = self.table.item(row, 1)
+            if name:
+                out[name] = self._parse(cell.text().strip() if cell else "")
+        return out
+
+
 # ---- one call of an instrument ---------------------------------------------------------------
 
 
@@ -114,8 +272,9 @@ class CallEdit(QWidget):
     """Instrument, call name and arguments of one call, on one line.
 
     ``catalog(instrument)`` may return the call names known for that instrument (from the
-    instrument library); the call box stays editable either way. The arguments are typed as a JSON
-    object (``{"channel_number": 1}``); while the text is not valid JSON ``args_invalid`` is True.
+    instrument library); the call box stays editable either way. The arguments can be edited in a
+    table (the ``...`` button) or typed as a JSON object (``{"channel_number": 1}``); while the text
+    is not valid JSON ``args_invalid`` is True.
     """
 
     changed = pyqtSignal()
@@ -131,6 +290,7 @@ class CallEdit(QWidget):
         self._catalog = catalog
         self.args_invalid = False
         texts = placeholders or {}
+        self._texts = texts
         self.instrument = QComboBox()
         self.instrument.setEditable(True)
         self.instrument.setMinimumWidth(90)
@@ -146,6 +306,11 @@ class CallEdit(QWidget):
         layout.addWidget(self.instrument, 2)
         layout.addWidget(self.call, 3)
         layout.addWidget(self.args, 3)
+        self.args_button = QPushButton("...")
+        self.args_button.setFixedWidth(32)
+        self.args_button.setToolTip(texts.get("args_title", ""))
+        self.args_button.clicked.connect(self.edit_args)
+        layout.addWidget(self.args_button)
         self.set_instruments(instruments)
         self.instrument.currentTextChanged.connect(self._instrument_changed)
         self.call.currentTextChanged.connect(lambda _: self.changed.emit())
@@ -187,6 +352,14 @@ class CallEdit(QWidget):
             widget.blockSignals(False)
         self.args_invalid = False
         self.args.setStyleSheet("")
+
+    def edit_args(self) -> None:
+        """Edit the arguments in a table; the line shows the result."""
+        current = (self.value() or {}).get("args") or {}
+        dialog = ArgsDialog(current, self._texts, self)
+        if dialog.exec():
+            args = dialog.args()
+            self.args.setText(json.dumps(args, separators=(", ", ": ")) if args else "")
 
     def set_instruments(self, names: Sequence[str]) -> None:
         """The instruments offered in the first box."""

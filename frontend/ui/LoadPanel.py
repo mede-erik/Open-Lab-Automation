@@ -185,6 +185,10 @@ class LoadPanel(QGroupBox):
         self.mode = QComboBox()
         for mode in MODES:
             self.mode.addItem(t(f"eff_load_mode_{mode}"), mode)
+        # the switch matrix (series / parallel wiring by relays) is for a future version: shown, but
+        # it cannot be chosen
+        item = self.mode.model().item(self.mode.findData("mux"))
+        item.setEnabled(False)
         self.mode.currentIndexChanged.connect(self._edited)
         form.addRow(t("eff_load_mode"), self.mode)
         self.instrument = QComboBox()
