@@ -243,11 +243,14 @@ class EfficiencyEditorDialog(QDialog):
             ("eff_remove", self._remove_parameter),
             ("eff_up", lambda: self._move_parameter(-1)),
             ("eff_down", lambda: self._move_parameter(+1)),
+            ("eff_add_load", self._add_load),
         )):
             button = QPushButton(self._t(key))
             button.clicked.connect(handler)
             setattr(self, f"btn_{key}", button)
             row.addWidget(button, index // 3, index % 3)
+        # a resistive load can be added only to the efficiency with a resistive load
+        self.btn_eff_add_load.setVisible(self.editor.type == "resistive_efficiency")
         left_layout.addLayout(row)
 
         self.form_container = QWidget()
@@ -745,6 +748,10 @@ class EfficiencyEditorDialog(QDialog):
     def _add_parameter(self) -> None:
         index = self.editor.add_parameter(self._t("eff_new_name"))
         self._after_structure(select=index)
+
+    def _add_load(self) -> None:
+        """A new parameter that is a resistive load (for a converter with another output)."""
+        self._after_structure(select=self.editor.add_load())
 
     def _duplicate_parameter(self) -> None:
         if self._current is not None:

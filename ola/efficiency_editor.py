@@ -249,6 +249,18 @@ class EfficiencyEditor:
         self._problems = None
         return len(self.variables) - 1
 
+    def add_load(self, name: Optional[str] = None) -> int:
+        """Append a parameter that is a resistive load (``.rfe``) with one starting resistor;
+        returns its position. A converter with two outputs has one for each."""
+        load = {
+            "loads": [{"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 10}],
+            "switching": {"mode": "manual"},
+            "vout": "vout",
+        }
+        self.variables.append({"name": self._unique_name(name or "rload"), "load": load})
+        self._problems = None
+        return len(self.variables) - 1
+
     def duplicate_parameter(self, index: int) -> int:
         """Copy a parameter right after itself (with a new name); returns the new position."""
         self._check(index)

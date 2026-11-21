@@ -218,3 +218,40 @@ def test_a_resistor_above_its_rating_stops_the_run_and_switches_off(registry):
     assert runner.state is RunState.FAILED
     assert "dissipates" in str(runner.error) and "tiny" in str(runner.error)
     assert bench.events[-2:] == ["supply off", "open 201"]
+
+
+def test_a_converter_with_two_outputs_has_a_load_for_each(registry):
+    p = params(mode="manual")
+    second = {
+        "name": "rload2",
+        "load": {
+            "loads": [{"name": "4R7", "r_ohm": 4.7, "power_w": 20}],
+            "switching": {"mode": "manual"},
+            "vout": "vout@daq",
+        },
+    }
+    p["variables"].insert(2, second)
+    assert errors(p) == []
+    bench = SimResistiveBench(channel_ohms=OHMS)
+    handles = {"instruments": [bench.supply, bench.meter, bench.switch]}
+    runner = Runner(registry.create("resistive_efficiency", p), handles)
+    asked = []
+
+    def operator():
+        while runner.state not in (RunState.FINISHED, RunState.FAILED):
+            for q in list(runner.pending_questions):
+                asked.append((q["data"]["parameter"], q["data"]["load"]))
+                bench.manual_ohms = q["data"]["r_ohm"]
+                runner.answer(q["id"], "continue")
+            time.sleep(0.005)
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    runner.start()
+    assert runner.join(60)
+    thread.join()
+    assert runner.state is RunState.FINISHED
+    # the second load is asked once, at the start; the first changes with its own sweep
+    assert asked == [("rload", "10R"), ("rload2", "4R7"), ("rload", "22||47")]
+    points = rows(runner).get("points", [])
+    assert not points or all("rload2" in row for row in points)

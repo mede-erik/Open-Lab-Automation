@@ -52,6 +52,10 @@ and the value of the parameter (its name in the formulas) is the nominal resista
 * In the formulas, a load parameter called `rload` gives `rload` (nominal ohms), `rload_min` and `rload_max` (the resistance with
   the tolerances of all the resistors at their worst), so the efficiency can be given with the range the tolerances allow.
 
+A converter with **several outputs** has one load parameter for each (in the editor: **Add load**), each with its own resistors and
+its own `vout` reading; whenever any of them changes the outputs are switched off once, and you are asked to connect only the loads
+that changed.
+
 Where the load sits in the list of parameters is the nesting of the sweep, like any other parameter: put it **after** the input
 voltage to try every input voltage on each load (the load changes rarely), before it to change the load at every point.
 

@@ -158,3 +158,29 @@ def test_the_values_and_the_arguments_are_edited_in_tables(app, tmp_path):
     args = ArgsDialog({"channel_number": 1, "mode": "dc"})
     args.add_row("ok", "true")
     assert args.args() == {"channel_number": 1, "mode": "dc", "ok": True}
+
+
+@pytest.mark.gui
+def test_a_load_can_be_added_only_in_the_resistive_efficiency(app, tmp_path):
+    from frontend.ui.EfficiencyEditorDialog import EfficiencyEditorDialog
+
+    plain = tmp_path / "a.eff"
+    EfficiencyEditor(EfficiencyEditor.template(["psu"])).save(str(plain))
+    dialog = EfficiencyEditorDialog(str(plain), None, ["psu"])
+    assert dialog.btn_eff_add_load.isHidden()
+    dialog.close()
+    resistive = tmp_path / "b.rfe"
+    EfficiencyEditor(
+        EfficiencyEditor.template(["psu"], load=True), type="resistive_efficiency"
+    ).save(str(resistive))
+    dialog = EfficiencyEditorDialog(str(resistive), None, ["psu"])
+    assert not dialog.btn_eff_add_load.isHidden()
+    dialog.editor.remove_parameter(1)  # the first load is removed...
+    dialog._after_structure()
+    assert "rload" not in dialog.editor.names()
+    dialog._add_load()  # ...and a load can be added again, also a second one
+    dialog._add_load()
+    names = dialog.editor.names()
+    assert names.count("rload") == 1 and "rload2" in names
+    assert all("load" in v for v in dialog.editor.variables if v["name"].startswith("rload"))
+    dialog.close()

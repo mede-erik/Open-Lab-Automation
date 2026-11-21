@@ -158,5 +158,6 @@
   "eff_args_value": "Wert",
   "eff_args_add": "Hinzufügen",
   "eff_args_remove": "Entfernen",
-  "eff_values_col": "Wert"
+  "eff_values_col": "Wert",
+  "eff_add_load": "Last hinzufügen"
 }
