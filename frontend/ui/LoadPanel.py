@@ -13,9 +13,10 @@ the resistors are only referenced, the kit is read when the measurement starts),
 efficiency catalog. The logic is in ``ola.resistors`` and ``ola.resistor_kits``.
 """
 
+import copy
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -57,7 +58,7 @@ def node_text(node: Any) -> str:
 
 
 class _KitPick(QDialog):
-    """Choose a kit, some of its resistors and how to connect them."""
+    """Choose a kit, tick some of its resistors (or all) and how to connect them."""
 
     def __init__(self, registry: KitRegistry, t: Callable[..., str], parent: QWidget = None):
         super().__init__(parent)
@@ -75,29 +76,60 @@ class _KitPick(QDialog):
         form.addRow(t("eff_load_how"), self.how)
         layout.addLayout(form)
         self.list = QListWidget()
-        self.list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.list.itemChanged.connect(lambda _item: self._update_ok())
         layout.addWidget(self.list)
-        buttons = QDialogButtonBox(
+        row = QHBoxLayout()
+        for key, state in (("all", True), ("none", False)):
+            button = QPushButton(t(f"eff_load_pick_{key}"))
+            button.clicked.connect(lambda _c=False, on=state: self.check_all(on))
+            row.addWidget(button)
+        row.addStretch(1)
+        layout.addLayout(row)
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
         self._fill(self.kits.currentText())
 
     def _fill(self, name: str) -> None:
+        self.list.blockSignals(True)
         self.list.clear()
         kit = self.registry.get(name)
         for r in kit.resistors if kit else []:
             power = f", {r.power_w:g} W" if r.power_w else ""
-            self.list.addItem(QListWidgetItem(f"{r.name}: {r.r_ohm:g} ohm, {r.tol_pct:g} %{power}"))
+            item = QListWidgetItem(f"{r.name}: {r.r_ohm:g} ohm, {r.tol_pct:g} %{power}")
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.list.addItem(item)
+        self.list.blockSignals(False)
+        self._update_ok()
+
+    def check_all(self, on: bool) -> None:
+        """Tick (or untick) every resistor of the kit."""
+        state = Qt.CheckState.Checked if on else Qt.CheckState.Unchecked
+        for row in range(self.list.count()):
+            self.list.item(row).setCheckState(state)
+
+    def checked_rows(self) -> List[int]:
+        """The rows of the ticked resistors."""
+        return [
+            row
+            for row in range(self.list.count())
+            if self.list.item(row).checkState() == Qt.CheckState.Checked
+        ]
+
+    def _update_ok(self) -> None:
+        ok = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        ok.setEnabled(bool(self.checked_rows()))  # nothing ticked: nothing to add
 
     def loads(self) -> List[dict]:
-        """The loads to add: one per selected resistor, or one group of all of them."""
+        """The loads to add: one per ticked resistor, or one group of all of them."""
         kit = self.registry.get(self.kits.currentText())
         if kit is None:
             return []
-        rows = sorted(self.list.row(item) for item in self.list.selectedItems())
+        rows = self.checked_rows()
         refs = [self.registry.reference(kit.name, kit.resistors[row].name) for row in rows]
         how = self.how.currentData()
         if how == "separate" or len(refs) < 2:
@@ -155,7 +187,7 @@ class LoadPanel(QGroupBox):
     ):
         super().__init__(t("eff_load"), parent)
         self._t = t
-        self._registry = registry
+        self._registry = registry  # given: always this one; None: the file, read at every use
         self._loading = False
         self.block: Dict[str, Any] = {}
         layout = QVBoxLayout(self)
@@ -196,6 +228,7 @@ class LoadPanel(QGroupBox):
         self.instrument.addItems(list(instruments))
         self.instrument.currentTextChanged.connect(self._edited)
         form.addRow(t("eff_load_instrument"), self.instrument)
+        self._form = form
         self.settle = QLineEdit()
         self.settle.setPlaceholderText("s")
         self.settle.textChanged.connect(self._edited)
@@ -213,18 +246,20 @@ class LoadPanel(QGroupBox):
     # ---- the kits ----------------------------------------------------------------------------
     @property
     def registry(self) -> KitRegistry:
-        """The kits of resistors (opened on first use: the file may be damaged)."""
-        if self._registry is None:
-            self._registry = KitRegistry()
-        return self._registry
+        """The kits of resistors: the file is read again every time, so that a kit made in
+        *Tools > Resistor kits* while the editor is open is seen. ``KitError`` if it is damaged."""
+        return self._registry if self._registry is not None else KitRegistry()
 
     # ---- showing and reading the block -------------------------------------------------------
     def set_block(self, block: Optional[dict]) -> None:
         """Show the ``load`` block (a copy is kept and edited)."""
         self._loading = True
-        self.block = dict(block) if isinstance(block, dict) else {"loads": []}
+        self.block = copy.deepcopy(block) if isinstance(block, dict) else {"loads": []}
         switching = self.block.get("switching") or {}
         self.mode.setCurrentIndex(max(0, self.mode.findData(switching.get("mode", "manual"))))
+        # the instrument of the relays only means something with the switch matrix, which cannot
+        # be chosen yet: the row is shown only for a file that already has it
+        self._form.setRowVisible(self.instrument, switching.get("mode") == "mux")
         self.instrument.setCurrentText(str(switching.get("instrument", "")))
         self.settle.setText("" if "settle_s" not in switching else f"{switching['settle_s']:g}")
         self.vout.setText(str(self.block.get("vout", "")))
@@ -235,19 +270,27 @@ class LoadPanel(QGroupBox):
 
     def _fill_table(self) -> None:
         loads = self.block.get("loads") or []
+        try:
+            kits: Optional[KitRegistry] = self.registry
+        except KitError:
+            kits = None  # the values of the kit cannot be shown, the references are kept
         self.table.setRowCount(len(loads))
         for row, load in enumerate(loads):
             self.table.setItem(row, 0, QTableWidgetItem(node_text(load)))
-            self.table.setItem(row, 1, QTableWidgetItem(self._ohms(load)))
+            self.table.setItem(row, 1, QTableWidgetItem(self._ohms(load, kits)))
 
-    @staticmethod
-    def _ohms(load: Any) -> str:
-        from ola.resistors import LoadError, parse_load
+    def _ohms(self, load: Any, kits: Optional[KitRegistry]) -> str:
+        """The nominal resistance; for resistors of a kit, from the kit as it is now."""
+        from ola.resistors import LoadError, has_refs, parse_load
 
         try:
+            if has_refs(load):
+                if kits is None:
+                    return "?"
+                load = kits.resolve_node(load)
             return f"{parse_load(load).resistance()[0]:.4g}"
-        except LoadError:
-            return "(kit)"  # a resistor of a kit: its value is known when the run starts
+        except (KitError, LoadError) as exc:
+            return self._t("eff_load_not_found", error=exc)
 
     def _edited(self, *_args: Any) -> None:
         if self._loading:

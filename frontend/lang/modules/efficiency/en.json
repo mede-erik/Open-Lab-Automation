@@ -159,5 +159,8 @@
   "eff_args_add": "Add",
   "eff_args_remove": "Remove",
   "eff_values_col": "Value",
-  "eff_add_load": "Add load"
+  "eff_add_load": "Add load",
+  "eff_load_pick_all": "Tick all",
+  "eff_load_pick_none": "Tick none",
+  "eff_load_not_found": "not in the kit: {error}"
 }

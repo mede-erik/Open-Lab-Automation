@@ -113,10 +113,12 @@ def test_adding_resistors_from_a_kit_and_editing_the_connection(app, tmp_path):
     dialog = EfficiencyEditorDialog(str(path), None, ["psu", "mux"])
     dialog.param_list.setCurrentRow(1)
     panel = dialog.load_panel
+    panel._registry = KitRegistry(tmp_path / "kits.json")
+    panel._registry.put(Kit("PWR", [KitResistor("R22", 22, 1, 5)]))
     panel._add([{"kit": "PWR", "ref": "R22"}])
     block = dialog.editor.get("variables[1].load")
     assert [load.get("ref") or load["name"] for load in block["loads"]] == ["10R", "R22"]
-    assert panel.table.item(1, 0).text() == "PWR/R22" and panel.table.item(1, 1).text() == "(kit)"
+    assert panel.table.item(1, 0).text() == "PWR/R22" and panel.table.item(1, 1).text() == "22"
     panel.mode.setCurrentIndex(panel.mode.findData("mux"))
     panel.instrument.setCurrentText("mux")
     panel.max_vout.setText("12")
@@ -184,3 +186,52 @@ def test_a_load_can_be_added_only_in_the_resistive_efficiency(app, tmp_path):
     assert names.count("rload") == 1 and "rload2" in names
     assert all("load" in v for v in dialog.editor.variables if v["name"].startswith("rload"))
     dialog.close()
+
+
+@pytest.mark.gui
+def test_the_kit_picker_adds_the_ticked_resistors(app, tmp_path):
+    from PyQt6.QtWidgets import QDialogButtonBox
+
+    from frontend.ui.LoadPanel import _KitPick
+
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(Kit("PWR", [KitResistor("R10", 10), KitResistor("R22", 22), KitResistor("R47", 47)]))
+    pick = _KitPick(kits, lambda key, **kw: key)
+    ok = pick.buttons.button(QDialogButtonBox.StandardButton.Ok)
+    assert not ok.isEnabled()  # nothing ticked yet
+    pick.check_all(True)
+    assert ok.isEnabled()
+    assert [r["ref"] for r in pick.loads()] == ["R10", "R22", "R47"]
+    pick.check_all(False)
+    from PyQt6.QtCore import Qt
+
+    pick.list.item(0).setCheckState(Qt.CheckState.Checked)
+    pick.list.item(2).setCheckState(Qt.CheckState.Checked)
+    pick.how.setCurrentIndex(pick.how.findData("parallel"))
+    assert pick.loads() == [
+        {
+            "name": "R10 R47",
+            "parallel": [{"kit": "PWR", "ref": "R10"}, {"kit": "PWR", "ref": "R47"}],
+        }
+    ]
+
+
+@pytest.mark.gui
+def test_a_kit_made_while_the_editor_is_open_is_seen(app, tmp_path, monkeypatch):
+    from frontend.ui import LoadPanel as module
+
+    path = tmp_path / "kits.json"
+    monkeypatch.setattr(module, "KitRegistry", lambda: KitRegistry(path))
+    panel = module.LoadPanel(lambda key, **kw: key)
+    assert panel.registry.names() == []
+    KitRegistry(path).put(Kit("New", [KitResistor("R1", 1)]))  # made in Tools > Resistor kits
+    assert panel.registry.names() == ["New"]
+
+
+@pytest.mark.gui
+def test_the_relay_instrument_is_not_offered(app):
+    from frontend.ui.LoadPanel import LoadPanel
+
+    panel = LoadPanel(lambda key, **kw: key, ["daq"])
+    panel.set_block({"loads": [], "switching": {"mode": "manual"}})
+    assert not panel._form.isRowVisible(panel.instrument)

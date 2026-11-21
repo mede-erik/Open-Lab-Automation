@@ -159,5 +159,8 @@
   "eff_args_add": "Añadir",
   "eff_args_remove": "Quitar",
   "eff_values_col": "Valor",
-  "eff_add_load": "Añadir carga"
+  "eff_add_load": "Añadir carga",
+  "eff_load_pick_all": "Marcar todas",
+  "eff_load_pick_none": "Desmarcar todas",
+  "eff_load_not_found": "no está en el kit: {error}"
 }
