@@ -928,7 +928,7 @@ class RemoteControlTab(QWidget):
             # --- First, collect all datalogger/multimeter channels for measurement area ---
             # Note: Oscilloscopes are excluded as they cannot perform continuous automatic measurements
             self.meas_vars = []  # [(inst, ch)]
-            for inst in inst_data.get('instruments', []):
+            for inst in self._connected_instruments(inst_data):
                 inst_type = inst.get('instrument_type', '')
                 # Gestisce varianti di naming: datalogger/dataloggers, multimeter/multimeters
                 if inst_type in ['multimeter', 'multimeters']:
@@ -1026,7 +1026,7 @@ class RemoteControlTab(QWidget):
             power_instruments = []
             total_enabled_channels = 0
 
-            for inst in inst_data.get('instruments', []):
+            for inst in self._connected_instruments(inst_data):
                 inst_type = inst.get('instrument_type', '')
                 if inst_type in ['power_supply', 'power_supplies', 'electronic_load', 'electronic_loads']:
                     enabled_channels = [ch for ch in inst.get('channels', []) if ch.get('enabled', False)]
@@ -1345,7 +1345,7 @@ class RemoteControlTab(QWidget):
 
             # Network analyzers: their own panel, reached like the measurements do (a LiteVNA
             # is a driver, not a VISA resource)
-            self._add_vna_panels(inst_data.get('instruments', []), inst_file_path)
+            self._add_vna_panels(self._connected_instruments(inst_data), inst_file_path)
 
         except Exception as e:
             error_msg = f"ERROR in load_instruments: {str(e)}\nTraceback: {traceback.format_exc()}"
@@ -1385,6 +1385,12 @@ class RemoteControlTab(QWidget):
         if name and model:
             return f"{name} ({model})"
         return name or model
+
+    @staticmethod
+    def _connected_instruments(inst_data):
+        """The instruments the Remote control tab shows and drives: the manual ones (set by hand,
+        no remote control) are not shown at all, neither their controls nor their measurements."""
+        return [i for i in (inst_data or {}).get('instruments', []) if not i.get('is_manual', False)]
 
     def _format_channel_title(self, inst, ch):
         """Build the channel group box title, including the manual-instrument badge when applicable."""
