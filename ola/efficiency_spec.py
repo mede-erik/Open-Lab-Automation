@@ -49,6 +49,14 @@ list: they are handled before it. If an output has a ``state`` call, the program
 already on: an output that is on is left alone, one that is off is switched on (and, if it is
 ``always_on``, never switched off).
 
+A parameter can also be a **resistive load** (``"load"``, only in the resistive efficiency,
+``.rfe``): the load of the converter is not an instrument but resistors, and the sweep is the list
+of the loads: ``{"name": "rload", "load": {"loads": [...], "vout": "vout@daq", "max_vout_v": 12,
+"switching": {"mode": "manual" | "mux", ...}, "plan": {...}}}``; ``plan`` only remembers the inputs
+the loads were calculated from (``ola/combinations.py``). Its value is the nominal resistance of the
+load; the formulas also see ``rload_min`` and ``rload_max`` (the tolerance of the resistors). See
+``docs/resistive-efficiency.md``.
+
 Names in formulas: ``vin`` is the value that was **set**, ``vin@daq`` is the **reading** labelled
 ``daq`` of ``vin``, ``pin`` is another derived quantity. See ``docs/efficiency.md``.
 """
@@ -62,6 +70,7 @@ from dataclasses import dataclass, field
 from typing import Any, Collection, Dict, List, Mapping, Optional, Protocol, Tuple
 
 from .formula import FUNCTIONS, Formula, FormulaError
+from .resistors import Load, LoadError, has_refs, parse_loads, refs_problems
 from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -70,6 +79,7 @@ TOP_KEYS = (
 )
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
+LOAD_MODES = ("manual", "mux")
 
 
 @dataclass(frozen=True)
@@ -141,6 +151,36 @@ class VerifySpec:
 
 
 @dataclass(frozen=True)
+class LoadSpec:
+    """A resistive load as a parameter: the ``loads`` it steps through (empty while the references
+    to a kit are not resolved, ``count`` is how many there are), how they are connected (``mode``
+    ``manual``: the operator is asked, or ``mux``: relays of the ``instrument`` close the channels
+    of the resistors), the ``settle_s`` after connecting, the reading ``vout`` (``vout@label``)
+    that checks the power in the resistors and ``max_vout_v``, the largest output voltage expected
+    (a check made before the run)."""
+
+    loads: Tuple[Load, ...]
+    count: int
+    mode: str = "manual"
+    instrument: str = ""
+    settle_s: float = 0.0
+    vout: str = "vout"
+    max_vout_v: Optional[float] = None
+    plan: Optional[Dict[str, Any]] = None  # how the loads were calculated (``ola.combinations``)
+
+    @property
+    def learn(self) -> bool:
+        """True if the run first measures the output voltage and re-plans the loads (see
+        ``docs/resistive-efficiency.md``)."""
+        return bool(self.plan and self.plan.get("learn"))
+
+    @property
+    def unresolved(self) -> bool:
+        """True while a resistor of a kit is still only a reference."""
+        return len(self.loads) != self.count
+
+
+@dataclass(frozen=True)
 class Variable:
     """A parameter chosen by the user (``vin``, ``vaux``, ``iin``...)."""
 
@@ -152,6 +192,7 @@ class Variable:
     axis: Optional[List[float]] = None  # the values of its sweep, if it is swept
     limits: Optional[Tuple[Optional[float], Optional[float]]] = None  # allowed (min, max)
     output: Optional["OutputSpec"] = None  # how its output is switched on and off
+    load: Optional[LoadSpec] = None  # a resistive load instead of an instrument (``.rfe``)
 
 
 @dataclass(frozen=True)
@@ -233,8 +274,10 @@ class _Checker:
         params: Any,
         bound: Optional[Collection[str]],
         checker: Optional[CallChecker],
+        allow_load: bool = False,
     ):
         self.params = params
+        self.allow_load = allow_load
         self.bound = None if bound is None else sorted(bound)
         self.checker = checker
         self.problems: List[Problem] = []
@@ -357,7 +400,9 @@ class _Checker:
                 self.error(path, "must be an object with 'name' and 'set' and/or 'reads'")
                 continue
             self.unknown_keys(
-                body, ("name", "set", "value", "sweep", "reads", "verify", "limits", "output"), path
+                body,
+                ("name", "set", "value", "sweep", "reads", "verify", "limits", "output", "load"),
+                path,
             )
             name = body.get("name")
             if "name" not in body:
@@ -367,6 +412,11 @@ class _Checker:
                 continue
             if name in out:
                 self.error(f"{path}.name", f"there is already a parameter called '{name}'")
+                continue
+            if "load" in body:
+                variable = self.load_variable(body, name, path)
+                if variable is not None:
+                    out[name] = variable
                 continue
             has_set = "set" in body
             setter = self.setter(body.get("set"), f"{path}.set") if has_set else None
@@ -410,6 +460,132 @@ class _Checker:
             )
             out[name] = Variable(name, setter, value, reads, verify, axis, limits, output)
         return out
+
+    def load_variable(self, body: Dict[str, Any], name: str, path: str) -> Optional[Variable]:
+        """A parameter that is a resistive load: it replaces 'set', 'value' and 'sweep'."""
+        if not self.allow_load:
+            self.error(
+                f"{path}.load",
+                "a resistive load is only in the efficiency with a resistive load (.rfe)",
+            )
+            return None
+        for key in ("set", "value", "sweep", "verify", "limits", "output"):
+            if key in body:
+                self.error(f"{path}.{key}", f"'{name}' is a load: the loads are its values")
+        reads = self.reads(body.get("reads", {}), f"{path}.reads", name)
+        spec = self.load_spec(body["load"], f"{path}.load")
+        if spec is None:
+            return None
+        axis = (
+            [load.resistance()[0] for load in spec.loads]
+            if not spec.unresolved
+            else [float(i) for i in range(spec.count)]
+        )
+        return Variable(name, None, None, reads, None, axis, None, None, spec)
+
+    def load_spec(self, raw: Any, path: str) -> Optional[LoadSpec]:
+        if not isinstance(raw, dict):
+            self.error(path, 'must be an object like {"loads": [...], "switching": {...}}')
+            return None
+        self.unknown_keys(raw, ("loads", "switching", "vout", "max_vout_v", "plan"), path)
+        plan = raw.get("plan")
+        if "plan" in raw:
+            if not isinstance(plan, dict):
+                self.error(f"{path}.plan", "must be an object (the inputs of the loads' plan)")
+                plan = None
+            elif plan.get("learn"):
+                self.learning_inputs(plan, f"{path}.plan")
+        loads_raw = raw.get("loads")
+        problems = refs_problems(loads_raw, f"{path}.loads")
+        for where, message in problems:
+            self.error(where, message)
+        loads: Tuple[Load, ...] = ()
+        count = len(loads_raw) if isinstance(loads_raw, list) else 0
+        if not problems:
+            try:
+                if has_refs(loads_raw):
+                    parse_loads([{"name": f"load{i + 1}", "r_ohm": 1} for i in range(count)])
+                else:
+                    loads = tuple(parse_loads(loads_raw, f"{path}.loads"))
+                    count = len(loads)
+            except LoadError as exc:
+                self.error(f"{path}.loads", str(exc))
+                return None
+        else:
+            return None
+        if not loads_raw:
+            self.error(f"{path}.loads", "give at least one load")
+            return None
+        if loads:
+            values = [round(load.resistance()[0], 9) for load in loads]
+            if len(set(values)) != len(values):
+                self.error(
+                    f"{path}.loads", "two loads have the same resistance: every point needs its own"
+                )
+        switching = raw.get("switching", {})
+        mode, instrument, settle = "manual", "", 0.0
+        if not isinstance(switching, dict):
+            self.error(f"{path}.switching", 'must be an object like {"mode": "manual"}')
+        else:
+            self.unknown_keys(switching, ("mode", "instrument", "settle_s"), f"{path}.switching")
+            mode = switching.get("mode", "manual")
+            if mode not in LOAD_MODES:
+                self.error(f"{path}.switching.mode", f"must be one of: {', '.join(LOAD_MODES)}")
+                mode = "manual"
+            if mode == "mux":
+                instrument = self.instrument(switching, f"{path}.switching") or ""
+                for i, load in enumerate(loads):
+                    missing = [r.name for r in load.resistors() if not r.channel]
+                    if missing:
+                        self.error(
+                            f"{path}.loads[{i}]",
+                            f"'{load.name}': the multiplexer needs a channel for "
+                            f"{', '.join(missing)}",
+                        )
+            settle = self.number(switching, "settle_s", f"{path}.switching", 0.0, 0.0) or 0.0
+        vout = raw.get("vout", "vout")
+        if not isinstance(vout, str) or not vout:
+            self.error(f"{path}.vout", "must be the name of a reading, like 'vout@daq'")
+            vout = "vout"
+        vmax = self.number(raw, "max_vout_v", path, None, 0.0)
+        if vmax is not None and loads:
+            for load in loads:
+                resistor, fraction = load.most_loaded(vmax)
+                if resistor is not None and fraction > 1:
+                    self.error(
+                        f"{path}.max_vout_v",
+                        f"at {vmax:g} V the resistor {resistor.name} of '{load.name}' dissipates "
+                        f"{fraction * 100:.0f} % of its rating",
+                    )
+        return LoadSpec(loads, count, mode, instrument, settle, vout, vmax, plan)
+
+    def learning_inputs(self, plan: Dict[str, Any], path: str) -> None:
+        """The inputs a run that learns the output voltage needs: the kit, the range of currents,
+        the voltage the converter is expected to give and the parameter that is its input."""
+        if not isinstance(plan.get("kit"), str) or not plan["kit"].strip():
+            self.error(f"{path}.kit", "learning needs the kit of resistors the loads come from")
+        low = self.number(plan, "i_min", path, None, 0.0)
+        high = self.number(plan, "i_max", path, None, 0.0)
+        if "i_min" not in plan or "i_max" not in plan or (
+            low is not None and high is not None and high <= low
+        ):
+            self.error(path, "give the smallest and the largest current (the largest above)")
+        self.number(plan, "points", path, None, 2, True)
+        margin = self.number(plan, "margin_pct", path, 80.0, 1.0, False, 100.0)
+        if margin is None:
+            return
+        self.number(plan, "learn_points", path, None, 2, True)
+        if plan.get("kind", "regulated") == "regulated":
+            if self.number(plan, "vout_v", path, None, 0.0) in (None, 0.0):
+                self.error(f"{path}.vout_v", "give the output voltage the converter should have")
+            keys = ("vin_v",)
+        else:
+            keys = ("ratio", "vin_v")
+        for key in keys:  # the input voltage the quick sweep is made at
+            if self.number(plan, key, path, None, 0.0) in (None, 0.0):
+                self.error(f"{path}.{key}", "give a number above 0")
+        if not isinstance(plan.get("vin_param"), str) or not plan["vin_param"]:
+            self.error(f"{path}.vin_param", "name the parameter that is the input voltage")
 
     def setter(self, raw: Any, path: str) -> Optional[SetSpec]:
         if not isinstance(raw, dict):
@@ -699,14 +875,15 @@ class _Checker:
             path = f"derived.{name}"
             if not self.identifier(name, path, "name"):
                 continue
-            if name in variables:
+            if name in variables or name in load_names(variables):
                 self.error(path, f"'{name}' is already a parameter, choose another name")
                 continue
             try:
                 formulas[name] = Formula(text)
             except FormulaError as exc:
                 self.error(path, str(exc))
-        usable = [v for v, var in variables.items() if var.set is not None]
+        usable = [v for v, var in variables.items() if var.set is not None or var.load]
+        usable += sorted(load_names(variables))
         for name, formula in list(formulas.items()):
             for used in sorted(formula.names):
                 message = self.name_problem(used, variables, formulas, usable)
@@ -732,9 +909,11 @@ class _Checker:
                     f"readings: {', '.join(var.reads) or 'none'}"
                 )
             return None
+        if used in load_names(variables):
+            return None
         var = variables.get(used)
         if var is not None:
-            if var.set is None and used not in self.broken_set:
+            if var.set is None and var.load is None and used not in self.broken_set:
                 readings = ", ".join(f"{used}@{lab}" for lab in var.reads)
                 return f"'{used}' has no setpoint (it is only read): use {readings or 'a reading'}"
             return None
@@ -770,6 +949,48 @@ class _Checker:
         return order
 
 
+def load_names(variables: Mapping[str, Variable]) -> set:
+    """The extra names a resistive load gives to the formulas: ``rload_min`` and ``rload_max``,
+    the resistance with the tolerances of the resistors at their worst."""
+    return {f"{n}{s}" for n, var in variables.items() if var.load for s in ("_min", "_max")}
+
+
+def _check_learning(c: "_Checker", variables: Mapping[str, Variable]) -> None:
+    """A learning run needs an input parameter the program sets, and only one load learns."""
+    learners = [v for v in variables.values() if v.load is not None and v.load.learn]
+    if len(learners) > 1:
+        c.error("variables", "only one load can learn the output voltage of the converter")
+    for index, (name, var) in enumerate(variables.items()):
+        if var.load is None or not var.load.learn:
+            continue
+        owner = variables.get(var.load.plan.get("vin_param"))
+        if owner is None or owner.set is None:
+            c.error(
+                f"variables[{index}].load.plan.vin_param",
+                "this is not a parameter that the program sets (the input voltage)",
+            )
+
+
+def _check_vout(c: "_Checker", variables: Mapping[str, Variable]) -> None:
+    """The reading that checks the power in the resistors must exist."""
+    for index, (name, var) in enumerate(variables.items()):
+        if var.load is None:
+            continue
+        label = var.load.vout
+        where = f"variables[{index}].load.vout"
+        if "@" in label:
+            owner, _, reading = label.partition("@")
+            holder = variables.get(owner)
+            if holder is None or (
+                reading not in holder.reads and (owner, reading) not in c.broken_reads
+            ):
+                c.error(where, f"there is no reading '{label}': add it to the parameter '{owner}'")
+        elif label not in variables or not variables[label].reads:
+            c.error(where, f"'{label}' is not a parameter that is read; write it like 'vout@daq'")
+        elif len(variables[label].reads) != 1:
+            c.error(where, f"'{label}' has more readings: write which, like '{label}@daq'")
+
+
 def _check_device(c: "_Checker", device: Any) -> None:
     """The converter under test, if the file names one (all optional): a ``name`` written by hand,
     a ``dut_id`` of the archive of the devices under test (``DUT-0001``) with its ``version``
@@ -796,9 +1017,12 @@ def _check_device(c: "_Checker", device: Any) -> None:
 
 
 def _analyse(
-    params: Any, bound: Optional[Collection[str]], checker: Optional[CallChecker]
+    params: Any,
+    bound: Optional[Collection[str]],
+    checker: Optional[CallChecker],
+    allow_load: bool = False,
 ) -> Tuple[Optional[EfficiencySpec], List[Problem]]:
-    c = _Checker(params, bound, checker)
+    c = _Checker(params, bound, checker, allow_load)
     if not isinstance(params, dict):
         c.error("", "the parameters must be an object with 'variables', 'sweeps', 'timing'...")
         return None, c.problems
@@ -818,6 +1042,8 @@ def _analyse(
         c.error(
             "variables", "nothing is read: give at least one 'reads' to have something to measure"
         )
+    _check_vout(c, variables)
+    _check_learning(c, variables)
     axes = [(name, var.axis) for name, var in variables.items() if var.axis]
     derived = c.derived(params.get("derived"), variables)
     startup = c.call_list(params.get("startup"), "startup")
@@ -845,13 +1071,15 @@ def validate_params(
     params: Any,
     bound_instruments: Optional[Collection[str]] = None,
     checker: Optional[CallChecker] = None,
+    allow_load: bool = False,
 ) -> List[Problem]:
     """All the problems of ``params`` (empty list: nothing wrong). No I/O, safe on every edit.
 
     ``bound_instruments`` are the names of the instruments of the project; if given, an unknown
     instrument is a problem (with a "did you mean"). ``checker`` is the optional second level that
-    asks the instrument library whether each call exists and accepts its arguments and values."""
-    problems = _analyse(params, bound_instruments, checker)[1]
+    asks the instrument library whether each call exists and accepts its arguments and values.
+    ``allow_load`` allows a resistive load as a parameter (the ``.rfe`` measurement)."""
+    problems = _analyse(params, bound_instruments, checker, allow_load)[1]
     if isinstance(params, dict):
         from .golden import check_golden_param  # the check against a golden sample
 
@@ -863,9 +1091,10 @@ def parse_params(
     params: Any,
     bound_instruments: Optional[Collection[str]] = None,
     checker: Optional[CallChecker] = None,
+    allow_load: bool = False,
 ) -> EfficiencySpec:
     """The ``EfficiencySpec`` for valid ``params``; ``SpecError`` (with ``.problems``) otherwise."""
-    spec, problems = _analyse(params, bound_instruments, checker)
+    spec, problems = _analyse(params, bound_instruments, checker, allow_load)
     if spec is None:
         raise SpecError(problems)
     return spec

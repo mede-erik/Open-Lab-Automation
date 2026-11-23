@@ -12,6 +12,7 @@ A load is described in the measurement file as one resistor, or as resistors in 
     {"name": "22||47", "parallel": [
         {"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
         {"r_ohm": 47, "tol_pct": 5, "power_w": 2, "channel": "203"}]}
+    {"name": "0 A", "open": true}        (nothing connected: the output is left open, 0 A)
     {"name": "10+(22||47)", "series": [
         {"r_ohm": 10, "channel": "201"},
         {"parallel": [{"r_ohm": 22, "channel": "202"}, {"r_ohm": 47, "channel": "203"}]}]}
@@ -39,7 +40,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 from .labels import Box, Drawing, Line, Text
 
-MAX_DEPTH = 6
+MAX_DEPTH = 16  # a network found by ola.combinations from a kit of 15 resistors can be this deep
 MAX_RESISTORS = 64
 
 
@@ -82,10 +83,18 @@ class Group:
     children: List[Union["Group", Resistor]] = field(default_factory=list)
 
 
-Node = Union[Group, Resistor]
+@dataclass
+class Open:
+    """No load at all: the output of the converter is left open (0 A). It is a whole load, never
+    a part of a group; its resistance is infinite."""
+
+
+Node = Union[Group, Resistor, Open]
 
 
 def _resistance(node: Node) -> Tuple[float, float, float]:
+    if isinstance(node, Open):
+        return math.inf, math.inf, math.inf
     if isinstance(node, Resistor):
         return node.r_ohm, node.low, node.high
     parts = [_resistance(child) for child in node.children]
@@ -95,6 +104,8 @@ def _resistance(node: Node) -> Tuple[float, float, float]:
 
 
 def _resistors(node: Node) -> List[Resistor]:
+    if isinstance(node, Open):
+        return []
     if isinstance(node, Resistor):
         return [node]
     return [r for child in node.children for r in _resistors(child)]
@@ -102,6 +113,8 @@ def _resistors(node: Node) -> List[Resistor]:
 
 def _loading(node: Node, vmax: float, out: List[Tuple[Resistor, float]]) -> None:
     """The largest power in each resistor of ``node`` when at most ``vmax`` volts are across it."""
+    if isinstance(node, Open):
+        return
     if isinstance(node, Resistor):
         out.append((node, vmax * vmax / node.low))
     elif node.kind == "parallel":
@@ -151,6 +164,12 @@ def _parse_node(raw: Any, path: str, depth: int, count: List[int], fallback: str
         raise LoadError(f"{path}: must be an object (a resistor or a series / parallel group)")
     if depth > MAX_DEPTH:
         raise LoadError(f"{path}: groups nested too deep (at most {MAX_DEPTH})")
+    if "open" in raw:
+        if raw["open"] is not True or set(raw) - {"open", "name"} or depth:
+            raise LoadError(
+                f'{path}: an open output is a whole load written {{"name": "0 A", "open": true}}'
+            )
+        return Open()
     groups = [k for k in ("series", "parallel") if k in raw]
     if len(groups) > 1 or (groups and "r_ohm" in raw):
         raise LoadError(f"{path}: a resistor (r_ohm) or one group (series or parallel), not both")
@@ -257,6 +276,8 @@ def _facts(resistor: Resistor) -> str:
 
 
 def _describe(node: Node, top: bool) -> str:
+    if isinstance(node, Open):
+        return "nothing connected: the output is left open"
     if isinstance(node, Resistor):
         facts = _facts(node).replace("±", "+/-")
         return f"{_value(node.r_ohm)} ohm" + (f" ({facts})" if facts else "")
@@ -269,6 +290,8 @@ def describe(load: Load) -> str:
     """The load in words, nested as written: ``10 ohm (+/-1 %, 5 W) in series with (22 ohm in
     parallel with 47 ohm)``, and its equivalent resistance."""
     text = _describe(load.root, True)
+    if isinstance(load.root, Open):
+        return f"{text} (no load, 0 A)"
     nominal, low, high = load.resistance()
     spread = f", {low:.4g} to {high:.4g} ohm with the tolerances" if low != high else ""
     return f"{text} = {nominal:.4g} ohm{spread}"
@@ -289,6 +312,18 @@ class _Block:
 
 
 def _block(node: Node) -> _Block:
+    if isinstance(node, Open):
+        width = BOX_W + 2 * LEAD
+
+        def draw_open(x: float, y: float) -> List[Any]:
+            mid = y + BOX_H / 2
+            return [
+                Line(x, mid, x + LEAD + 2.0, mid),
+                Line(x + width - LEAD - 2.0, mid, x + width, mid),
+                Text(x + width / 2, y + 4.4, 3.0, "open", True, "middle"),
+            ]
+
+        return _Block(width, BOX_H, BOX_H / 2, draw_open)
     if isinstance(node, Resistor):
         width = BOX_W + 2 * LEAD
 
@@ -373,6 +408,28 @@ def schematic(load: Load) -> Drawing:
     return drawing
 
 
+def refs_problems(raw: Any, path: str = "loads") -> List[Tuple[str, str]]:
+    """The references to a kit of resistors (``{"kit": "PWR", "ref": "R22"}``) as far as they can be
+    checked without the kit: ``[(path, message)]``. A reference names its kit and its resistor."""
+    out: List[Tuple[str, str]] = []
+    if isinstance(raw, list):
+        for i, item in enumerate(raw):
+            out += refs_problems(item, f"{path}[{i}]")
+        return out
+    if not isinstance(raw, Mapping):
+        return out
+    if "ref" in raw and "r_ohm" not in raw:
+        if not isinstance(raw["ref"], str) or not raw["ref"].strip():
+            out.append((f"{path}.ref", "the name of the resistor in the kit is missing"))
+        if not isinstance(raw.get("kit"), str) or not raw["kit"].strip():
+            out.append((path, 'a resistor from a kit names the kit: write "kit" in it'))
+        return out
+    for key in ("series", "parallel"):
+        if key in raw:
+            out += refs_problems(raw[key], f"{path}.{key}")
+    return out
+
+
 def channels_of(loads: Sequence[Load]) -> List[str]:
     """Every relay that any load uses, without repeats."""
     seen: List[str] = []
@@ -384,6 +441,6 @@ def channels_of(loads: Sequence[Load]) -> List[str]:
 
 
 __all__ = [
-    "Group", "Load", "LoadError", "Resistor", "channels_of", "describe", "has_refs", "parse_load",
-    "parse_loads", "schematic",
+    "Group", "Load", "LoadError", "Open", "Resistor", "channels_of", "describe", "has_refs",
+    "parse_load", "parse_loads", "refs_problems", "schematic",
 ]  # fmt: skip

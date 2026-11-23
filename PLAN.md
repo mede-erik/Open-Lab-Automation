@@ -885,6 +885,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   used; button *Propose from the ticked results* and `golden_check.py --derive`). Then the step also in Bode, TDR and in the measurements with
   a table of rows (ripple, regulation, efficiency, S-parameters): `rows` = rows matched by columns (`match`) and tolerance per
   column, verdict in the `golden_result` table (`summary_row=False` + `finish(ctx)`). Also `derive_tolerances` for `rows` (from Python).
+  **Redesigned (2026-11):** `.rfe` is now the efficiency engine with a `load` parameter (same file format and editor as `.eff`, kits resolved inside the load, `LoadPanel` in the editor); the description below is the previous design, of which the schematic, the relays and the power check remain. Still to do: the generator of resistor combinations for a range of output current.
   **Efficiency with a resistive load** (2026-11, `resistive_efficiency`, `.rfe`, `ola/resistors.py`, `ola/resistor_kits.py`): the efficiency of a
   converter on real resistors written down by the user (single, series / parallel, nested), each with tolerance, power rating and the relay
   of a multiplexer. The load is connected by hand (the question gives the values in words and a **schematic**, drawn by `ola.resistors.schematic`

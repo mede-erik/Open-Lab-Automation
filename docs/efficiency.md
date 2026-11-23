@@ -4,7 +4,8 @@ The efficiency measurement works for a converter or for anything that needs an e
 know about topologies: you describe **parameters** (what you set, what you read), the **sweeps** over
 them, what to do at **every point**, and the **formulas** that give input power, output power and
 efficiency. The engine runs it ([engine.md](engine.md)); the file is the `params` of a measurement file
-with the extension `.eff` (the old `.eff` format is not read).
+with the extension `.eff` (the old `.eff` format is not read). If the load is made of resistors instead of
+an instrument, use the same file as `.rfe`: see [`resistive-efficiency.md`](resistive-efficiency.md).
 
 ## How a measurement runs
 

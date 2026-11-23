@@ -13,6 +13,7 @@ use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
 
+use crate::combos::{self, Params, Resistor};
 use crate::conn::{Connection, Parity, SerialSettings};
 use crate::error::Error;
 
@@ -195,9 +196,48 @@ impl PyConnection {
     }
 }
 
+/// `plan_combinations(ohms, watts, targets, vout, step, eps, ways, candidates, w_dev, w_change,
+/// margin, vouts)`: the planned points as `(target, ohms, current, load, changes, tree)`, the tree as JSON
+/// text (a number for a resistor, `["s", a, b]` series, `["p", a, b]` parallel). `ValueError` for
+/// values that cannot be used. The GIL is released during the search.
+#[pyfunction]
+#[pyo3(signature = (ohms, watts, targets, vout, step, eps=0.01, ways=3, candidates=6, w_dev=10.0, w_change=1.0, margin=0.8, vouts=None))]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn plan_combinations(
+    py: Python<'_>,
+    ohms: Vec<f64>,
+    watts: Vec<f64>,
+    targets: Vec<f64>,
+    vout: f64,
+    step: f64,
+    eps: f64,
+    ways: usize,
+    candidates: usize,
+    w_dev: f64,
+    w_change: f64,
+    margin: f64,
+    vouts: Option<Vec<f64>>,
+) -> PyResult<Vec<(f64, f64, f64, f64, u32, String)>> {
+    if ohms.len() != watts.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err("ohms and watts differ in length"));
+    }
+    let resistors: Vec<Resistor> =
+        ohms.iter().zip(&watts).map(|(&o, &w)| Resistor { ohms: o, watts: w }).collect();
+    let vouts = vouts.unwrap_or_default();
+    let params = Params { vout, vouts, step, eps, ways, candidates, w_dev, w_change, margin };
+    let points = py
+        .detach(|| combos::plan(&resistors, &targets, &params))
+        .map_err(pyo3::exceptions::PyValueError::new_err)?;
+    Ok(points
+        .into_iter()
+        .map(|p| (p.target, p.ohms, p.current, p.load, p.changes, p.tree.to_json()))
+        .collect())
+}
+
 #[pymodule]
 fn ola_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyConnection>()?;
+    m.add_function(wrap_pyfunction!(plan_combinations, m)?)?;
     m.add("TransportError", m.py().get_type::<TransportError>())?;
     m.add("TransportTimeout", m.py().get_type::<TransportTimeout>())?;
     m.add("TransportClosed", m.py().get_type::<TransportClosed>())?;

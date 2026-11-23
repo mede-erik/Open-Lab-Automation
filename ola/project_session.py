@@ -175,10 +175,11 @@ class ProjectSession:
         if not name:
             raise MeasurementError("the measurement needs a name")
         params: Dict[str, Any] = {}
-        if type == "efficiency":
+        if type in ("efficiency", "resistive_efficiency"):
             from .efficiency_editor import EfficiencyEditor
 
-            params = EfficiencyEditor.template(self.instruments)
+            load = type == "resistive_efficiency"
+            params = EfficiencyEditor.template(self.instruments, load=load)
         elif self.registry.get(type).builtin:  # a built-in module may give its own starting point
             import sys
 
@@ -386,14 +387,30 @@ class ProjectSession:
         from .resistor_kits import KitError, KitRegistry
         from .resistors import has_refs
 
-        if not has_refs(params.get("loads")):
+        owners = [
+            var["load"]
+            for var in params.get("variables") or []
+            if isinstance(var, dict) and isinstance(var.get("load"), dict)
+        ]
+        learning = [o for o in owners if isinstance(o.get("plan"), dict) and o["plan"].get("learn")]
+        if not learning and not any(has_refs(owner.get("loads")) for owner in owners):
             return params
         try:
             kits = self.resistor_kits if self.resistor_kits is not None else KitRegistry()
             resolved = json.loads(json.dumps(params))
-            resolved["loads"] = kits.resolve_loads(
-                resolved["loads"], str(params.get("resistor_kit") or "")
-            )
+            for var in resolved["variables"]:
+                if not isinstance(var.get("load"), dict):
+                    continue
+                var["load"]["loads"] = kits.resolve_loads(var["load"].get("loads"))
+                plan = var["load"].get("plan")
+                if isinstance(plan, dict) and plan.get("learn"):
+                    # a run that learns plans loads again: it needs every resistor of the kit
+                    kit = kits.get(str(plan.get("kit")))
+                    if kit is None:
+                        raise KitError(f"there is no kit of resistors called {plan.get('kit')!r}")
+                    plan["resistors"] = [
+                        {**r.to_dict(), "kit": kit.name, "ref": r.name} for r in kit.resistors
+                    ]
         except KitError as exc:
             raise MeasurementError(str(exc)) from exc
         return resolved

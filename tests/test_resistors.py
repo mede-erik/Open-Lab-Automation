@@ -119,7 +119,7 @@ def test_a_wrong_description_says_where_and_why(raw, text):
 
 def test_nesting_and_size_are_limited():
     deep = {"r_ohm": 1}
-    for _ in range(8):
+    for _ in range(18):
         deep = {"series": [deep, {"r_ohm": 1}]}
     with pytest.raises(LoadError, match="nested too deep"):
         parse_load(deep)
