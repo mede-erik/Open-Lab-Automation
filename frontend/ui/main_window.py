@@ -44,7 +44,7 @@ from ola.assets import AssetError, AssetRegistry
 from ola.duts import DutRegistry
 from ola.duts import default_path as default_duts_path
 from ola.measurement import MeasurementError
-from ola.project import Project
+from ola.project import LEGACY_KEYS, Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
             self.logger.warning("LoadInstruments is None, creating RemoteControlTab with empty instruments")
         
         self.remote_tab = RemoteControlTab(self.load_instruments)
+        self.remote_tab.project_source = self.open_project_source
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         
         # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
@@ -364,7 +365,7 @@ class MainWindow(QMainWindow):
                 "last_opened": now,
                 "project_name": project_name.strip(),
                 "inst_file": inst_file,
-                "was_files": []
+                "scope_settings": None
             }
             
             # Save project file
@@ -545,6 +546,19 @@ class MainWindow(QMainWindow):
                 self.logger.error(f"Failed to open project: {file_path} - {e}", exc_info=True)
                 show_problem(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}", code="PROJ-005", exception=e)
         
+    def open_project_source(self):
+        """What the remote control needs to know about the open project (see
+        ``RemoteControlTab.project_source``): its folder, instruments file and active scope
+        settings, or None if no project is open."""
+        session = self.project_tab.session
+        if not self.current_project_dir or not self.current_project_data or session is None:
+            return None
+        return {
+            "dir": self.current_project_dir,
+            "inst_file": self.current_project_data.get('inst_file'),
+            "scope_settings": session.project.scope_settings,
+        }
+
     def refresh_project_files(self):
         """Refresh the list of project files displayed in the UI."""
         self.project_files_list.clear()
@@ -557,11 +571,21 @@ class MainWindow(QMainWindow):
         session = self.project_tab.session
         if session is not None:  # the measurements of the project (every type)
             files += [m.file for m in session.project.measurements]
-        for f in self.current_project_data.get('was_files', []):
-            if f not in files:  # oscilloscope settings: plain files of the project
-                files.append(f)
+        project = session.project if session is not None else None
+        disabled = set()
+        if project is not None:  # the settings of the oscilloscopes: project definition files
+            for f in project.scope_file_names():
+                if f not in files:
+                    files.append(f)
+                if f != project.scope_settings:
+                    disabled.add(f)
         for f in files:
             item = QListWidgetItem(f)
+            if f in disabled:  # kept in the project, but not the one that is applied
+                font = item.font()
+                font.setItalic(True)
+                item.setFont(font)
+                item.setToolTip(self.translator.t('scope_file_disabled'))
             self.project_files_list.addItem(item)
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
@@ -601,8 +625,7 @@ class MainWindow(QMainWindow):
                     return
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write('')
-                if file_name not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(file_name)
+                session.project.add_scope_file(file_name)
                 self.save_project_json()
                 self.refresh_project_files()
             else:  # a measurement of the chosen type (the tab redraws and refreshes the list)
@@ -634,8 +657,7 @@ class MainWindow(QMainWindow):
                 import shutil
                 shutil.copy2(file_path, dest_path)
             if ext == '.was':
-                if fname not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(fname)
+                session.project.add_scope_file(fname)
                 self.save_project_json()
                 self.refresh_project_files()
             else:
@@ -665,9 +687,19 @@ class MainWindow(QMainWindow):
             if not isinstance(on_disk, dict):
                 on_disk = {}
             self.current_project_data['last_opened'] = datetime.now().isoformat()
-            for key in ('last_opened', 'inst_file', 'was_files'):
+            for key in ('last_opened', 'inst_file'):
                 if key in self.current_project_data:
                     on_disk[key] = self.current_project_data[key]
+            if session is not None:  # the settings of the oscilloscopes come from the project
+                project = session.project
+                on_disk['scope_settings'] = project.scope_settings
+                if len(project.scope_files) > 1:
+                    on_disk['scope_files'] = [dict(e) for e in project.scope_files]
+                else:
+                    on_disk.pop('scope_files', None)
+                for old_key in LEGACY_KEYS:  # keys of the early projects: no longer written
+                    on_disk.pop(old_key, None)
+                self.current_project_data['scope_settings'] = project.scope_settings
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(on_disk, f, indent=2, ensure_ascii=False)
             if session is not None:
@@ -721,10 +753,11 @@ class MainWindow(QMainWindow):
         removed = False
         
         # oscilloscope settings (.was)
-        if file_name in self.current_project_data.get('was_files', []):
-            self.current_project_data['was_files'].remove(file_name)
+        session = self.project_tab.session
+        if session is not None and file_name in session.project.scope_file_names():
+            session.project.remove_scope_file(file_name)
             removed = True
-            self.logger.info(f"Removed '{file_name}' from was_files")
+            self.logger.info(f"Removed '{file_name}' from the scope settings of the project")
         
         # Controlla se è il file .inst
         elif file_name == self.current_project_data.get('inst_file'):

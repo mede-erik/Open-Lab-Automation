@@ -83,7 +83,6 @@
   "copy_file_name": "Copia nome file",
   "paste_file": "Incolla file",
   "delete_file": "Elimina file",
-  
   "select_instrument_type": "Seleziona Tipo di Strumento",
   "select_instrument_type_desc": "Seleziona il tipo di strumento da aggiungere:",
   "instrument_type_label": "Tipo:",
@@ -726,5 +725,8 @@
   "diag_rec_open_port": "La porta è aperta ma la connessione potrebbe comunque fallire. Con VXI-11:\n  - Verifica che il portmapper RPC sia attivo sullo strumento\n  - Prova invece il protocollo HiSLIP: TCPIP0::{host}::hislip0::INSTR",
   "diag_rec_enable_remote": "Attiva il controllo remoto / l'interfaccia LXI sullo strumento.",
   "diag_rec_manual": "Consulta il manuale dello strumento per la configurazione di VXI-11 o SCPI via LAN.",
-  "diag_rec_firewall": "Verifica che il firewall non blocchi la connessione."
+  "diag_rec_firewall": "Verifica che il firewall non blocchi la connessione.",
+  "was_reset": "Resetta l'oscilloscopio prima di applicare queste impostazioni",
+  "was_reset_help": "Togli la spunta per applicare solo ciò che dice questo file e tenere il resto di ciò che è già impostato sullo strumento.",
+  "scope_file_disabled": "Impostazioni degli oscilloscopi tenute nel progetto ma non applicate: il file attivo è l'altro."
 }

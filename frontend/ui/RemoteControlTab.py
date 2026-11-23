@@ -52,6 +52,10 @@ class RemoteControlTab(QWidget):
         """
         super().__init__()
         self.instruments_manager = load_instruments  # Rinominato per evitare conflitti
+        # what the open project is, given by the window that owns it: a function that returns
+        # {"dir": folder, "inst_file": name or None, "scope_settings": name or None}, or None if no
+        # project is open (no walk through the parents of the widget)
+        self.project_source = None
 
         # Initialize logger and error handler
         try:
@@ -217,20 +221,22 @@ class RemoteControlTab(QWidget):
             first = problems[0][1:problems[0].index("]")] if problems[0].startswith("[") else None
             show_problem(self, self._t("rc_scope_title"), "\n".join(problems), code=first)
 
+    def _project(self):
+        """The open project (see ``project_source``), or None."""
+        source = self.project_source
+        project = source() if callable(source) else None
+        return project if project and project.get("dir") else None
+
     def _configure_oscilloscopes(self):
-        parent = self.parent()
-        while parent is not None and not hasattr(parent, 'current_project_dir'):
-            parent = parent.parent()
-        if (parent is None or not getattr(parent, 'current_project_dir', None)
-                or not getattr(parent, 'current_project_data', None)):
+        project = self._project()
+        if project is None:
             self._scope_note("error", "rc_scope_no_project")
             return
-        was_files = parent.current_project_data.get('was_files', [])
-        if not was_files:
+        was_file = project.get("scope_settings")  # the active scope settings file of the project
+        if not was_file:
             self._scope_note("error", "rc_scope_no_was")
             return
-        was_file = was_files[0]  # the first .was file of the project
-        was_path = os.path.join(parent.current_project_dir, was_file)
+        was_path = os.path.join(project["dir"], was_file)
         if not os.path.exists(was_path):
             self._scope_note("error", "rc_scope_was_missing", file=was_file)
             return
@@ -257,18 +263,15 @@ class RemoteControlTab(QWidget):
 
     def _get_project_oscilloscopes(self):
         """Recupera gli oscilloscopi dal file .inst del progetto corrente."""
-        parent = self.parent()
-        while parent is not None and not hasattr(parent, 'current_project_dir'):
-            parent = parent.parent()
-
-        if not parent or not parent.current_project_dir or not parent.current_project_data:
+        project = self._project()
+        if project is None:
             return []
 
-        inst_file = parent.current_project_data.get('inst_file')
+        inst_file = project.get("inst_file")
         if not inst_file:
             return []
 
-        inst_path = os.path.join(parent.current_project_dir, inst_file)
+        inst_path = os.path.join(project["dir"], inst_file)
         if not os.path.exists(inst_path):
             return []
 

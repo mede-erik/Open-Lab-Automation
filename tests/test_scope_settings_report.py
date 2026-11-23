@@ -42,19 +42,24 @@ def shown(monkeypatch):
 
 
 class Window(QWidget):
-    """What the tab looks for in its parents: the open project."""
+    """The window that owns the tab: it tells the tab which project is open."""
 
     def __init__(self, folder=None, data=None):
         super().__init__()
-        self.current_project_dir = str(folder) if folder else None
-        self.current_project_data = data
+        self.folder, self.data = folder, data
+
+    def source(self):
+        """What ``RemoteControlTab.project_source`` gives: the open project, or None."""
+        if not self.folder:
+            return None
+        return {"dir": str(self.folder), **(self.data or {})}
 
 
 @pytest.fixture
 def project(tmp_path):
     for name in ("osc1.was", "test_instruments.inst"):
         shutil.copy(EXAMPLE / name, tmp_path / name)
-    return tmp_path, {"inst_file": "test_instruments.inst", "was_files": ["osc1.was"]}
+    return tmp_path, {"inst_file": "test_instruments.inst", "scope_settings": "osc1.was"}
 
 
 class Executor:
@@ -70,7 +75,7 @@ class Executor:
 def make_tab(app, folder=None, data=None):
     window = Window(folder, data)
     tab = RemoteControlTab(LoadInstruments())
-    tab.setParent(window)
+    tab.project_source = window.source
     tab._window = window  # kept alive with the tab
     return tab
 
@@ -93,7 +98,7 @@ def test_without_a_project_it_says_so(app, shown):
 
 def test_a_project_without_a_was_file_says_so(app, shown, project):
     folder, data = project
-    tab = make_tab(app, folder, {**data, "was_files": []})
+    tab = make_tab(app, folder, {**data, "scope_settings": None})
     tab._configure_oscilloscope_from_was()
     assert shown[0][0] == "warning" and ".was" in shown[0][1]
 

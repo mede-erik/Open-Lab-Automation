@@ -725,5 +725,8 @@
   "diag_rec_open_port": "Port is open but connection may still fail. If using VXI-11:\n  - Ensure RPC portmapper is running on instrument\n  - Try HiSLIP protocol instead: TCPIP0::{host}::hislip0::INSTR",
   "diag_rec_enable_remote": "Enable remote control/LXI interface on instrument.",
   "diag_rec_manual": "Check instrument manual for VXI-11 or SCPI-over-LAN setup.",
-  "diag_rec_firewall": "Verify firewall is not blocking the connection."
+  "diag_rec_firewall": "Verify firewall is not blocking the connection.",
+  "was_reset": "Reset the oscilloscope before applying these settings",
+  "was_reset_help": "Untick it to apply only what this file says and keep the rest of what is already set on the instrument.",
+  "scope_file_disabled": "Settings of the oscilloscopes kept in the project but not applied: the active file is the other one."
 }

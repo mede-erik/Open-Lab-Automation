@@ -157,7 +157,15 @@ type (`.tlg` for the time log), so files can be recognised, copied and deleted o
 Each measurement file holds `type`, `module_version`, `api_version`, `role_bindings` (role to instrument
 name or list of names) and `params`. File names in a project must be plain names; a name with a path
 (`../x`) is rejected. Keys the program does not know are kept when the project is saved. The old
-`eff_files` / `was_files` format is **not read** (decision recorded in `PLAN.md`).
+`eff_files` format is **not read** (decision recorded in `PLAN.md`).
+
+**Project definition files.** `inst_file` (the instruments, `.inst`) and `scope_settings` (the settings of the
+oscilloscopes, `.was`) name files that are not measurements. A project has one active `scope_settings` (or none: that is
+valid, and the remote control says there are no settings). If it has more `.was` files, `scope_files` lists all of them with
+an `enabled` flag, exactly one true: the others stay in the folder, listed as disabled, never deleted or renamed. The key
+`was_files` of the early projects of format 2 is still **read** (its first file is the `scope_settings`, the others are
+disabled) and never written again; a project file is changed only when it is saved. The `.was` file may say `"reset": false`
+to apply only what it says (default: the oscilloscope is reset first); `ola.was_calls.check_was` says what is wrong with one.
 
 ## Errors
 

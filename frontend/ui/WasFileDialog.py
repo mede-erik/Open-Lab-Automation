@@ -262,7 +262,15 @@ class WasFileDialog(QDialog):
         self.time_div_edit = QLineEdit()
         self.time_div_edit.setPlaceholderText(self.translator.t('time_div_placeholder'))
         form.addRow(self.translator.t('time_div_label'), self.time_div_edit)
-        
+
+        # reset the instrument first (the default), or apply only what this file says
+        from PyQt6.QtWidgets import QCheckBox
+        self.reset_check = QCheckBox(self.translator.t('was_reset'))
+        self.reset_check.setToolTip(self.translator.t('was_reset_help'))
+        self.reset_check.setChecked(True)
+        self.reset_check.toggled.connect(self.apply_params_to_json)
+        form.addRow(self.reset_check)
+
         group.setLayout(form)
         layout.addWidget(group)
 
@@ -378,7 +386,12 @@ class WasFileDialog(QDialog):
         """
         settings = self.data.get('settings', {})
         tdiv = settings.get('time_per_div', '')
-        
+
+        if hasattr(self, 'reset_check'):
+            self.reset_check.blockSignals(True)
+            self.reset_check.setChecked(self.data.get('reset', True) is not False)
+            self.reset_check.blockSignals(False)
+
         if tdiv and hasattr(self, 'time_div_edit'):
             self.time_div_edit.setText(str(tdiv))
         
@@ -419,6 +432,13 @@ class WasFileDialog(QDialog):
         Aggiorna il JSON a destra in base ai parametri inseriti a sinistra.
         Converte i valori e aggiorna il dizionario settings, channels e trigger.
         """
+        # Reset: written only when it is not the default, so the old files stay as they are
+        if hasattr(self, 'reset_check'):
+            if self.reset_check.isChecked():
+                self.data.pop('reset', None)
+            else:
+                self.data['reset'] = False
+
         # Tempo/div globale
         tdiv = self.parse_time(self.time_div_edit.text()) if hasattr(self, 'time_div_edit') else None
         

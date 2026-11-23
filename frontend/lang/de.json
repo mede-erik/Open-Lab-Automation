@@ -725,5 +725,8 @@
   "diag_rec_open_port": "Der Port ist offen, die Verbindung kann aber trotzdem fehlschlagen. Bei VXI-11:\n  - Prüfen Sie, ob der RPC-Portmapper auf dem Gerät läuft\n  - Versuchen Sie stattdessen HiSLIP: TCPIP0::{host}::hislip0::INSTR",
   "diag_rec_enable_remote": "Aktivieren Sie Fernsteuerung/LXI-Schnittstelle am Gerät.",
   "diag_rec_manual": "Lesen Sie im Gerätehandbuch nach, wie VXI-11 bzw. SCPI über LAN eingerichtet wird.",
-  "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert."
+  "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert.",
+  "was_reset": "Oszilloskop vor dem Anwenden dieser Einstellungen zurücksetzen",
+  "was_reset_help": "Abwählen, um nur anzuwenden, was diese Datei sagt, und den Rest der Einstellungen des Geräts zu behalten.",
+  "scope_file_disabled": "Einstellungen der Oszilloskope, im Projekt behalten, aber nicht angewendet: die aktive Datei ist die andere."
 }

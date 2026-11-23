@@ -47,7 +47,7 @@ Project ─┬─ Instruments (.inst)             ← shared by all measurements
 > (`eff_files`/`was_files`) is rejected with a clear error; file names
 > must be simple names (no paths, `..` is rejected).
 
-The project JSON replaces the `eff_files`/`was_files` lists with:
+The project JSON replaces the `eff_files`/`was_files` lists with (`was_files` became `scope_settings` afterwards, issue #95):
 
 ```json
 {
@@ -1105,7 +1105,7 @@ It is **not a measurement**: it has no run and no results. It is a **definition 
 **In the alpha**
 1. The *Remote control* tab uses it to set the oscilloscope(s) of the project, as it does today. The project format v2 work
    (issue #95: remove `was_files`, move the editor and the application of `.was` into `ola/`) is this: `was_files` becomes the
-   `scope_settings` key, and a project without one is valid.
+   `scope_settings` key, and a project without one is valid. **Done** (2026-11): `Project.scope_settings` (and `scope_files` with an `enabled` flag when there is more than one `.was`), `ola.was_calls.check_was` and the `reset` key of the `.was` file (default true), the remote control reads the project through `project_source`, not through the parents of the widget. The format version stays 2; a project with `was_files` is read and the key is not written again. Still to do in the format v2 work: the question and the `.bkp` copy when an old project is opened (#106) and the chooser of the active file (#107).
 2. **A waveform acquired inside a measurement.** A measurement can name the scope settings file and say **when** to acquire: at
    every step, or every *N* steps. At that point the oscilloscope is set as the file says and a waveform is acquired and saved
    with the results of that step. It is for the measurements on **converters**: the two efficiency measurements (`efficiency` and

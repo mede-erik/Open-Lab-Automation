@@ -20,7 +20,10 @@
 | `.reg` | line and load regulation |
 | `.rpl` | ripple and noise |
 
-The old `eff_files` / `was_files` format is not read any more.
+The old `eff_files` format is not read any more. The settings of the oscilloscopes (`.was`) are named by the key
+`scope_settings` of the project, like the instruments file `.inst`: they are part of the project, not a measurement.
+A `.was` file added next to the first one is kept in the project but **disabled** (listed in italics): only the active one
+is applied.
 
 ## Instrument file (`.inst`)
 

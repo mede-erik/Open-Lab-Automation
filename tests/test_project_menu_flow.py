@@ -58,10 +58,22 @@ def test_the_menu_keys_on_disk_win_when_the_project_is_saved(tmp_path):
     path = write(tmp_path / "Old.json", {**LEGACY, "format_version": 2, "measurements": []})
     project = Project.load(path)
     on_disk = json.loads(path.read_text(encoding="utf-8"))
-    on_disk["was_files"] = ["o.was", "p.was"]  # written by the main window meanwhile
+    on_disk["calibrations"] = ["c1", "c2"]  # written by the calibration window meanwhile
     path.write_text(json.dumps(on_disk), encoding="utf-8")
     project.save()
-    assert json.loads(path.read_text(encoding="utf-8"))["was_files"] == ["o.was", "p.was"]
+    assert json.loads(path.read_text(encoding="utf-8"))["calibrations"] == ["c1", "c2"]
+
+
+def test_the_was_files_of_an_early_project_become_scope_settings(tmp_path):
+    path = write(tmp_path / "Old.json", {**LEGACY, "format_version": 2, "measurements": []})
+    project = Project.load(path)
+    assert project.scope_settings == "o.was" and project.scope_file_names() == ["o.was"]
+    assert "was_files" not in project.extra
+    project.save()
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["scope_settings"] == "o.was" and "was_files" not in saved  # no longer written
+    assert "scope_files" not in saved  # one file: just scope_settings
+    assert Project.load(path).scope_settings == "o.was"  # and read back
 
 
 def make_session(tmp_path):
@@ -184,16 +196,20 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     assert "test_instruments.inst" in listed(window) and "osc1.was" in listed(window)
 
     # saving the menu's data keeps the measurements the tab wrote
-    window.current_project_data["was_files"] = ["osc1.was", "osc2.was"]
+    window.project_tab.session.project.add_scope_file("osc2.was")  # added next to the first
     window.save_project_json()
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["was_files"] == ["osc1.was", "osc2.was"]
+    assert saved["scope_settings"] == "osc1.was" and "was_files" not in saved
+    assert saved["scope_files"] == [
+        {"file": "osc1.was", "enabled": True},
+        {"file": "osc2.was", "enabled": False},  # kept, not applied, not deleted
+    ]
     # (the example project already lists its efficiency measurement)
     assert [m["file"] for m in saved["measurements"]] == ["eff.eff", cable_file]
     # and the tab saving afterwards keeps the menu's data
     window.project_tab.session.rename("m2", "Lead B")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["was_files"] == ["osc1.was", "osc2.was"]
+    assert saved["scope_settings"] == "osc1.was" and len(saved["scope_files"]) == 2
     assert saved["measurements"][1]["name"] == "Lead B"
 
     # double click on a measurement file: the editor of the Measurements tab, not the old dialog
