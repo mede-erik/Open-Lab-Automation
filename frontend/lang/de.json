@@ -725,5 +725,6 @@
   "diag_rec_open_port": "Der Port ist offen, die Verbindung kann aber trotzdem fehlschlagen. Bei VXI-11:\n  - Prüfen Sie, ob der RPC-Portmapper auf dem Gerät läuft\n  - Versuchen Sie stattdessen HiSLIP: TCPIP0::{host}::hislip0::INSTR",
   "diag_rec_enable_remote": "Aktivieren Sie Fernsteuerung/LXI-Schnittstelle am Gerät.",
   "diag_rec_manual": "Lesen Sie im Gerätehandbuch nach, wie VXI-11 bzw. SCPI über LAN eingerichtet wird.",
-  "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert."
+  "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert.",
+  "spectrum_analyzer": "Spektrumanalysator"
 }
