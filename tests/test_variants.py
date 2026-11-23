@@ -136,3 +136,108 @@ def test_two_runs_of_a_dut_are_told_apart_in_its_history(tmp_path):
     found = runs_of(dut, index_dut_runs([runs]))
     assert [(r.path, r.variant) for r in found] == [(on, "fan=on"), (off, "fan=off"), (plain, "")]
     assert [r.variant for r in index_runs([runs]).get("DUT-0001", [])] == []  # not a component
+
+
+# ---- the question asked when a run starts ------------------------------------------------------
+def write_run(folder, name, dut_id, variant, mtime):
+    """A run file with only its header, as far as the question of a variant reads it."""
+    import json
+    import os
+
+    folder.mkdir(exist_ok=True)
+    path = folder / name
+    group = {"dut_id": dut_id, **({"variant": variant} if variant else {})}
+    path.write_text(json.dumps({"kind": "run", "params": {"device": group}}) + "\n")
+    os.utime(path, (mtime, mtime))
+
+
+def test_the_earlier_variants_of_a_dut_come_newest_first(tmp_path):
+    from ola.variants import previous_variants, variant_names
+
+    runs = tmp_path / "runs"
+    write_run(runs, "a.jsonl", "DUT-0001", {"R100": "100 ohm", "fan": "on"}, 1000)
+    write_run(runs, "b.jsonl", "DUT-0001", {"R100": "47 ohm"}, 2000)
+    write_run(runs, "c.jsonl", "DUT-0001", None, 3000)  # a run without a variant counts too
+    write_run(runs, "d.jsonl", "DUT-0002", {"other": "x"}, 4000)  # another DUT
+    (runs / "e.jsonl").write_text("not a run\n")
+    (runs / "f.jsonl").write_text("")
+    found = previous_variants(runs, "DUT-0001")
+    assert found == [{}, {"R100": "47 ohm"}, {"R100": "100 ohm", "fan": "on"}]
+    assert variant_names(found) == ["R100", "fan"]  # the most used first
+    assert previous_variants(tmp_path / "nothing", "DUT-0001") == []
+
+
+def test_the_parameters_of_a_run_get_the_variant_and_the_file_does_not(tmp_path):
+    from ola.variants import dut_group, with_variant
+
+    params = {"device": {"dut_id": "DUT-0001", "variant": {"old": "1"}}, "timing": {}}
+    changed = with_variant(params, {"R100": " 100 ohm ", " ": "x", "fan": "on"})
+    assert changed["device"]["variant"] == {"R100": "100 ohm", "fan": "on"}
+    assert params["device"]["variant"] == {"old": "1"}  # untouched
+    assert "variant" not in with_variant(params, {})["device"]
+    flt = {"filter": {"dut_id": "DUT-0003"}}
+    assert dut_group(flt) == "filter" and with_variant(flt, {"C3": "10"})["filter"]["variant"]
+    with pytest.raises(ValueError, match="DUT"):
+        with_variant({"device": {"label": "x"}}, {"a": "b"})
+
+
+def make_session(tmp_path, dut=True, kind="efficiency"):
+    registry = default_registry(user_dir="/nonexistent")
+    session = ProjectSession(Project.new("Lab", tmp_path), registry, instruments=["a"])
+    ref = session.create(kind, "Eff")
+    params = good()
+    if dut:
+        params["device"] = {"dut_id": "DUT-0001", "version": "rev A", "variant": {"fan": "on"}}
+    MeasurementFile(type=kind, role_bindings={"instruments": ["a"]}, params=params).save(
+        session.path(ref)
+    )
+    return session, ref
+
+
+def test_a_measurement_with_a_dut_asks_for_its_variant(tmp_path):
+    session, ref = make_session(tmp_path)
+    assert session.variant_question(ref)["last"] == {"fan": "on"}  # no run yet: the file's
+    write_run(session.run_dir, "a.jsonl", "DUT-0001", {"R100": "47 ohm"}, 1000)
+    question = session.variant_question(ref)
+    assert question["dut_id"] == "DUT-0001" and question["version"] == "rev A"
+    assert question["last"] == {"R100": "47 ohm"}  # the last run, not the file
+    assert question["current"] == {"fan": "on"} and question["names"] == ["R100", "fan"]
+
+
+def test_no_question_without_a_dut_or_for_a_type_that_does_not_ask(tmp_path):
+    session, ref = make_session(tmp_path, dut=False)
+    assert session.variant_question(ref) is None
+    session, ref = make_session(tmp_path / "x", kind="resistive_efficiency")
+    assert session.variant_question(ref) is not None  # the other efficiency asks too
+    session.registry.get("efficiency")
+    from ola.variants import ASK_FOR_VARIANT
+
+    assert set(ASK_FOR_VARIANT) == {"efficiency", "resistive_efficiency", "regulation", "ripple"}
+
+
+def test_the_variant_of_a_run_is_in_its_header_and_not_in_the_file(tmp_path):
+    from ola.demo_lab import DemoHandle, DemoLab
+
+    lab = DemoLab()
+    registry = default_registry(user_dir="/nonexistent")
+    session = ProjectSession(
+        Project.new("Lab", tmp_path),
+        registry,
+        connect=lambda name, cancel=None: DemoHandle(name, lab),
+        instruments=["a"],
+    )
+    ref = session.create("efficiency", "Eff")
+    params = good()
+    params["device"] = {"dut_id": "DUT-0001", "variant": {"fan": "on"}}
+    MeasurementFile(type="efficiency", role_bindings={"instruments": ["a"]}, params=params).save(
+        session.path(ref)
+    )
+    runner, path = session.build_runner(ref, variant={"R100": "100 ohm"})
+    runner.start()
+    runner.join(30)
+    header = path.read_text(encoding="utf-8").splitlines()[0]
+    import json
+
+    assert json.loads(header)["params"]["device"]["variant"] == {"R100": "100 ohm"}
+    assert session.load(ref).params["device"]["variant"] == {"fan": "on"}  # the file is as it was
+    assert read_header(path) is not None
