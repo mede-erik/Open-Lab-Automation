@@ -59,7 +59,7 @@ def test_project_references_existing_files(path):
     project = _load(path)
     directory = os.path.dirname(path)
     assert project["project_name"]
-    referenced = [project["inst_file"], project.get("scope_settings")] + [
+    referenced = [project["inst_file"]] + [e["file"] for e in project.get("scope_settings", [])] + [
         m["file"] for m in project.get("measurements", [])
     ]
     for name in referenced:

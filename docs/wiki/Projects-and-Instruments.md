@@ -21,9 +21,10 @@
 | `.rpl` | ripple and noise |
 
 The old `eff_files` format is not read any more. The settings of the oscilloscopes (`.was`) are named by the key
-`scope_settings` of the project, like the instruments file `.inst`: they are part of the project, not a measurement.
-A `.was` file added next to the first one is kept in the project but **disabled** (listed in italics): only the active one
-is applied.
+`scope_settings` of the project, like the instruments file `.inst`: they are part of the project, not a measurement. It is an
+ordered list: every `.was` file is an acquisition (a long view, a rising edge, a falling edge...). Any file can be switched
+off (right click in the file list: it is then listed in italics) and the order can be changed; a measurement that acquires
+waveforms runs the files that are on one after another. The remote control asks which one to apply when several are on.
 
 ## Instrument file (`.inst`)
 

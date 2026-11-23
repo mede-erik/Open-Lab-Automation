@@ -728,5 +728,9 @@
   "diag_rec_firewall": "Vérifiez que le pare-feu ne bloque pas la connexion.",
   "was_reset": "Réinitialiser l'oscilloscope avant d'appliquer ces réglages",
   "was_reset_help": "Décochez pour n'appliquer que ce que dit ce fichier et garder le reste de ce qui est déjà réglé sur l'instrument.",
-  "scope_file_disabled": "Réglages des oscilloscopes gardés dans le projet mais non appliqués : le fichier actif est l'autre."
+  "scope_file_disabled": "Réglages des oscilloscopes gardés dans le projet mais non appliqués : le fichier actif est l'autre.",
+  "scope_file_disable": "Désactiver (garder dans le projet)",
+  "scope_file_enable": "Activer",
+  "scope_file_up": "Monter (acquisition plus tôt)",
+  "scope_file_down": "Descendre (acquisition plus tard)"
 }

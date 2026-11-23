@@ -728,5 +728,9 @@
   "diag_rec_firewall": "Verifica che il firewall non blocchi la connessione.",
   "was_reset": "Resetta l'oscilloscopio prima di applicare queste impostazioni",
   "was_reset_help": "Togli la spunta per applicare solo ciò che dice questo file e tenere il resto di ciò che è già impostato sullo strumento.",
-  "scope_file_disabled": "Impostazioni degli oscilloscopi tenute nel progetto ma non applicate: il file attivo è l'altro."
+  "scope_file_disabled": "Impostazioni degli oscilloscopi tenute nel progetto ma non applicate: il file attivo è l'altro.",
+  "scope_file_disable": "Disattiva (tieni nel progetto)",
+  "scope_file_enable": "Attiva",
+  "scope_file_up": "Sposta su (acquisizione prima)",
+  "scope_file_down": "Sposta giù (acquisizione dopo)"
 }

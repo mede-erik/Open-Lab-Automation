@@ -67,13 +67,13 @@ def test_the_menu_keys_on_disk_win_when_the_project_is_saved(tmp_path):
 def test_the_was_files_of_an_early_project_become_scope_settings(tmp_path):
     path = write(tmp_path / "Old.json", {**LEGACY, "format_version": 2, "measurements": []})
     project = Project.load(path)
-    assert project.scope_settings == "o.was" and project.scope_file_names() == ["o.was"]
+    assert project.scope_file_names() == ["o.was"] and project.active_scope_files() == ["o.was"]
     assert "was_files" not in project.extra
     project.save()
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["scope_settings"] == "o.was" and "was_files" not in saved  # no longer written
-    assert "scope_files" not in saved  # one file: just scope_settings
-    assert Project.load(path).scope_settings == "o.was"  # and read back
+    assert saved["scope_settings"] == [{"file": "o.was", "enabled": True}]
+    assert "was_files" not in saved  # no longer written
+    assert Project.load(path).scope_file_names() == ["o.was"]  # and read back
 
 
 def make_session(tmp_path):
@@ -199,18 +199,17 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     window.project_tab.session.project.add_scope_file("osc2.was")  # added next to the first
     window.save_project_json()
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["scope_settings"] == "osc1.was" and "was_files" not in saved
-    assert saved["scope_files"] == [
+    assert "was_files" not in saved
+    assert saved["scope_settings"] == [
         {"file": "osc1.was", "enabled": True},
-        {"file": "osc2.was", "enabled": False},  # kept, not applied, not deleted
+        {"file": "osc2.was", "enabled": True},  # a new one is on: every file is an acquisition
     ]
     # (the example project already lists its efficiency measurement)
     assert [m["file"] for m in saved["measurements"]] == ["eff.eff", cable_file]
     # and the tab saving afterwards keeps the menu's data
     window.project_tab.session.rename("m2", "Lead B")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["scope_settings"] == "osc1.was" and len(saved["scope_files"]) == 2
-    assert saved["measurements"][1]["name"] == "Lead B"
+    assert len(saved["scope_settings"]) == 2 and saved["measurements"][1]["name"] == "Lead B"
 
     # double click on a measurement file: the editor of the Measurements tab, not the old dialog
     opened = []
@@ -254,3 +253,26 @@ def test_an_existing_measurement_file_can_be_added_from_disk(window, home, monke
     assert os.path.isfile(project / ref.file)
     assert ref.file in listed(window)
     assert [m.file for m in session.project.measurements] == ["eff.eff", ref.file]
+
+
+def test_the_scope_files_can_be_switched_off_and_moved_from_the_file_list(window, home, tmp_path):
+    folder = tmp_path / "p"
+    shutil.copytree(EXAMPLE, folder)
+    window._open_project_path(str(folder / "Test DC-DC Converter.json"))
+    project = window.project_tab.session.project
+    project.add_scope_file("rise.was")
+    project.add_scope_file("fall.was")
+    window.change_scope_file("osc1.was", "toggle")  # the first one off
+    assert project.active_scope_files() == ["rise.was", "fall.was"]
+    window.change_scope_file("fall.was", "up")
+    assert project.scope_file_names() == ["osc1.was", "fall.was", "rise.was"]
+    on_disk = json.loads(project.path.read_text(encoding="utf-8"))
+    assert [e["file"] for e in on_disk["scope_settings"]] == ["osc1.was", "fall.was", "rise.was"]
+    assert on_disk["scope_settings"][0]["enabled"] is False  # saved at once
+    names = {window.project_files_list.item(i).text(): window.project_files_list.item(i)
+             for i in range(window.project_files_list.count())}  # fmt: skip
+    assert names["osc1.was"].font().italic() and not names["fall.was"].font().italic()
+    source = window.open_project_source()
+    assert source["scope_settings"] == ["fall.was", "rise.was"]  # what the remote control sees
+    window.change_scope_file("osc1.was", "toggle")
+    assert window.open_project_source()["scope_settings"] == ["osc1.was", "fall.was", "rise.was"]

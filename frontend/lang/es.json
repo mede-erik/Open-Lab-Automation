@@ -728,5 +728,9 @@
   "diag_rec_firewall": "Verifique que el cortafuegos no bloquee la conexión.",
   "was_reset": "Reiniciar el osciloscopio antes de aplicar estos ajustes",
   "was_reset_help": "Desmarque para aplicar solo lo que dice este archivo y conservar el resto de lo ya ajustado en el instrumento.",
-  "scope_file_disabled": "Ajustes de los osciloscopios guardados en el proyecto pero no aplicados: el archivo activo es el otro."
+  "scope_file_disabled": "Ajustes de los osciloscopios guardados en el proyecto pero no aplicados: el archivo activo es el otro.",
+  "scope_file_disable": "Desactivar (mantener en el proyecto)",
+  "scope_file_enable": "Activar",
+  "scope_file_up": "Subir (adquisición antes)",
+  "scope_file_down": "Bajar (adquisición después)"
 }

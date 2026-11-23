@@ -84,7 +84,8 @@ def test_oscilloscope_settings_plan_for_its_model(library, instruments):
 def test_the_project_lists_files_that_exist():
     project = load("Test DC-DC Converter.json")
     assert project["inst_file"] == "test_instruments.inst"
-    files = {project["scope_settings"]} | {m["file"] for m in project["measurements"]}
+    scope = {e["file"] for e in project["scope_settings"]}
+    files = scope | {m["file"] for m in project["measurements"]}
     assert files <= set(os.listdir(PROJECT))
 
 

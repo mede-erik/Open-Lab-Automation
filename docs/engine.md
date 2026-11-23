@@ -160,12 +160,15 @@ name or list of names) and `params`. File names in a project must be plain names
 `eff_files` format is **not read** (decision recorded in `PLAN.md`).
 
 **Project definition files.** `inst_file` (the instruments, `.inst`) and `scope_settings` (the settings of the
-oscilloscopes, `.was`) name files that are not measurements. A project has one active `scope_settings` (or none: that is
-valid, and the remote control says there are no settings). If it has more `.was` files, `scope_files` lists all of them with
-an `enabled` flag, exactly one true: the others stay in the folder, listed as disabled, never deleted or renamed. The key
-`was_files` of the early projects of format 2 is still **read** (its first file is the `scope_settings`, the others are
-disabled) and never written again; a project file is changed only when it is saved. The `.was` file may say `"reset": false`
-to apply only what it says (default: the oscilloscope is reset first); `ola.was_calls.check_was` says what is wrong with one.
+oscilloscopes, `.was`) name files that are not measurements. `scope_settings` is an **ordered list** of `.was` files, each
+`{"file": "rise.was", "enabled": true}`: every file is a different acquisition (a long view of the signal, a rising edge, a
+falling edge...). A measurement that acquires waveforms runs the files that are enabled **one after another, in this order**; the
+remote control, when several are enabled, opens a menu under the button to choose which one to apply. Any file can be switched off
+(not only the last ones) and moved up or down from the file list of the project (right click); a new file starts enabled. A switched
+off file stays in the folder and in the list, never deleted or renamed. An empty list is valid (the remote control says there are
+no settings). The key `was_files` of the early projects of format 2 is still **read** (its files become the list, all enabled) and
+never written again; a project file is changed only when it is saved. The `.was` file may say `"reset": false` to apply only what it
+says (default: the oscilloscope is reset first); `ola.was_calls.check_was` says what is wrong with one.
 
 ## Errors
 

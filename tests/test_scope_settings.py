@@ -30,42 +30,70 @@ def saved(project):
 def test_a_new_project_has_no_scope_settings_and_is_valid(tmp_path):
     project = Project.new("Lab", tmp_path)
     project.save()
-    assert project.scope_settings is None and project.scope_file_names() == []
-    assert saved(project)["scope_settings"] is None and "scope_files" not in saved(project)
-    assert Project.load(project.path).scope_settings is None
-    assert project.scope_path() is None
+    assert project.scope_settings == [] and project.active_scope_files() == []
+    assert saved(project)["scope_settings"] == []
+    assert Project.load(project.path).scope_settings == []
 
 
-def test_the_first_file_is_the_active_one_and_the_next_ones_wait_disabled(tmp_path):
+def test_every_file_is_an_acquisition_and_starts_on(tmp_path):
     project = Project.new("Lab", tmp_path)
-    project.add_scope_file("a.was")
-    project.add_scope_file("b.was")
-    project.add_scope_file("a.was")  # twice: nothing changes
-    assert project.scope_settings == "a.was" and project.scope_path() == tmp_path / "a.was"
-    assert project.scope_files == [
-        {"file": "a.was", "enabled": True},
-        {"file": "b.was", "enabled": False},
-    ]
+    for name in ("long.was", "rise.was", "fall.was"):
+        project.add_scope_file(name)
+    project.add_scope_file("rise.was")  # twice: nothing changes
+    assert project.scope_file_names() == ["long.was", "rise.was", "fall.was"]
+    assert project.active_scope_files() == ["long.was", "rise.was", "fall.was"]  # all on
     project.save()
-    assert saved(project)["scope_files"] == project.scope_files
+    assert saved(project)["scope_settings"] == [
+        {"file": "long.was", "enabled": True},
+        {"file": "rise.was", "enabled": True},
+        {"file": "fall.was", "enabled": True},
+    ]
     back = Project.load(project.path)
-    assert back.scope_settings == "a.was" and back.scope_files == project.scope_files
+    assert back.scope_settings == project.scope_settings
 
 
-def test_the_active_file_can_be_changed_and_nothing_is_deleted(tmp_path):
-    for name in ("a.was", "b.was"):
+def test_any_file_can_be_switched_off_not_only_the_last_ones(tmp_path):
+    for name in ("long.was", "rise.was", "fall.was"):
         (tmp_path / name).write_text("{}")
     project = Project.new("Lab", tmp_path)
-    project.add_scope_file("a.was")
-    project.add_scope_file("b.was")
-    project.set_active_scope("b.was")
-    assert project.scope_settings == "b.was"
-    assert [e["enabled"] for e in project.scope_files] == [False, True]  # exactly one is active
+    for name in ("long.was", "rise.was", "fall.was"):
+        project.add_scope_file(name)
+    project.set_scope_enabled("long.was", False)  # the first one
+    assert project.active_scope_files() == ["rise.was", "fall.was"]
+    assert project.scope_file_names() == [
+        "long.was",
+        "rise.was",
+        "fall.was",
+    ]  # still in the project
+    project.set_scope_enabled("rise.was", False)
+    project.set_scope_enabled("fall.was", False)
+    assert project.active_scope_files() == []  # none on: valid
+    project.set_scope_enabled("long.was", True)
+    assert project.active_scope_files() == ["long.was"]
     with pytest.raises(MeasurementError, match="not a scope settings file"):
-        project.set_active_scope("c.was")
-    project.remove_scope_file("b.was")  # the active one leaves: there is none until one is chosen
-    assert project.scope_settings is None and project.scope_file_names() == ["a.was"]
-    assert (tmp_path / "a.was").exists() and (tmp_path / "b.was").exists()  # only the list changed
+        project.set_scope_enabled("other.was", True)
+    project.remove_scope_file("rise.was")  # only the list changes
+    assert project.scope_file_names() == ["long.was", "fall.was"]
+    assert all((tmp_path / n).exists() for n in ("long.was", "rise.was", "fall.was"))
+
+
+def test_the_order_is_the_order_of_the_acquisitions_and_can_be_changed(tmp_path):
+    project = Project.new("Lab", tmp_path)
+    for name in ("a.was", "b.was", "c.was"):
+        project.add_scope_file(name)
+    project.move_scope_file("c.was", -1)
+    assert project.scope_file_names() == ["a.was", "c.was", "b.was"]
+    project.move_scope_file("a.was", -1)  # already first: nothing
+    project.move_scope_file("b.was", +1)  # already last: nothing
+    assert project.scope_file_names() == ["a.was", "c.was", "b.was"]
+    project.move_scope_file("b.was", -2)
+    assert project.scope_file_names() == ["b.was", "a.was", "c.was"]
+    project.set_scope_enabled("a.was", False)
+    assert project.active_scope_files() == ["b.was", "c.was"]  # the order of the ones that are on
+    project.save()
+    assert Project.load(project.path).scope_settings == project.scope_settings
+    with pytest.raises(MeasurementError):
+        project.move_scope_file("x.was", 1)
 
 
 def test_a_file_name_must_be_plain(tmp_path):
@@ -75,7 +103,22 @@ def test_a_file_name_must_be_plain(tmp_path):
             project.add_scope_file(bad)
 
 
-def test_the_was_files_of_an_early_project_are_read_and_not_written(tmp_path):
+def test_a_single_name_and_a_list_of_names_are_read(tmp_path):
+    base = {"format_version": 2, "project_id": "x", "project_name": "P", "measurements": []}
+    one = Project.load(write(tmp_path / "one.json", {**base, "scope_settings": "a.was"}))
+    assert one.scope_settings == [{"file": "a.was", "enabled": True}]
+    names = Project.load(write(tmp_path / "n.json", {**base, "scope_settings": ["a.was", "b.was"]}))
+    assert names.active_scope_files() == ["a.was", "b.was"]
+    off = {"scope_settings": [{"file": "a.was", "enabled": False}, {"file": "b.was"}]}
+    flags = Project.load(write(tmp_path / "f.json", {**base, **off}))
+    assert flags.active_scope_files() == ["b.was"]  # a missing flag means on
+    junk = Project.load(
+        write(tmp_path / "j.json", {**base, "scope_settings": [3, "", "a.was", "a.was"]})
+    )
+    assert junk.scope_file_names() == ["a.was"]
+
+
+def test_the_was_files_of_an_early_project_are_read_all_on_and_not_written(tmp_path):
     path = write(
         tmp_path / "p.json",
         {"format_version": 2, "project_id": "x", "project_name": "P",
@@ -83,17 +126,16 @@ def test_the_was_files_of_an_early_project_are_read_and_not_written(tmp_path):
     )  # fmt: skip
     before = path.read_bytes()
     project = Project.load(path)
-    assert project.scope_settings == "a.was"  # the first one stays the one that is applied
-    assert project.scope_files == [
+    assert project.scope_settings == [
         {"file": "a.was", "enabled": True},
-        {"file": "b.was", "enabled": False},  # not lost: kept, disabled
+        {"file": "b.was", "enabled": True},  # nothing is lost, nothing is switched off
     ]
     assert path.read_bytes() == before  # opening wrote nothing
     project.save()
     data = saved(project)
-    assert "was_files" not in data and data["scope_settings"] == "a.was"
-    assert data["calibrations"] == ["c"] and len(data["scope_files"]) == 2
-    assert Project.load(path).scope_files == project.scope_files  # a second open changes nothing
+    assert "was_files" not in data and data["calibrations"] == ["c"]
+    assert data["scope_settings"] == project.scope_settings
+    assert Project.load(path).scope_settings == project.scope_settings  # a second open: the same
 
 
 def test_only_the_project_module_knows_the_old_key():
@@ -112,10 +154,10 @@ def test_the_examples_name_their_scope_settings():
         "examples/test-dcdc-project/Test DC-DC Converter.json",
     ):
         raw = json.loads((Path(REPO) / example).read_text(encoding="utf-8"))
-        assert "was_files" not in raw and raw["scope_settings"].endswith(".was")
+        assert "was_files" not in raw and raw["scope_settings"]
         project = Project.load(Path(REPO) / example)
         assert project.scope_settings == raw["scope_settings"]
-        assert project.scope_path().is_file()
+        assert all(project.scope_path(name).is_file() for name in project.scope_file_names())
 
 
 # ---- the file ----------------------------------------------------------------------------------

@@ -728,5 +728,9 @@
   "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert.",
   "was_reset": "Oszilloskop vor dem Anwenden dieser Einstellungen zurücksetzen",
   "was_reset_help": "Abwählen, um nur anzuwenden, was diese Datei sagt, und den Rest der Einstellungen des Geräts zu behalten.",
-  "scope_file_disabled": "Einstellungen der Oszilloskope, im Projekt behalten, aber nicht angewendet: die aktive Datei ist die andere."
+  "scope_file_disabled": "Einstellungen der Oszilloskope, im Projekt behalten, aber nicht angewendet: die aktive Datei ist die andere.",
+  "scope_file_disable": "Ausschalten (im Projekt behalten)",
+  "scope_file_enable": "Einschalten",
+  "scope_file_up": "Nach oben (frühere Aufnahme)",
+  "scope_file_down": "Nach unten (spätere Aufnahme)"
 }

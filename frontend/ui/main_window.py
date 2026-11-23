@@ -556,7 +556,7 @@ class MainWindow(QMainWindow):
         return {
             "dir": self.current_project_dir,
             "inst_file": self.current_project_data.get('inst_file'),
-            "scope_settings": session.project.scope_settings,
+            "scope_settings": session.project.active_scope_files(),
         }
 
     def refresh_project_files(self):
@@ -574,11 +574,11 @@ class MainWindow(QMainWindow):
         project = session.project if session is not None else None
         disabled = set()
         if project is not None:  # the settings of the oscilloscopes: project definition files
-            for f in project.scope_file_names():
-                if f not in files:
-                    files.append(f)
-                if f != project.scope_settings:
-                    disabled.add(f)
+            for entry in project.scope_settings:
+                if entry['file'] not in files:
+                    files.append(entry['file'])
+                if not entry['enabled']:
+                    disabled.add(entry['file'])
         for f in files:
             item = QListWidgetItem(f)
             if f in disabled:  # kept in the project, but not the one that is applied
@@ -692,14 +692,10 @@ class MainWindow(QMainWindow):
                     on_disk[key] = self.current_project_data[key]
             if session is not None:  # the settings of the oscilloscopes come from the project
                 project = session.project
-                on_disk['scope_settings'] = project.scope_settings
-                if len(project.scope_files) > 1:
-                    on_disk['scope_files'] = [dict(e) for e in project.scope_files]
-                else:
-                    on_disk.pop('scope_files', None)
+                on_disk['scope_settings'] = [dict(e) for e in project.scope_settings]
                 for old_key in LEGACY_KEYS:  # keys of the early projects: no longer written
                     on_disk.pop(old_key, None)
-                self.current_project_data['scope_settings'] = project.scope_settings
+                self.current_project_data['scope_settings'] = on_disk['scope_settings']
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(on_disk, f, indent=2, ensure_ascii=False)
             if session is not None:
@@ -999,13 +995,46 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         copy_action = menu.addAction(self.translator.t('copy_file_name'))
         # paste_action = menu.addAction(self.translator.t('paste_file'))  # Implementa se serve
+        scope = self._scope_entry(item.text())
+        toggle_action = up_action = down_action = None
+        if scope is not None:  # the settings of the oscilloscopes: on or off, and their order
+            toggle_action = menu.addAction(
+                self.translator.t('scope_file_disable' if scope['enabled'] else 'scope_file_enable'))
+            up_action = menu.addAction(self.translator.t('scope_file_up'))
+            down_action = menu.addAction(self.translator.t('scope_file_down'))
         delete_action = menu.addAction(self.translator.t('delete_file'))
         action = menu.exec(self.project_files_list.mapToGlobal(pos))
+        if action is None:
+            return
         if action == copy_action:
             from PyQt6.QtWidgets import QApplication
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
+        elif action in (toggle_action, up_action, down_action):
+            self.change_scope_file(item.text(), 'toggle' if action == toggle_action
+                                   else ('up' if action == up_action else 'down'))
+
+    def _scope_entry(self, file_name):
+        """The entry of a scope settings file of the open project, or None."""
+        session = self.project_tab.session
+        if session is None:
+            return None
+        return next((e for e in session.project.scope_settings if e['file'] == file_name), None)
+
+    def change_scope_file(self, file_name, what):
+        """Switch a scope settings file on or off (``toggle``) or move it in the order
+        (``up``, ``down``); the file itself is never touched."""
+        entry = self._scope_entry(file_name)
+        if entry is None:
+            return
+        project = self.project_tab.session.project
+        if what == 'toggle':
+            project.set_scope_enabled(file_name, not entry['enabled'])
+        else:
+            project.move_scope_file(file_name, -1 if what == 'up' else 1)
+        self.save_project_json()
+        self.refresh_project_files()
 
 
 class AddFileDialog(QDialog):

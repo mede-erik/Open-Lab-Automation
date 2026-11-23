@@ -174,8 +174,8 @@ class RemoteControlTab(QWidget):
             print("[RemoteControlTab] no MainWindow with reload_remote_tab_instruments.")
 
     def _configure_oscilloscope_from_was(self):
-        """Apply the oscilloscope settings of the project (its first .was file) to every
-        oscilloscope of the instrument file. A window appears only if something went wrong (no
+        """Apply the oscilloscope settings of the project (the one .was file that is on, or the
+        one chosen in a menu if several are on) to every oscilloscope of the instrument file. A window appears only if something went wrong (no
         project, no .was, an unreachable instrument, settings the model refused...): when it
         works the settings are seen on the oscilloscope itself."""
         self._scope_report = []
@@ -221,6 +221,16 @@ class RemoteControlTab(QWidget):
             first = problems[0][1:problems[0].index("]")] if problems[0].startswith("[") else None
             show_problem(self, self._t("rc_scope_title"), "\n".join(problems), code=first)
 
+    def _choose_scope_file(self, names):
+        """Which of the scope settings files to apply: a menu under the button (the name without
+        ``.was``). ``None`` if the menu is closed without a choice."""
+        from PyQt6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        actions = {menu.addAction(os.path.splitext(name)[0]): name for name in names}
+        chosen = menu.exec(self.osc_btn.mapToGlobal(self.osc_btn.rect().bottomLeft()))
+        return actions.get(chosen)
+
     def _project(self):
         """The open project (see ``project_source``), or None."""
         source = self.project_source
@@ -232,10 +242,16 @@ class RemoteControlTab(QWidget):
         if project is None:
             self._scope_note("error", "rc_scope_no_project")
             return
-        was_file = project.get("scope_settings")  # the active scope settings file of the project
-        if not was_file:
+        active = project.get("scope_settings") or []  # the scope settings files that are on
+        if isinstance(active, str):
+            active = [active]
+        if not active:
             self._scope_note("error", "rc_scope_no_was")
             return
+        # one file: apply it. Several (a long view, a rising edge...): the user chooses which one
+        was_file = active[0] if len(active) == 1 else self._choose_scope_file(active)
+        if was_file is None:
+            return  # the menu was closed: nothing is applied
         was_path = os.path.join(project["dir"], was_file)
         if not os.path.exists(was_path):
             self._scope_note("error", "rc_scope_was_missing", file=was_file)

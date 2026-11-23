@@ -728,5 +728,9 @@
   "diag_rec_firewall": "Verify firewall is not blocking the connection.",
   "was_reset": "Reset the oscilloscope before applying these settings",
   "was_reset_help": "Untick it to apply only what this file says and keep the rest of what is already set on the instrument.",
-  "scope_file_disabled": "Settings of the oscilloscopes kept in the project but not applied: the active file is the other one."
+  "scope_file_disabled": "Settings of the oscilloscopes kept in the project but not applied: the active file is the other one.",
+  "scope_file_disable": "Switch off (keep in the project)",
+  "scope_file_enable": "Switch on",
+  "scope_file_up": "Move up (earlier acquisition)",
+  "scope_file_down": "Move down (later acquisition)"
 }

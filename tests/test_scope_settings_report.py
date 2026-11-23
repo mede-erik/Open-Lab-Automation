@@ -59,7 +59,7 @@ class Window(QWidget):
 def project(tmp_path):
     for name in ("osc1.was", "test_instruments.inst"):
         shutil.copy(EXAMPLE / name, tmp_path / name)
-    return tmp_path, {"inst_file": "test_instruments.inst", "scope_settings": "osc1.was"}
+    return tmp_path, {"inst_file": "test_instruments.inst", "scope_settings": ["osc1.was"]}
 
 
 class Executor:
@@ -98,7 +98,7 @@ def test_without_a_project_it_says_so(app, shown):
 
 def test_a_project_without_a_was_file_says_so(app, shown, project):
     folder, data = project
-    tab = make_tab(app, folder, {**data, "scope_settings": None})
+    tab = make_tab(app, folder, {**data, "scope_settings": []})
     tab._configure_oscilloscope_from_was()
     assert shown[0][0] == "warning" and ".was" in shown[0][1]
 
@@ -184,3 +184,44 @@ def test_a_failed_run_shows_its_code():
         "[CALL-004] no answer"
     )
     assert failure_text({"message": "x", "code": "TRN-003"}) == "[TRN-003] x"
+
+
+def test_with_several_files_on_the_user_chooses_which_one_is_applied(
+    app, shown, project, monkeypatch
+):
+    folder, data = project
+    shutil.copy(folder / "osc1.was", folder / "rise.was")
+    tab = make_tab(app, folder, {**data, "scope_settings": ["osc1.was", "rise.was"]})
+    reachable(tab, monkeypatch, Executor())
+    offered = []
+    applied = []
+    monkeypatch.setattr(
+        tab, "_choose_scope_file", lambda names: offered.append(names) or "rise.was"
+    )
+    monkeypatch.setattr(
+        tab, "_apply_oscilloscope_settings", lambda was, name="": applied.append(name)
+    )
+    tab._configure_oscilloscope_from_was()
+    assert offered == [["osc1.was", "rise.was"]] and applied == ["rise.was"]
+    assert shown == []
+
+
+def test_closing_the_menu_applies_nothing(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, {**data, "scope_settings": ["osc1.was", "rise.was"]})
+    applied = []
+    monkeypatch.setattr(tab, "_choose_scope_file", lambda names: None)
+    monkeypatch.setattr(
+        tab, "_apply_oscilloscope_settings", lambda was, name="": applied.append(name)
+    )
+    tab._configure_oscilloscope_from_was()
+    assert applied == [] and shown == []  # no report either: the user chose nothing
+
+
+def test_with_one_file_on_there_is_no_menu(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, data)
+    reachable(tab, monkeypatch, Executor())
+    monkeypatch.setattr(tab, "_choose_scope_file", lambda names: pytest.fail("asked"))
+    tab._configure_oscilloscope_from_was()
+    assert shown == []
