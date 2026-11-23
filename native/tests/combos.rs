@@ -92,3 +92,40 @@ fn a_big_kit_is_fast() {
     assert_eq!(points.len(), 4);
     assert!(started.elapsed().as_secs() < 30);
 }
+
+#[test]
+fn every_target_can_have_its_own_voltage() {
+    // a converter whose output sags with the load: 12 V at 1 A down to 9 V at 4 A
+    let (kit, _, params) = example();
+    let targets = [1.0, 2.0, 3.0, 4.0];
+    let volts = vec![12.0, 11.0, 10.0, 9.0];
+    let sag = Params {
+        vouts: volts.clone(),
+        ..params.clone()
+    };
+    let points = plan(&kit, &targets, &sag).unwrap();
+    for (p, v) in points.iter().zip(&volts) {
+        assert!((p.current - p.ohms.recip() * v).abs() < 1e-9); // the current is at its voltage
+        assert!((p.current - p.target).abs() < 0.1, "{p:?}");
+    }
+    let flat = plan(&kit, &targets, &params).unwrap();
+    assert!(points[3].ohms < flat[3].ohms); // 4 A at 9 V needs less resistance than at 12 V
+    assert!(plan(
+        &kit,
+        &targets,
+        &Params {
+            vouts: vec![12.0],
+            ..params.clone()
+        }
+    )
+    .is_err());
+    assert!(plan(
+        &kit,
+        &targets,
+        &Params {
+            vouts: vec![0.0; 4],
+            ..params
+        }
+    )
+    .is_err());
+}

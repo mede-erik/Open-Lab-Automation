@@ -17,7 +17,9 @@ cost does not grow like ``3**n`` with the size of the kit (15 to 20 resistors ta
 The work is done by the Rust module ``ola_native`` when it is installed; this file has the same
 steps in Python, with the same result (``OLA_COMBINATIONS=python`` forces it), a few times slower.
 
-The 0 A point (no load) is not a load: ``plan_loads`` leaves it out and says so in ``open_circuit``.
+The 0 A point (no load) has no resistors: ``plan_loads`` leaves it out of the points and says so in
+``open_circuit``, and ``loads_from_plan`` writes it as the first load, ``{"name": "0 A", "open":
+true}`` (nothing connected, see ``ola.resistors``).
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ import json
 import math
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 Tree = Union[int, Tuple[str, Any, Any]]  # a resistor, or ("s" | "p", left, right)
 
@@ -128,20 +130,24 @@ def _search(ohms: Sequence[float], watts: Sequence[float], eps: float, keep: int
 
 
 def _plan_python(
-    ohms, watts, targets, vout, step, eps, ways, candidates, w_dev, w_change, margin
+    ohms, watts, targets, vout, step, eps, ways, candidates, w_dev, w_change, margin, vouts=None
 ) -> List[Tuple[float, float, float, float, int, str]]:
-    found = [w for w in _search(ohms, watts, eps, ways) if w.q * vout * vout <= margin]
-    if not found:
-        raise PlanError("no combination of the kit keeps every resistor within its rating")
+    volts = list(vouts) if vouts else [vout] * len(targets)
+    found = _search(ohms, watts, eps, ways)
     layers: List[List[_Way]] = []
-    for t in targets:
-        near = sorted(found, key=lambda w: abs(vout / w.ohms - t))  # stable, like Rust's
+    for t, v in zip(targets, volts):
+        near = [w for w in found if w.q * v * v <= margin]
+        if not near:
+            raise PlanError(
+                f"no combination of the kit keeps every resistor within its rating at {v:g} V"
+            )
+        near.sort(key=lambda w: abs(v / w.ohms - t))  # stable, like Rust's
         layers.append(near[:candidates])
     cost: List[List[Tuple[float, int]]] = []
     for li, layer in enumerate(layers):
         row = []
         for w in layer:
-            dev = abs(vout / w.ohms - targets[li]) / step
+            dev = abs(volts[li] / w.ohms - targets[li]) / step
             if li == 0:
                 row.append((w_dev * dev + w_change * bin(w.mask).count("1"), 0))
                 continue
@@ -168,8 +174,8 @@ def _plan_python(
             (
                 targets[li],
                 w.ohms,
-                vout / w.ohms,
-                w.q * vout * vout,
+                volts[li] / w.ohms,
+                w.q * volts[li] * volts[li],
                 bin(before ^ w.mask).count("1"),
                 json.dumps(_listed(w.tree), separators=(",", ":")),
             )
@@ -221,12 +227,15 @@ def plan_loads(
     candidates: int = 6,
     w_dev: float = 10.0,
     w_change: float = 1.0,
+    vouts: Optional[Sequence[float]] = None,
 ) -> Plan:
     """The networks that give ``points`` currents from ``i_min`` to ``i_max`` at ``vout_v``.
 
     ``resistors`` are the kit (``r_ohm`` and ``power_w``; a resistor without a rating is not
     limited). ``margin`` is the largest fraction of its rating a resistor may carry, ``eps`` the
-    width of a band of values (0.01 = 1 %). ``PlanError`` if nothing can be planned."""
+    width of a band of values (0.01 = 1 %). ``vouts`` gives the output voltage at each of the
+    ``points`` currents (a converter that is not regulated, once its curve is known); without it
+    ``vout_v`` is used for all. ``PlanError`` if nothing can be planned."""
     if not resistors:
         raise PlanError("the kit has no resistors")
     if not (math.isfinite(vout_v) and vout_v > 0):
@@ -234,13 +243,18 @@ def plan_loads(
     if not 0 < margin <= 1:
         raise PlanError("the margin must be above 0 and at most 1 (100 % of the rating)")
     wanted = targets_for(i_min, i_max, points)
+    if vouts is not None and (
+        len(vouts) != len(wanted) or not all(math.isfinite(v) and v > 0 for v in vouts)
+    ):
+        raise PlanError("give one output voltage above 0 for every point")
     drop = bool(wanted) and wanted[0] == 0
     wanted = wanted[1:] if drop else wanted
+    volts = list(vouts)[1:] if (vouts is not None and drop) else (list(vouts) if vouts else None)
     step = (i_max - i_min) / (points - 1) if points > 1 else i_max
     ohms = [float(r["r_ohm"]) for r in resistors]
     watts = [float(r["power_w"]) if r.get("power_w") else math.inf for r in resistors]
     args = (ohms, watts, wanted, float(vout_v), step, eps, ways, candidates, w_dev, w_change)
-    args += (margin,)
+    args += (margin, volts)
     if not wanted:
         raw: List[Tuple[float, float, float, float, int, str]] = []
     elif native_available():
@@ -294,8 +308,9 @@ def tree_text(tree: Tree, names: Sequence[str], top: bool = True) -> str:
 
 
 def loads_from_plan(plan: Plan, resistors: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """The loads of the plan, named by their target (``"3 A"``), ready for ``loads``."""
-    out = []
+    """The loads of the plan, named by their target (``"3 A"``), ready for ``loads``; the open
+    output of a 0 A target comes first."""
+    out: List[Dict[str, Any]] = [{"name": "0 A", "open": True}] if plan.open_circuit else []
     for p in plan.points:
         load = tree_to_load(p.tree, resistors)
         out.append({"name": f"{p.target_a:g} A", **{k: v for k, v in load.items() if k != "name"}})

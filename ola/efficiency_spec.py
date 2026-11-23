@@ -166,6 +166,13 @@ class LoadSpec:
     settle_s: float = 0.0
     vout: str = "vout"
     max_vout_v: Optional[float] = None
+    plan: Optional[Dict[str, Any]] = None  # how the loads were calculated (``ola.combinations``)
+
+    @property
+    def learn(self) -> bool:
+        """True if the run first measures the output voltage and re-plans the loads (see
+        ``docs/resistive-efficiency.md``)."""
+        return bool(self.plan and self.plan.get("learn"))
 
     @property
     def unresolved(self) -> bool:
@@ -481,8 +488,13 @@ class _Checker:
             self.error(path, 'must be an object like {"loads": [...], "switching": {...}}')
             return None
         self.unknown_keys(raw, ("loads", "switching", "vout", "max_vout_v", "plan"), path)
-        if "plan" in raw and not isinstance(raw["plan"], dict):
-            self.error(f"{path}.plan", "must be an object (the inputs of the plan of the loads)")
+        plan = raw.get("plan")
+        if "plan" in raw:
+            if not isinstance(plan, dict):
+                self.error(f"{path}.plan", "must be an object (the inputs of the loads' plan)")
+                plan = None
+            elif plan.get("learn"):
+                self.learning_inputs(plan, f"{path}.plan")
         loads_raw = raw.get("loads")
         problems = refs_problems(loads_raw, f"{path}.loads")
         for where, message in problems:
@@ -545,7 +557,35 @@ class _Checker:
                         f"at {vmax:g} V the resistor {resistor.name} of '{load.name}' dissipates "
                         f"{fraction * 100:.0f} % of its rating",
                     )
-        return LoadSpec(loads, count, mode, instrument, settle, vout, vmax)
+        return LoadSpec(loads, count, mode, instrument, settle, vout, vmax, plan)
+
+    def learning_inputs(self, plan: Dict[str, Any], path: str) -> None:
+        """The inputs a run that learns the output voltage needs: the kit, the range of currents,
+        the voltage the converter is expected to give and the parameter that is its input."""
+        if not isinstance(plan.get("kit"), str) or not plan["kit"].strip():
+            self.error(f"{path}.kit", "learning needs the kit of resistors the loads come from")
+        low = self.number(plan, "i_min", path, None, 0.0)
+        high = self.number(plan, "i_max", path, None, 0.0)
+        if "i_min" not in plan or "i_max" not in plan or (
+            low is not None and high is not None and high <= low
+        ):
+            self.error(path, "give the smallest and the largest current (the largest above)")
+        self.number(plan, "points", path, None, 2, True)
+        margin = self.number(plan, "margin_pct", path, 80.0, 1.0, False, 100.0)
+        if margin is None:
+            return
+        self.number(plan, "learn_points", path, None, 2, True)
+        if plan.get("kind", "regulated") == "regulated":
+            if self.number(plan, "vout_v", path, None, 0.0) in (None, 0.0):
+                self.error(f"{path}.vout_v", "give the output voltage the converter should have")
+            keys = ("vin_v",)
+        else:
+            keys = ("ratio", "vin_v")
+        for key in keys:  # the input voltage the quick sweep is made at
+            if self.number(plan, key, path, None, 0.0) in (None, 0.0):
+                self.error(f"{path}.{key}", "give a number above 0")
+        if not isinstance(plan.get("vin_param"), str) or not plan["vin_param"]:
+            self.error(f"{path}.vin_param", "name the parameter that is the input voltage")
 
     def setter(self, raw: Any, path: str) -> Optional[SetSpec]:
         if not isinstance(raw, dict):
@@ -915,6 +955,22 @@ def load_names(variables: Mapping[str, Variable]) -> set:
     return {f"{n}{s}" for n, var in variables.items() if var.load for s in ("_min", "_max")}
 
 
+def _check_learning(c: "_Checker", variables: Mapping[str, Variable]) -> None:
+    """A learning run needs an input parameter the program sets, and only one load learns."""
+    learners = [v for v in variables.values() if v.load is not None and v.load.learn]
+    if len(learners) > 1:
+        c.error("variables", "only one load can learn the output voltage of the converter")
+    for index, (name, var) in enumerate(variables.items()):
+        if var.load is None or not var.load.learn:
+            continue
+        owner = variables.get(var.load.plan.get("vin_param"))
+        if owner is None or owner.set is None:
+            c.error(
+                f"variables[{index}].load.plan.vin_param",
+                "this is not a parameter that the program sets (the input voltage)",
+            )
+
+
 def _check_vout(c: "_Checker", variables: Mapping[str, Variable]) -> None:
     """The reading that checks the power in the resistors must exist."""
     for index, (name, var) in enumerate(variables.items()):
@@ -987,6 +1043,7 @@ def _analyse(
             "variables", "nothing is read: give at least one 'reads' to have something to measure"
         )
     _check_vout(c, variables)
+    _check_learning(c, variables)
     axes = [(name, var.axis) for name, var in variables.items() if var.axis]
     derived = c.derived(params.get("derived"), variables)
     startup = c.call_list(params.get("startup"), "startup")

@@ -65,6 +65,9 @@ struct Way {
 pub struct Params {
     /// Output voltage of the converter (V).
     pub vout: f64,
+    /// The output voltage at each target current (V), when it is not the same for all (a converter
+    /// that is not regulated, once its curve is known); empty: `vout` for every target.
+    pub vouts: Vec<f64>,
     /// Distance between two targets (A): the unit of the deviation in the cost.
     pub step: f64,
     /// Relative width of a band of values (0.01 = 1 %).
@@ -85,6 +88,7 @@ impl Default for Params {
     fn default() -> Self {
         Params {
             vout: 1.0,
+            vouts: Vec::new(),
             step: 1.0,
             eps: 0.01,
             ways: 3,
@@ -231,37 +235,47 @@ pub fn plan(resistors: &[Resistor], targets: &[f64], p: &Params) -> Result<Vec<P
     if !targets.iter().copied().all(positive) {
         return Err("every target current must be above 0".into());
     }
+    if !p.vouts.is_empty()
+        && (p.vouts.len() != targets.len() || !p.vouts.iter().copied().all(positive))
+    {
+        return Err("give one output voltage above 0 for every target".into());
+    }
     if targets.is_empty() {
         return Ok(Vec::new());
     }
+    let volts: Vec<f64> = if p.vouts.is_empty() {
+        vec![p.vout; targets.len()]
+    } else {
+        p.vouts.clone()
+    };
     let found: Vec<Way> = search(resistors, p.eps, p.ways)
         .into_iter()
         .flatten()
-        .filter(|w| w.q * p.vout * p.vout <= p.margin)
         .collect();
-    if found.is_empty() {
-        return Err("no combination of the kit keeps every resistor within its rating".into());
+    // the nearest networks to every target that keep every resistor within its rating at the
+    // voltage of that target, then the cheapest path through them
+    let mut layers: Vec<Vec<&Way>> = Vec::with_capacity(targets.len());
+    for (t, v) in targets.iter().zip(&volts) {
+        let mut near: Vec<&Way> = found.iter().filter(|w| w.q * v * v <= p.margin).collect();
+        if near.is_empty() {
+            return Err(format!(
+                "no combination of the kit keeps every resistor within its rating at {v} V"
+            ));
+        }
+        near.sort_by(|a, b| {
+            (v / a.ohms - t)
+                .abs()
+                .partial_cmp(&(v / b.ohms - t).abs())
+                .unwrap()
+        });
+        near.truncate(p.candidates);
+        layers.push(near);
     }
-    // the nearest networks to every target, then the cheapest path through them
-    let layers: Vec<Vec<&Way>> = targets
-        .iter()
-        .map(|t| {
-            let mut near: Vec<&Way> = found.iter().collect();
-            near.sort_by(|a, b| {
-                (p.vout / a.ohms - t)
-                    .abs()
-                    .partial_cmp(&(p.vout / b.ohms - t).abs())
-                    .unwrap()
-            });
-            near.truncate(p.candidates);
-            near
-        })
-        .collect();
     let mut cost: Vec<Vec<(f64, usize)>> = Vec::new();
     for (li, layer) in layers.iter().enumerate() {
         let mut row = Vec::with_capacity(layer.len());
         for w in layer {
-            let dev = (p.vout / w.ohms - targets[li]).abs() / p.step;
+            let dev = (volts[li] / w.ohms - targets[li]).abs() / p.step;
             let mut best = (f64::MAX, 0usize);
             if li == 0 {
                 best = (p.w_dev * dev + p.w_change * w.mask.count_ones() as f64, 0);
@@ -296,8 +310,8 @@ pub fn plan(resistors: &[Resistor], targets: &[f64], p: &Params) -> Result<Vec<P
         points.push(Point {
             target: targets[li],
             ohms: w.ohms,
-            current: p.vout / w.ohms,
-            load: w.q * p.vout * p.vout,
+            current: volts[li] / w.ohms,
+            load: w.q * volts[li] * volts[li],
             changes: (before ^ w.mask).count_ones(),
             tree: w.tree.clone(),
         });

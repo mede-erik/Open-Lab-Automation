@@ -197,11 +197,11 @@ impl PyConnection {
 }
 
 /// `plan_combinations(ohms, watts, targets, vout, step, eps, ways, candidates, w_dev, w_change,
-/// margin)`: the planned points as `(target, ohms, current, load, changes, tree)`, the tree as JSON
+/// margin, vouts)`: the planned points as `(target, ohms, current, load, changes, tree)`, the tree as JSON
 /// text (a number for a resistor, `["s", a, b]` series, `["p", a, b]` parallel). `ValueError` for
 /// values that cannot be used. The GIL is released during the search.
 #[pyfunction]
-#[pyo3(signature = (ohms, watts, targets, vout, step, eps=0.01, ways=3, candidates=6, w_dev=10.0, w_change=1.0, margin=0.8))]
+#[pyo3(signature = (ohms, watts, targets, vout, step, eps=0.01, ways=3, candidates=6, w_dev=10.0, w_change=1.0, margin=0.8, vouts=None))]
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn plan_combinations(
     py: Python<'_>,
@@ -216,13 +216,15 @@ fn plan_combinations(
     w_dev: f64,
     w_change: f64,
     margin: f64,
+    vouts: Option<Vec<f64>>,
 ) -> PyResult<Vec<(f64, f64, f64, f64, u32, String)>> {
     if ohms.len() != watts.len() {
         return Err(pyo3::exceptions::PyValueError::new_err("ohms and watts differ in length"));
     }
     let resistors: Vec<Resistor> =
         ohms.iter().zip(&watts).map(|(&o, &w)| Resistor { ohms: o, watts: w }).collect();
-    let params = Params { vout, step, eps, ways, candidates, w_dev, w_change, margin };
+    let vouts = vouts.unwrap_or_default();
+    let params = Params { vout, vouts, step, eps, ways, candidates, w_dev, w_change, margin };
     let points = py
         .detach(|| combos::plan(&resistors, &targets, &params))
         .map_err(pyo3::exceptions::PyValueError::new_err)?;

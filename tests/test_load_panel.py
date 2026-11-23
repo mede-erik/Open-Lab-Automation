@@ -257,7 +257,8 @@ def test_the_plan_dialog_calculates_the_loads_from_a_kit(app, tmp_path):
     dialog.calculate()
     assert ok.isEnabled() and dialog.table.rowCount() == 10
     loads = dialog.loads()
-    assert len(loads) == 10 and loads[0] == {"name": "1 A", "kit": "PWR", "ref": "R0"}
+    assert len(loads) == 11 and loads[0] == {"name": "0 A", "open": True}
+    assert loads[1] == {"name": "1 A", "kit": "PWR", "ref": "R0"}
     assert all("r_ohm" not in json.dumps(load) for load in loads)  # kit references only
     dialog.fields["i_max"].setText("12")
     assert not ok.isEnabled() and dialog.table.rowCount() == 0  # an input changed: recalculate
@@ -299,3 +300,63 @@ def test_the_plan_replaces_the_loads_and_is_remembered(app, tmp_path, monkeypatc
     )
     editor.set("variables[1].load", dict(panel.block))
     assert not [p for p in editor.problems() if "load.loads" in p.path and p.severity == "error"]
+
+
+@pytest.mark.gui
+def test_the_plan_dialog_can_ask_for_learning(app, tmp_path):
+    from frontend.ui.LoadPanel import _PlanDialog
+
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(Kit("PWR", [KitResistor(f"R{i}", v, 1, 100) for i, v in enumerate((12, 10, 5, 2, 1))]))
+    dialog = _PlanDialog(kits, lambda key, **kw: key, None, ["vin", "iaux"])
+    assert "learn" not in dialog.inputs()
+    dialog.kind.setCurrentIndex(dialog.kind.findData("unregulated"))
+    for key, text in (("ratio", "0.5"), ("vin_v", "24"), ("i_max", "6"), ("points", "7")):
+        dialog.fields[key].setText(text)
+    dialog.fields["learn_points"].setText("4")
+    dialog.learn.setChecked(True)
+    dialog.vin_param.setCurrentText("vin")
+    info = dialog.inputs()
+    assert info["learn"] is True and info["vin_param"] == "vin" and info["learn_points"] == 4
+    assert info["ratio"] == 0.5 and info["vin_v"] == 24
+    dialog.calculate()
+    assert dialog.buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).isEnabled()
+    # the saved plan is what the measurement checks: valid for a learning run
+    editor = EfficiencyEditor(
+        EfficiencyEditor.template(["psu"], load=True), type="resistive_efficiency"
+    )
+    editor.set("variables[0].set", {"instrument": "psu", "call": "set_voltage"})
+    editor.set("variables[1].load.plan", {k: v for k, v in info.items() if v is not None})
+    editor.set("variables[1].load.loads", dialog.loads())
+    assert not [p for p in editor.problems() if "plan" in p.path and p.severity == "error"]
+    dialog.learn.setChecked(False)  # without learning the quick sweep's inputs are not kept
+    off = dialog.inputs()
+    assert "learn" not in off and off["learn_points"] is None
+
+
+def test_the_session_gives_a_learning_plan_its_kit(tmp_path):
+    kits = KitRegistry(tmp_path / "kits.json")
+    kits.put(Kit("PWR", [KitResistor("R1", 1, 1, 50), KitResistor("R2", 2, 1, 50, "202")]))
+    session = ProjectSession(
+        Project.new("Lab", tmp_path), default_registry(user_dir=tmp_path / "x")
+    )
+    session.resistor_kits = kits
+    params = {
+        "variables": [
+            {
+                "name": "rload",
+                "load": {"loads": [{"open": True}], "plan": {"kit": "PWR", "learn": True}},
+            }
+        ]
+    }
+    resolved = session.resolve_kits(params)
+    plan = resolved["variables"][0]["load"]["plan"]
+    assert [r["ref"] for r in plan["resistors"]] == ["R1", "R2"]
+    assert plan["resistors"][1] == {
+        "name": "R2", "r_ohm": 2, "tol_pct": 1, "power_w": 50, "channel": "202",
+        "kit": "PWR", "ref": "R2",
+    }  # fmt: skip
+    assert "resistors" not in params["variables"][0]["load"]["plan"]  # the file is not changed
+    params["variables"][0]["load"]["plan"]["kit"] = "nothing"
+    with pytest.raises(Exception, match="nothing"):
+        session.resolve_kits(params)

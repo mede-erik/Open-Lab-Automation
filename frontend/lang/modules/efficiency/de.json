@@ -179,12 +179,16 @@
   "eff_plan_calculate": "Berechnen",
   "eff_plan_missing": "Alle Felder mit einer Zahl füllen (und ein Kit wählen).",
   "eff_plan_done": "{n} Lasten, insgesamt {moves} Widerstände umzustecken.",
-  "eff_plan_open": "Der Punkt bei 0 A (ohne Last) ist keine Last: Ausgang offen lassen.",
+  "eff_plan_open": "Der Punkt bei 0 A ist der offene Ausgang: die erste Last, ohne etwas anzuschließen.",
   "eff_plan_col_target": "Ziel",
   "eff_plan_col_combo": "Kombination",
   "eff_plan_col_ohm": "Widerstand (Ohm)",
   "eff_plan_col_current": "Strom",
   "eff_plan_col_dev": "Abweichung (vom Schritt)",
   "eff_plan_col_load": "Am meisten belasteter Widerstand",
-  "eff_plan_col_moves": "Umsteckungen"
+  "eff_plan_col_moves": "Umsteckungen",
+  "eff_plan_learn": "Wandler zuerst anlernen (schneller Sweep, dann neu planen)",
+  "eff_plan_learn_help": "Zu Beginn der Messung misst ein schneller Sweep mit weniger Lasten bei der Referenz-Eingangsspannung die Ausgangsspannung bei jedem Strom; die Lasten werden damit neu geplant, und der Plan wird vor dem Weitermachen gezeigt. Für einen ungeregelten Wandler.",
+  "eff_plan_vin_param": "Parameter, der die Eingangsspannung ist",
+  "eff_plan_learn_points": "Punkte des schnellen Sweeps (0 A inklusive)"
 }

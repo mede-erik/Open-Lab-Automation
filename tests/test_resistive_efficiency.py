@@ -255,3 +255,158 @@ def test_a_converter_with_two_outputs_has_a_load_for_each(registry):
     assert asked == [("rload", "10R"), ("rload2", "4R7"), ("rload", "22||47")]
     points = rows(runner).get("points", [])
     assert not points or all("rload2" in row for row in points)
+
+
+def open_params(mode):
+    """The example with the open output as the first load (0 A), by hand or by relays."""
+    p = params(mode=mode)
+    p["variables"][1]["load"]["loads"].insert(0, {"name": "0 A", "open": True})
+    return p
+
+
+def test_the_open_output_is_a_point_of_the_sweep(registry):
+    assert errors(open_params("mux")) == []
+    runner, bench, tables = run(registry, open_params("mux"))
+    assert runner.state is RunState.FINISHED
+    points = tables["points"]
+    assert len(points) == 6  # (open, 10R, 22||47) at two input voltages
+    open_rows = [r for r in points if r["rload"] == float("inf")]
+    assert len(open_rows) == 2 and all(r["pout"] == 0 for r in open_rows)
+    assert all(r["rload_min"] == r["rload_max"] == float("inf") for r in open_rows)
+    # no load: nothing closed for it, the relays that were closed before are open, supply off first
+    events = bench.events
+    assert events.index("supply on") < events.index("close 201")  # the open point comes first
+    assert events[-3:] == ["supply off", "open 202", "open 203"]
+
+
+def test_by_hand_the_open_output_is_asked_as_nothing_to_connect(registry):
+    bench = SimResistiveBench(channel_ohms=OHMS)
+    handles = {"instruments": [bench.supply, bench.meter, bench.switch]}
+    runner = Runner(registry.create("resistive_efficiency", open_params("manual")), handles)
+    asked = []
+
+    def operator():
+        while runner.state not in (RunState.FINISHED, RunState.FAILED):
+            for q in list(runner.pending_questions):
+                asked.append((q["data"]["load"], q["data"]["open"], q["data"]["r_ohm"], q["text"]))
+                bench.manual_ohms = q["data"]["r_ohm"]  # None: nothing connected
+                runner.answer(q["id"], "continue")
+            time.sleep(0.005)
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    runner.start()
+    assert runner.join(60)
+    thread.join()
+    assert runner.state is RunState.FINISHED
+    assert asked[0][:3] == ("0 A", True, None) and asked[0][3].startswith("Disconnect")
+    assert [a[0] for a in asked] == ["0 A", "10R", "22||47"]
+
+
+# ---- learning: a quick sweep, then the loads are planned again from the voltage found ----------
+KIT_OHMS = (12, 10, 5, 2, 1, 12, 5)
+KIT = [
+    {"name": f"R{i}", "r_ohm": v, "power_w": 100, "channel": "", "kit": "PWR", "ref": f"R{i}"}
+    for i, v in enumerate(KIT_OHMS)
+]
+
+
+def learning_params(**plan):
+    """A converter that is not regulated (12 V from 24 V), loads from the kit, with learning."""
+    p = params(mode="manual")
+    p["variables"][0]["sweep"] = {"values": [24]}
+    load = p["variables"][1]["load"]
+    load["vout"] = "vout@daq"
+    load.pop("max_vout_v", None)
+    load["loads"] = [{"name": "placeholder", "r_ohm": 10, "power_w": 100}]
+    load["plan"] = {
+        "kit": "PWR", "kind": "unregulated", "ratio": 0.5, "vin_v": 24, "vin_param": "vin",
+        "i_min": 0, "i_max": 6, "points": 7, "margin_pct": 100, "learn": True, "learn_points": 4,
+        "resistors": KIT, **plan,
+    }  # fmt: skip
+    return p
+
+
+def run_learning(registry, p, answer="continue", bench=None):
+    bench = bench or SimResistiveBench(channel_ohms=OHMS, vout_v=12.0, pmax_w=30.0, dropout_v=6.0)
+    handles = {"instruments": [bench.supply, bench.meter, bench.switch]}
+    runner = Runner(registry.create("resistive_efficiency", p), handles)
+    plans = []
+
+    def operator():
+        while runner.state not in (RunState.FINISHED, RunState.FAILED, RunState.STOPPED):
+            for q in list(runner.pending_questions):
+                data = q["data"] or {}
+                if data.get("kind") == "plan":
+                    plans.append(data["rows"])
+                    runner.answer(q["id"], answer)
+                else:
+                    bench.manual_ohms = data.get("r_ohm")  # None: open
+                    runner.answer(q["id"], "continue")
+            time.sleep(0.005)
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    runner.start()
+    assert runner.join(60)
+    thread.join()
+    return runner, bench, rows(runner), plans
+
+
+def test_learning_is_checked_before_the_run():
+    assert errors(learning_params()) == []
+    assert any("vin_param" in e for e in errors(learning_params(vin_param="rload")))
+    assert any("vin_param" in e for e in errors(learning_params(vin_param="nothing")))
+    for bad in ({"i_max": 0}, {"points": 1}, {"ratio": 0}, {"kit": ""}, {"margin_pct": 0}):
+        assert errors(learning_params(**bad)), bad
+
+
+def test_the_converter_is_learned_then_the_loads_are_planned_again(registry):
+    runner, bench, tables, plans = run_learning(registry, learning_params())
+    assert runner.state is RunState.FINISHED
+    quick = tables["learning"]
+    assert [r["rload"] for r in quick][0] == float("inf")  # 0 A: the open voltage first
+    assert len(quick) == 2 * 4 and all(r["vin"] == 24 for r in quick)  # two rounds of 4, 0 A in
+    # the converter gives less than 12 V when loaded (pmax 30 W): the curve was measured
+    assert quick[0]["vout@daq"] == pytest.approx(12.0) and min(r["vout@daq"] for r in quick) < 11
+    final = plans[0]
+    assert len(final) == 7 and final[0]["combination"] == "open"
+    assert final[0]["vout_v"] == pytest.approx(12.0)
+    assert final[-1]["vout_v"] < final[1]["vout_v"]  # the voltage falls as the current rises
+    for row in final[1:]:
+        assert row["current_a"] == pytest.approx(row["vout_v"] / row["r_ohm"])
+    assert max(error(r) for r in final[1:]) < 0.1  # the plan expects to be on target
+    points = tables["points"]
+    assert len(points) == 7 and points[0]["rload"] == float("inf")  # the plan is what was run
+    real = [(r["vout@daq"] / r["rload"], t) for r, t in zip(points[1:], range(1, 7))]
+    assert max(abs(i - t) for i, t in real) < 0.5  # and the converter really gave those currents
+    assert [round(r["rload"], 6) for r in points[1:]] == [round(r["r_ohm"], 6) for r in final[1:]]
+    assert tables["plan"] == final
+    assert bench.events[-1].startswith("supply") or bench.events[-1] == "supply off"
+
+
+def error(row):
+    return abs(row["current_a"] - row["target_a"])
+
+
+def test_a_second_round_reaches_the_currents_a_sagging_output_hides(registry):
+    def worst(rounds):
+        _r, _b, tables, _p = run_learning(registry, learning_params(learn_rounds=rounds))
+        pts = tables["points"][1:]
+        return max(abs(r["vout@daq"] / r["rload"] - t) for r, t in zip(pts, range(1, 7)))
+
+    assert worst(2) < worst(1) - 0.2  # one quick sweep stops short of the top currents
+
+
+def test_the_plan_can_be_refused(registry):
+    runner, bench, tables, plans = run_learning(registry, learning_params(), answer="abort")
+    assert runner.state is RunState.STOPPED
+    assert "points" not in tables and plans
+    assert bench.events[-1] == "supply off"  # stopped: the converter is switched off
+
+
+def test_learning_needs_the_kit_to_be_resolved(registry):
+    p = learning_params()
+    del p["variables"][1]["load"]["plan"]["resistors"]
+    runner, _bench, _tables, plans = run_learning(registry, p)
+    assert runner.state is RunState.FAILED and "kit" in str(runner.error) and not plans

@@ -832,6 +832,10 @@ class EfficiencyEditorDialog(QDialog):
                        self.output_group):  # fmt: skip
             widget.setVisible(not is_load)
         self.load_panel.setVisible(is_load)
+        if is_load:
+            self.load_panel.set_parameters(
+                [v["name"] for v in self.editor.variables if isinstance(v.get("set"), dict)]
+            )
         if is_load and self.load_panel.block != block:
             self.load_panel.set_block(block)
 

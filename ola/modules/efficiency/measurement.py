@@ -43,15 +43,24 @@ outputs the program manages are switched off, the load is connected (the operato
 drawing, or the relays of a multiplexer are closed), the measurement waits ``settle_s`` and the
 outputs are switched on again. Every reading of the output voltage is used to check the power in
 the resistors: if one is above its rating the measurement stops. The relays are opened at the end.
+
+A load that is only the output left open (``{"open": true}``) is a point like any other: nothing is
+connected for it (the operator is asked to disconnect, or the relays only open) and its resistance
+is infinite. A load with ``plan.learn`` is planned in two steps: a quick sweep first (see
+``_learn``) measures the output voltage at each current, the loads are planned again from it and
+the user confirms, and then the measurement goes on with the new loads.
 """
 
+import copy
+import math
 import statistics
 import time
 
+from ola.combinations import PlanError, loads_from_plan, plan_loads, targets_for, tree_text
 from ola.efficiency_spec import SpecError, parse_params, validate_params
 from ola.golden import finish, recording
 from ola.labels import render_svg
-from ola.resistors import describe, schematic
+from ola.resistors import Open, describe, schematic
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.sweep import iter_points
 
@@ -115,33 +124,45 @@ class Efficiency(Measurement):
 
     # ----- the measurement ------------------------------------------------------------------
     def run(self, ctx: MeasurementContext) -> None:
-        """Walk the sweep: set, settle, sample, average, publish; rest between the sweeps."""
+        """Walk the sweep: set, settle, sample, average, publish; rest between the sweeps. With a
+        load that learns, a quick first sweep measures the converter and the loads are planned
+        again from it (see ``_learn``)."""
         # with a golden sample: the averaged points (with the derived columns) at the end
         ctx = recording(ctx, "efficiency", self.params, summary_row=False, derive=self.derived)
         spec = self._spec
+        self._last = {}  # last value sent for every parameter
+        self._down = []  # parameters whose output was switched off, to be switched on after setting
+        self._started = False
+        self._accepted = {}  # parameter -> setpoint whose mismatch the user chose to skip
+        self._confirm_outputs_already_on(ctx)
+        self._touched = True  # from here on teardown has things to put back
+        learner = next((v for v in spec.variables.values() if v.load and v.load.learn), None)
+        if learner is not None:
+            spec = self._learn(ctx, spec, learner)
+        self._sweep(ctx, spec)
+        finish(ctx)
+
+    def _sweep(self, ctx, spec, points="points", samples="samples", label=""):
+        """The sweep of ``spec``: its points go to the table ``points`` (the readings to
+        ``samples``). Returns the rows (the averaged points), in order."""
+        self._spec = spec
         setters = [v for v in spec.variables.values() if v.set is not None]
         load_vars = [v for v in spec.variables.values() if v.load is not None]
-        loads = {
-            v.name: {load.resistance()[0]: load for load in v.load.loads} for v in load_vars
-        }
+        loads = {v.name: {load.resistance()[0]: load for load in v.load.loads} for v in load_vars}
         total = spec.point_count()
-        last = {}  # last value sent for every parameter
-        self._accepted = {}  # parameter -> setpoint whose mismatch the user chose to skip
+        last = self._last
         always_on = [
             v for v in spec.variables.values() if v.output and v.output.mode == "always_on"
         ]
         managed = [spec.variables[name] for name in spec.power_order]
         cooled = [v for v in managed if v.output.mode == "off_during_cooldown"]
         sweep_length = spec.sweep_length()
-        down = []  # parameters whose output was switched off, to be switched on after setting
-        started = False
-        self._confirm_outputs_already_on(ctx)
-        self._touched = True  # from here on teardown has things to put back
+        rows = []
         for index, point in enumerate(iter_points(spec.axes)):
             ctx.checkpoint()
             if index and spec.cooldown_count() and index % sweep_length == 0:
                 self._cooldown(ctx, cooled, last, index // sweep_length, total)
-                down = list(cooled)
+                self._down = list(cooled)
             targets = {v.name: point.get(v.name, v.value) for v in setters}
             changed = []
             for var in load_vars:
@@ -150,23 +171,23 @@ class Efficiency(Measurement):
                 targets[f"{var.name}_min"] = load.resistance()[1]
                 targets[f"{var.name}_max"] = load.resistance()[2]
                 held = self._connected.get(var.name)
-                if held is None or held[0] is not load:
+                if held is None or held[0].name != load.name or held[0].root != load.root:
                     changed.append((var, load))
             if changed:
-                down = self._change_loads(ctx, changed, managed, down, last)
+                self._down = self._change_loads(ctx, changed, managed, self._down, last)
             attempt = 1
             while True:
                 self._apply(setters, targets, last)
-                if not started:
+                if not self._started:
                     for var in always_on + managed:
                         self._ensure_on(ctx, var)
                     self._calls(spec.startup)
-                    started = True
-                elif down:
-                    self._outputs_on(down)
-                    down = []
+                    self._started = True
+                elif self._down:
+                    self._outputs_on(self._down)
+                    self._down = []
                 ctx.sleep(spec.timing.settle_s)
-                result = self._sample_point(ctx, index, attempt, targets)
+                result = self._sample_point(ctx, index, attempt, targets, samples)
                 if result is not None:
                     break
                 last.clear()  # retry: set every parameter again
@@ -177,9 +198,140 @@ class Efficiency(Measurement):
                 row["sweep"] = index // sweep_length
             if skipped:
                 row["verify_skipped"] = ",".join(sorted(skipped))
-            ctx.emit_point(row)
-            ctx.progress(index + 1, total, f"point {index + 1} of {total}")
-        finish(ctx)
+            ctx.emit_point(row, points)
+            rows.append(row)
+            ctx.progress(index + 1, total, f"{label}point {index + 1} of {total}")
+        return rows
+
+    # ----- learning the converter -------------------------------------------------------------
+    def _learn(self, ctx, spec, var):
+        """A quick first sweep measures the output voltage of the converter (the table
+        ``learning``), the loads are planned again with the voltage found at each current (the
+        table ``plan``), the user confirms, and the returned spec has the new loads.
+
+        The quick sweep has fewer loads, the input at its reference voltage, one reading per point
+        and every other swept parameter at its first value."""
+        plan = var.load.plan
+        resistors = plan.get("resistors")
+        if not resistors:
+            raise MeasurementError(
+                "learning needs the resistors of the kit '" + str(plan.get("kit")) + "': they "
+                "are looked up when the measurement starts"
+            )
+        kind = plan.get("kind", "regulated")
+        nominal = float(plan["vout_v"]) if kind == "regulated" else plan["ratio"] * plan["vin_v"]
+        margin = float(plan.get("margin_pct", 80)) / 100
+        i_min, i_max, points = float(plan["i_min"]), float(plan["i_max"]), int(plan["points"])
+        quick = min(int(plan.get("learn_points") or max(3, (points + 1) // 2)), points)
+        rounds = max(1, int(plan.get("learn_rounds") or 2))
+        quick_targets = targets_for(i_min, i_max, quick)
+        rows: list = []
+        curve = None
+        for number in range(rounds):
+            # the first round plans at the nominal voltage; the next ones with the curve so far, so
+            # that the quick loads reach the currents wanted even if the output sags
+            volts = None if curve is None else [curve(t) for t in quick_targets]
+            try:
+                first = plan_loads(resistors, nominal, i_min, i_max, quick, margin, vouts=volts)
+            except PlanError as exc:
+                raise MeasurementError(f"learning: {exc}") from exc
+            ctx.log(
+                f"learning, round {number + 1} of {rounds}: "
+                f"{len(first.points) + int(first.open_circuit)} loads at "
+                f"{plan['vin_param']} = {plan['vin_v']:g}"
+            )
+            params = copy.deepcopy(self.params)
+            for item in params["variables"]:
+                if item["name"] == var.name:
+                    item["load"]["loads"] = loads_from_plan(first, resistors)
+                    item["load"]["plan"] = {**item["load"]["plan"], "learn": False}
+                elif isinstance(item.get("load"), dict):  # another output: its first load only
+                    item["load"]["loads"] = item["load"]["loads"][:1]
+                elif item["name"] == plan["vin_param"]:
+                    item.pop("sweep", None)
+                    item["value"] = float(plan["vin_v"])
+                elif "sweep" in item:  # any other sweep: its first value
+                    item["value"] = spec.variables[item["name"]].axis[0]
+                    item.pop("sweep")
+            params["timing"] = {**(params.get("timing") or {}), "samples": 1}
+            params.pop("golden", None)
+            try:
+                quick_spec = parse_params(params, allow_load=True)
+            except SpecError as exc:
+                raise MeasurementError(f"learning: {exc}") from exc
+            label = f"learning {number + 1}/{rounds}: "
+            rows += self._sweep(ctx, quick_spec, "learning", "learning_samples", label)
+            curve = self._curve(var, rows)
+        volts = [curve(t) for t in targets_for(i_min, i_max, points)]
+        try:
+            final = plan_loads(resistors, nominal, i_min, i_max, points, margin, vouts=volts)
+        except PlanError as exc:
+            raise MeasurementError(f"learning: {exc}") from exc
+        names = [r["name"] for r in resistors]
+        lines, table = [], []
+        for p, v in zip(final.points, volts[1 if final.open_circuit else 0 :]):
+            text = tree_text(p.tree, names)
+            lines.append(
+                f"{p.target_a:.3g} A: {text} = {p.r_ohm:.4g} ohm, {p.current_a:.3g} A at "
+                f"{v:.3g} V, {p.changes} to move"
+            )
+            table.append(
+                {"target_a": p.target_a, "combination": text, "r_ohm": p.r_ohm, "vout_v": v,
+                 "current_a": p.current_a, "load_pct": p.load_pct, "changes": p.changes}
+            )  # fmt: skip
+        if final.open_circuit:
+            lines.insert(0, f"0 A: nothing connected, {volts[0]:.3g} V")
+            table.insert(0, {"target_a": 0.0, "combination": "open", "vout_v": volts[0]})
+        for row in table:
+            ctx.emit_point(row, "plan")
+        answer = ctx.ask(
+            "The loads, planned again from the voltage the converter gave:\n"
+            + "\n".join(lines)
+            + "\nContinue with the measurement?",
+            ["continue", "abort"],
+            default="abort",
+            data={"kind": "plan", "rows": table},
+        )
+        if answer == "abort":
+            raise Stopped()
+        params = copy.deepcopy(self.params)
+        for item in params["variables"]:
+            if item["name"] == var.name:
+                item["load"]["loads"] = loads_from_plan(final, resistors)
+        try:
+            return parse_params(params, allow_load=True)
+        except SpecError as exc:
+            raise MeasurementError(f"learning: {exc}") from exc
+
+    def _curve(self, var, rows):
+        """The output voltage as a function of the current, from the rows of the quick sweep:
+        straight lines between the points measured, the last line continued beyond the largest
+        current (never below zero), the open-circuit voltage below the smallest."""
+        label = self._vout_label(var.load)
+        found = {}
+        for row in rows:
+            ohms = row[var.name]
+            current = 0.0 if math.isinf(ohms) else row[label] / ohms
+            found.setdefault(round(current, 9), []).append(row[label])
+        known = sorted((i, statistics.fmean(v)) for i, v in found.items())
+
+        def volts(current: float) -> float:
+            if len(known) == 1 or current <= known[0][0]:
+                return known[0][1]
+            for (i0, v0), (i1, v1) in zip(known, known[1:]):
+                if current <= i1:
+                    return v0 + (v1 - v0) * (current - i0) / (i1 - i0)
+            (i0, v0), (i1, v1) = known[-2], known[-1]
+            return max(v1 + (v1 - v0) * (current - i1) / (i1 - i0), 0.05 * known[0][1])
+
+        return volts
+
+    def _vout_label(self, spec) -> str:
+        """The reading that gives the output voltage (``vout@daq``)."""
+        label = spec.vout
+        if "@" not in label:
+            label = f"{label}@{next(iter(self._spec.variables[label].reads))}"
+        return label
 
     def teardown(self, ctx: MeasurementContext) -> None:
         """Make the ``shutdown`` calls, then switch the outputs off in reverse order.
@@ -232,21 +384,29 @@ class Efficiency(Measurement):
             spec = var.load
             if spec.mode == "mux":
                 self._open_relays(var.name)
-                channels = load.channels()
-                self._handles[spec.instrument].call("close_channel", channels=",".join(channels))
-                self._closed[var.name] = channels
+                channels = load.channels()  # none for an open output: the relays only open
+                if channels:
+                    self._handles[spec.instrument].call(
+                        "close_channel", channels=",".join(channels)
+                    )
+                    self._closed[var.name] = channels
                 ctx.sleep(spec.settle_s)
             else:
                 words = describe(load)
+                is_open = isinstance(load.root, Open)
                 text = (
-                    f"Connect the load '{load.name}' of '{var.name}': {words}, to the output of "
-                    "the converter. The converter is switched off. Then continue."
+                    f"Disconnect everything from the output of the converter ('{var.name}': "
+                    f"'{load.name}', {words}). The converter is switched off. Then continue."
+                    if is_open
+                    else f"Connect the load '{load.name}' of '{var.name}': {words}, to the output "
+                    "of the converter. The converter is switched off. Then continue."
                 )
                 data = {
                     "kind": "load",
                     "parameter": var.name,
                     "load": load.name,
-                    "r_ohm": load.resistance()[0],
+                    "open": is_open,
+                    "r_ohm": None if is_open else load.resistance()[0],
                     "description": words,
                     "svg": render_svg(schematic(load)),
                 }
@@ -266,9 +426,7 @@ class Efficiency(Measurement):
     def _guard(self, reading) -> None:
         """Stop if a resistor of a connected load is above its rating at the voltage read."""
         for name, (load, spec) in self._connected.items():
-            label = spec.vout
-            if "@" not in label:
-                label = f"{label}@{next(iter(self._spec.variables[label].reads))}"
+            label = self._vout_label(spec)
             resistor, fraction = load.most_loaded(reading[label])
             if resistor is not None and fraction > 1.0:
                 raise MeasurementError(
@@ -388,7 +546,7 @@ class Efficiency(Measurement):
                 reading[f"{var.name}@{label}"] = raw * r.scale + r.offset
         return reading
 
-    def _sample_point(self, ctx, index, attempt, targets):
+    def _sample_point(self, ctx, index, attempt, targets, table="samples"):
         """Take the samples of one point. Returns ``(means, skipped)``, or ``None`` to retry."""
         timing = self._spec.timing
         samples, skipped = [], set()
@@ -400,7 +558,7 @@ class Efficiency(Measurement):
             samples.append(reading)
             ctx.emit_point(
                 {"point": index, "attempt": attempt, "sample": k, **targets, **reading},
-                table="samples",
+                table=table,
             )
             if self._verify(ctx, index, k, targets, reading, skipped) == "retry":
                 return None

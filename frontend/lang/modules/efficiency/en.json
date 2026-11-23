@@ -179,12 +179,16 @@
   "eff_plan_calculate": "Calculate",
   "eff_plan_missing": "Fill in every field with a number (and choose a kit).",
   "eff_plan_done": "{n} loads, {moves} resistors to move in all.",
-  "eff_plan_open": "The point at 0 A (no load) is not a load: leave the output open for it.",
+  "eff_plan_open": "The 0 A point is the output left open: it is the first load, with nothing connected.",
   "eff_plan_col_target": "Target",
   "eff_plan_col_combo": "Combination",
   "eff_plan_col_ohm": "Resistance (ohm)",
   "eff_plan_col_current": "Current",
   "eff_plan_col_dev": "Off by (of a step)",
   "eff_plan_col_load": "Most loaded resistor",
-  "eff_plan_col_moves": "Moves"
+  "eff_plan_col_moves": "Moves",
+  "eff_plan_learn": "Learn the converter first (a quick sweep, then plan again)",
+  "eff_plan_learn_help": "At the start of the measurement a quick sweep with fewer loads, at the reference input voltage, measures the output voltage at each current; the loads are then planned again with it, and you are shown the plan before the measurement goes on. For a converter that is not regulated.",
+  "eff_plan_vin_param": "Parameter that is the input voltage",
+  "eff_plan_learn_points": "Points of the quick sweep (0 A included)"
 }

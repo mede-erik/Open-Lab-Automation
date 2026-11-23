@@ -179,12 +179,16 @@
   "eff_plan_calculate": "Calcola",
   "eff_plan_missing": "Compila ogni campo con un numero (e scegli un kit).",
   "eff_plan_done": "{n} carichi, {moves} resistenze da spostare in tutto.",
-  "eff_plan_open": "Il punto a 0 A (nessun carico) non è un carico: per quello lascia l'uscita aperta.",
+  "eff_plan_open": "Il punto a 0 A è l'uscita lasciata aperta: è il primo carico, senza niente collegato.",
   "eff_plan_col_target": "Obiettivo",
   "eff_plan_col_combo": "Combinazione",
   "eff_plan_col_ohm": "Resistenza (ohm)",
   "eff_plan_col_current": "Corrente",
   "eff_plan_col_dev": "Scostamento (del passo)",
   "eff_plan_col_load": "Resistenza più carica",
-  "eff_plan_col_moves": "Spostamenti"
+  "eff_plan_col_moves": "Spostamenti",
+  "eff_plan_learn": "Impara prima il convertitore (uno sweep veloce, poi ripianifica)",
+  "eff_plan_learn_help": "All'avvio della misura uno sweep veloce con meno carichi, alla tensione di ingresso di riferimento, misura la tensione di uscita a ogni corrente; i carichi vengono poi ripianificati con quella, e ti viene mostrato il piano prima di proseguire. Per un convertitore non regolato.",
+  "eff_plan_vin_param": "Parametro che è la tensione di ingresso",
+  "eff_plan_learn_points": "Punti dello sweep veloce (0 A compreso)"
 }

@@ -42,7 +42,9 @@ and the value of the parameter (its name in the formulas) is the nominal resista
 ```
 
 * `loads`: each load is one resistor (`r_ohm`, `tol_pct`, `power_w`, `channel`) or a `series` / `parallel` group of resistors,
-  nested as needed (see [`ola/resistors.py`](../ola/resistors.py)). Two loads must not have the same resistance.
+  nested as needed (see [`ola/resistors.py`](../ola/resistors.py)), or `{"name": "0 A", "open": true}`: **nothing connected**, the
+  output left open (0 A; its resistance is infinite, so in the formulas `rload` is `inf` and `vout^2 / rload` is 0). Two loads
+  must not have the same resistance.
 * `switching`: `manual` (the program asks you to connect each load, showing its schematic). `settle_s` is the wait after connecting.
   A **switch matrix** (relays that connect the resistors in series or in parallel by themselves) is planned for a future version:
   the editor shows it as not yet usable. The engine still has a first, simple `mux` mode (the relays of an `instrument` close the
@@ -83,11 +85,35 @@ point) and, if you accept, **replaces the list of loads** (the resistors stay re
   output voltage, so a resistor of 1 ohm alone is never offered at 12 V with a rating of 100 W (144 W).
 * **Fewest moves**: among the combinations near each target the plan prefers the path that moves the fewest resistors from one
   point to the next. The cost of a point is 10 times its distance from the target (in steps) plus the resistors moved.
-* **0 A** (no load) is not a load: if the range starts at 0 the plan leaves that point out; make it with the output open.
+* **0 A** (no load): if the range starts at 0 the first load is the open output, `{"name": "0 A", "open": true}`. By hand the
+  program asks you to *disconnect everything* from the output; with relays it only opens them. The measurement is made as for any
+  other point (the converter is on, nothing is connected).
 * **Speed**: the search is in Rust (`native/src/combos.rs`): 15 resistors take about 2 s, 20 about 8 s. Without the native module the
   same steps run in Python, with the same result, about 15 times slower. The method is described in
   [`ola/combinations.py`](../ola/combinations.py).
 * The inputs are saved in `load.plan` (only to show them again next time; the measurement uses `loads`).
+
+## Learning a converter that is not regulated
+
+When the output voltage depends on the load, the plan made with the voltage you expect (the conversion ratio times the input) gives
+currents that are not the ones you asked for. With **Learn the converter first** checked, at the start of the measurement:
+
+1. a **quick sweep** (`learn_points` loads, default half of the points, the open output included) is made at the **reference
+   input voltage** (the parameter you name, `vin_param`; every other swept parameter stays at its first value, one reading per
+   point, and the results go to the table `learning`);
+2. a **second round** repeats it with loads planned using the voltage found so far, so that it reaches the larger currents too
+   when the output sags (`learn_rounds`, default 2);
+3. the output voltage as a function of the current is taken from these readings (straight lines between the points measured, the
+   open-circuit voltage below the smallest current, the last line continued beyond the largest);
+4. the loads are **planned again** with the voltage that belongs to each current (the rating of every resistor is checked at that
+   voltage) and **you are shown the plan** (also in the table `plan`): continue, or abort. The kit is read again when the
+   measurement starts.
+5. the measurement goes on with those loads.
+
+This is an estimate: the points are equidistant only as far as the curve measured at the reference input voltage holds at the
+other input voltages, and beyond the largest current the quick sweep reached the curve is extrapolated. The currents of the
+measurement are always `vout / rload` as read. The inputs are in `load.plan`: `kit`, `kind` (`regulated` or `unregulated`), `vout_v`
+or `ratio`, `vin_v`, `i_min`, `i_max`, `points`, `margin_pct`, `learn`, `learn_points`, `learn_rounds`, `vin_param`.
 
 ## What happens at every load change
 
@@ -106,8 +132,10 @@ The calls of the efficiency (`set_voltage`, `output_on` / `output_off`, readings
 
 ## Not done yet
 
-* The learning sweep (a quick first pass to measure the output voltage of a converter that is not regulated, and re-plan from it) is not done yet.
-* The 0 A point (output open) is not a load of the sweep yet.
+* The learning sweep measures at one input voltage (the reference one); a converter whose output depends strongly on the input
+  is not re-learned at every input voltage.
+* The runs with an open output write `rload = inf` (`Infinity` in the run file, `inf` in the CSV): other programs that read the
+  JSON Lines files must accept it. The plots of the program with `rload` as a group were not looked at.
 * Not tested on real hardware (see the test status list in the README).
 * The old `.rfe` files of the previous format (`vin_v`, `loads` at the top, `switching`...) are not read: rewrite them as above.
   The `summary` table and the verdict of the previous module are gone; use the `derived` formulas and the golden sample.

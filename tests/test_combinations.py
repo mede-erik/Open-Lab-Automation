@@ -100,8 +100,10 @@ def test_only_zero_amps_leaves_nothing_to_plan(backend):
 def test_rust_and_python_make_the_same_plan(monkeypatch):
     if not combinations.native_available():
         pytest.skip("the native module with the planner is not installed")
+    sag = [12 - 0.3 * i for i in range(11)]
     cases = [
         (KIT, 12, 0, 10, 11, 1.0),
+        (KIT, 12, 0, 10, 11, 1.0, sag),
         (KIT, 5, 0.5, 4, 6, 0.8),
         (
             [{"r_ohm": v, "power_w": 25} for v in (1, 2.2, 4.7, 10, 22, 47, 100, 3.3)],
@@ -113,13 +115,36 @@ def test_rust_and_python_make_the_same_plan(monkeypatch):
         ),
     ]
     for args in cases:
+        extra = {"vouts": args[6]} if len(args) > 6 else {}
         monkeypatch.delenv("OLA_COMBINATIONS", raising=False)
-        native = plan_loads(*args[:5], margin=args[5])
+        native = plan_loads(*args[:5], margin=args[5], **extra)
         monkeypatch.setenv("OLA_COMBINATIONS", "python")
-        python = plan_loads(*args[:5], margin=args[5])
+        python = plan_loads(*args[:5], margin=args[5], **extra)
         assert [p.tree for p in native.points] == [p.tree for p in python.points]
         assert [p.changes for p in native.points] == [p.changes for p in python.points]
         assert [p.r_ohm for p in native.points] == pytest.approx([p.r_ohm for p in python.points])
+
+
+def test_every_point_can_have_its_own_voltage(backend):
+    volts = [12, 11, 10, 9, 8]  # a converter whose output sags with the load, 0 A included
+    plan = plan_loads(KIT, 12, 0, 4, 5, margin=1.0, vouts=volts)
+    assert [p.target_a for p in plan.points] == [1.0, 2.0, 3.0, 4.0] and plan.open_circuit
+    for p, v in zip(plan.points, volts[1:]):
+        assert p.current_a == pytest.approx(v / p.r_ohm)  # the current at its own voltage
+        assert abs(p.current_a - p.target_a) < 0.1
+    flat = plan_loads(KIT, 12, 0, 4, 5, margin=1.0)
+    assert plan.points[-1].r_ohm < flat.points[-1].r_ohm  # 4 A at 8 V needs less resistance
+    for bad in ([12, 12], [12, 12, 12, 12, 0], [12, 12, 12, 12, math.nan]):
+        with pytest.raises(PlanError):
+            plan_loads(KIT, 12, 0, 4, 5, vouts=bad)
+
+
+def test_the_rating_is_checked_at_the_voltage_of_each_point(backend):
+    kit = [{"r_ohm": 4, "power_w": 10}, {"r_ohm": 8, "power_w": 10}]
+    # at 6 V the 4 ohm resistor carries 9 W (fine); at 12 V 36 W (not allowed)
+    assert plan_loads(kit, 6, 0, 3, 2, margin=1.0, vouts=[6, 6]).points
+    with pytest.raises(PlanError, match="rating"):
+        plan_loads(kit[:1], 12, 0, 3, 2, margin=1.0, vouts=[12, 12])
 
 
 def test_a_kit_without_ratings_is_not_limited(backend):
@@ -130,12 +155,14 @@ def test_a_kit_without_ratings_is_not_limited(backend):
 def test_the_loads_are_the_networks_written_as_the_measurement_file_wants(backend):
     plan = plan_loads(KIT, 12, 0, 10, 11, margin=1.0)
     loads = loads_from_plan(plan, KIT)
-    assert len(loads) == 10
+    assert len(loads) == 11 and loads[0] == {"name": "0 A", "open": True}  # no load: the first
     parsed = parse_loads(loads)
-    for point, load in zip(plan.points, parsed):
+    assert parsed[0].resistance()[0] == math.inf
+    for point, load in zip(plan.points, parsed[1:]):
         assert load.resistance()[0] == pytest.approx(point.r_ohm)
-    assert loads[0]["ref"] == "R0" and loads[0]["kit"] == "PWR" and loads[0]["name"] == "1 A"
-    assert loads[1]["name"] == "2 A" and ("series" in loads[1] or "parallel" in loads[1])
+    assert loads[1]["ref"] == "R0" and loads[1]["kit"] == "PWR" and loads[1]["name"] == "1 A"
+    assert loads[2]["name"] == "2 A" and ("series" in loads[2] or "parallel" in loads[2])
+    assert len(loads_from_plan(plan_loads(KIT, 12, 1, 10, 10, margin=1.0), KIT)) == 10  # no 0 A
 
 
 def test_a_series_inside_a_series_is_one_group():

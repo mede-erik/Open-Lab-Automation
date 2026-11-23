@@ -179,12 +179,16 @@
   "eff_plan_calculate": "Calculer",
   "eff_plan_missing": "Remplissez chaque champ avec un nombre (et choisissez un kit).",
   "eff_plan_done": "{n} charges, {moves} résistances à déplacer en tout.",
-  "eff_plan_open": "Le point à 0 A (sans charge) n'est pas une charge : laissez la sortie ouverte.",
+  "eff_plan_open": "Le point à 0 A est la sortie laissée ouverte : c'est la première charge, rien n'est connecté.",
   "eff_plan_col_target": "Objectif",
   "eff_plan_col_combo": "Combinaison",
   "eff_plan_col_ohm": "Résistance (ohm)",
   "eff_plan_col_current": "Courant",
   "eff_plan_col_dev": "Écart (du pas)",
   "eff_plan_col_load": "Résistance la plus chargée",
-  "eff_plan_col_moves": "Déplacements"
+  "eff_plan_col_moves": "Déplacements",
+  "eff_plan_learn": "Apprendre d'abord le convertisseur (balayage rapide, puis replanifier)",
+  "eff_plan_learn_help": "Au début de la mesure, un balayage rapide avec moins de charges, à la tension d'entrée de référence, mesure la tension de sortie à chaque courant ; les charges sont alors replanifiées avec elle, et le plan vous est montré avant de continuer. Pour un convertisseur non régulé.",
+  "eff_plan_vin_param": "Paramètre qui est la tension d'entrée",
+  "eff_plan_learn_points": "Points du balayage rapide (0 A inclus)"
 }

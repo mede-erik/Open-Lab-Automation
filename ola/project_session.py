@@ -392,14 +392,25 @@ class ProjectSession:
             for var in params.get("variables") or []
             if isinstance(var, dict) and isinstance(var.get("load"), dict)
         ]
-        if not any(has_refs(owner.get("loads")) for owner in owners):
+        learning = [o for o in owners if isinstance(o.get("plan"), dict) and o["plan"].get("learn")]
+        if not learning and not any(has_refs(owner.get("loads")) for owner in owners):
             return params
         try:
             kits = self.resistor_kits if self.resistor_kits is not None else KitRegistry()
             resolved = json.loads(json.dumps(params))
             for var in resolved["variables"]:
-                if isinstance(var.get("load"), dict):
-                    var["load"]["loads"] = kits.resolve_loads(var["load"].get("loads"))
+                if not isinstance(var.get("load"), dict):
+                    continue
+                var["load"]["loads"] = kits.resolve_loads(var["load"].get("loads"))
+                plan = var["load"].get("plan")
+                if isinstance(plan, dict) and plan.get("learn"):
+                    # a run that learns plans loads again: it needs every resistor of the kit
+                    kit = kits.get(str(plan.get("kit")))
+                    if kit is None:
+                        raise KitError(f"there is no kit of resistors called {plan.get('kit')!r}")
+                    plan["resistors"] = [
+                        {**r.to_dict(), "kit": kit.name, "ref": r.name} for r in kit.resistors
+                    ]
         except KitError as exc:
             raise MeasurementError(str(exc)) from exc
         return resolved

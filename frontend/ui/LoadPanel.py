@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -54,6 +55,8 @@ def node_text(node: Any) -> str:
     for key, joint in (("series", " + "), ("parallel", " || ")):
         if key in node and isinstance(node[key], list):
             return "(" + joint.join(node_text(n) for n in node[key]) + ")"
+    if node.get("open") is True:
+        return node.get("name") or "open"
     if "ref" in node and "r_ohm" not in node:
         return f"{node.get('kit', '?')}/{node['ref']}"
     ohm = node.get("r_ohm")
@@ -184,6 +187,7 @@ class _PlanDialog(QDialog):
         registry: KitRegistry,
         t: Callable[..., str],
         previous: Optional[dict] = None,
+        parameters: Sequence[str] = (),
         parent: QWidget = None,
     ):
         super().__init__(parent)
@@ -221,6 +225,19 @@ class _PlanDialog(QDialog):
             edit.textChanged.connect(self._invalidate)
             self.fields[key] = edit
             form.addRow(t(f"eff_plan_{key}"), edit)
+        self.learn = QCheckBox(t("eff_plan_learn"))
+        self.learn.setToolTip(t("eff_plan_learn_help"))
+        self.learn.toggled.connect(self._kind_changed)
+        form.addRow(self.learn)
+        self.vin_param = QComboBox()
+        self.vin_param.addItems(list(parameters))
+        self.vin_param.currentTextChanged.connect(self._invalidate)
+        form.addRow(t("eff_plan_vin_param"), self.vin_param)
+        learn_points = QLineEdit()
+        learn_points.setPlaceholderText("5")
+        learn_points.textChanged.connect(self._invalidate)
+        self.fields["learn_points"] = learn_points
+        form.addRow(t("eff_plan_learn_points"), learn_points)
         self._form = form
         layout.addLayout(form)
         row = QHBoxLayout()
@@ -256,17 +273,23 @@ class _PlanDialog(QDialog):
         for key, edit in self.fields.items():
             value = previous.get(key, defaults.get(key))
             edit.setText("" if value is None else f"{value:g}")
+        self.learn.setChecked(bool(previous.get("learn")))
+        if previous.get("vin_param"):
+            self.vin_param.setCurrentText(previous["vin_param"])
         self._kind_changed()
         self._invalidate()
 
     def _kind_changed(self, *_args: Any) -> None:
         regulated = self.kind.currentData() == "regulated"
-        for key, shown in (
-            ("vout_v", regulated),
-            ("ratio", not regulated),
-            ("vin_v", not regulated),
+        learning = self.learn.isChecked()
+        for widget, shown in (
+            (self.fields["vout_v"], regulated),
+            (self.fields["ratio"], not regulated),
+            (self.fields["vin_v"], not regulated or learning),
+            (self.vin_param, learning),
+            (self.fields["learn_points"], learning),
         ):
-            self._form.setRowVisible(self.fields[key], shown)
+            self._form.setRowVisible(widget, shown)
         self._invalidate()
 
     def _invalidate(self, *_args: Any) -> None:
@@ -285,6 +308,12 @@ class _PlanDialog(QDialog):
         info: Dict[str, Any] = {"kit": self.kits.currentText(), "kind": self.kind.currentData()}
         for key in self.fields:
             info[key] = self._number(key)
+        if self.learn.isChecked():
+            info["learn"] = True
+            info["vin_param"] = self.vin_param.currentText()
+        else:  # the quick sweep's inputs mean nothing without it
+            info["vin_v"] = info["vin_v"] if info["kind"] == "unregulated" else None
+            info["learn_points"] = None
         return info
 
     def vout(self, info: Dict[str, Any]) -> Optional[float]:
@@ -301,7 +330,13 @@ class _PlanDialog(QDialog):
         info = self.inputs()
         kit = self.registry.get(info["kit"])
         needed = ("i_min", "i_max", "points", "margin_pct")
-        if kit is None or self.vout(info) is None or any(info[k] is None for k in needed):
+        learning_missing = info.get("learn") and (not info["vin_param"] or info["vin_v"] is None)
+        if (
+            kit is None
+            or self.vout(info) is None
+            or any(info[k] is None for k in needed)
+            or learning_missing
+        ):
             self.summary.setText(self._t("eff_plan_missing"))
             return
         self.resistors = [
@@ -364,6 +399,7 @@ class LoadPanel(QGroupBox):
         super().__init__(t("eff_load"), parent)
         self._t = t
         self._registry = registry  # given: always this one; None: the file, read at every use
+        self._parameters: List[str] = []  # the parameters the program sets (the input of a plan)
         self._loading = False
         self.block: Dict[str, Any] = {}
         layout = QVBoxLayout(self)
@@ -420,6 +456,10 @@ class LoadPanel(QGroupBox):
         form.addRow(t("eff_load_max_vout"), self.max_vout)
         layout.addLayout(form)
 
+    def set_parameters(self, names: Sequence[str]) -> None:
+        """The parameters the program sets: one of them is the input voltage of a learning run."""
+        self._parameters = list(names)
+
     # ---- the kits ----------------------------------------------------------------------------
     @property
     def registry(self) -> KitRegistry:
@@ -465,7 +505,8 @@ class LoadPanel(QGroupBox):
                 if kits is None:
                     return "?"
                 load = kits.resolve_node(load)
-            return f"{parse_load(load).resistance()[0]:.4g}"
+            nominal = parse_load(load).resistance()[0]
+            return "∞" if nominal == float("inf") else f"{nominal:.4g}"
         except (KitError, LoadError) as exc:
             return self._t("eff_load_not_found", error=exc)
 
@@ -529,7 +570,7 @@ class LoadPanel(QGroupBox):
         if not names:
             QMessageBox.information(self, self._t("eff_load"), self._t("eff_load_no_kits"))
             return
-        dialog = _PlanDialog(self.registry, self._t, self.block.get("plan"), self)
+        dialog = _PlanDialog(self.registry, self._t, self.block.get("plan"), self._parameters, self)
         if dialog.exec() and dialog.plan is not None:
             info = {k: v for k, v in dialog.inputs().items() if v is not None}
             self.block["loads"] = dialog.loads()

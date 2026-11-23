@@ -179,12 +179,16 @@
   "eff_plan_calculate": "Calcular",
   "eff_plan_missing": "Rellene cada campo con un número (y elija un kit).",
   "eff_plan_done": "{n} cargas, {moves} resistencias que mover en total.",
-  "eff_plan_open": "El punto a 0 A (sin carga) no es una carga: deje la salida abierta.",
+  "eff_plan_open": "El punto a 0 A es la salida abierta: es la primera carga, sin nada conectado.",
   "eff_plan_col_target": "Objetivo",
   "eff_plan_col_combo": "Combinación",
   "eff_plan_col_ohm": "Resistencia (ohm)",
   "eff_plan_col_current": "Corriente",
   "eff_plan_col_dev": "Desviación (del paso)",
   "eff_plan_col_load": "Resistencia más cargada",
-  "eff_plan_col_moves": "Movimientos"
+  "eff_plan_col_moves": "Movimientos",
+  "eff_plan_learn": "Aprender primero el convertidor (un barrido rápido, luego replanificar)",
+  "eff_plan_learn_help": "Al inicio de la medida un barrido rápido con menos cargas, a la tensión de entrada de referencia, mide la tensión de salida a cada corriente; luego las cargas se replanifican con ella y se le muestra el plan antes de seguir. Para un convertidor no regulado.",
+  "eff_plan_vin_param": "Parámetro que es la tensión de entrada",
+  "eff_plan_learn_points": "Puntos del barrido rápido (0 A incluido)"
 }
