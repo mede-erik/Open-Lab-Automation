@@ -1,0 +1,12 @@
+{
+  "var_name": "Nome",
+  "var_value": "Valore",
+  "var_add": "Aggiungi riga",
+  "var_remove": "Rimuovi",
+  "var_suggest": "Nomi usati prima...",
+  "var_no_name": "La riga {row} ha un valore ma nessun nome.",
+  "var_twice": "Il nome '{name}' è in due righe.",
+  "var_title": "Variante di questo run",
+  "var_question": "Cosa è diverso in {dut}{version} dall'ultimo run? Ogni riga è un componente o un'impostazione (per esempio R100 = 100 ohm, fan = on). La variante viene salvata solo con i risultati di questo run.",
+  "var_start": "Avvia"
+}

@@ -1,0 +1,12 @@
+{
+  "var_name": "Nombre",
+  "var_value": "Valor",
+  "var_add": "Añadir fila",
+  "var_remove": "Quitar",
+  "var_suggest": "Nombres usados antes...",
+  "var_no_name": "La fila {row} tiene un valor pero ningún nombre.",
+  "var_twice": "El nombre '{name}' está en dos filas.",
+  "var_title": "Variante de esta ejecución",
+  "var_question": "¿Qué es diferente en {dut}{version} desde la última ejecución? Cada fila es un componente o un ajuste (por ejemplo R100 = 100 ohm, fan = on). La variante se guarda solo con los resultados de esta ejecución.",
+  "var_start": "Iniciar"
+}
