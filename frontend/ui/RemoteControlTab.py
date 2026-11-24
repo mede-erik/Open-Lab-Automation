@@ -1513,8 +1513,26 @@ class RemoteControlTab(QWidget):
                 controls,
                 lambda n=name: self._vna_connector.connect(n),
                 self._t,
+                restore=self._restore_vna_calibration,
+                calibration_sweep=self._vna_calibration_sweep,
             )
             self.meas_layout.addWidget(panel)
+
+    def _restore_vna_calibration(self, handle, sweep):
+        """Before a sweep of a VNA panel: the saved calibration of this apparatus, if the open
+        project has one for the sweep (ola.vna_controls.restore_saved_calibration)."""
+        from ola.vna_controls import restore_saved_calibration
+        project = self._project()
+        return restore_saved_calibration(
+            handle, project.get("project_file") if project else None, sweep)
+
+    def _vna_calibration_sweep(self, handle, sweep):
+        """The sweep of the saved calibration of this apparatus when it is not the asked one
+        (ola.vna_controls.calibration_for_another_sweep), or None."""
+        from ola.vna_controls import calibration_for_another_sweep
+        project = self._project()
+        return calibration_for_another_sweep(
+            handle, project.get("project_file") if project else None, sweep)
 
     def _load_controls(self, inst):
         """What the panel of an electronic load shows (ola.load_controls): only the calls its

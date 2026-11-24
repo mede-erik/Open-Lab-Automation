@@ -427,6 +427,8 @@
   "vna_export": "Exporter Touchstone…",
   "vna_running": "Balayage en cours…",
   "vna_not_calibrated": "Les données ne sont pas étalonnées : étalonnez l'analyseur (Mesures, étalonnage) pour des résultats corrigés.",
+  "vna_calibration_sweep": "Un étalonnage est enregistré pour cet analyseur pour un autre balayage : {start} – {stop}, {points} points.",
+  "vna_use_calibration_sweep": "Utiliser le balayage de l'étalonnage",
   "vna_err_call": "Erreur : {error}",
   "vna_err_number": "Saisissez une fréquence (par exemple 2.4G, 100k ou 1500000) ou un nombre.",
   "vna_err_traces": "Choisissez au moins une trace.",

@@ -590,6 +590,7 @@ class MainWindow(QMainWindow):
             return None
         return {
             "dir": self.current_project_dir,
+            "project_file": str(session.project.path),  # where the saved calibrations are listed
             "inst_file": self.current_project_data.get('inst_file'),
             # the files that are on, in order, each with the oscilloscope it is for ('' = every one)
             "scope_settings": [
