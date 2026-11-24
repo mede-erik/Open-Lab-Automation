@@ -132,24 +132,26 @@ def align(
     corr = np.fft.irfft(spectrum, size)  # corr[L] = sum_k x[k] * y[k + L]
     lags = np.concatenate([np.arange(0, len(y)), np.arange(-len(x) + 1, 0)])
     values = np.concatenate([corr[: len(y)], corr[size - len(x) + 1 :]])
-    overlap = np.minimum(len(x), len(y) - lags) - np.maximum(0, -lags)
-    overlap = np.maximum(overlap, 1)
-    # the correlation of the part that overlaps, as a coefficient; a lag that leaves only a few
-    # samples is not trusted
-    score = values / overlap
+    overlap = np.maximum(np.minimum(len(x), len(y) - lags) - np.maximum(0, -lags), 1)
+    # the peak is searched on the plain correlation (dividing by the overlap would favour the lags
+    # that leave less to compare); a lag that leaves only a few samples is not trusted
+    score = values.copy()
     score[overlap < max(8, 0.1 * min(len(x), len(y)))] = -np.inf
     best = int(np.argmax(score))
     lag = float(lags[best])
     if 0 < best < len(score) - 1 and np.isfinite(score[best - 1]) and np.isfinite(score[best + 1]):
         left, mid, right = score[best - 1], score[best], score[best + 1]
         denominator = left - 2 * mid + right
-        if (
-            denominator != 0
-            and lags[best - 1] == lags[best] - 1
-            and lags[best + 1] == lags[best] + 1
-        ):
+        neighbours = lags[best - 1] == lags[best] - 1 and lags[best + 1] == lags[best] + 1
+        if denominator != 0 and neighbours:
             lag += 0.5 * (left - right) / denominator  # parabola through the peak: a fraction
-    quality = float(score[best])
+    # how good the match is: the correlation coefficient of the part that overlaps at that lag
+    k0 = max(0, -int(lags[best]))
+    k1 = min(len(x), len(y) - int(lags[best]))
+    xs, ys = x[k0:k1], y[int(lags[best]) + k0 : int(lags[best]) + k1]
+    quality = (
+        float(np.corrcoef(xs, ys)[0, 1]) if len(xs) > 2 and xs.std() > 0 and ys.std() > 0 else 0.0
+    )
     if quality < min_quality:
         raise AlignmentError(
             f"the signal {signal!r} does not match well enough between the two captures "

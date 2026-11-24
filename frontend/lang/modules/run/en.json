@@ -61,5 +61,21 @@
   "run_q_zero_title": "Zero the channel",
   "run_q_zero_short": "Channel <b>{channel}</b> {name}: step 1 of 2. Connect its two input terminals together, so that the instrument measures only the offset of the wiring and of its input, and then continue.",
   "run_q_zero_back": "Channel <b>{channel}</b> {name}: step 2 of 2. The offset was taken {offset}. Connect the terminals back where they were and continue.",
-  "run_choice_skip_zero": "Skip this channel"
+  "run_choice_skip_zero": "Skip this channel",
+  "run_tab_waves": "Waveforms",
+  "run_waves_title": "Waveforms - {run}",
+  "run_waves_steps": "Steps",
+  "run_waves_step": "Step {step}",
+  "run_waves_acquisition": "Acquisition",
+  "run_waves_channels": "Channels",
+  "run_waves_align": "Common time axis",
+  "run_waves_align_help": "Shift the oscilloscopes with the signal they share, as computed by Align now.",
+  "run_waves_align_now": "Align now",
+  "run_waves_export": "Export CSV...",
+  "run_waves_reset": "Reset zoom",
+  "run_waves_none": "No waveform captured.",
+  "run_waves_hint": "Wheel: zoom time (Ctrl: voltage). Drag: move. Click: cursors A and B. Double click: reset.",
+  "run_waves_forced": "forced trigger",
+  "run_waves_missing": "Missing files: {files}",
+  "run_waves_not_aligned": "Could not align: {reason}"
 }

@@ -53,6 +53,15 @@ longer there, and `delete_waves(run_path)` deletes the folder.
 `estimate_bytes(points, channels, captures)` is `points x channels x captures x 4`: one million points, two channels, 30 captures
 (5 steps, 3 acquisitions, 2 oscilloscopes) are 240 MB. It is meant to be shown **before** a run starts.
 
+## Looking at the waveforms
+
+The run window gets a **Waveforms** tab at the first capture and fills it while the run goes; for a finished run select it in the list of the runs of the project and press **Waveforms...**.
+
+* Left: the *steps* that have captures (select several to draw the same acquisition at each step together), the *acquisition* (long, rise, fall...) and the *channels* of each oscilloscope (the signal name written in the file is shown next to the channel).
+* The plot shows the whole record, not an envelope: with many samples it is drawn as the minimum and maximum of each pixel column, so no pulse is lost. Wheel: zoom the time (with Ctrl, the voltage); drag: move; click: place the cursors A and B (the readout gives dt, 1/dt and dV); double click: show everything again; the values under the pointer are written on the plot.
+* Under the plot: the row of the results table for the step (what the converter was doing) and a note if the trigger was forced.
+* *Common time axis* uses the shifts computed by **Align now** (needs two oscilloscopes with a channel of the same name); *Export CSV* writes the capture shown, both oscilloscopes on one time axis if they are aligned.
+
 ## Aligning two oscilloscopes
 
 Two oscilloscopes only share a time origin if they share a trigger. If both measure the **same signal**, a channel with the same
@@ -66,4 +75,3 @@ with the reason. `export_aligned_csv(file_a, file_b, shift_s, csv)` writes both 
 
 ## Not done yet
 
-* Drawing the waveforms in the Curves tab (the run window lists them in the table `waves`).

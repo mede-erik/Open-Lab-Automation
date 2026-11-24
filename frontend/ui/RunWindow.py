@@ -260,6 +260,8 @@ class RunWindow(QWidget):
         self._pending_view = None  # a view the measurement asks to open with ("smith")
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
         self._bench_view = None  # the Benchmark tab, added when the report arrives
+        self._waves_seen = 0
+        self._wave_view = None  # the Waveforms tab, added when the first capture is written
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
         self.resize(1000, 700)
         self._build_ui()
@@ -430,6 +432,8 @@ class RunWindow(QWidget):
             self.model.apply(event)
         if self.model.bench is not None and self._bench_view is None:
             self._show_bench(self.model.bench)
+        if self.run_file and self.model.tables.get("waves"):
+            self._update_waves()
         if events:
             self._update_table()
             self._update_log()
@@ -444,6 +448,21 @@ class RunWindow(QWidget):
         self._handle_questions()
         if self.model.finished and not events and self._dialog is None:
             self._timer.stop()  # nothing more can happen; the window stays as a record
+
+    def _update_waves(self) -> None:
+        """The Waveforms tab (``frontend/ui/WaveformView.py``): added at the first capture and
+        refreshed when more arrive."""
+        count = len(self.model.tables["waves"])
+        if self._wave_view is None:
+            from frontend.ui.WaveformView import WaveformView
+
+            self._wave_view = WaveformView(
+                self.run_file, self.tr_.base, lambda: self.model.points, self
+            )
+            self.tabs.insertTab(3, self._wave_view, self._t("run_tab_waves"))
+        elif count != self._waves_seen:
+            self._wave_view.refresh()
+        self._waves_seen = count
 
     def _show_bench(self, report: Dict[str, Any]) -> None:
         """Add the Benchmark tab with the text of the timing report (see ``ola.bench``)."""

@@ -68,6 +68,7 @@ from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
 from ola.scope_capture import WARN_BYTES
 from ola.runs import export_points_csv
+from ola.wavefiles import wave_folder
 from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger(__name__)
@@ -309,6 +310,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.waves_btn = QPushButton(self._t("prj_waves"))
+        self.waves_btn.clicked.connect(self.show_waves)
+        row.addWidget(self.waves_btn)
         self.compare_btn = QPushButton(self._t("prj_compare"))
         self.compare_btn.clicked.connect(self.compare_runs)
         row.addWidget(self.compare_btn)
@@ -516,6 +520,8 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
+        run = self._selected_run()
+        self.waves_btn.setEnabled(run is not None and wave_folder(run).is_dir())
         self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
     # ================================================================ actions
@@ -844,6 +850,16 @@ class ProjectWindow(QMainWindow):
             if path == keep:
                 self.runs_table.selectRow(row)
         self._update_buttons()
+
+    def show_waves(self) -> None:
+        """Open the waveforms of the selected run (the binary files next to the run file)."""
+        path = self._selected_run()
+        if path is None:
+            return
+        from frontend.ui.WaveformView import WaveformDialog
+
+        self._waves_dialog = WaveformDialog(str(path), self.translator, self)
+        self._waves_dialog.show()
 
     def compare_runs(self) -> None:
         """Open the comparison tool with the runs of the selected measurement."""
