@@ -738,5 +738,6 @@
   "scope_file_for": "Para el osciloscopio {scope}.",
   "project_upgrade_title": "Proyecto antiguo",
   "project_upgrade_question": "\"{name}\" se creó con una versión anterior del programa. Para abrirlo hay que actualizar el archivo: solo recibe el número de formato y una lista vacía de mediciones, no se cambia nada más. Las mediciones del formato antiguo (eff_files) se conservan en el archivo pero no se convierten.\n\nAntes se guarda una copia del original como \"{backup}\" en la misma carpeta. ¿Actualizar el proyecto?",
-  "project_upgrade_declined": "El proyecto no se actualizó, así que no está abierto. Ábralo de nuevo y responda Sí para actualizarlo; hasta entonces el original no se toca."
+  "project_upgrade_declined": "El proyecto no se actualizó, así que no está abierto. Ábralo de nuevo y responda Sí para actualizarlo; hasta entonces el original no se toca.",
+  "spectrum_analyzer": "Analizador de espectro"
 }

@@ -9,7 +9,7 @@ Pure function of the library data: no I/O. The plan is what the step executor
 executor back into the logical value defined by the schema.
 
 Steps follow ``ola.steps.Step``: ``{"op": "write"|"query"|"delay", "text", "ms",
-"timeout_ms", "returns"}``. See ``Instruments_LIB/schema/README.md`` for the library side
+"timeout_ms", "returns", "until"}``. See ``Instruments_LIB/schema/README.md`` for the library side
 (single ``syntax`` or ``steps``, ``map``, ``response_map``, ``bool``, ``split``).
 """
 

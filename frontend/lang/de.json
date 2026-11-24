@@ -738,5 +738,6 @@
   "scope_file_for": "Für das Oszilloskop {scope}.",
   "project_upgrade_title": "Altes Projekt",
   "project_upgrade_question": "\"{name}\" wurde mit einer älteren Programmversion erstellt. Zum Öffnen muss die Datei aktualisiert werden: Sie erhält nur die Formatnummer und eine leere Messungsliste, sonst wird nichts geändert. Die Messungen des alten Formats (eff_files) bleiben in der Datei, werden aber nicht umgewandelt.\n\nZuvor wird eine Kopie des Originals als \"{backup}\" im selben Ordner gespeichert. Projekt aktualisieren?",
-  "project_upgrade_declined": "Das Projekt wurde nicht aktualisiert und ist daher nicht geöffnet. Öffnen Sie es erneut und antworten Sie mit Ja; bis dahin bleibt das Original unverändert."
+  "project_upgrade_declined": "Das Projekt wurde nicht aktualisiert und ist daher nicht geöffnet. Öffnen Sie es erneut und antworten Sie mit Ja; bis dahin bleibt das Original unverändert.",
+  "spectrum_analyzer": "Spektrumanalysator"
 }

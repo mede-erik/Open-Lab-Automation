@@ -9,6 +9,10 @@ Shape agreed with the library/planner session (PLAN.md 7.2):
     {"op": "write"|"query"|"read"|"delay", "text": "...", "ms": 100,
      "timeout_ms": 5000, "returns": "float"|"int"|"string"|"binary"}
 
+``until`` (``query`` and ``read`` steps that return a string) reads up to and consuming that
+marker instead of up to the end of the line: for an answer made of a text and a binary block in one
+message (the GW Instek GDS-1000B: ``...;Waveform Data;#42000<data>``); a ``read`` step that returns
+``binary`` follows to read the block.
 ``text`` is the final string (placeholders already substituted, no terminator).
 ``read`` reads an answer WITHOUT sending anything first, for instruments that talk when
 addressed (e.g. the HP 3478A over GPIB); it takes ``returns`` and ``timeout_ms`` like ``query``.
@@ -22,7 +26,7 @@ from typing import Any, Mapping, Optional
 
 OPS = ("write", "query", "read", "delay")
 RETURNS = ("string", "float", "int", "binary")
-_FIELDS = {"op", "text", "ms", "timeout_ms", "returns"}
+_FIELDS = {"op", "text", "ms", "timeout_ms", "returns", "until"}
 
 
 @dataclass(frozen=True)
@@ -34,6 +38,7 @@ class Step:
     ms: Optional[float] = None
     timeout_ms: Optional[int] = None
     returns: str = "string"
+    until: Optional[str] = None
 
     def __post_init__(self):
         if self.op not in OPS:
@@ -55,6 +60,13 @@ class Step:
             raise ValueError(f"'returns' must be one of {RETURNS}, got {self.returns!r}")
         if self.op not in ("query", "read") and self.returns != "string":
             raise ValueError("'returns' is only valid for 'query' and 'read' steps")
+        if self.until is not None:
+            if self.op not in ("query", "read") or self.returns != "string":
+                raise ValueError(
+                    "'until' is only valid for 'query' and 'read' steps that return a string"
+                )
+            if not isinstance(self.until, str) or not self.until:
+                raise ValueError("'until' must be a non-empty string")
         if self.timeout_ms is not None and self.timeout_ms <= 0:
             raise ValueError("'timeout_ms' must be > 0")
 

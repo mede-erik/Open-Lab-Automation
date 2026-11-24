@@ -738,5 +738,6 @@
   "scope_file_for": "For the oscilloscope {scope}.",
   "project_upgrade_title": "Old project",
   "project_upgrade_question": "\"{name}\" was made with an older version of the program. To open it the file has to be updated: it only gains the format number and an empty list of measurements, nothing else is changed. The measurements of the old format (eff_files) are kept in the file but are not converted.\n\nA copy of the original is saved first as \"{backup}\" in the same folder. Update the project?",
-  "project_upgrade_declined": "The project was not updated, so it is not open. Open it again and answer Yes to update it; the original is not touched until then."
+  "project_upgrade_declined": "The project was not updated, so it is not open. Open it again and answer Yes to update it; the original is not touched until then.",
+  "spectrum_analyzer": "Spectrum analyzer"
 }

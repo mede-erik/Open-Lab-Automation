@@ -31,8 +31,8 @@ Any other value is rejected with `ValueError`. A plan may be a dict or an object
 | `op` | Fields | What it does | Result |
 |---|---|---|---|
 | `write` | `text` | send `text` + the write terminator | `None` |
-| `query` | `text`, `returns`, `timeout_ms` | send `text`, then read one answer | the answer, converted |
-| `read` | `returns`, `timeout_ms` | read an answer **without sending anything** (instruments that talk when addressed, e.g. the HP 3478A on GPIB) | the answer, converted |
+| `query` | `text`, `returns`, `timeout_ms`, `until` | send `text`, then read one answer; with `until` (string answers) read up to that text instead of the end of the line | the answer, converted |
+| `read` | `returns`, `timeout_ms`, `until` | read an answer **without sending anything** (instruments that talk when addressed, e.g. the HP 3478A on GPIB) | the answer, converted |
 | `delay` | `ms` | wait (a stop interrupts it) | `None` |
 
 `text` is the final string: placeholders are already substituted and it has no terminator.
@@ -45,6 +45,8 @@ Any other value is rejected with `ValueError`. A plan may be a dict or an object
 | `float` | `float(answer)` |
 | `int` | `"1"`, `"+1"` and `"1.0"` are accepted, `"1.5"` fails the step |
 | `binary` | `bytes` of an IEEE 488.2 block (`#<d><length><data>`), e.g. a waveform. Use it whenever the data can contain the byte `0x0A`: a `string` read stops at the first newline. |
+
+`until` (a non-empty string, only with `returns: string`) reads up to and consuming that text instead of up to the end of the line. It is for an answer that is a text followed by a binary block in one message (the GW Instek GDS-1000B `:ACQuire<X>:MEMory?`): a `query` step with `until`, then a `read` step with `returns: binary`.
 
 `timeout_ms` overrides the connection's default for that step (long acquisitions). **Unknown fields and
 invalid combinations are rejected when the plan is loaded** (`ValueError`), before anything is sent: a

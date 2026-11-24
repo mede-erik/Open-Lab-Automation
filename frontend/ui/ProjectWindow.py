@@ -778,11 +778,21 @@ class ProjectWindow(QMainWindow):
         proceed, accepted = self._check_compatibility(ref)
         if not proceed:
             return
+        variant = None
+        question = self.session.variant_question(ref)
+        if question is not None:  # a DUT is named: what is different in it since the last run?
+            from frontend.ui.VariantTable import VariantDialog
+
+            asking = VariantDialog(question, self.translator, self)
+            if not asking.exec():
+                return
+            variant = asking.variant()
         try:
             runner, run_file = self.session.build_runner(
                 ref,
                 accepted_differences=accepted,
                 bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
+                variant=variant,
             )
         except MeasurementError as exc:
             show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")

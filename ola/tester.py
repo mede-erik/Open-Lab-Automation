@@ -32,6 +32,7 @@ CATEGORY_LABELS = {
     "electronic_loads_series": "Electronic load",
     "function_generators_series": "Function generator",
     "rf_signal_generators_series": "RF signal generator",
+    "spectrum_analyzers_series": "Spectrum analyzer",
 }
 
 

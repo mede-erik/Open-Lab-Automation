@@ -47,6 +47,14 @@ from .runs import RunWriter, read_run
 from .scope_capture import DEFAULT_POINTS
 from .scope_capture import estimate as scope_estimate
 from .was_calls import check_was
+from .variants import (
+    ASK_FOR_VARIANT,
+    dut_group,
+    previous_variants,
+    variant_names,
+    variant_of,
+    with_variant,
+)
 from .wiring import Diagram, diagram_for, load_wiring
 
 log = logging.getLogger(__name__)
@@ -333,17 +341,48 @@ class ProjectSession:
                 findings += check_role(role.name, bound, runs)
         return findings
 
+    def variant_question(self, ref: MeasurementRef) -> Optional[Dict[str, Any]]:
+        """What to show when a run of this measurement starts and asks for its variant, or None if
+        it does not (a type that does not ask, or no DUT named). ``dut_id``, ``dut`` (its label),
+        ``version``, ``current`` (the variant of the file), ``last`` (the variant of the last run
+        of this DUT, or of the file if there is none) and ``names`` (those used before)."""
+        if ref.type not in ASK_FOR_VARIANT:
+            return None
+        try:
+            params = self.load(ref).params
+        except Exception:  # the file cannot be read: the run will say so
+            return None
+        group = dut_group(params)
+        if group is None:
+            return None
+        device = params[group]
+        dut_id = str(device["dut_id"])
+        earlier = previous_variants(self.run_dir, dut_id)
+        current = variant_of(params)
+        card = self.duts.get(dut_id) if self.duts is not None else None
+        return {
+            "dut_id": dut_id,
+            "dut": getattr(card, "label", "") or dut_id,
+            "version": str(device.get("version") or ""),
+            "current": current,
+            "last": earlier[0] if earlier else current,
+            "names": variant_names(earlier + [current]),
+        }
+
     def build_runner(
         self,
         ref: MeasurementRef,
         unattended: Optional[str] = None,
         accepted_differences: Optional[List[Finding]] = None,
         bench: Optional[bool] = None,
+        variant: Optional[Mapping[str, Any]] = None,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
         file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
         file or module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
-        the opening of the connections on; None follows the ``OLA_BENCH`` environment variable."""
+        the opening of the connections on; None follows the ``OLA_BENCH`` environment variable.
+        ``variant``: the variant of the DUT for this run (``ola.variants``), taking the place of the
+        one in the file, which is not changed; None keeps the one of the file."""
         if bench is None:
             bench = ola_bench.env_enabled()
         if bench:
@@ -364,6 +403,11 @@ class ProjectSession:
             measurement_file.role_bindings = {**measurement_file.role_bindings, "scope": scopes}
         handles = self.bind(measurement_file, row.info, cancel)
         params = self.resolve_scope_settings(measurement_file.params)
+        if variant is not None:
+            try:
+                params = with_variant(params, variant)
+            except ValueError as exc:
+                raise MeasurementError(str(exc)) from exc
         measurement = self.registry.create(
             ref.type,
             self.resolve_kits(self.resolve_golden(self.resolve_correction(params))),
