@@ -735,5 +735,8 @@
   "scope_file_down": "Descendre (acquisition plus tard)",
   "scope_file_target": "Oscilloscope auquel ce fichier s'applique...",
   "scope_target_all": "(chaque oscilloscope)",
-  "scope_file_for": "Pour l'oscilloscope {scope}."
+  "scope_file_for": "Pour l'oscilloscope {scope}.",
+  "project_upgrade_title": "Ancien projet",
+  "project_upgrade_question": "\"{name}\" a été créé avec une version précédente du programme. Pour l'ouvrir, le fichier doit être mis à jour : il reçoit seulement le numéro de format et une liste de mesures vide, rien d'autre n'est modifié. Les mesures de l'ancien format (eff_files) restent dans le fichier mais ne sont pas converties.\n\nUne copie de l'original est d'abord enregistrée sous \"{backup}\" dans le même dossier. Mettre le projet à jour ?",
+  "project_upgrade_declined": "Le projet n'a pas été mis à jour, il n'est donc pas ouvert. Rouvrez-le et répondez Oui pour le mettre à jour ; l'original n'est pas touché d'ici là."
 }

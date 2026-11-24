@@ -302,3 +302,51 @@ def test_a_scope_file_can_be_set_for_one_oscilloscope_from_the_file_list(window,
     window.set_scope_target("osc1.was", "")
     assert window.open_project_source()["scope_settings"] == [{"file": "osc1.was", "scope": ""}]
     window.set_scope_target("missing.was", "OSC1")  # not in the project: nothing happens
+
+
+# ---- the backup copy when an old project is opened (issue #106) ----------------------------
+def test_the_backup_is_a_byte_identical_copy_and_never_overwritten(tmp_path):
+    path = write(tmp_path / "Old.json", LEGACY)
+    original = path.read_bytes()
+    assert Project.needs_upgrade(path) is True
+    assert Project.upgrade_legacy(path) is True
+    backup = tmp_path / "Old.json.bkp"
+    assert backup.read_bytes() == original and path.read_bytes() != original
+    assert Project.needs_upgrade(path) is False
+    # a second old file with the same name: the first backup stays, the new one is numbered
+    write(path, LEGACY)
+    assert Project.backup_path(path) == tmp_path / "Old.json.bkp.1"
+    Project.upgrade_legacy(path)
+    assert backup.read_bytes() == original
+    assert (tmp_path / "Old.json.bkp.1").read_bytes() == original
+
+
+def test_no_backup_for_a_current_project_or_when_not_asked(tmp_path):
+    path = write(tmp_path / "New.json", {**LEGACY, "format_version": 2, "measurements": []})
+    assert Project.upgrade_legacy(path) is False
+    assert not list(tmp_path.glob("*.bkp*"))
+    old = write(tmp_path / "Old.json", LEGACY)
+    assert Project.upgrade_legacy(old, backup=False) is True
+    assert not list(tmp_path.glob("*.bkp*"))
+
+
+@pytest.mark.gui
+def test_opening_an_old_project_asks_first(window, monkeypatch, tmp_path):
+    from ola.measurement import MeasurementError
+
+    path = write(tmp_path / "Old.json", LEGACY)
+    original = path.read_bytes()
+    asked = []
+    monkeypatch.setattr(window, "confirm_project_upgrade", lambda p: asked.append(p) or False)
+    with pytest.raises(MeasurementError):
+        window._open_project_path(str(path))
+    assert asked and path.read_bytes() == original and not list(tmp_path.glob("*.bkp*"))
+
+    monkeypatch.setattr(window, "confirm_project_upgrade", lambda p: asked.append(p) or True)
+    window._open_project_path(str(path))
+    assert (tmp_path / "Old.json.bkp").read_bytes() == original
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == 2
+
+    asked.clear()
+    window._open_project_path(str(path))  # opened again: nothing to ask
+    assert asked == []

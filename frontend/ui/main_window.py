@@ -515,11 +515,30 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(self.tabs.indexOf(self.project_tab), self.project_tab.tr_.t('prj_tab'))
         self.logger.debug("UI translations updated.")
 
+    def confirm_project_upgrade(self, path) -> bool:
+        """Ask before an old project file is changed: the file is copied to a ``.bkp`` next to it
+        first. True to go on. Tests replace this method to give the answer."""
+        backup = Project.backup_path(path)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(self.translator.t("project_upgrade_title"))
+        box.setText(
+            self.translator.t("project_upgrade_question")
+            .replace("{name}", os.path.basename(str(path)))
+            .replace("{backup}", backup.name)
+        )
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.Yes)
+        return box.exec() == QMessageBox.StandardButton.Yes
+
     def _open_project_path(self, path):
         """Open a project file in both views: the Project menu and file list (this window) and the
-        Measurements tab. A project of the first format is upgraded in place first (it keeps every
-        key and gains an empty list of measurements). Returns the data of the project."""
-        Project.upgrade_legacy(path)
+        Measurements tab. A project of the first format is upgraded in place after the user agrees (a copy is kept in
+        ``.bkp``; it keeps every key and gains an empty list of measurements). Returns the data of the project."""
+        if Project.needs_upgrade(path):
+            if not self.confirm_project_upgrade(path):
+                raise MeasurementError(self.translator.t("project_upgrade_declined"))
+            Project.upgrade_legacy(path)  # copies the file to ``.bkp`` first
         self._loaded_inst_path = None
         data = read_json(path)
         self.current_project_dir = os.path.dirname(path)

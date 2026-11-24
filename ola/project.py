@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -237,18 +238,54 @@ class Project:
         return keep
 
     @staticmethod
-    def upgrade_legacy(path: Union[str, Path]) -> bool:
-        """Turn a project file of the first format (``eff_files`` / ``was_files``) into a current
-        one, in place and without losing a key: it only gains ``format_version`` and an empty
-        ``measurements`` list. Returns True if the file was changed; a file that is already
-        current, or is not a project, is left alone."""
-        path = Path(path)
+    def needs_upgrade(path: Union[str, Path]) -> bool:
+        """True if ``path`` is a project file of the first format (no ``format_version``): opening
+        it means changing the file, so the program asks first (see ``upgrade_legacy``)."""
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
+            raw = json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return False
-        if not isinstance(raw, dict) or "format_version" in raw or "project_name" not in raw:
+        return isinstance(raw, dict) and "format_version" not in raw and "project_name" in raw
+
+    @staticmethod
+    def backup_path(path: Union[str, Path]) -> Path:
+        """Where the backup of a project file goes: the same name with ``.bkp`` added
+        (``Name.json.bkp``), or ``.bkp.1``, ``.bkp.2``... if that exists, so that a backup is never
+        overwritten."""
+        path = Path(path)
+        target = path.with_name(path.name + ".bkp")
+        number = 0
+        while target.exists():
+            number += 1
+            target = path.with_name(f"{path.name}.bkp.{number}")
+        return target
+
+    @staticmethod
+    def make_backup(path: Union[str, Path]) -> Path:
+        """Copy the project file byte for byte to ``backup_path`` and return the copy;
+        ``MeasurementError`` if it cannot be written."""
+        path = Path(path)
+        target = Project.backup_path(path)
+        try:
+            shutil.copy2(path, target)
+        except OSError as exc:
+            raise MeasurementError(f"cannot write the backup {target}: {exc}") from exc
+        return target
+
+    @staticmethod
+    def upgrade_legacy(path: Union[str, Path], backup: bool = True) -> bool:
+        """Turn a project file of the first format (``eff_files`` / ``was_files``) into a current
+        one, in place and without losing a key: it only gains ``format_version`` and an empty
+        ``measurements`` list (the old ``eff_files`` are kept as they are, they are not turned
+        into measurements). Before the first write the file is copied to ``Name.json.bkp``
+        (``make_backup``) unless ``backup`` is False. Returns True if the file was changed; a file
+        that is already current, or is not a project, is left alone."""
+        path = Path(path)
+        if not Project.needs_upgrade(path):
             return False
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if backup:
+            Project.make_backup(path)
         raw["format_version"] = FORMAT_VERSION
         raw.setdefault("measurements", [])
         path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
