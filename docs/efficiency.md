@@ -262,6 +262,38 @@ selected one: the set call, the value or sweep, the readings, the check, the lim
 a preview of the file. A file with errors can be saved after a confirmation. The texts are in
 `frontend/lang/modules/efficiency/<lang>.json`; a test checks that every language has the same keys.
 
+## Waveforms during the measurement
+
+The measurement can take the waveforms of an **oscilloscope** at every step, or every *N* steps, after the readings of the step
+(the converter is at its steady state). It is for the converter measurements, `.eff` and `.rfe`; the VNA measurements have no such
+role. In the file::
+
+```json
+"scope_capture": {"instrument": "osc1", "every": 2}
+```
+
+`instrument` is the oscilloscope (the role `scope`; the editor, *Timing* tab, *Waveforms*, binds it for you), `every` says how
+often (1 = every step, the first step is always captured), and the optional `channels` (a list of channel numbers), `bits` (8 or
+16) and `wait_s` (how long to wait for the trigger, default 2 s). Without `scope_capture`, or with `{}`, nothing is taken.
+
+* **What is taken** is decided by the **scope settings files of the project that are switched on**
+  ([`engine.md`](engine.md)): at a capture step they are made **one after another, in the order of the list**, each one an
+  *acquisition* (a long view of the signal, a rising edge, a falling edge...). For each one the oscilloscope is set as the file
+  says, the acquisition is armed (a single one, if the model has it), the trigger is waited for and the whole memory of every
+  channel the file enables (or `channels`) is read. A project with no file that is on stops the run **before it starts**, with
+  a message.
+* **Where it goes**: every capture is a binary file in a folder next to the run file ([`waveform-files.md`](waveform-files.md)),
+  and the run file gets one row of the table `waves` for it (`file`, `step`, `acquisition`, `scope`, `channels`, `points`, `dt`,
+  `forced`, `bytes` and the setpoints of the step). Deleting the folder does not break the results.
+* **The trigger**: if the model can tell its trigger status, the program waits for the trigger up to `wait_s` and, if it did not
+  arrive, **forces it** and marks the capture `forced` (and says so in the log); a model that cannot tell just waits `wait_s`.
+* **A failure** of the oscilloscope at a step is a warning in the log: the measurement goes on and the other acquisitions and steps
+  are still captured.
+* **Size**: the editor says how many steps are captured and how much space one acquisition of one channel takes at one million
+  points; before a run that will take more than about a gigabyte the program asks to confirm.
+* A capture can be exported as CSV (`ola.wavefiles.export_csv`). Drawing the waveforms in the Curves tab and several oscilloscopes
+  at once (#113) are not done yet.
+
 ## Results
 
 Two tables, written while the measurement runs ([engine.md](engine.md#files)):

@@ -190,5 +190,10 @@
   "eff_plan_learn": "Learn the converter first (a quick sweep, then plan again)",
   "eff_plan_learn_help": "At the start of the measurement a quick sweep with fewer loads, at the reference input voltage, measures the output voltage at each current; the loads are then planned again with it, and you are shown the plan before the measurement goes on. For a converter that is not regulated.",
   "eff_plan_vin_param": "Parameter that is the input voltage",
-  "eff_plan_learn_points": "Points of the quick sweep (0 A included)"
+  "eff_plan_learn_points": "Points of the quick sweep (0 A included)",
+  "eff_waves": "Waveforms",
+  "eff_waves_help": "An oscilloscope can take waveforms during the measurement: at every step, or every N steps, after the readings. It is set by the scope settings files of the project that are on (one capture for each, in the order of the list) and every capture is a binary file in a folder next to the results. Leave it empty for none.",
+  "eff_waves_instrument": "Oscilloscope",
+  "eff_waves_every": "Every N steps",
+  "eff_waves_summary": "{taken} of {steps} steps are captured. About {mb} MB for each acquisition and channel at 1 million points."
 }

@@ -5,8 +5,9 @@ acquisition memory is megabytes, so it does **not** go in the run file (JSON Lin
 in a folder of the run, and the run file keeps only an index. The measurement file and the run file stay light, and the folder can
 be deleted at will: the results stay and still open.
 
-This page is about the **format and the folder** ([`ola/wavefiles.py`](../ola/wavefiles.py), no Qt). Taking the captures during a
-measurement is the next step.
+This page is about the **format and the folder** ([`ola/wavefiles.py`](../ola/wavefiles.py), no Qt). The captures are taken by
+the efficiency measurements ([`efficiency.md`](efficiency.md), *Waveforms during the measurement*,
+[`ola/scope_capture.py`](../ola/scope_capture.py)); `export_csv(file, csv)` writes a capture as a CSV file.
 
 ## Where
 
@@ -54,5 +55,5 @@ longer there, and `delete_waves(run_path)` deletes the folder.
 
 ## Not done yet
 
-* Taking the captures during a run (the `scope` role, the scope settings file, the step loop): issues #108 and #113.
-* Showing the waveforms in the run window and exporting them.
+* Several oscilloscopes in one measurement and the alignment between them: issues #113 and #115.
+* Drawing the waveforms in the Curves tab (the run window lists them in the table `waves`).

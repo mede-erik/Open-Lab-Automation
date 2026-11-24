@@ -57,5 +57,6 @@
   "prj_bench": "Zeiten messen (Benchmark)",
   "prj_bench_tip": "Misst jeden Instrumentenaufruf und jede Phase der nächsten Messung und zeigt einen Bericht im Reiter Benchmark. Die zusätzliche Verzögerung ist klein (etwa 30 Mikrosekunden pro Aufruf).",
   "prj_cal_no_library": "die Geräte-Bibliothek ist nicht verfügbar",
-  "prj_cal_no_inst": "das Projekt hat keine Gerätedatei (.inst)"
+  "prj_cal_no_inst": "das Projekt hat keine Gerätedatei (.inst)",
+  "prj_waves_confirm": "Die Wellenformen dieses Laufs belegen etwa {size} Speicherplatz ({waveforms} Wellenformen in {captures} Aufnahmen mit je 1 Million Punkten). Starten?"
 }

@@ -70,6 +70,8 @@ from frontend.ui.efficiency_widgets import (
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.LoadPanel import LoadPanel
+from ola.scope_capture import DEFAULT_POINTS, capture_steps
+from ola.wavefiles import SAMPLE_BYTES
 from ola.efficiency_editor import EditorError, EfficiencyEditor
 from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
@@ -511,8 +513,45 @@ class EfficiencyEditorDialog(QDialog):
         self.timing_summary.setWordWrap(True)
         self.timing_summary.setWordWrap(True)
         layout.addWidget(self.timing_summary)
+        layout.addWidget(self._build_waves_group())
         layout.addStretch(1)
         return page
+
+    def _build_waves_group(self) -> QGroupBox:
+        """The waveforms taken during the measurement: which oscilloscope, and every how many
+        steps (the settings are the scope settings files of the project that are on)."""
+        group = QGroupBox(self._t("eff_waves"))
+        form = QFormLayout(group)
+        form.addRow(self._note("eff_waves_help"))
+        self.waves_instrument = QComboBox()
+        self.waves_instrument.setEditable(True)
+        self.waves_instrument.addItem("")
+        self.waves_instrument.addItems(self.instruments)
+        field = _Field(self.waves_instrument, "scope_capture.instrument", "combo", False)
+        self._fields.append(field)
+        self.waves_instrument.currentTextChanged.connect(lambda _t, f=field: self._field_changed(f))
+        form.addRow(self._t("eff_waves_instrument"), self.waves_instrument)
+        self.waves_every = self._line("scope_capture.every", "int", scoped=False, tip="1, 2, 5...")
+        form.addRow(self._t("eff_waves_every"), self.waves_every)
+        self.waves_summary = QLabel()
+        self.waves_summary.setWordWrap(True)
+        form.addRow(self.waves_summary)
+        return group
+
+    def _update_waves_summary(self) -> None:
+        """How many steps are captured and how much disk space one acquisition of one channel
+        takes at 1 M points (the project knows how many acquisitions and channels there are)."""
+        capture = self.editor.params.get("scope_capture")
+        every = capture.get("every") if isinstance(capture, dict) else None
+        steps = self.editor.step_count()
+        if not isinstance(every, int) or every < 1 or not steps:
+            self.waves_summary.setText("")
+            return
+        taken = capture_steps(steps, every)
+        megabytes = taken * DEFAULT_POINTS * SAMPLE_BYTES / 1e6
+        self.waves_summary.setText(
+            self._t("eff_waves_summary", taken=taken, steps=steps, mb=f"{megabytes:,.0f}")
+        )
 
     # ---- formulas tab -----------------------------------------------------------------------
     def _build_formulas_tab(self) -> QWidget:
@@ -845,6 +884,7 @@ class EfficiencyEditorDialog(QDialog):
         if index is None:
             return
         self._show_load_panel()
+        self._update_waves_summary()
         mode = self.editor.sweep_mode(index)
         shown = {
             "none": (), "fixed": ("value",), "list": ("values",),

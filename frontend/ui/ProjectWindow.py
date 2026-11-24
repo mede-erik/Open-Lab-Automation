@@ -66,6 +66,7 @@ from ola.measurement import MeasurementError
 from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
+from ola.scope_capture import WARN_BYTES
 from ola.runs import export_points_csv
 from frontend.core.errorhandler import show_problem
 
@@ -741,12 +742,32 @@ class ProjectWindow(QMainWindow):
                 self.on_wiring_preference(keep)
         return accepted
 
+    def _confirm_waves(self, ref: MeasurementRef) -> bool:
+        """Before a run that takes waveforms: if they will take more than about a gigabyte of
+        disk, say how much and ask to start. False if the user cancels."""
+        estimate = self.session.wave_estimate(ref)
+        if estimate is None or estimate["bytes"] <= WARN_BYTES:
+            return True
+        answer = QMessageBox.question(
+            self,
+            self._t("prj_title"),
+            self._t(
+                "prj_waves_confirm",
+                size=f"{estimate['bytes'] / 1e9:.1f} GB",
+                waveforms=estimate["waveforms"],
+                captures=estimate["captures"],
+            ),
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
     def run_measurement(self) -> None:
         """Start the selected measurement in a run window."""
         ref = self._selected()
         if ref is None:
             return
         if not self._confirm_wiring(ref):
+            return
+        if not self._confirm_waves(ref):
             return
         proceed, accepted = self._check_compatibility(ref)
         if not proceed:

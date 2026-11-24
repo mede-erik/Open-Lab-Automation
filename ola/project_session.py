@@ -30,7 +30,7 @@ import time
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from . import bench as ola_bench
 from .assets import normalize_code, snapshots_for
@@ -42,7 +42,11 @@ from .measurement import MeasurementError
 from .project import MeasurementFile, MeasurementRef, Project, check_plain_filename
 from .registry import ModuleInfo, ModuleRegistry
 from .runner import Runner
+from .efficiency_spec import SpecError, parse_params
 from .runs import RunWriter, read_run
+from .scope_capture import DEFAULT_POINTS
+from .scope_capture import estimate as scope_estimate
+from .was_calls import check_was
 from .wiring import Diagram, diagram_for, load_wiring
 
 log = logging.getLogger(__name__)
@@ -238,15 +242,21 @@ class ProjectSession:
         cancel: Optional[threading.Event] = None,
     ) -> Dict[str, List[Any]]:
         """The handles for every role of the measurement. A role without names in the file gets
-        all the project's instruments. ``MeasurementError`` (readable) if an instrument is not in
-        the project or cannot be reached."""
+        all the project's instruments, except an **optional role of a kind** (an oscilloscope for
+        the waveforms, an electronic load for the ripple conditions): that one gets none until a
+        name is written, so that a measurement that does not use it does not connect everything.
+        ``MeasurementError`` (readable) if an instrument is not in the project or cannot be
+        reached."""
         if self.connect is None:
             raise MeasurementError("the instruments are not connected: no way to reach them yet")
         known = set(self.instruments)
         handles: Dict[str, Any] = {}
         cache: Dict[str, Any] = {}
         for role in info.roles:
-            wanted = measurement_file.role_bindings.get(role.name) or list(self.instruments)
+            wanted = measurement_file.role_bindings.get(role.name)
+            if not wanted:
+                optional_kind = not role.required and role.category != "any"
+                wanted = [] if optional_kind else list(self.instruments)
             if isinstance(wanted, str):
                 wanted = [wanted]
             missing = [n for n in wanted if known and n not in known]
@@ -348,17 +358,23 @@ class ProjectSession:
                 f"says '{ref.type}'"
             )
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
+        scope = (measurement_file.params.get("scope_capture") or {}).get("instrument")
+        if scope and not measurement_file.role_bindings.get("scope"):
+            # a file written by hand: the oscilloscope of the waveforms is the one it names
+            measurement_file.role_bindings = {**measurement_file.role_bindings, "scope": [scope]}
         handles = self.bind(measurement_file, row.info, cancel)
+        params = self.resolve_scope_settings(measurement_file.params)
         measurement = self.registry.create(
             ref.type,
-            self.resolve_kits(
-                self.resolve_golden(self.resolve_correction(measurement_file.params))
-            ),
+            self.resolve_kits(self.resolve_golden(self.resolve_correction(params))),
         )
         runner = Runner(measurement, handles, unattended=unattended, stop_event=cancel, bench=bench)
         stamp = time.strftime("%Y%m%d_%H%M%S")
         # the run id is in the name: two people starting in the same second never collide
         path = self.run_dir / f"{Path(ref.file).stem}_{stamp}_{runner.run_id}.jsonl"
+        attach = getattr(measurement, "set_run_path", None)
+        if callable(attach):  # a measurement that writes files next to its results (waveforms)
+            attach(path)
         extra: Dict[str, Any] = {}
         cards = snapshots_for(measurement_file.params, self.assets)
         if cards:  # what the cable / device was on the day, kept with its results
@@ -377,6 +393,63 @@ class ProjectSession:
         )
         runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
         return runner, path
+
+    def resolve_scope_settings(self, params: Mapping[str, Any]) -> Dict[str, Any]:
+        """The parameters with the acquisitions of the waveforms written in: when ``scope_capture``
+        is asked for, the scope settings files of the project that are on, in order, each as
+        ``{"name": file name without .was, "file": ..., "settings": its content}``.
+        ``MeasurementError`` if there is none, or one is missing, unreadable or wrong, so that the
+        run does not start. Parameters that do not ask for waveforms are returned as they are."""
+        capture = params.get("scope_capture")
+        if not isinstance(capture, dict) or not capture.get("every"):
+            return dict(params)
+        acquisitions = []
+        for name in self.project.active_scope_files():
+            path = self.project.scope_path(name)
+            try:
+                settings = json.loads(path.read_text(encoding="utf-8"))
+            except FileNotFoundError as exc:
+                raise MeasurementError(f"the scope settings file {name} is missing") from exc
+            except (OSError, ValueError) as exc:
+                raise MeasurementError(f"{name} cannot be read: {exc}") from exc
+            problems = check_was(settings)
+            if problems:
+                raise MeasurementError(f"{name}: {problems[0]}")
+            acquisitions.append({"name": path.stem, "file": name, "settings": settings})
+        if not acquisitions:
+            raise MeasurementError(
+                "waveforms are asked for, but the project has no scope settings file that is on "
+                "(add a .was file to the project, or switch one on)"
+            )
+        resolved = json.loads(json.dumps(params))
+        resolved["scope_capture"]["acquisitions"] = acquisitions
+        return resolved
+
+    def wave_estimate(self, ref: MeasurementRef) -> Optional[Dict[str, int]]:
+        """What the waveforms of a run of this measurement will take, or None if it asks for none:
+        ``steps``, ``captures``, ``waveforms`` and ``bytes`` (at ``scope_capture.points`` samples
+        per waveform, 1 M if it does not say). For the warning before the start."""
+        try:
+            params = self.load(ref).params
+        except Exception:  # the file cannot be read: the run will say so
+            return None
+        capture = params.get("scope_capture")
+        if not isinstance(capture, dict) or not capture.get("every"):
+            return None
+        try:
+            load = ref.type == "resistive_efficiency"
+            steps = parse_params(params, allow_load=load).point_count()
+            resolved = self.resolve_scope_settings(params)
+        except (SpecError, MeasurementError):
+            return None
+        found = scope_estimate(
+            steps,
+            int(capture["every"]),
+            resolved["scope_capture"]["acquisitions"],
+            capture.get("channels"),
+            int(capture.get("points") or DEFAULT_POINTS),
+        )
+        return {"steps": steps, **found}
 
     def resolve_kits(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """The parameters with the resistors of a kit written out: a resistor of a load that is

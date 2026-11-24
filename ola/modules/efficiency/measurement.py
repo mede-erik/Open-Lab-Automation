@@ -44,6 +44,11 @@ drawing, or the relays of a multiplexer are closed), the measurement waits ``set
 outputs are switched on again. Every reading of the output voltage is used to check the power in
 the resistors: if one is above its rating the measurement stops. The relays are opened at the end.
 
+Waveforms (``scope_capture``, ``ola/scope_capture.py``): at every step, or every *N* steps, after
+the readings of the step, the oscilloscope bound to the role ``scope`` takes one capture for each
+scope settings file of the project that is on, in order; they are binary files next to the run
+file.
+
 A load that is only the output left open (``{"open": true}``) is a point like any other: nothing is
 connected for it (the operator is asked to disconnect, or the relays only open) and its resistance
 is infinite. A load with ``plan.learn`` is planned in two steps: a quick sweep first (see
@@ -61,6 +66,7 @@ from ola.efficiency_spec import SpecError, parse_params, validate_params
 from ola.golden import finish, recording
 from ola.labels import render_svg
 from ola.resistors import Open, describe, schematic
+from ola.scope_capture import ScopeCapture
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.sweep import iter_points
 
@@ -83,6 +89,9 @@ class Efficiency(Measurement):
             raise MeasurementError(str(exc)) from exc
         self._handles = {h.name: h for h in ctx.instruments("instruments")}
         self._touched = False  # becomes True when the first instrument is changed
+        self._capture = ScopeCapture.from_params(
+            self.params, ctx.instruments("scope"), getattr(self, "_run_path", None)
+        )  # the waveforms asked for (None: no); an error here is before anything is touched
         self._connected = {}  # load parameter -> (Load, LoadSpec) connected now
         self._closed = {}  # load parameter -> relays of the multiplexer that are closed now
         used = set()
@@ -110,6 +119,11 @@ class Efficiency(Measurement):
                 f"these instruments are not bound to the measurement: {', '.join(missing)} "
                 f"(bound: {', '.join(sorted(self._handles)) or 'none'})"
             )
+
+    def set_run_path(self, path) -> None:
+        """Where the results of this run are written (called by the project before the start): the
+        waveform files go in a folder next to it."""
+        self._run_path = path
 
     def derived(self, values):
         """The formulas of the ``derived`` section, computed on the averaged point."""
@@ -200,6 +214,8 @@ class Efficiency(Measurement):
                 row["verify_skipped"] = ",".join(sorted(skipped))
             ctx.emit_point(row, points)
             rows.append(row)
+            if self._capture is not None and points == "points" and self._capture.due(index):
+                self._capture.capture(ctx, index, targets)  # the waveforms of this step
             ctx.progress(index + 1, total, f"{label}point {index + 1} of {total}")
         return rows
 

@@ -12,6 +12,12 @@
       "category": "any",
       "multiple": true,
       "description": "Every instrument used: sources, loads, meters, data loggers"
+    },
+    {
+      "name": "scope",
+      "category": "oscilloscope",
+      "required": false,
+      "description": "An oscilloscope that takes waveforms during the measurement (optional: the scope settings files of the project say how; see scope_capture)"
     }
   ],
   "params_schema": {
@@ -42,6 +48,11 @@
     "shutdown": {
       "type": "list",
       "required": false
+    },
+    "scope_capture": {
+      "type": "object",
+      "required": false,
+      "description": "waveforms during the measurement: instrument (the oscilloscope, role scope), every (a capture every N steps, 1 = every step), and optionally channels, bits (8 or 16) and wait_s; the acquisitions are the scope settings files of the project that are on, one after another"
     }
   }
 }

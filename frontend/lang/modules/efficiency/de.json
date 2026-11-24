@@ -190,5 +190,10 @@
   "eff_plan_learn": "Wandler zuerst anlernen (schneller Sweep, dann neu planen)",
   "eff_plan_learn_help": "Zu Beginn der Messung misst ein schneller Sweep mit weniger Lasten bei der Referenz-Eingangsspannung die Ausgangsspannung bei jedem Strom; die Lasten werden damit neu geplant, und der Plan wird vor dem Weitermachen gezeigt. Für einen ungeregelten Wandler.",
   "eff_plan_vin_param": "Parameter, der die Eingangsspannung ist",
-  "eff_plan_learn_points": "Punkte des schnellen Sweeps (0 A inklusive)"
+  "eff_plan_learn_points": "Punkte des schnellen Sweeps (0 A inklusive)",
+  "eff_waves": "Wellenformen",
+  "eff_waves_help": "Ein Oszilloskop kann während der Messung Wellenformen aufnehmen: bei jedem Schritt oder alle N Schritte, nach den Messwerten. Es wird von den aktiven Einstellungsdateien des Projekts eingestellt (je eine Aufnahme, in der Reihenfolge der Liste), und jede Aufnahme ist eine Binärdatei in einem Ordner neben den Ergebnissen. Leer lassen für keine.",
+  "eff_waves_instrument": "Oszilloskop",
+  "eff_waves_every": "Alle N Schritte",
+  "eff_waves_summary": "{taken} von {steps} Schritten werden aufgenommen. Etwa {mb} MB je Aufnahme und Kanal bei 1 Million Punkten."
 }

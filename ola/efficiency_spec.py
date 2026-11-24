@@ -76,6 +76,7 @@ from .sweep import SweepError, axis_values, total_points
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TOP_KEYS = (
     "variables", "timing", "derived", "startup", "shutdown", "power_order", "golden", "device",
+    "scope_capture",
 )
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
 MAX_SAMPLES = 10_000
@@ -991,6 +992,44 @@ def _check_vout(c: "_Checker", variables: Mapping[str, Variable]) -> None:
             c.error(where, f"'{label}' has more readings: write which, like '{label}@daq'")
 
 
+SCOPE_CAPTURE_KEYS = ("instrument", "every", "channels", "bits", "wait_s", "points", "acquisitions")
+
+
+def _check_scope_capture(c: "_Checker", raw: Any) -> None:
+    """The waveforms taken during the measurement (``ola.scope_capture``): the oscilloscope and
+    *how often*. The files of scope settings come from the project, which writes them in
+    ``acquisitions`` when the run starts. Missing or ``{}``: no waveforms."""
+    if raw is None or raw == {}:
+        return
+    path = "scope_capture"
+    if not isinstance(raw, dict):
+        c.error(path, 'must be an object like {"instrument": "osc1", "every": 2}')
+        return
+    c.unknown_keys(raw, SCOPE_CAPTURE_KEYS, path)
+    c.instrument(raw, path)
+    if "every" not in raw:
+        c.error(f"{path}.every", "say every how many steps (1 = every step)")
+    else:
+        c.number(raw, "every", path, None, 1, True)
+    channels = raw.get("channels")
+    if channels is not None and (
+        not isinstance(channels, list)
+        or not channels
+        or not all(isinstance(n, int) and not isinstance(n, bool) and n >= 1 for n in channels)
+    ):
+        c.error(f"{path}.channels", "must be a list of channel numbers, like [1, 2]")
+    if raw.get("bits", 8) not in (8, 16):
+        c.error(f"{path}.bits", "must be 8 or 16")
+    c.number(raw, "wait_s", path, None, 0.0)
+    c.number(raw, "points", path, None, 1, True)
+    acquisitions = raw.get("acquisitions")
+    if acquisitions is not None and not (
+        isinstance(acquisitions, list)
+        and all(isinstance(a, dict) and a.get("name") and "settings" in a for a in acquisitions)
+    ):
+        c.error(f"{path}.acquisitions", "must be a list of {name, file, settings}")
+
+
 def _check_device(c: "_Checker", device: Any) -> None:
     """The converter under test, if the file names one (all optional): a ``name`` written by hand,
     a ``dut_id`` of the archive of the devices under test (``DUT-0001``) with its ``version``
@@ -1059,6 +1098,7 @@ def _analyse(
             c.error(
                 f"shutdown[{i}]", f"this switches off the output of '{owner}', which is always on"
             )
+    _check_scope_capture(c, params.get("scope_capture"))
     c.cooldown_warnings(variables, axes, timing)
     power_order = c.power_order(params.get("power_order"), variables)
     if not any(p.severity == "error" for p in c.problems):
