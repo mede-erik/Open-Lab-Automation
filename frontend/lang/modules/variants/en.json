@@ -1,0 +1,12 @@
+{
+  "var_name": "Name",
+  "var_value": "Value",
+  "var_add": "Add row",
+  "var_remove": "Remove",
+  "var_suggest": "Names used before...",
+  "var_no_name": "Row {row} has a value but no name.",
+  "var_twice": "The name '{name}' is in two rows.",
+  "var_title": "Variant of this run",
+  "var_question": "What is different in {dut}{version} since the last run? Each row is a part or a setting (for example R100 = 100 ohm, fan = on). The variant is kept with the results of this run only.",
+  "var_start": "Start"
+}

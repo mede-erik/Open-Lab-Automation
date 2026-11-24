@@ -70,11 +70,11 @@ from frontend.ui.efficiency_widgets import (
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.LoadPanel import LoadPanel
+from frontend.ui.VariantTable import VariantTable
 from ola.efficiency_editor import EditorError, EfficiencyEditor
 from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
 from ola.project import MeasurementFile
-from ola.variants import format_lines, parse_lines
 from frontend.core.errorhandler import show_problem
 
 SWEEP_MODES = ("none", "fixed", "list", "points", "step", "log")
@@ -114,6 +114,7 @@ class EfficiencyEditorDialog(QDialog):
         ``duts``: the archive of the devices under test (``ola.duts.DutRegistry``), or None."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("efficiency", translator)
+        self._variant_t = CatalogTranslator("variants", translator).t
         self._t = self.tr_.t
         self.file_path = file_path
         self.instruments = list(instruments)
@@ -282,10 +283,8 @@ class EfficiencyEditorDialog(QDialog):
         self.version_box.activated.connect(lambda _i: self._device_changed())
         self.version_box.lineEdit().editingFinished.connect(self._device_changed)
         name_row.addRow(self._t("eff_dut_version"), self.version_box)
-        self.variant_edit = QPlainTextEdit()  # what changed since another run, name = value
-        self.variant_edit.setMaximumHeight(70)
-        self.variant_edit.setPlaceholderText(self._t("eff_variant_placeholder"))
-        self.variant_edit.textChanged.connect(self._device_changed)
+        self.variant_edit = VariantTable(self._variant_t)  # what changed since another run
+        self.variant_edit.changed.connect(self._device_changed)
         name_row.addRow(self._t("eff_variant"), self.variant_edit)
         form_layout.addLayout(name_row)
         self.load_panel = LoadPanel(self._t, self.instruments)
@@ -1180,7 +1179,7 @@ class EfficiencyEditorDialog(QDialog):
         self.dut_box.setCurrentText(f"{card.id} - {card.name}" if card else code)
         self._fill_versions(card)
         self.version_box.setCurrentText(str(device.get("version") or ""))
-        self.variant_edit.setPlainText(format_lines(variant) if isinstance(variant, dict) else "")
+        self.variant_edit.set_variant(variant if isinstance(variant, dict) else None)
         for widget in widgets:
             widget.blockSignals(False)
         mark_widget(self.variant_edit, None)
@@ -1207,12 +1206,11 @@ class EfficiencyEditorDialog(QDialog):
                 name = card.name
             if not version:
                 version = self.duts.current_version(card.id) or ""
-        try:
-            variant = parse_lines(self.variant_edit.toPlainText())
-            mark_widget(self.variant_edit, None)
-        except ValueError as exc:
-            mark_widget(self.variant_edit, "error", self._t("eff_variant_invalid", line=str(exc)))
+        message = self.variant_edit.problem()
+        mark_widget(self.variant_edit, "error" if message else None, message or "")
+        if message:
             return  # nothing wrong is written
+        variant = self.variant_edit.variant()
         device: Dict[str, Any] = {}
         for key, value in (("name", name), ("dut_id", code), ("version", version)):
             if value:
