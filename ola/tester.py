@@ -101,7 +101,7 @@ def open_visa(
     import pyvisa
 
     from ._visa import VisaConnection
-    from .serial_config import apply_serial_settings
+    from .serial_config import apply_serial_settings, apply_terminators
 
     # 'ASRL/dev/ttyUSB0::INSTR' is a pyvisa-py style address (NI-VISA numbers its ports ASRL1...)
     first = "@py" if address.upper().startswith("ASRL/") else ""
@@ -116,9 +116,7 @@ def open_visa(
         cfg = dict(library.serial_settings(model_id))
         cfg.update(serial_override or {})
         apply_serial_settings(resource, cfg)
-        connection.set_terminators(
-            cfg.get("write_termination", "\n"), cfg.get("read_termination", "\n")
-        )
+        apply_terminators(connection, cfg)
     return connection
 
 

@@ -409,8 +409,8 @@ class RemoteControlTab(QWidget):
             connection = VisaConnection(instr, visa_addr, timeout_ms, pyvisa)
             cfg = self.__dict__.get('_serial_cfg', {}).get(visa_addr)
             if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
-                connection.set_terminators(
-                    cfg.get('write_termination', '\n'), cfg.get('read_termination', '\n'))
+                from ola.serial_config import apply_terminators
+                apply_terminators(connection, cfg)
             driver = driver_for(library, model_id, connection) if library and model_id else None
             entry = (instr, Instrument(name, connection, driver))
             executors[visa_addr] = entry
