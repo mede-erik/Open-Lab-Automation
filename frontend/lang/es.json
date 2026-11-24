@@ -82,7 +82,6 @@
   "copy_file_name": "Copia nome file",
   "paste_file": "Incolla file",
   "delete_file": "Elimina file",
-  
   "select_instrument_type": "Seleziona Tipo di Strumento",
   "select_instrument_type_desc": "Seleziona il tipo di strumento da aggiungere:",
   "instrument_type_label": "Tipo:",
@@ -727,5 +726,20 @@
   "diag_rec_enable_remote": "Active el control remoto / la interfaz LXI en el instrumento.",
   "diag_rec_manual": "Consulte el manual del instrumento para configurar VXI-11 o SCPI sobre LAN.",
   "diag_rec_firewall": "Verifique que el cortafuegos no bloquee la conexión.",
-  "spectrum_analyzer": "Analizador de espectro"
+  "was_reset": "Reiniciar el osciloscopio antes de aplicar estos ajustes",
+  "was_reset_help": "Desmarque para aplicar solo lo que dice este archivo y conservar el resto de lo ya ajustado en el instrumento.",
+  "scope_file_disabled": "Ajustes de los osciloscopios guardados en el proyecto pero no aplicados: el archivo activo es el otro.",
+  "scope_file_disable": "Desactivar (mantener en el proyecto)",
+  "scope_file_enable": "Activar",
+  "scope_file_up": "Subir (adquisición antes)",
+  "scope_file_down": "Bajar (adquisición después)",
+  "scope_file_target": "Osciloscopio al que se aplica este archivo...",
+  "scope_target_all": "(cada osciloscopio)",
+  "scope_file_for": "Para el osciloscopio {scope}.",
+  "project_upgrade_title": "Proyecto antiguo",
+  "project_upgrade_question": "\"{name}\" se creó con una versión anterior del programa. Para abrirlo hay que actualizar el archivo: recibe el número de formato y sus archivos de eficiencia (eff_files) pasan a ser mediciones del proyecto. Esos archivos solo decían qué magnitudes variar y con qué valores, no qué llamada del instrumento las ajusta: habrá que elegir las llamadas en el editor de cada medición. No se cambia nada más.\n\nAntes se guarda una copia del original como \"{backup}\" en la misma carpeta, y cada archivo de eficiencia se copia a un archivo \".bkp\" antes de convertirlo. ¿Actualizar el proyecto?",
+  "project_upgrade_declined": "El proyecto no se actualizó, así que no está abierto. Ábralo de nuevo y responda Sí para actualizarlo; hasta entonces el original no se toca.",
+  "spectrum_analyzer": "Analizador de espectro",
+  "project_upgrade_converted": "{file}: convertido en medición",
+  "project_upgrade_kept": "{file}: no convertido"
 }

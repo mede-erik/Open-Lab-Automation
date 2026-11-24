@@ -726,5 +726,20 @@
   "diag_rec_enable_remote": "Enable remote control/LXI interface on instrument.",
   "diag_rec_manual": "Check instrument manual for VXI-11 or SCPI-over-LAN setup.",
   "diag_rec_firewall": "Verify firewall is not blocking the connection.",
-  "spectrum_analyzer": "Spectrum analyzer"
+  "was_reset": "Reset the oscilloscope before applying these settings",
+  "was_reset_help": "Untick it to apply only what this file says and keep the rest of what is already set on the instrument.",
+  "scope_file_disabled": "Settings of the oscilloscopes kept in the project but not applied: the active file is the other one.",
+  "scope_file_disable": "Switch off (keep in the project)",
+  "scope_file_enable": "Switch on",
+  "scope_file_up": "Move up (earlier acquisition)",
+  "scope_file_down": "Move down (later acquisition)",
+  "scope_file_target": "Oscilloscope this file is for...",
+  "scope_target_all": "(every oscilloscope)",
+  "scope_file_for": "For the oscilloscope {scope}.",
+  "project_upgrade_title": "Old project",
+  "project_upgrade_question": "\"{name}\" was made with an older version of the program. To open it the file has to be updated: it gains the format number and its efficiency files (eff_files) become measurements of the project. Those files only said which quantities to sweep and with what values, not which instrument call sets them: you will have to choose the calls in the editor of each measurement. Nothing else is changed.\n\nA copy of the original is saved first as \"{backup}\" in the same folder, and each efficiency file is copied to a \".bkp\" file before it is converted. Update the project?",
+  "project_upgrade_declined": "The project was not updated, so it is not open. Open it again and answer Yes to update it; the original is not touched until then.",
+  "spectrum_analyzer": "Spectrum analyzer",
+  "project_upgrade_converted": "{file}: converted to a measurement",
+  "project_upgrade_kept": "{file}: not converted"
 }

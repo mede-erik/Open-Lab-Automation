@@ -726,5 +726,20 @@
   "diag_rec_enable_remote": "Activez le contrôle à distance / l'interface LXI sur l'instrument.",
   "diag_rec_manual": "Consultez le manuel de l'instrument pour la configuration de VXI-11 ou SCPI sur LAN.",
   "diag_rec_firewall": "Vérifiez que le pare-feu ne bloque pas la connexion.",
-  "spectrum_analyzer": "Analyseur de spectre"
+  "was_reset": "Réinitialiser l'oscilloscope avant d'appliquer ces réglages",
+  "was_reset_help": "Décochez pour n'appliquer que ce que dit ce fichier et garder le reste de ce qui est déjà réglé sur l'instrument.",
+  "scope_file_disabled": "Réglages des oscilloscopes gardés dans le projet mais non appliqués : le fichier actif est l'autre.",
+  "scope_file_disable": "Désactiver (garder dans le projet)",
+  "scope_file_enable": "Activer",
+  "scope_file_up": "Monter (acquisition plus tôt)",
+  "scope_file_down": "Descendre (acquisition plus tard)",
+  "scope_file_target": "Oscilloscope auquel ce fichier s'applique...",
+  "scope_target_all": "(chaque oscilloscope)",
+  "scope_file_for": "Pour l'oscilloscope {scope}.",
+  "project_upgrade_title": "Ancien projet",
+  "project_upgrade_question": "\"{name}\" a été créé avec une version précédente du programme. Pour l'ouvrir, le fichier doit être mis à jour : il reçoit le numéro de format et ses fichiers de rendement (eff_files) deviennent des mesures du projet. Ces fichiers disaient seulement quelles grandeurs balayer et avec quelles valeurs, pas quel appel de l'instrument les règle : il faudra choisir les appels dans l'éditeur de chaque mesure. Rien d'autre n'est modifié.\n\nUne copie de l'original est d'abord enregistrée sous \"{backup}\" dans le même dossier, et chaque fichier de rendement est copié dans un fichier \".bkp\" avant d'être converti. Mettre le projet à jour ?",
+  "project_upgrade_declined": "Le projet n'a pas été mis à jour, il n'est donc pas ouvert. Rouvrez-le et répondez Oui pour le mettre à jour ; l'original n'est pas touché d'ici là.",
+  "spectrum_analyzer": "Analyseur de spectre",
+  "project_upgrade_converted": "{file} : converti en mesure",
+  "project_upgrade_kept": "{file} : non converti"
 }

@@ -23,7 +23,7 @@ import copy
 import re
 from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 
-from .efficiency_spec import CallChecker, Problem, parse_params, validate_params
+from .efficiency_spec import CallChecker, Problem, SpecError, parse_params, validate_params
 from .project import MeasurementFile
 from .sweep import SweepError, axis_values
 
@@ -185,10 +185,14 @@ class EfficiencyEditor:
 
     def to_measurement_file(self) -> MeasurementFile:
         """The measurement file to save: the params and the instruments they use as role binding."""
+        bindings = {"instruments": self.used_instruments()}
+        scopes = self.scope_instruments()
+        if scopes:  # the oscilloscopes of the waveforms have a role of their own
+            bindings["scope"] = scopes
         return MeasurementFile(
             type=self.type,
             module_version="1.0.0",
-            role_bindings={"instruments": self.used_instruments()},
+            role_bindings=bindings,
             params=copy.deepcopy(self.params),
         )
 
@@ -196,8 +200,25 @@ class EfficiencyEditor:
         """Write the ``.eff`` file."""
         self.to_measurement_file().save(path)
 
+    def step_count(self) -> Optional[int]:
+        """How many points the sweep has (the steps of the measurement), or None while the
+        parameters are not valid."""
+        try:
+            return parse_params(
+                self.params, allow_load=self.type == "resistive_efficiency"
+            ).point_count()
+        except SpecError:
+            return None
+
+    def scope_instruments(self) -> List[str]:
+        """The oscilloscopes that take the waveforms (``scope_capture.instruments``)."""
+        capture = self.params.get("scope_capture")
+        names = capture.get("instruments") if isinstance(capture, dict) else None
+        return [n for n in names if isinstance(n, str) and n] if isinstance(names, list) else []
+
     def used_instruments(self) -> List[str]:
-        """The names of all the instruments referenced anywhere in the parameters, sorted."""
+        """The names of all the instruments referenced anywhere in the parameters, sorted (not the
+        oscilloscope of the waveforms: it is the role ``scope``)."""
         found: set = set()
 
         def walk(node: Any) -> None:
@@ -211,7 +232,7 @@ class EfficiencyEditor:
                 for value in node:
                     walk(value)
 
-        walk(self.params)
+        walk({k: v for k, v in self.params.items() if k != "scope_capture"})
         return sorted(found)
 
     # ----- generic access ----------------------------------------------------------------------
@@ -222,6 +243,8 @@ class EfficiencyEditor:
     def set(self, path: str, value: Any) -> None:
         """Set a field by path; ``None`` removes it."""
         set_path(self.params, path, value)
+        if self.params.get("scope_capture") == {}:  # both boxes emptied: no waveforms, no block
+            del self.params["scope_capture"]
         self._problems = None
 
     # ----- parameters --------------------------------------------------------------------------

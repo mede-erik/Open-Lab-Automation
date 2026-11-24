@@ -52,6 +52,10 @@ class RemoteControlTab(QWidget):
         """
         super().__init__()
         self.instruments_manager = load_instruments  # Rinominato per evitare conflitti
+        # what the open project is, given by the window that owns it: a function that returns
+        # {"dir": folder, "inst_file": name or None, "scope_settings": name or None}, or None if no
+        # project is open (no walk through the parents of the widget)
+        self.project_source = None
 
         # Initialize logger and error handler
         try:
@@ -170,8 +174,8 @@ class RemoteControlTab(QWidget):
             print("[RemoteControlTab] no MainWindow with reload_remote_tab_instruments.")
 
     def _configure_oscilloscope_from_was(self):
-        """Apply the oscilloscope settings of the project (its first .was file) to every
-        oscilloscope of the instrument file. A window appears only if something went wrong (no
+        """Apply the oscilloscope settings of the project (the one .was file that is on, or the
+        one chosen in a menu if several are on) to every oscilloscope of the instrument file. A window appears only if something went wrong (no
         project, no .was, an unreachable instrument, settings the model refused...): when it
         works the settings are seen on the oscilloscope itself."""
         self._scope_report = []
@@ -217,20 +221,43 @@ class RemoteControlTab(QWidget):
             first = problems[0][1:problems[0].index("]")] if problems[0].startswith("[") else None
             show_problem(self, self._t("rc_scope_title"), "\n".join(problems), code=first)
 
+    def _choose_scope_file(self, names):
+        """Which of the scope settings files to apply: a menu under the button (the name without
+        ``.was``). ``None`` if the menu is closed without a choice."""
+        from PyQt6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        actions = {menu.addAction(os.path.splitext(name)[0]): name for name in names}
+        chosen = menu.exec(self.osc_btn.mapToGlobal(self.osc_btn.rect().bottomLeft()))
+        return actions.get(chosen)
+
+    def _project(self):
+        """The open project (see ``project_source``), or None."""
+        source = self.project_source
+        project = source() if callable(source) else None
+        return project if project and project.get("dir") else None
+
     def _configure_oscilloscopes(self):
-        parent = self.parent()
-        while parent is not None and not hasattr(parent, 'current_project_dir'):
-            parent = parent.parent()
-        if (parent is None or not getattr(parent, 'current_project_dir', None)
-                or not getattr(parent, 'current_project_data', None)):
+        project = self._project()
+        if project is None:
             self._scope_note("error", "rc_scope_no_project")
             return
-        was_files = parent.current_project_data.get('was_files', [])
-        if not was_files:
+        # the scope settings files that are on: names, or {"file", "scope"} (the oscilloscope the
+        # file is for; none: every oscilloscope)
+        entries = project.get("scope_settings") or []
+        if isinstance(entries, str):
+            entries = [entries]
+        entries = [e if isinstance(e, dict) else {"file": e} for e in entries]
+        if not entries:
             self._scope_note("error", "rc_scope_no_was")
             return
-        was_file = was_files[0]  # the first .was file of the project
-        was_path = os.path.join(parent.current_project_dir, was_file)
+        # one file: apply it. Several (a long view, a rising edge...): the user chooses which one
+        names = [e["file"] for e in entries]
+        was_file = names[0] if len(names) == 1 else self._choose_scope_file(names)
+        if was_file is None:
+            return  # the menu was closed: nothing is applied
+        only = next((e.get("scope") for e in entries if e["file"] == was_file), None) or None
+        was_path = os.path.join(project["dir"], was_file)
         if not os.path.exists(was_path):
             self._scope_note("error", "rc_scope_was_missing", file=was_file)
             return
@@ -240,11 +267,14 @@ class RemoteControlTab(QWidget):
         except (OSError, ValueError) as e:
             self._scope_note("error", "rc_scope_was_unreadable", file=was_file, error=e)
             return
-        self._apply_oscilloscope_settings(was_data, was_file)
+        self._apply_oscilloscope_settings(was_data, was_file, only)
 
-    def _apply_oscilloscope_settings(self, was_data, was_file=""):
-        """Apply the settings to every oscilloscope of the instrument file."""
+    def _apply_oscilloscope_settings(self, was_data, was_file="", only=None):
+        """Apply the settings to every oscilloscope of the instrument file, or only to the one
+        called ``only`` (a file that names its oscilloscope)."""
         oscilloscopes = self._get_project_oscilloscopes()
+        if only:
+            oscilloscopes = [o for o in oscilloscopes if o.get('instance_name') == only]
         if not oscilloscopes:
             self._scope_note("error", "rc_scope_none")
             return
@@ -257,18 +287,15 @@ class RemoteControlTab(QWidget):
 
     def _get_project_oscilloscopes(self):
         """Recupera gli oscilloscopi dal file .inst del progetto corrente."""
-        parent = self.parent()
-        while parent is not None and not hasattr(parent, 'current_project_dir'):
-            parent = parent.parent()
-
-        if not parent or not parent.current_project_dir or not parent.current_project_data:
+        project = self._project()
+        if project is None:
             return []
 
-        inst_file = parent.current_project_data.get('inst_file')
+        inst_file = project.get("inst_file")
         if not inst_file:
             return []
 
-        inst_path = os.path.join(parent.current_project_dir, inst_file)
+        inst_path = os.path.join(project["dir"], inst_file)
         if not os.path.exists(inst_path):
             return []
 

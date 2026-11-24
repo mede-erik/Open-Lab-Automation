@@ -61,5 +61,22 @@
   "run_q_zero_title": "Poner a cero el canal",
   "run_q_zero_short": "Canal <b>{channel}</b> {name}: paso 1 de 2. Una sus dos terminales de entrada, para que el instrumento mida solo el desfase del cableado y de su entrada, y continúe.",
   "run_q_zero_back": "Canal <b>{channel}</b> {name}: paso 2 de 2. Se tomó el desfase {offset}. Vuelva a conectar los terminales en su sitio y continúe.",
-  "run_choice_skip_zero": "Omitir este canal"
+  "run_choice_skip_zero": "Omitir este canal",
+  "run_tab_waves": "Formas de onda",
+  "run_waves_title": "Formas de onda - {run}",
+  "run_waves_steps": "Pasos",
+  "run_waves_step": "Paso {step}",
+  "run_waves_acquisition": "Adquisición",
+  "run_waves_channels": "Canales",
+  "run_waves_align": "Eje de tiempo común",
+  "run_waves_align_help": "Desplaza los osciloscopios con la señal que comparten, calculada por Alinear ahora.",
+  "run_waves_align_now": "Alinear ahora",
+  "run_waves_export": "Exportar CSV...",
+  "run_waves_reset": "Restablecer zoom",
+  "run_waves_none": "No se adquirió ninguna forma de onda.",
+  "run_waves_hint": "Rueda: zoom del tiempo (Ctrl: tensión). Arrastrar: mover. Clic: cursores A y B. Doble clic: restablecer.",
+  "run_waves_forced": "disparo forzado",
+  "run_waves_missing": "Archivos que faltan: {files}",
+  "run_waves_not_aligned": "No se pudo alinear: {reason}",
+  "run_waves_align_need": "Se necesitan dos osciloscopios en la medición, con un canal del mismo nombre en ambos."
 }

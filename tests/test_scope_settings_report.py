@@ -42,19 +42,24 @@ def shown(monkeypatch):
 
 
 class Window(QWidget):
-    """What the tab looks for in its parents: the open project."""
+    """The window that owns the tab: it tells the tab which project is open."""
 
     def __init__(self, folder=None, data=None):
         super().__init__()
-        self.current_project_dir = str(folder) if folder else None
-        self.current_project_data = data
+        self.folder, self.data = folder, data
+
+    def source(self):
+        """What ``RemoteControlTab.project_source`` gives: the open project, or None."""
+        if not self.folder:
+            return None
+        return {"dir": str(self.folder), **(self.data or {})}
 
 
 @pytest.fixture
 def project(tmp_path):
     for name in ("osc1.was", "test_instruments.inst"):
         shutil.copy(EXAMPLE / name, tmp_path / name)
-    return tmp_path, {"inst_file": "test_instruments.inst", "was_files": ["osc1.was"]}
+    return tmp_path, {"inst_file": "test_instruments.inst", "scope_settings": ["osc1.was"]}
 
 
 class Executor:
@@ -70,7 +75,7 @@ class Executor:
 def make_tab(app, folder=None, data=None):
     window = Window(folder, data)
     tab = RemoteControlTab(LoadInstruments())
-    tab.setParent(window)
+    tab.project_source = window.source
     tab._window = window  # kept alive with the tab
     return tab
 
@@ -93,7 +98,7 @@ def test_without_a_project_it_says_so(app, shown):
 
 def test_a_project_without_a_was_file_says_so(app, shown, project):
     folder, data = project
-    tab = make_tab(app, folder, {**data, "was_files": []})
+    tab = make_tab(app, folder, {**data, "scope_settings": []})
     tab._configure_oscilloscope_from_was()
     assert shown[0][0] == "warning" and ".was" in shown[0][1]
 
@@ -179,3 +184,73 @@ def test_a_failed_run_shows_its_code():
         "[CALL-004] no answer"
     )
     assert failure_text({"message": "x", "code": "TRN-003"}) == "[TRN-003] x"
+
+
+def test_with_several_files_on_the_user_chooses_which_one_is_applied(
+    app, shown, project, monkeypatch
+):
+    folder, data = project
+    shutil.copy(folder / "osc1.was", folder / "rise.was")
+    tab = make_tab(app, folder, {**data, "scope_settings": ["osc1.was", "rise.was"]})
+    reachable(tab, monkeypatch, Executor())
+    offered = []
+    applied = []
+    monkeypatch.setattr(
+        tab, "_choose_scope_file", lambda names: offered.append(names) or "rise.was"
+    )
+    monkeypatch.setattr(
+        tab, "_apply_oscilloscope_settings", lambda was, name="", only=None: applied.append(name)
+    )
+    tab._configure_oscilloscope_from_was()
+    assert offered == [["osc1.was", "rise.was"]] and applied == ["rise.was"]
+    assert shown == []
+
+
+def test_closing_the_menu_applies_nothing(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, {**data, "scope_settings": ["osc1.was", "rise.was"]})
+    applied = []
+    monkeypatch.setattr(tab, "_choose_scope_file", lambda names: None)
+    monkeypatch.setattr(
+        tab, "_apply_oscilloscope_settings", lambda was, name="", only=None: applied.append(name)
+    )
+    tab._configure_oscilloscope_from_was()
+    assert applied == [] and shown == []  # no report either: the user chose nothing
+
+
+def test_with_one_file_on_there_is_no_menu(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, data)
+    reachable(tab, monkeypatch, Executor())
+    monkeypatch.setattr(tab, "_choose_scope_file", lambda names: pytest.fail("asked"))
+    tab._configure_oscilloscope_from_was()
+    assert shown == []
+
+
+def test_a_file_for_one_oscilloscope_is_applied_to_that_one_only(app, shown, project, monkeypatch):
+    folder, data = project
+    tab = make_tab(app, folder, {**data, "scope_settings": [{"file": "osc1.was", "scope": "OSC2"}]})
+    seen = []
+    monkeypatch.setattr(
+        tab,
+        "_get_project_oscilloscopes",
+        lambda: [{"instance_name": "OSC1"}, {"instance_name": "OSC2"}],
+    )
+    monkeypatch.setattr(
+        tab,
+        "_configure_single_oscilloscope",
+        lambda inst, was, name: seen.append(inst["instance_name"]),
+    )
+    tab._configure_oscilloscope_from_was()
+    assert seen == ["OSC2"] and shown == []
+    seen.clear()
+    tab.project_source = lambda: {
+        "dir": str(folder),
+        "scope_settings": [{"file": "osc1.was", "scope": ""}],
+    }
+    tab._configure_oscilloscope_from_was()
+    assert seen == ["OSC1", "OSC2"]  # a file that names none: every oscilloscope
+    seen.clear()
+    tab.project_source = lambda: {"dir": str(folder), "scope_settings": ["osc1.was"]}  # plain names
+    tab._configure_oscilloscope_from_was()
+    assert seen == ["OSC1", "OSC2"]

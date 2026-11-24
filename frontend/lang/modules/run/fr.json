@@ -61,5 +61,22 @@
   "run_q_zero_title": "Mettre le canal à zéro",
   "run_q_zero_short": "Canal <b>{channel}</b> {name} : étape 1 sur 2. Reliez ensemble ses deux bornes d'entrée, pour que l'instrument ne mesure que le décalage du câblage et de son entrée, puis continuez.",
   "run_q_zero_back": "Canal <b>{channel}</b> {name} : étape 2 sur 2. Le décalage a été pris {offset}. Reconnectez les bornes à leur place et continuez.",
-  "run_choice_skip_zero": "Passer ce canal"
+  "run_choice_skip_zero": "Passer ce canal",
+  "run_tab_waves": "Formes d'onde",
+  "run_waves_title": "Formes d'onde - {run}",
+  "run_waves_steps": "Étapes",
+  "run_waves_step": "Étape {step}",
+  "run_waves_acquisition": "Acquisition",
+  "run_waves_channels": "Voies",
+  "run_waves_align": "Axe de temps commun",
+  "run_waves_align_help": "Décale les oscilloscopes avec le signal qu'ils ont en commun, calculé par Aligner maintenant.",
+  "run_waves_align_now": "Aligner maintenant",
+  "run_waves_export": "Exporter en CSV...",
+  "run_waves_reset": "Réinitialiser le zoom",
+  "run_waves_none": "Aucune forme d'onde acquise.",
+  "run_waves_hint": "Molette : zoom du temps (Ctrl : tension). Glisser : déplacer. Clic : curseurs A et B. Double clic : réinitialiser.",
+  "run_waves_forced": "déclenchement forcé",
+  "run_waves_missing": "Fichiers manquants : {files}",
+  "run_waves_not_aligned": "Alignement impossible : {reason}",
+  "run_waves_align_need": "Il faut deux oscilloscopes dans la mesure, avec une voie du même nom sur les deux."
 }

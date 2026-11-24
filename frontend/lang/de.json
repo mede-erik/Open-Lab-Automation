@@ -726,5 +726,20 @@
   "diag_rec_enable_remote": "Aktivieren Sie Fernsteuerung/LXI-Schnittstelle am Gerät.",
   "diag_rec_manual": "Lesen Sie im Gerätehandbuch nach, wie VXI-11 bzw. SCPI über LAN eingerichtet wird.",
   "diag_rec_firewall": "Prüfen Sie, ob die Firewall die Verbindung blockiert.",
-  "spectrum_analyzer": "Spektrumanalysator"
+  "was_reset": "Oszilloskop vor dem Anwenden dieser Einstellungen zurücksetzen",
+  "was_reset_help": "Abwählen, um nur anzuwenden, was diese Datei sagt, und den Rest der Einstellungen des Geräts zu behalten.",
+  "scope_file_disabled": "Einstellungen der Oszilloskope, im Projekt behalten, aber nicht angewendet: die aktive Datei ist die andere.",
+  "scope_file_disable": "Ausschalten (im Projekt behalten)",
+  "scope_file_enable": "Einschalten",
+  "scope_file_up": "Nach oben (frühere Aufnahme)",
+  "scope_file_down": "Nach unten (spätere Aufnahme)",
+  "scope_file_target": "Oszilloskop, für das diese Datei gilt...",
+  "scope_target_all": "(jedes Oszilloskop)",
+  "scope_file_for": "Für das Oszilloskop {scope}.",
+  "project_upgrade_title": "Altes Projekt",
+  "project_upgrade_question": "\"{name}\" wurde mit einer älteren Programmversion erstellt. Zum Öffnen muss die Datei aktualisiert werden: Sie erhält die Formatnummer und ihre Wirkungsgrad-Dateien (eff_files) werden zu Messungen des Projekts. Diese Dateien sagten nur, welche Größen mit welchen Werten durchlaufen werden, nicht welcher Geräteaufruf sie einstellt: Die Aufrufe müssen im Editor jeder Messung gewählt werden. Sonst wird nichts geändert.\n\nZuvor wird eine Kopie des Originals als \"{backup}\" im selben Ordner gespeichert, und jede Wirkungsgrad-Datei wird vor der Umwandlung in eine \".bkp\"-Datei kopiert. Projekt aktualisieren?",
+  "project_upgrade_declined": "Das Projekt wurde nicht aktualisiert und ist daher nicht geöffnet. Öffnen Sie es erneut und antworten Sie mit Ja; bis dahin bleibt das Original unverändert.",
+  "spectrum_analyzer": "Spektrumanalysator",
+  "project_upgrade_converted": "{file}: in Messung umgewandelt",
+  "project_upgrade_kept": "{file}: nicht umgewandelt"
 }

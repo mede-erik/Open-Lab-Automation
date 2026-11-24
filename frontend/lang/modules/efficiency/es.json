@@ -190,5 +190,16 @@
   "eff_plan_learn": "Aprender primero el convertidor (un barrido rápido, luego replanificar)",
   "eff_plan_learn_help": "Al inicio de la medida un barrido rápido con menos cargas, a la tensión de entrada de referencia, mide la tensión de salida a cada corriente; luego las cargas se replanifican con ella y se le muestra el plan antes de seguir. Para un convertidor no regulado.",
   "eff_plan_vin_param": "Parámetro que es la tensión de entrada",
-  "eff_plan_learn_points": "Puntos del barrido rápido (0 A incluido)"
+  "eff_plan_learn_points": "Puntos del barrido rápido (0 A incluido)",
+  "eff_waves": "Formas de onda",
+  "eff_waves_help": "Los osciloscopios pueden tomar formas de onda durante la medida: en cada paso, cada N pasos, o cuando una magnitud del paso supera un límite, tras las lecturas. Los ajustan los archivos de ajustes del proyecto que están activos (una captura por cada uno, en el orden de la lista; un archivo que nombra un osciloscopio es para ese) y cada captura es un archivo binario en una carpeta junto a los resultados. Déjelo vacío para no tomar ninguna.",
+  "eff_waves_every": "Cada N pasos",
+  "eff_waves_summary": "Se toman {taken} de {steps} pasos. Unos {mb} MB por cada captura y canal con 1 millón de puntos.",
+  "eff_waves_instruments": "Osciloscopios (nombres, separados por comas)",
+  "eff_waves_when": "También cuando",
+  "eff_waves_quantity": "Magnitud",
+  "eff_waves_below": "Por debajo de",
+  "eff_waves_above": "Por encima de",
+  "eff_waves_max": "Como máximo N pasos capturados",
+  "eff_waves_summary_when": "También se capturan los pasos en que una condición se cumple (hasta el máximo)."
 }

@@ -61,5 +61,22 @@
   "run_q_zero_title": "Azzera il canale",
   "run_q_zero_short": "Canale <b>{channel}</b> {name}: passo 1 di 2. Collega insieme i suoi due morsetti d'ingresso, così lo strumento misura solo l'offset del cablaggio e del suo ingresso, poi continua.",
   "run_q_zero_back": "Canale <b>{channel}</b> {name}: passo 2 di 2. L'offset è stato preso {offset}. Ricollega i morsetti dove erano e continua.",
-  "run_choice_skip_zero": "Salta questo canale"
+  "run_choice_skip_zero": "Salta questo canale",
+  "run_tab_waves": "Forme d'onda",
+  "run_waves_title": "Forme d'onda - {run}",
+  "run_waves_steps": "Passi",
+  "run_waves_step": "Passo {step}",
+  "run_waves_acquisition": "Acquisizione",
+  "run_waves_channels": "Canali",
+  "run_waves_align": "Asse dei tempi comune",
+  "run_waves_align_help": "Sposta gli oscilloscopi con il segnale che hanno in comune, calcolato da Allinea ora.",
+  "run_waves_align_now": "Allinea ora",
+  "run_waves_export": "Esporta CSV...",
+  "run_waves_reset": "Azzera zoom",
+  "run_waves_none": "Nessuna forma d'onda acquisita.",
+  "run_waves_hint": "Rotella: zoom sul tempo (Ctrl: tensione). Trascina: sposta. Clic: cursori A e B. Doppio clic: azzera.",
+  "run_waves_forced": "trigger forzato",
+  "run_waves_missing": "File mancanti: {files}",
+  "run_waves_not_aligned": "Impossibile allineare: {reason}",
+  "run_waves_align_need": "Servono due oscilloscopi nella misura, con un canale con lo stesso nome su entrambi."
 }

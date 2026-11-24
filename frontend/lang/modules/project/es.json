@@ -57,5 +57,7 @@
   "prj_bench": "Medir los tiempos (benchmark)",
   "prj_bench_tip": "Mide cada llamada a los instrumentos y cada fase de la próxima medición y muestra un informe en la pestaña Benchmark. El retraso añadido es pequeño (unos 30 microsegundos por llamada).",
   "prj_cal_no_library": "la biblioteca de instrumentos no está disponible",
-  "prj_cal_no_inst": "el proyecto no tiene un archivo de instrumentos (.inst)"
+  "prj_cal_no_inst": "el proyecto no tiene un archivo de instrumentos (.inst)",
+  "prj_waves_confirm": "Las formas de onda de esta ejecución ocuparán unos {size} de disco ({waveforms} formas de onda en {captures} capturas, de 1 millón de puntos cada una). ¿Iniciar?",
+  "prj_waves": "Formas de onda..."
 }

@@ -58,10 +58,22 @@ def test_the_menu_keys_on_disk_win_when_the_project_is_saved(tmp_path):
     path = write(tmp_path / "Old.json", {**LEGACY, "format_version": 2, "measurements": []})
     project = Project.load(path)
     on_disk = json.loads(path.read_text(encoding="utf-8"))
-    on_disk["was_files"] = ["o.was", "p.was"]  # written by the main window meanwhile
+    on_disk["calibrations"] = ["c1", "c2"]  # written by the calibration window meanwhile
     path.write_text(json.dumps(on_disk), encoding="utf-8")
     project.save()
-    assert json.loads(path.read_text(encoding="utf-8"))["was_files"] == ["o.was", "p.was"]
+    assert json.loads(path.read_text(encoding="utf-8"))["calibrations"] == ["c1", "c2"]
+
+
+def test_the_was_files_of_an_early_project_become_scope_settings(tmp_path):
+    path = write(tmp_path / "Old.json", {**LEGACY, "format_version": 2, "measurements": []})
+    project = Project.load(path)
+    assert project.scope_file_names() == ["o.was"] and project.active_scope_files() == ["o.was"]
+    assert "was_files" not in project.extra
+    project.save()
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["scope_settings"] == [{"file": "o.was", "enabled": True}]
+    assert "was_files" not in saved  # no longer written
+    assert Project.load(path).scope_file_names() == ["o.was"]  # and read back
 
 
 def make_session(tmp_path):
@@ -184,17 +196,20 @@ def test_add_file_offers_every_type_and_the_files_are_listed_and_edited(
     assert "test_instruments.inst" in listed(window) and "osc1.was" in listed(window)
 
     # saving the menu's data keeps the measurements the tab wrote
-    window.current_project_data["was_files"] = ["osc1.was", "osc2.was"]
+    window.project_tab.session.project.add_scope_file("osc2.was")  # added next to the first
     window.save_project_json()
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["was_files"] == ["osc1.was", "osc2.was"]
+    assert "was_files" not in saved
+    assert saved["scope_settings"] == [
+        {"file": "osc1.was", "enabled": True},
+        {"file": "osc2.was", "enabled": True},  # a new one is on: every file is an acquisition
+    ]
     # (the example project already lists its efficiency measurement)
     assert [m["file"] for m in saved["measurements"]] == ["eff.eff", cable_file]
     # and the tab saving afterwards keeps the menu's data
     window.project_tab.session.rename("m2", "Lead B")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert saved["was_files"] == ["osc1.was", "osc2.was"]
-    assert saved["measurements"][1]["name"] == "Lead B"
+    assert len(saved["scope_settings"]) == 2 and saved["measurements"][1]["name"] == "Lead B"
 
     # double click on a measurement file: the editor of the Measurements tab, not the old dialog
     opened = []
@@ -238,3 +253,101 @@ def test_an_existing_measurement_file_can_be_added_from_disk(window, home, monke
     assert os.path.isfile(project / ref.file)
     assert ref.file in listed(window)
     assert [m.file for m in session.project.measurements] == ["eff.eff", ref.file]
+
+
+def test_the_scope_files_can_be_switched_off_and_moved_from_the_file_list(window, home, tmp_path):
+    folder = tmp_path / "p"
+    shutil.copytree(EXAMPLE, folder)
+    window._open_project_path(str(folder / "Test DC-DC Converter.json"))
+    project = window.project_tab.session.project
+    project.add_scope_file("rise.was")
+    project.add_scope_file("fall.was")
+    window.change_scope_file("osc1.was", "toggle")  # the first one off
+    assert project.active_scope_files() == ["rise.was", "fall.was"]
+    window.change_scope_file("fall.was", "up")
+    assert project.scope_file_names() == ["osc1.was", "fall.was", "rise.was"]
+    on_disk = json.loads(project.path.read_text(encoding="utf-8"))
+    assert [e["file"] for e in on_disk["scope_settings"]] == ["osc1.was", "fall.was", "rise.was"]
+    assert on_disk["scope_settings"][0]["enabled"] is False  # saved at once
+    names = {window.project_files_list.item(i).text(): window.project_files_list.item(i)
+             for i in range(window.project_files_list.count())}  # fmt: skip
+    assert names["osc1.was"].font().italic() and not names["fall.was"].font().italic()
+
+    def on(source):
+        return [e["file"] for e in source["scope_settings"]]
+
+    assert on(window.open_project_source()) == [
+        "fall.was",
+        "rise.was",
+    ]  # what the remote control sees
+    window.change_scope_file("osc1.was", "toggle")
+    assert on(window.open_project_source()) == ["osc1.was", "fall.was", "rise.was"]
+
+
+def test_a_scope_file_can_be_set_for_one_oscilloscope_from_the_file_list(window, home, tmp_path):
+    folder = tmp_path / "p"
+    shutil.copytree(EXAMPLE, folder)
+    window._open_project_path(str(folder / "Test DC-DC Converter.json"))
+    project = window.project_tab.session.project
+    window.set_scope_target("osc1.was", "OSC2")
+    assert project.scope_target("osc1.was") == "OSC2"
+    on_disk = json.loads(project.path.read_text(encoding="utf-8"))
+    assert on_disk["scope_settings"][0]["scope"] == "OSC2"  # saved at once
+    assert window.open_project_source()["scope_settings"] == [{"file": "osc1.was", "scope": "OSC2"}]
+    names = {
+        window.project_files_list.item(i).text(): window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+    }
+    assert "OSC2" in names["osc1.was"].toolTip()
+    window.set_scope_target("osc1.was", "")
+    assert window.open_project_source()["scope_settings"] == [{"file": "osc1.was", "scope": ""}]
+    window.set_scope_target("missing.was", "OSC1")  # not in the project: nothing happens
+
+
+# ---- the backup copy when an old project is opened (issue #106) ----------------------------
+def test_the_backup_is_a_byte_identical_copy_and_never_overwritten(tmp_path):
+    path = write(tmp_path / "Old.json", LEGACY)
+    original = path.read_bytes()
+    assert Project.needs_upgrade(path) is True
+    assert Project.upgrade_legacy(path) is True
+    backup = tmp_path / "Old.json.bkp"
+    assert backup.read_bytes() == original and path.read_bytes() != original
+    assert Project.needs_upgrade(path) is False
+    # a second old file with the same name: the first backup stays, the new one is numbered
+    write(path, LEGACY)
+    assert Project.backup_path(path) == tmp_path / "Old.json.bkp.1"
+    Project.upgrade_legacy(path)
+    assert backup.read_bytes() == original
+    assert (tmp_path / "Old.json.bkp.1").read_bytes() == original
+
+
+def test_no_backup_for_a_current_project_or_when_not_asked(tmp_path):
+    path = write(tmp_path / "New.json", {**LEGACY, "format_version": 2, "measurements": []})
+    assert Project.upgrade_legacy(path) is False
+    assert not list(tmp_path.glob("*.bkp*"))
+    old = write(tmp_path / "Old.json", LEGACY)
+    assert Project.upgrade_legacy(old, backup=False) is True
+    assert not list(tmp_path.glob("*.bkp*"))
+
+
+@pytest.mark.gui
+def test_opening_an_old_project_asks_first(window, monkeypatch, tmp_path):
+    from ola.measurement import MeasurementError
+
+    path = write(tmp_path / "Old.json", LEGACY)
+    original = path.read_bytes()
+    asked = []
+    monkeypatch.setattr(window, "confirm_project_upgrade", lambda p: asked.append(p) or False)
+    with pytest.raises(MeasurementError):
+        window._open_project_path(str(path))
+    assert asked and path.read_bytes() == original and not list(tmp_path.glob("*.bkp*"))
+
+    monkeypatch.setattr(window, "confirm_project_upgrade", lambda p: asked.append(p) or True)
+    monkeypatch.setattr(window, "show_upgrade_report", lambda report: None)
+    window._open_project_path(str(path))
+    assert (tmp_path / "Old.json.bkp").read_bytes() == original
+    assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == 2
+
+    asked.clear()
+    window._open_project_path(str(path))  # opened again: nothing to ask
+    assert asked == []

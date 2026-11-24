@@ -190,5 +190,16 @@
   "eff_plan_learn": "Apprendre d'abord le convertisseur (balayage rapide, puis replanifier)",
   "eff_plan_learn_help": "Au début de la mesure, un balayage rapide avec moins de charges, à la tension d'entrée de référence, mesure la tension de sortie à chaque courant ; les charges sont alors replanifiées avec elle, et le plan vous est montré avant de continuer. Pour un convertisseur non régulé.",
   "eff_plan_vin_param": "Paramètre qui est la tension d'entrée",
-  "eff_plan_learn_points": "Points du balayage rapide (0 A inclus)"
+  "eff_plan_learn_points": "Points du balayage rapide (0 A inclus)",
+  "eff_waves": "Formes d'onde",
+  "eff_waves_help": "Des oscilloscopes peuvent acquérir des formes d'onde pendant la mesure : à chaque pas, tous les N pas, ou quand une grandeur du pas dépasse une limite, après les lectures. Ils sont réglés par les fichiers de réglages du projet qui sont actifs (une acquisition pour chacun, dans l'ordre de la liste ; un fichier qui nomme un oscilloscope est pour celui-ci) et chaque acquisition est un fichier binaire dans un dossier à côté des résultats. Laissez vide pour aucune.",
+  "eff_waves_every": "Tous les N pas",
+  "eff_waves_summary": "{taken} pas sur {steps} sont acquis. Environ {mb} Mo par acquisition et par voie à 1 million de points.",
+  "eff_waves_instruments": "Oscilloscopes (noms, séparés par des virgules)",
+  "eff_waves_when": "Aussi quand",
+  "eff_waves_quantity": "Grandeur",
+  "eff_waves_below": "En dessous de",
+  "eff_waves_above": "Au-dessus de",
+  "eff_waves_max": "Au plus N pas acquis",
+  "eff_waves_summary_when": "Les pas où une condition est vraie sont aussi acquis (jusqu'au maximum)."
 }

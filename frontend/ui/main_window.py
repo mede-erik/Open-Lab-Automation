@@ -44,7 +44,7 @@ from ola.assets import AssetError, AssetRegistry
 from ola.duts import DutRegistry
 from ola.duts import default_path as default_duts_path
 from ola.measurement import MeasurementError
-from ola.project import Project
+from ola.project import LEGACY_KEYS, Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
             self.logger.warning("LoadInstruments is None, creating RemoteControlTab with empty instruments")
         
         self.remote_tab = RemoteControlTab(self.load_instruments)
+        self.remote_tab.project_source = self.open_project_source
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         
         # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
@@ -364,7 +365,7 @@ class MainWindow(QMainWindow):
                 "last_opened": now,
                 "project_name": project_name.strip(),
                 "inst_file": inst_file,
-                "was_files": []
+                "scope_settings": None
             }
             
             # Save project file
@@ -514,11 +515,46 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(self.tabs.indexOf(self.project_tab), self.project_tab.tr_.t('prj_tab'))
         self.logger.debug("UI translations updated.")
 
+    def confirm_project_upgrade(self, path) -> bool:
+        """Ask before an old project file is changed: the file is copied to a ``.bkp`` next to it
+        first. True to go on. Tests replace this method to give the answer."""
+        backup = Project.backup_path(path)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(self.translator.t("project_upgrade_title"))
+        box.setText(
+            self.translator.t("project_upgrade_question")
+            .replace("{name}", os.path.basename(str(path)))
+            .replace("{backup}", backup.name)
+        )
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.Yes)
+        return box.exec() == QMessageBox.StandardButton.Yes
+
+    def show_upgrade_report(self, report) -> None:
+        """Say what became of the efficiency files of an old project (one line each, with what
+        is still to do). Tests replace this method."""
+        lines = []
+        for item in report:
+            head = self.translator.t(
+                "project_upgrade_converted" if item.converted else "project_upgrade_kept"
+            ).replace("{file}", item.file)
+            lines.append(head + "".join(f"\n    - {note}" for note in item.notes))
+        QMessageBox.information(
+            self, self.translator.t("project_upgrade_title"), "\n".join(lines)
+        )
+
     def _open_project_path(self, path):
         """Open a project file in both views: the Project menu and file list (this window) and the
-        Measurements tab. A project of the first format is upgraded in place first (it keeps every
-        key and gains an empty list of measurements). Returns the data of the project."""
-        Project.upgrade_legacy(path)
+        Measurements tab. A project of the first format is upgraded in place after the user agrees (a copy is kept in
+        ``.bkp``; it keeps every key and gains an empty list of measurements). Returns the data of the project."""
+        if Project.needs_upgrade(path):
+            if not self.confirm_project_upgrade(path):
+                raise MeasurementError(self.translator.t("project_upgrade_declined"))
+            report = []
+            Project.upgrade_legacy(path, report=report)  # copies the file to ``.bkp`` first
+            if report:
+                self.show_upgrade_report(report)
         self._loaded_inst_path = None
         data = read_json(path)
         self.current_project_dir = os.path.dirname(path)
@@ -545,6 +581,23 @@ class MainWindow(QMainWindow):
                 self.logger.error(f"Failed to open project: {file_path} - {e}", exc_info=True)
                 show_problem(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}", code="PROJ-005", exception=e)
         
+    def open_project_source(self):
+        """What the remote control needs to know about the open project (see
+        ``RemoteControlTab.project_source``): its folder, instruments file and active scope
+        settings, or None if no project is open."""
+        session = self.project_tab.session
+        if not self.current_project_dir or not self.current_project_data or session is None:
+            return None
+        return {
+            "dir": self.current_project_dir,
+            "inst_file": self.current_project_data.get('inst_file'),
+            # the files that are on, in order, each with the oscilloscope it is for ('' = every one)
+            "scope_settings": [
+                {"file": f, "scope": session.project.scope_target(f)}
+                for f in session.project.active_scope_files()
+            ],
+        }
+
     def refresh_project_files(self):
         """Refresh the list of project files displayed in the UI."""
         self.project_files_list.clear()
@@ -557,11 +610,25 @@ class MainWindow(QMainWindow):
         session = self.project_tab.session
         if session is not None:  # the measurements of the project (every type)
             files += [m.file for m in session.project.measurements]
-        for f in self.current_project_data.get('was_files', []):
-            if f not in files:  # oscilloscope settings: plain files of the project
-                files.append(f)
+        project = session.project if session is not None else None
+        disabled = set()
+        if project is not None:  # the settings of the oscilloscopes: project definition files
+            for entry in project.scope_settings:
+                if entry['file'] not in files:
+                    files.append(entry['file'])
+                if not entry['enabled']:
+                    disabled.add(entry['file'])
         for f in files:
             item = QListWidgetItem(f)
+            if f in disabled:  # kept in the project, but not the one that is applied
+                font = item.font()
+                font.setItalic(True)
+                item.setFont(font)
+                item.setToolTip(self.translator.t('scope_file_disabled'))
+            target = project.scope_target(f) if project is not None else ''
+            if target:  # a file for one oscilloscope: the tooltip says which
+                tip = self.translator.t('scope_file_for').format(scope=target)
+                item.setToolTip((item.toolTip() + ' ' if item.toolTip() else '') + tip)
             self.project_files_list.addItem(item)
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
@@ -601,8 +668,7 @@ class MainWindow(QMainWindow):
                     return
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write('')
-                if file_name not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(file_name)
+                session.project.add_scope_file(file_name)
                 self.save_project_json()
                 self.refresh_project_files()
             else:  # a measurement of the chosen type (the tab redraws and refreshes the list)
@@ -634,8 +700,7 @@ class MainWindow(QMainWindow):
                 import shutil
                 shutil.copy2(file_path, dest_path)
             if ext == '.was':
-                if fname not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(fname)
+                session.project.add_scope_file(fname)
                 self.save_project_json()
                 self.refresh_project_files()
             else:
@@ -665,9 +730,15 @@ class MainWindow(QMainWindow):
             if not isinstance(on_disk, dict):
                 on_disk = {}
             self.current_project_data['last_opened'] = datetime.now().isoformat()
-            for key in ('last_opened', 'inst_file', 'was_files'):
+            for key in ('last_opened', 'inst_file'):
                 if key in self.current_project_data:
                     on_disk[key] = self.current_project_data[key]
+            if session is not None:  # the settings of the oscilloscopes come from the project
+                project = session.project
+                on_disk['scope_settings'] = [dict(e) for e in project.scope_settings]
+                for old_key in LEGACY_KEYS:  # keys of the early projects: no longer written
+                    on_disk.pop(old_key, None)
+                self.current_project_data['scope_settings'] = on_disk['scope_settings']
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(on_disk, f, indent=2, ensure_ascii=False)
             if session is not None:
@@ -721,10 +792,11 @@ class MainWindow(QMainWindow):
         removed = False
         
         # oscilloscope settings (.was)
-        if file_name in self.current_project_data.get('was_files', []):
-            self.current_project_data['was_files'].remove(file_name)
+        session = self.project_tab.session
+        if session is not None and file_name in session.project.scope_file_names():
+            session.project.remove_scope_file(file_name)
             removed = True
-            self.logger.info(f"Removed '{file_name}' from was_files")
+            self.logger.info(f"Removed '{file_name}' from the scope settings of the project")
         
         # Controlla se è il file .inst
         elif file_name == self.current_project_data.get('inst_file'):
@@ -966,13 +1038,71 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         copy_action = menu.addAction(self.translator.t('copy_file_name'))
         # paste_action = menu.addAction(self.translator.t('paste_file'))  # Implementa se serve
+        scope = self._scope_entry(item.text())
+        toggle_action = up_action = down_action = target_action = None
+        if scope is not None:  # the settings of the oscilloscopes: on or off, their order, their scope
+            toggle_action = menu.addAction(
+                self.translator.t('scope_file_disable' if scope['enabled'] else 'scope_file_enable'))
+            up_action = menu.addAction(self.translator.t('scope_file_up'))
+            down_action = menu.addAction(self.translator.t('scope_file_down'))
+            target_action = menu.addAction(self.translator.t('scope_file_target'))
         delete_action = menu.addAction(self.translator.t('delete_file'))
         action = menu.exec(self.project_files_list.mapToGlobal(pos))
+        if action is None:
+            return
         if action == copy_action:
             from PyQt6.QtWidgets import QApplication
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
+        elif action == target_action:
+            self.choose_scope_target(item.text())
+        elif action in (toggle_action, up_action, down_action):
+            self.change_scope_file(item.text(), 'toggle' if action == toggle_action
+                                   else ('up' if action == up_action else 'down'))
+
+    def choose_scope_target(self, file_name):
+        """Ask which oscilloscope a scope settings file is for (or every one)."""
+        session = self.project_tab.session
+        if session is None or self._scope_entry(file_name) is None:
+            return
+        everyone = self.translator.t('scope_target_all')
+        choices = [everyone] + list(session.instruments)
+        current = session.project.scope_target(file_name)
+        index = choices.index(current) if current in choices else 0
+        choice, ok = QInputDialog.getItem(
+            self, self.translator.t('scope_file_target'), file_name, choices, index, False)
+        if ok:
+            self.set_scope_target(file_name, '' if choice == everyone else choice)
+
+    def set_scope_target(self, file_name, scope):
+        """The oscilloscope a scope settings file is for (``''``: every oscilloscope)."""
+        if self._scope_entry(file_name) is None:
+            return
+        self.project_tab.session.project.set_scope_target(file_name, scope)
+        self.save_project_json()
+        self.refresh_project_files()
+
+    def _scope_entry(self, file_name):
+        """The entry of a scope settings file of the open project, or None."""
+        session = self.project_tab.session
+        if session is None:
+            return None
+        return next((e for e in session.project.scope_settings if e['file'] == file_name), None)
+
+    def change_scope_file(self, file_name, what):
+        """Switch a scope settings file on or off (``toggle``) or move it in the order
+        (``up``, ``down``); the file itself is never touched."""
+        entry = self._scope_entry(file_name)
+        if entry is None:
+            return
+        project = self.project_tab.session.project
+        if what == 'toggle':
+            project.set_scope_enabled(file_name, not entry['enabled'])
+        else:
+            project.move_scope_file(file_name, -1 if what == 'up' else 1)
+        self.save_project_json()
+        self.refresh_project_files()
 
 
 class AddFileDialog(QDialog):

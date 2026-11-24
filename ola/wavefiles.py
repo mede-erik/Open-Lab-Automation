@@ -236,6 +236,21 @@ def index_entry(
     }
 
 
+def export_csv(path: Union[str, Path], csv_path: Union[str, Path]) -> int:
+    """Write a capture as a CSV file: a ``time`` column (s) and one column per channel (V), the
+    header line with the names. Returns the number of rows. The channels share the time base, so
+    they share the column."""
+    capture = load_capture(path)
+    names = list(capture.voltages)
+    times = capture.times()
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        f.write(",".join(["time_s"] + names) + "\n")
+        columns = [capture.voltages[n] for n in names]
+        for k in range(capture.points):
+            f.write(",".join([repr(float(times[k]))] + [repr(float(c[k])) for c in columns]) + "\n")
+    return capture.points
+
+
 def missing_files(index: Sequence[Mapping[str, Any]], run_path: Union[str, Path]) -> Sequence[str]:
     """The files of an index (the rows of ``index_entry``) that are no longer there: the folder
     can be deleted, and the results must still open."""
@@ -263,6 +278,6 @@ def estimate_bytes(points: int, channels: int, captures: int) -> int:
 
 __all__ = [
     "Capture", "FORMAT_VERSION", "WaveFileError", "capture_from_reads", "capture_name",
-    "delete_waves", "estimate_bytes", "index_entry", "load_capture", "missing_files",
+    "delete_waves", "estimate_bytes", "export_csv", "index_entry", "load_capture", "missing_files",
     "save_capture", "wave_folder",
 ]  # fmt: skip

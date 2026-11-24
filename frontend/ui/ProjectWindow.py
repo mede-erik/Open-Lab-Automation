@@ -66,7 +66,9 @@ from ola.measurement import MeasurementError
 from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
+from ola.scope_capture import WARN_BYTES
 from ola.runs import export_points_csv
+from ola.wavefiles import wave_folder
 from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger(__name__)
@@ -308,6 +310,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.waves_btn = QPushButton(self._t("prj_waves"))
+        self.waves_btn.clicked.connect(self.show_waves)
+        row.addWidget(self.waves_btn)
         self.compare_btn = QPushButton(self._t("prj_compare"))
         self.compare_btn.clicked.connect(self.compare_runs)
         row.addWidget(self.compare_btn)
@@ -515,6 +520,8 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
+        run = self._selected_run()
+        self.waves_btn.setEnabled(run is not None and wave_folder(run).is_dir())
         self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
     # ================================================================ actions
@@ -741,12 +748,32 @@ class ProjectWindow(QMainWindow):
                 self.on_wiring_preference(keep)
         return accepted
 
+    def _confirm_waves(self, ref: MeasurementRef) -> bool:
+        """Before a run that takes waveforms: if they will take more than about a gigabyte of
+        disk, say how much and ask to start. False if the user cancels."""
+        estimate = self.session.wave_estimate(ref)
+        if estimate is None or estimate["bytes"] <= WARN_BYTES:
+            return True
+        answer = QMessageBox.question(
+            self,
+            self._t("prj_title"),
+            self._t(
+                "prj_waves_confirm",
+                size=f"{estimate['bytes'] / 1e9:.1f} GB",
+                waveforms=estimate["waveforms"],
+                captures=estimate["captures"],
+            ),
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
     def run_measurement(self) -> None:
         """Start the selected measurement in a run window."""
         ref = self._selected()
         if ref is None:
             return
         if not self._confirm_wiring(ref):
+            return
+        if not self._confirm_waves(ref):
             return
         proceed, accepted = self._check_compatibility(ref)
         if not proceed:
@@ -833,6 +860,16 @@ class ProjectWindow(QMainWindow):
             if path == keep:
                 self.runs_table.selectRow(row)
         self._update_buttons()
+
+    def show_waves(self) -> None:
+        """Open the waveforms of the selected run (the binary files next to the run file)."""
+        path = self._selected_run()
+        if path is None:
+            return
+        from frontend.ui.WaveformView import WaveformDialog
+
+        self._waves_dialog = WaveformDialog(str(path), self.translator, self)
+        self._waves_dialog.show()
 
     def compare_runs(self) -> None:
         """Open the comparison tool with the runs of the selected measurement."""
