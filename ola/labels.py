@@ -24,6 +24,7 @@ a QR code whose modules would print smaller than ``MIN_MODULE_MM`` is flagged in
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
@@ -54,6 +55,8 @@ class LabelSpec:
     qr: bool = True
     border: bool = False
     margin_mm: float = 1.5
+    # free lines (``"Rev {version}"``, see ``fill_line``); when there are any they replace fields
+    lines: Tuple[str, ...] = ()
 
     def with_fields(self, fields: Sequence[str], qr: Optional[bool] = None) -> "LabelSpec":
         """The same format with other lines (and QR on or off)."""
@@ -360,7 +363,43 @@ def build_drawing(
     return drawing
 
 
+_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+
+
+def placeholders(template: str) -> List[str]:
+    """The names between braces in a line template, in order."""
+    return _PLACEHOLDER.findall(template)
+
+
+def unknown_placeholders(template: str) -> List[str]:
+    """The names between braces that are not a line of ``FIELDS``."""
+    return [name for name in placeholders(template) if name not in FIELDS]
+
+
+def fill_line(template: str, asset: Asset, last_measurement: str = "") -> str:
+    """The text of a free line: each ``{name}`` (a key of ``FIELDS``: ``{id}``, ``{name}``,
+    ``{version}``, ``{serial}``...) is replaced by what the card has. A line that has placeholders
+    and nothing for any of them is empty (it is not drawn); ``{serial}`` is the bare serial number
+    (the built-in line adds ``S/N``); a name that is not known stays as
+    typed. Spaces left over by an empty placeholder are squeezed."""
+    names = placeholders(template)
+    values = {n: field_text(n, asset, last_measurement) for n in names if n in FIELDS}
+    if "serial" in values:  # the fixed lines print "S/N x"; in a line of your own it is just x
+        values["serial"] = asset.serial
+    if names and not any(values.get(n) for n in names):
+        return ""
+    text = _PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), template)
+    return " ".join(text.split())
+
+
 def _lines(spec: LabelSpec, asset: Asset, last: str) -> List[Tuple[str, str]]:
+    if spec.lines:
+        out = []
+        for template in spec.lines:
+            text = fill_line(template, asset, last)
+            if text:
+                out.append(("id" if template.strip() == "{id}" else template, text))
+        return out
     keys = [k for k in FIELDS if k in spec.fields]
     return [(k, field_text(k, asset, last)) for k in keys if field_text(k, asset, last)]
 

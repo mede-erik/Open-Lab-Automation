@@ -762,7 +762,8 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   direct printing (PDF at 100 %); general register (cable, antenna, filter, amplifier, adapter,
   other). Defect found from the screenshot and fixed: the estimate of the text width was too
   optimistic for capitals (now per character, checked in the tests against the real Qt width).
-  Still to do: editable label templates (with the HTML report system), the trend of a cable's loss
+  Editable label templates are done (2026-11-24, `ola/label_templates.py`, `LabelTemplateDialog`): own formats with free lines and
+  `{field}` places, not tied to the HTML report system. Still to do: the trend of a cable's loss
   over time, reading the QR with the camera.
   **Attenuator** (2026-11-04, user request): module `attenuator` (`.att`): attenuation (positive) of an attenuator
   as a function of frequency with the VNA, mean/minimum/maximum, flatness, slope, deviation from the nominal value,

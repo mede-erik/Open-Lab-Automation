@@ -69,9 +69,27 @@ program does not drive printers itself.
 The QR code needs the `segno` package (`pip install segno`, in `requirements.txt`); without it the window says so and
 a label without the QR code still works.
 
+## Your own label templates
+
+**Templates...** in the label window opens the editor of your own formats, kept in one file shared by all projects
+(`~/.open_lab_automation/label_templates.json`, or the file named by `OLA_LABEL_TEMPLATES`). A template has a **name**, a
+**size** in mm (width 10-300, height 8-200), the layout (**single label** or **flag**), the margin, QR code and border on or
+off, and the **lines**: one text per row with the data of the card between braces.
+
+* The places are `{id}`, `{name}`, `{version}`, `{description}`, `{specs}`, `{connectors}`, `{length}`, `{date}`,
+  `{last_measurement}`, `{owner}`, `{serial}` and `{notes}`; the menu under the box inserts one. `Rev {version}`, `S/N {serial}`
+  and `{owner} - {date}` are lines. `{serial}` is the bare number (the built-in line adds `S/N`).
+* A line whose places are **all empty** is not printed (a card without a version has no `Rev` line); one empty place among
+  others leaves no gap. A name between braces that is not in the list is an error.
+* A line must show the code `{id}`: that line is the big bold one. The QR code always holds `OLA:<code>` and its content cannot be
+  edited, so a scan always gives the code back (at most 12 lines of 80 characters).
+* Lines that do not fit are left out **from the end** and listed under the preview, as for the built-in formats.
+* *New* copies the format selected in the label window (a built-in one or one of yours) as a starting point. A template that is
+  not valid is not saved and the window says why; a damaged file is reported and never overwritten. The templates are listed in
+  the format box (QR and border can still be changed there); the sheets keep the lines of the built-in format.
+
 ## Not done yet
 
-Editable label templates (they will share the template system of the HTML report planned for the beta) and reading a QR
-code with a camera (a USB scanner works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
+Reading a QR code with a camera (a USB scanner that types the code works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
 names its converter under test as a name typed by hand (see [efficiency.md](efficiency.md)); the devices under
 test have their own archive, not this registry ([duts.md](duts.md)).

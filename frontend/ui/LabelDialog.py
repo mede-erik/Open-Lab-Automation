@@ -10,6 +10,8 @@ A thin layer over ``ola.labels`` (layout, QR code, SVG; tested without a screen)
 * the **format**: a single label (50 x 25 mm, 62 x 29 mm for a Brother QL tape, ...), a **flag**
   for a thin cable (the same text either side of a fold) or a **sheet of labels** for a normal
   printer, with how many of its places are already used;
+* your own **templates** (a size and free lines of text with the data of the card), made in the
+  *Templates...* window (``frontend/ui/LabelTemplateDialog.py``, ``ola.label_templates``);
 * the **lines**: the code (always), name, description, connectors, length, date, the latest
   measurement, owner, serial number, notes; and whether there is a QR code and a border.
 
@@ -42,6 +44,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.label_paint import paint_drawing, render_image, text_measure, write_pdf
 from frontend.ui.module_translator import CatalogTranslator
 from ola.assets import Asset
+from ola.label_templates import LabelTemplateError, TemplateStore
 from ola.labels import (
     FIELDS,
     PRESETS,
@@ -56,6 +59,7 @@ from frontend.core.errorhandler import show_problem
 
 SHEET = "sheet"
 SINGLE = "single"
+TEMPLATE = "tpl"
 OPTIONAL_FIELDS = FIELDS[1:]  # the code ("id") is always there
 
 
@@ -95,9 +99,11 @@ class LabelDialog(QDialog):
         translator: Any = None,
         last_line: Optional[Callable[[Asset], str]] = None,
         parent: Optional[QWidget] = None,
+        templates: Optional[TemplateStore] = None,
     ):
         """``last_line(asset)``: the text of the "latest measurement" line for a card (``""``
-        if it has none); without it that line is empty."""
+        if it has none); without it that line is empty. ``templates``: the label templates of the
+        user (default: their file; a damaged file is reported and there are none)."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("assets", translator)
         self._t = self.tr_.t
@@ -106,6 +112,11 @@ class LabelDialog(QDialog):
         self.pages: List[Drawing] = []
         self.error = ""
         self._loading = False
+        self.templates_error = ""
+        try:
+            self.templates = templates if templates is not None else TemplateStore()
+        except LabelTemplateError as exc:
+            self.templates, self.templates_error = None, str(exc)
         self.setWindowTitle(self._t("lbl_title", n=len(self.assets)))
         self.resize(900, 600)
         self._build_ui()
@@ -116,13 +127,14 @@ class LabelDialog(QDialog):
         root = QHBoxLayout(self)
         side = QVBoxLayout()
         self.format_box = QComboBox()
-        for name in PRESETS:
-            self.format_box.addItem(self._format_text(name, PRESETS[name]), f"{SINGLE}:{name}")
-        for name in SHEETS:
-            self.format_box.addItem(f"{self._t('lbl_sheet')}: {name}", f"{SHEET}:{name}")
+        self._fill_formats()
         self.format_box.currentIndexChanged.connect(self._format_changed)
         side.addWidget(QLabel(self._t("lbl_format")))
         side.addWidget(self.format_box)
+        self.templates_btn = QPushButton(self._t("lbl_tpl_edit"))
+        self.templates_btn.setEnabled(self.templates is not None and bool(self.assets))
+        self.templates_btn.clicked.connect(self.edit_templates)
+        side.addWidget(self.templates_btn)
         group = QGroupBox(self._t("lbl_lines"))
         grid = QGridLayout(group)
         grid.addWidget(QCheckBox(self._t("lbl_field_id")), 0, 0)
@@ -176,6 +188,41 @@ class LabelDialog(QDialog):
         view.addWidget(self.message)
         root.addLayout(view, 1)
 
+    def _fill_formats(self, select: str = "") -> None:
+        """The formats: the built-in ones, the templates of the user, the sheets."""
+        self.format_box.blockSignals(True)
+        self.format_box.clear()
+        for name in PRESETS:
+            self.format_box.addItem(self._format_text(name, PRESETS[name]), f"{SINGLE}:{name}")
+        for template in self.templates.templates if self.templates else []:
+            spec = template.to_spec()
+            self.format_box.addItem(
+                f"{self._t('lbl_template')}: {self._format_text(template.name, spec)}",
+                f"{TEMPLATE}:{template.name}",
+            )
+        for name in SHEETS:
+            self.format_box.addItem(f"{self._t('lbl_sheet')}: {name}", f"{SHEET}:{name}")
+        index = self.format_box.findData(select) if select else -1
+        self.format_box.setCurrentIndex(max(index, 0))
+        self.format_box.blockSignals(False)
+
+    def edit_templates(self) -> None:
+        """Open the editor of the templates; the formats are listed again when it closes."""
+        from frontend.ui.LabelTemplateDialog import LabelTemplateDialog
+
+        kind, name = self._kind_and_name()
+        chosen = self.format_box.currentData()
+        dialog = LabelTemplateDialog(
+            self.templates,
+            self.assets[0],
+            self.tr_.base,
+            name if kind in (SINGLE, TEMPLATE) else "",
+            self,
+        )
+        dialog.exec()
+        self._fill_formats(chosen)
+        self._format_changed()
+
     @staticmethod
     def _format_text(name: str, spec: LabelSpec) -> str:
         return f"{name}  ({spec.width_mm:g} x {spec.height_mm:g} mm)"
@@ -189,20 +236,31 @@ class LabelDialog(QDialog):
     def _base_spec(self) -> LabelSpec:
         """The format chosen, with the lines, QR and border as ticked."""
         kind, name = self._kind_and_name()
-        base = PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+        base = self._format_spec(kind, name)
+        if kind == TEMPLATE:  # the lines are the template's; the QR and the border can be changed
+            from dataclasses import replace as _replace
+
+            return _replace(base, qr=self.qr_box.isChecked(), border=self.border_box.isChecked())
         fields = ["id"] + [k for k in OPTIONAL_FIELDS if self.field_boxes[k].isChecked()]
         spec = base.with_fields(fields, qr=self.qr_box.isChecked())
         from dataclasses import replace
 
         return replace(spec, border=self.border_box.isChecked())
 
+    def _format_spec(self, kind: str, name: str) -> LabelSpec:
+        """The format of a built-in preset or of a template (a sheet uses the 50x25 lines)."""
+        if kind == TEMPLATE and self.templates and self.templates.get(name):
+            return self.templates.get(name).to_spec()
+        return PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+
     def _format_changed(self) -> None:
         """A format was chosen: its lines, QR and border become the ticks (which can be changed)."""
         kind, name = self._kind_and_name()
-        spec = PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+        spec = self._format_spec(kind, name)
         self._loading = True
         for key, box in self.field_boxes.items():
             box.setChecked(key in spec.fields)
+            box.setEnabled(kind != TEMPLATE)  # a template has its own lines
         self.qr_box.setChecked(spec.qr)
         self.border_box.setChecked(spec.border)
         self._loading = False
@@ -219,7 +277,7 @@ class LabelDialog(QDialog):
         spec = self._base_spec()
         self.error = ""
         try:
-            if kind == SINGLE:
+            if kind in (SINGLE, TEMPLATE):
                 self.pages = [
                     build_drawing(spec, a, self.last_line(a), text_measure) for a in self.assets
                 ]
@@ -234,7 +292,7 @@ class LabelDialog(QDialog):
         self.page_box.blockSignals(True)
         self.page_box.clear()
         for n in range(len(self.pages)):
-            label = self.assets[n].id if kind == SINGLE and n < len(self.assets) else str(n + 1)
+            label = self.assets[n].id if kind in (SINGLE, TEMPLATE) and n < len(self.assets) else str(n + 1)
             self.page_box.addItem(label, n)
         self.page_box.setCurrentIndex(min(max(keep, 0), len(self.pages) - 1) if self.pages else -1)
         self.page_box.blockSignals(False)
@@ -293,6 +351,13 @@ class LabelDialog(QDialog):
         try:
             action()
         except Exception as exc:
-            show_problem(self, self.windowTitle(), self._t("lbl_failed", error=exc), code="AST-002", exception=exc, level="critical")
+            show_problem(
+                self,
+                self.windowTitle(),
+                self._t("lbl_failed", error=exc),
+                code="AST-002",
+                exception=exc,
+                level="critical",
+            )
             return
         self.message.setText(self._t("lbl_saved", path=path))
