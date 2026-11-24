@@ -161,7 +161,7 @@ The library currently describes:
 |---|---|
 | Power supplies | OWON ODP, Keysight E36300, TDK-Lambda GEN, Rohde & Schwarz HMP, HP E3631A |
 | Electronic loads | Chroma 6330A, Keysight EL4900, Siglent SDL1000X-E |
-| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, Digilent Analog Discovery 2 (driver) |
+| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, GW Instek GDS-1000B, Digilent Analog Discovery 2 (driver) |
 | Dataloggers | Agilent 34970A, Keysight 34972A, Keysight DAQ970A/DAQ973A |
 | Switch units | Agilent 3499A |
 | Function generators | Rigol DG1022 / DG1022A, Agilent 33120A, Digilent Analog Discovery 2 (driver) |
@@ -399,6 +399,9 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 
 - [ ] Power supply and electronic load control
 - [ ] Oscilloscope settings from a `.was` file
+- [ ] GW Instek GDS-1000B oscilloscopes (no instrument tested)
+  - [ ] settings of channels, timebase and trigger
+  - [ ] waveform: `read_waveform`, `query_waveform_preamble` and `query_waveform_data` (settings text and samples in one message)
 - [ ] Datalogger from an `.inst` file
   - [ ] scan list and channel functions
   - [ ] per-channel range, integration time and input impedance
