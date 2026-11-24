@@ -76,7 +76,8 @@ class LoadInstruments:
         Args:
             type_name (str): Tipo di strumento (es. 'power_supply', 'datalogger',
                              'oscilloscope', 'electronic_load', 'switch_unit', 'network_analyzer',
-                             'function_generator', 'multimeter', 'rf_signal_generator').
+                             'function_generator', 'multimeter', 'rf_signal_generator',
+                             'spectrum_analyzer').
         Returns:
             str | None: Chiave della libreria (es. 'power_supplies_series') o None.
         """
@@ -90,6 +91,7 @@ class LoadInstruments:
             'function_generator': 'function_generators_series',
             'multimeter': 'multimeters_series',
             'rf_signal_generator': 'rf_signal_generators_series',
+            'spectrum_analyzer': 'spectrum_analyzers_series',
         }
         return key_by_type.get(type_name)
 
@@ -400,6 +402,7 @@ class LoadInstruments:
             ('function_generators_series', 'function_generator'),
             ('multimeters_series', 'multimeter'),
             ('rf_signal_generators_series', 'rf_signal_generator'),
+            ('spectrum_analyzers_series', 'spectrum_analyzer'),
         ]
         available = []
         for key, tname in mapping:

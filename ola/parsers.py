@@ -266,12 +266,38 @@ def hp6030_readback_current(answer: Any, call: str = "read_current") -> float:
     return _hp6030_readback(answer, "A", call)
 
 
+def spectrum_trace_ascii(answer: Any, call: str = "read_trace") -> List[float]:
+    """The points of a spectrum analyzer trace read in the ASCII format.
+
+    The Rigol analyzers (DSA800, RSA3000) put a definite length block header (``#9000009014``) in
+    front of the numbers, the Siglent ones do not; the numbers are separated by commas (and a
+    space) and may end with a comma. Returns the list of floats; ``ResponseNotRecognisedError`` for
+    an empty answer or a point that is not a number.
+    """
+    text = str(answer).strip()
+    if text.startswith("#"):
+        digits = int(text[1]) if len(text) > 1 and text[1].isdigit() else 0
+        text = text[2 + digits :]
+    parts = [x.strip() for x in text.replace("\n", ",").split(",") if x.strip()]
+    if not parts:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the trace answer has no points", call=call
+        )
+    try:
+        return [float(x) for x in parts]
+    except ValueError:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': a point of the trace is not a number: {text[:40]!r}", call=call
+        ) from None
+
+
 PARSERS: Dict[str, Callable[..., Any]] = {
     "siglent_waveform": siglent_waveform,
     "gwinstek_waveform": gwinstek_waveform,
     "vna_sparameters": vna_sparameters,
     "hp6030_readback_voltage": hp6030_readback_voltage,
     "hp6030_readback_current": hp6030_readback_current,
+    "spectrum_trace_ascii": spectrum_trace_ascii,
 }
 
 

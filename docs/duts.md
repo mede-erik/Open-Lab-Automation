@@ -101,9 +101,14 @@ version) and stored in the file as `device.variant` (`filter.variant` for the fi
 * The header of a run keeps the parameters of the file, so **the variant stays with its results**. The comparison tool shows
   it in the label of the run (`DUT-0001 Pippo [R100=100 ohm, fan=on] - 2026-11-03`), and the history of a DUT has a
   *Variant* column when any of its runs has one.
-* To change it between two runs, edit the measurement file (or keep one measurement per variant in the project, which also
-  keeps each one's results apart in the run list).
-* The comparison does not group by variant yet, and there is no list of the names already used: the names are written by hand.
+* In the editors the variant is a **table** (name, value) with *Add row* and *Remove*, and a list of the names used before.
+* **At every start** of an efficiency (`.eff`, `.rfe`), regulation or ripple measurement that names a DUT, the program asks
+  *what is different since the last run*: a table with the variant of the **last run of that DUT** already filled in (the
+  file's variant if there is none), the names of the earlier runs to choose from, and *Start* / *Cancel*. The answer is the
+  variant of **that run only**: it goes in the header of the run, and the measurement file is not changed. A run without a
+  person (unattended) does not ask. The other measurements keep the variant of their file.
+* You can also change it by editing the measurement file, or keep one measurement per variant in the project.
+* The comparison does not group by variant yet.
 
 ## The efficiency file
 
