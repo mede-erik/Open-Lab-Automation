@@ -737,7 +737,9 @@
   "scope_target_all": "(chaque oscilloscope)",
   "scope_file_for": "Pour l'oscilloscope {scope}.",
   "project_upgrade_title": "Ancien projet",
-  "project_upgrade_question": "\"{name}\" a été créé avec une version précédente du programme. Pour l'ouvrir, le fichier doit être mis à jour : il reçoit seulement le numéro de format et une liste de mesures vide, rien d'autre n'est modifié. Les mesures de l'ancien format (eff_files) restent dans le fichier mais ne sont pas converties.\n\nUne copie de l'original est d'abord enregistrée sous \"{backup}\" dans le même dossier. Mettre le projet à jour ?",
+  "project_upgrade_question": "\"{name}\" a été créé avec une version précédente du programme. Pour l'ouvrir, le fichier doit être mis à jour : il reçoit le numéro de format et ses fichiers de rendement (eff_files) deviennent des mesures du projet. Ces fichiers disaient seulement quelles grandeurs balayer et avec quelles valeurs, pas quel appel de l'instrument les règle : il faudra choisir les appels dans l'éditeur de chaque mesure. Rien d'autre n'est modifié.\n\nUne copie de l'original est d'abord enregistrée sous \"{backup}\" dans le même dossier, et chaque fichier de rendement est copié dans un fichier \".bkp\" avant d'être converti. Mettre le projet à jour ?",
   "project_upgrade_declined": "Le projet n'a pas été mis à jour, il n'est donc pas ouvert. Rouvrez-le et répondez Oui pour le mettre à jour ; l'original n'est pas touché d'ici là.",
-  "spectrum_analyzer": "Analyseur de spectre"
+  "spectrum_analyzer": "Analyseur de spectre",
+  "project_upgrade_converted": "{file} : converti en mesure",
+  "project_upgrade_kept": "{file} : non converti"
 }

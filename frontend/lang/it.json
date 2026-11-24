@@ -737,7 +737,9 @@
   "scope_target_all": "(ogni oscilloscopio)",
   "scope_file_for": "Per l'oscilloscopio {scope}.",
   "project_upgrade_title": "Progetto vecchio",
-  "project_upgrade_question": "\"{name}\" è stato creato con una versione precedente del programma. Per aprirlo il file deve essere aggiornato: guadagna solo il numero di formato e un elenco vuoto di misure, nient'altro viene modificato. Le misure del vecchio formato (eff_files) restano nel file ma non vengono convertite.\n\nPrima viene salvata una copia dell'originale come \"{backup}\" nella stessa cartella. Aggiornare il progetto?",
+  "project_upgrade_question": "\"{name}\" è stato creato con una versione precedente del programma. Per aprirlo il file deve essere aggiornato: guadagna il numero di formato e i suoi file di efficienza (eff_files) diventano misure del progetto. Quei file dicevano solo quali grandezze variare e con quali valori, non quale chiamata dello strumento le imposta: dovrai scegliere le chiamate nell'editor di ciascuna misura. Nient'altro viene modificato.\n\nPrima viene salvata una copia dell'originale come \"{backup}\" nella stessa cartella, e ogni file di efficienza viene copiato in un file \".bkp\" prima di essere convertito. Aggiornare il progetto?",
   "project_upgrade_declined": "Il progetto non è stato aggiornato, quindi non è aperto. Aprilo di nuovo e rispondi Sì per aggiornarlo; fino ad allora l'originale non viene toccato.",
-  "spectrum_analyzer": "Analizzatore di spettro"
+  "spectrum_analyzer": "Analizzatore di spettro",
+  "project_upgrade_converted": "{file}: convertito in misura",
+  "project_upgrade_kept": "{file}: non convertito"
 }

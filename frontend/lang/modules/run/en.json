@@ -77,5 +77,6 @@
   "run_waves_hint": "Wheel: zoom time (Ctrl: voltage). Drag: move. Click: cursors A and B. Double click: reset.",
   "run_waves_forced": "forced trigger",
   "run_waves_missing": "Missing files: {files}",
-  "run_waves_not_aligned": "Could not align: {reason}"
+  "run_waves_not_aligned": "Could not align: {reason}",
+  "run_waves_align_need": "Needs two oscilloscopes in the run, with a channel of the same name on both."
 }

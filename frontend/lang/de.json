@@ -737,7 +737,9 @@
   "scope_target_all": "(jedes Oszilloskop)",
   "scope_file_for": "Für das Oszilloskop {scope}.",
   "project_upgrade_title": "Altes Projekt",
-  "project_upgrade_question": "\"{name}\" wurde mit einer älteren Programmversion erstellt. Zum Öffnen muss die Datei aktualisiert werden: Sie erhält nur die Formatnummer und eine leere Messungsliste, sonst wird nichts geändert. Die Messungen des alten Formats (eff_files) bleiben in der Datei, werden aber nicht umgewandelt.\n\nZuvor wird eine Kopie des Originals als \"{backup}\" im selben Ordner gespeichert. Projekt aktualisieren?",
+  "project_upgrade_question": "\"{name}\" wurde mit einer älteren Programmversion erstellt. Zum Öffnen muss die Datei aktualisiert werden: Sie erhält die Formatnummer und ihre Wirkungsgrad-Dateien (eff_files) werden zu Messungen des Projekts. Diese Dateien sagten nur, welche Größen mit welchen Werten durchlaufen werden, nicht welcher Geräteaufruf sie einstellt: Die Aufrufe müssen im Editor jeder Messung gewählt werden. Sonst wird nichts geändert.\n\nZuvor wird eine Kopie des Originals als \"{backup}\" im selben Ordner gespeichert, und jede Wirkungsgrad-Datei wird vor der Umwandlung in eine \".bkp\"-Datei kopiert. Projekt aktualisieren?",
   "project_upgrade_declined": "Das Projekt wurde nicht aktualisiert und ist daher nicht geöffnet. Öffnen Sie es erneut und antworten Sie mit Ja; bis dahin bleibt das Original unverändert.",
-  "spectrum_analyzer": "Spektrumanalysator"
+  "spectrum_analyzer": "Spektrumanalysator",
+  "project_upgrade_converted": "{file}: in Messung umgewandelt",
+  "project_upgrade_kept": "{file}: nicht umgewandelt"
 }

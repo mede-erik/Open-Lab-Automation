@@ -2,12 +2,13 @@
 # This file is part of Open Lab Automation.
 # Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-import json
 import logging
 logger = logging.getLogger(__name__)
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel
 from frontend.ui.theme_utils import set_class
 from frontend.core.errorhandler import show_problem
+from ola import was_editor
+from ola.was_editor import WasEditor
 
 # =========================
 # WasFileDialog
@@ -59,16 +60,10 @@ class WasFileDialog(QDialog):
         right_layout = QVBoxLayout()
         self.data_edit = QTextEdit()
         
-        # Carica il contenuto del file .was
-        try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                self.data = json.load(f)
-            self.data_edit.setText(json.dumps(self.data, indent=2))
-        except (OSError, ValueError) as e:
-            logger.warning(f"Cannot read .was file {self.file_path}, using defaults: {e}")
-            self.data = {"type": "oscilloscope_settings", "channels": [], "settings": {}}
-            self.data_edit.setText(json.dumps(self.data, indent=2))
-        
+        # Carica il contenuto del file .was (la logica è in ola/was_editor.py)
+        self.editor = WasEditor.load(self.file_path)
+        self.data_edit.setText(self.editor.text())
+
         right_layout.addWidget(QLabel(self.translator.t('oscilloscope_settings_data')))
         right_layout.addWidget(self.data_edit)
         
@@ -89,53 +84,22 @@ class WasFileDialog(QDialog):
         self.data_edit.textChanged.connect(self.sync_params_from_json)
 
     def get_oscilloscopes(self):
-        """
-        Recupera gli oscilloscopi configurati nel file .inst del progetto.
-        Ritorna una lista di dict: {'instance_name', 'model_id', 'channels'}.
-        Accetta sia il tipo singolare ('oscilloscope') che plurale ('oscilloscopes').
-        """
-        if not self.project_data:
-            return []
+        """The oscilloscopes of the project's .inst file: instance_name, model_id, channels."""
+        import os
 
-        inst_file = self.project_data.get('inst_file')
+        inst_file = (self.project_data or {}).get('inst_file')
         if not inst_file:
             return []
-
-        import os
-        project_dir = os.path.dirname(self.file_path)
-        inst_file_path = os.path.join(project_dir, inst_file)
-
-        try:
-            with open(inst_file_path, 'r', encoding='utf-8') as f:
-                inst_data = json.load(f)
-            instruments = inst_data.get('instruments', [])
-            scopes = []
-            for inst in instruments:
-                if inst.get('instrument_type') in ('oscilloscope', 'oscilloscopes'):
-                    scopes.append({
-                        'instance_name': inst.get('instance_name', 'OSC'),
-                        'model_id': inst.get('model_id', inst.get('model', '')),
-                        'channels': inst.get('channels', []),
-                    })
-            return scopes
-        except Exception as e:
-            logging.getLogger(__name__).warning("Reading the instrument file failed: %s", e)
-            return []
+        return was_editor.oscilloscopes(os.path.join(os.path.dirname(self.file_path), inst_file))
 
     def get_oscilloscope_channels(self, instance_name=None):
-        """
-        Recupera i canali di un oscilloscopio dal file .inst del progetto.
-        :param instance_name: Nome istanza dell'oscilloscopio (opzionale; usa il primo).
-        :return: Lista di dict con info sui canali.
-        """
-        scopes = self.get_oscilloscopes()
-        if not scopes:
-            return []
-        if instance_name is not None:
-            scope = next((s for s in scopes if s['instance_name'] == instance_name), None)
-            if scope:
-                return scope['channels']
-        return scopes[0]['channels']
+        """The channels of one oscilloscope of the project (the first if no name is given)."""
+        return was_editor.channels_of(self.get_oscilloscopes(), instance_name)
+
+    @property
+    def data(self):
+        """The content of the file (see ola/was_editor.py)."""
+        return self.editor.data
 
     def setup_channels_section(self, layout):
         """
@@ -179,11 +143,7 @@ class WasFileDialog(QDialog):
         # Crea i widget canali per l'oscilloscopio selezionato (o default)
         channels = self.get_oscilloscope_channels() or []
         if not channels:
-            channels = [
-                {'channel_id': f'CH{i+1}', 'name': f'CH{i+1}', 'enabled': False,
-                 'volt_per_div': '1V', 'probe_attenuation': 1.0}
-                for i in range(4)
-            ]
+            channels = was_editor.default_channels()
         self._rebuild_channel_widgets(channels)
 
     def on_scope_changed(self, index):
@@ -196,7 +156,7 @@ class WasFileDialog(QDialog):
         # Aggiorna i canali disponibili per la sorgente trigger
         self._update_trigger_source_combo()
         # Riapplica i valori del file .was sui nuovi widget
-        if hasattr(self, 'data'):
+        if hasattr(self, 'editor'):
             self.populate_params_from_json()
 
     def _rebuild_channel_widgets(self, channels):
@@ -226,9 +186,7 @@ class WasFileDialog(QDialog):
             # Combobox per Volt/div
             volt_label = QLabel(self.translator.t('volt_per_div'))
             volt_combo = QComboBox()
-            volt_options = ["1mV", "2mV", "5mV", "10mV", "20mV", "50mV",
-                           "100mV", "200mV", "500mV", "1V", "2V", "5V", "10V", "20V", "50V", "100V"]
-            volt_combo.addItems(volt_options)
+            volt_combo.addItems(was_editor.VOLT_OPTIONS)
             current_vdiv = ch.get('volt_per_div', '1V')
             idx = volt_combo.findText(current_vdiv)
             if idx >= 0:
@@ -334,11 +292,8 @@ class WasFileDialog(QDialog):
         self.trigger_source_combo.blockSignals(False)
 
     def _parse_voltage(self, s):
-        """Converte una stringa livello trigger ('1,5' -> 1.5) in float o None."""
-        try:
-            return float(str(s).strip().replace(',', '.'))
-        except (ValueError, TypeError):
-            return None
+        """'1,5' -> 1.5, or None."""
+        return was_editor.parse_level(s)
 
     def trigger_values(self):
         """
@@ -361,124 +316,67 @@ class WasFileDialog(QDialog):
 
 
     def parse_time(self, s):
-        """
-        Converte una stringa tempo in secondi (float).
-        Accetta numeri semplici ('0.001', '1e-3') e suffissi SI con o senza 's':
-        'ks', 'k', 's', 'ms', 'm', 'us', 'u', 'µs', 'ns', 'n', 'ps', 'p' (es. '100us', '1ms').
-        Restituisce None se la stringa non è valida.
-        """
-        text = s.strip().lower().replace(',', '.').replace(' ', '').replace('µ', 'u')
-        if text.endswith('s'):
-            text = text[:-1]
-        multipliers = {'k': 1e3, 'm': 1e-3, 'u': 1e-6, 'n': 1e-9, 'p': 1e-12}
-        factor = 1.0
-        if text and text[-1] in multipliers:
-            factor = multipliers[text[-1]]
-            text = text[:-1]
-        try:
-            return float(text) * factor
-        except ValueError:
-            return None
+        """A time in seconds from '1ms', '100us', '1e-3'...; None if invalid."""
+        return was_editor.parse_time(s)
 
     def populate_params_from_json(self):
-        """
-        Popola i campi del form a sinistra leggendo i dati dal JSON (se presenti).
-        """
-        settings = self.data.get('settings', {})
-        tdiv = settings.get('time_per_div', '')
-
+        """Fill the form on the left from the content of the file."""
+        form = self.editor.form()
         if hasattr(self, 'reset_check'):
             self.reset_check.blockSignals(True)
-            self.reset_check.setChecked(self.data.get('reset', True) is not False)
+            self.reset_check.setChecked(form['reset'])
             self.reset_check.blockSignals(False)
-
-        if tdiv and hasattr(self, 'time_div_edit'):
-            self.time_div_edit.setText(str(tdiv))
-        
-        # Popola i canali se presenti
-        channels_data = self.data.get('channels', [])
-        if hasattr(self, 'channel_widgets') and channels_data:
-            for ch_widget in self.channel_widgets:
-                # Trova i dati corrispondenti per questo canale
-                ch_id = ch_widget['channel_id']
-                ch_data = next((ch for ch in channels_data if ch.get('channel_id') == ch_id), None)
-                
-                if ch_data:
-                    ch_widget['enable_widget'].setChecked(ch_data.get('enabled', False))
-                    vdiv = ch_data.get('volt_per_div', '1V')
-                    idx = ch_widget['volt_div_widget'].findText(vdiv)
-                    if idx >= 0:
-                        ch_widget['volt_div_widget'].setCurrentIndex(idx)
-
-        # Popola la sezione trigger se presente
-        trigger = self.data.get('trigger', {})
+        if form['time_per_div'] and hasattr(self, 'time_div_edit'):
+            self.time_div_edit.setText(form['time_per_div'])
+        for ch_widget in getattr(self, 'channel_widgets', []):
+            found = form['channels'].get(ch_widget['channel_id'])
+            if found:
+                enabled, vdiv = found
+                ch_widget['enable_widget'].setChecked(enabled)
+                idx = ch_widget['volt_div_widget'].findText(vdiv)
+                if idx >= 0:
+                    ch_widget['volt_div_widget'].setCurrentIndex(idx)
+        trigger = form['trigger']
         if hasattr(self, 'trigger_source_combo'):
             src = trigger.get('source')
             if src and self.trigger_source_combo.findData(src) >= 0:
                 self.trigger_source_combo.setCurrentIndex(self.trigger_source_combo.findData(src))
-            slope = trigger.get('slope', 'RISE')
-            idx = self.trigger_slope_combo.findData(slope)
+            idx = self.trigger_slope_combo.findData(trigger.get('slope', 'RISE'))
             if idx >= 0:
                 self.trigger_slope_combo.setCurrentIndex(idx)
             if 'level' in trigger:
                 self.trigger_level_edit.setText(str(trigger['level']))
-            mode = trigger.get('mode', 'AUTO')
-            idx = self.trigger_mode_combo.findData(mode)
+            idx = self.trigger_mode_combo.findData(trigger.get('mode', 'AUTO'))
             if idx >= 0:
                 self.trigger_mode_combo.setCurrentIndex(idx)
 
     def apply_params_to_json(self):
-        """
-        Aggiorna il JSON a destra in base ai parametri inseriti a sinistra.
-        Converte i valori e aggiorna il dizionario settings, channels e trigger.
-        """
-        # Reset: written only when it is not the default, so the old files stay as they are
-        if hasattr(self, 'reset_check'):
-            if self.reset_check.isChecked():
-                self.data.pop('reset', None)
-            else:
-                self.data['reset'] = False
-
-        # Tempo/div globale
-        tdiv = self.parse_time(self.time_div_edit.text()) if hasattr(self, 'time_div_edit') else None
-        
-        if tdiv is not None:
-            if 'settings' not in self.data:
-                self.data['settings'] = {}
-            self.data['settings']['time_per_div'] = tdiv
-        
-        # Canali
-        if hasattr(self, 'channel_widgets'):
-            channels = []
-            for ch_widget in self.channel_widgets:
-                if ch_widget['enable_widget'].isChecked():
-                    channels.append({
-                        'channel_id': ch_widget['channel_id'],
-                        'name': ch_widget['name'],
-                        'enabled': True,
-                        'volt_per_div': ch_widget['volt_div_widget'].currentText(),
-                        'probe_attenuation': ch_widget.get('probe_attenuation', 1.0)
-                    })
-            
-            self.data['channels'] = channels
-
-        # Trigger
-        trigger = self.trigger_values() if hasattr(self, 'trigger_values') else None
-        if trigger:
-            self.data['trigger'] = trigger
-        
-        # Aggiorna il visualizzatore JSON
-        self.data_edit.setText(json.dumps(self.data, indent=2))
+        """Put the form in the content of the file and show it in the JSON editor."""
+        self.editor.apply(
+            reset=self.reset_check.isChecked() if hasattr(self, 'reset_check') else True,
+            time_text=self.time_div_edit.text() if hasattr(self, 'time_div_edit') else '',
+            channels=[
+                {
+                    'channel_id': w['channel_id'],
+                    'name': w['name'],
+                    'enabled': w['enable_widget'].isChecked(),
+                    'volt_per_div': w['volt_div_widget'].currentText(),
+                    'probe_attenuation': w.get('probe_attenuation', 1.0),
+                }
+                for w in getattr(self, 'channel_widgets', [])
+            ],
+            trigger=self.trigger_values(),
+        )
+        self.data_edit.setText(self.editor.text())
 
     def sync_params_from_json(self):
-        """
-        Aggiorna i parametri a sinistra se il JSON viene modificato manualmente.
-        """
+        """Update the form when the JSON is edited by hand."""
         try:
-            self.data = json.loads(self.data_edit.toPlainText())
-            self.populate_params_from_json()
-        except Exception:
+            self.editor.set_text(self.data_edit.toPlainText())
+        except ValueError:
             logger.warning("Failed to sync params from JSON (invalid JSON in editor)")
+            return
+        self.populate_params_from_json()
 
     def save_changes(self):
         """
@@ -486,8 +384,7 @@ class WasFileDialog(QDialog):
         Mostra un messaggio di errore se il salvataggio fallisce.
         """
         try:
-            with open(self.file_path, 'w', encoding='utf-8') as f:
-                json.dump(self.data, f, indent=2)
+            self.editor.save(self.file_path)
             self.accept()
         except Exception as e:
             show_problem(self, self.translator.t('error'), str(e), code="FILE-006", exception=e)

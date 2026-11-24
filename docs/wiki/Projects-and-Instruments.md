@@ -20,7 +20,7 @@
 | `.reg` | line and load regulation |
 | `.rpl` | ripple and noise |
 
-The old `eff_files` format is not read any more. The settings of the oscilloscopes (`.was`) are named by the key
+A project of the old format (`eff_files`) is converted when it is opened, after the program asks: the original is kept as `.bkp`, the efficiency files become measurements, and the instrument call of each swept quantity must be chosen in the editor (the old files did not have it). The settings of the oscilloscopes (`.was`) are named by the key
 `scope_settings` of the project, like the instruments file `.inst`: they are part of the project, not a measurement. It is an
 ordered list: every `.was` file is an acquisition (a long view, a rising edge, a falling edge...). Any file can be switched
 off (right click in the file list: it is then listed in italics) and the order can be changed; a measurement that acquires

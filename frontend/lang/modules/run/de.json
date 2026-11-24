@@ -77,5 +77,6 @@
   "run_waves_hint": "Mausrad: Zeit zoomen (Strg: Spannung). Ziehen: verschieben. Klick: Cursor A und B. Doppelklick: zurücksetzen.",
   "run_waves_forced": "erzwungener Trigger",
   "run_waves_missing": "Fehlende Dateien: {files}",
-  "run_waves_not_aligned": "Ausrichtung nicht möglich: {reason}"
+  "run_waves_not_aligned": "Ausrichtung nicht möglich: {reason}",
+  "run_waves_align_need": "Erfordert zwei Oszilloskope in der Messung mit einem gleichnamigen Kanal auf beiden."
 }

@@ -132,7 +132,9 @@ class WaveformView(QWidget):
         self.steps_list.blockSignals(False)
         self._fill_acquisitions()
         self._fill_channels()
-        self.align_btn.setEnabled(len({i.scope for i in self.index.items}) > 1)
+        can_align = len({i.scope for i in self.index.items}) > 1
+        self.align_btn.setEnabled(can_align)
+        self.align_btn.setToolTip("" if can_align else self._t("run_waves_align_need"))
         self.align_box.setEnabled(has_alignment(self.run_file))
         self._redraw()
 

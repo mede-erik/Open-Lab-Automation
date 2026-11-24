@@ -737,7 +737,9 @@
   "scope_target_all": "(every oscilloscope)",
   "scope_file_for": "For the oscilloscope {scope}.",
   "project_upgrade_title": "Old project",
-  "project_upgrade_question": "\"{name}\" was made with an older version of the program. To open it the file has to be updated: it only gains the format number and an empty list of measurements, nothing else is changed. The measurements of the old format (eff_files) are kept in the file but are not converted.\n\nA copy of the original is saved first as \"{backup}\" in the same folder. Update the project?",
+  "project_upgrade_question": "\"{name}\" was made with an older version of the program. To open it the file has to be updated: it gains the format number and its efficiency files (eff_files) become measurements of the project. Those files only said which quantities to sweep and with what values, not which instrument call sets them: you will have to choose the calls in the editor of each measurement. Nothing else is changed.\n\nA copy of the original is saved first as \"{backup}\" in the same folder, and each efficiency file is copied to a \".bkp\" file before it is converted. Update the project?",
   "project_upgrade_declined": "The project was not updated, so it is not open. Open it again and answer Yes to update it; the original is not touched until then.",
-  "spectrum_analyzer": "Spectrum analyzer"
+  "spectrum_analyzer": "Spectrum analyzer",
+  "project_upgrade_converted": "{file}: converted to a measurement",
+  "project_upgrade_kept": "{file}: not converted"
 }

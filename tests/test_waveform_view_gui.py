@@ -93,3 +93,43 @@ def test_a_run_without_waves_shows_the_empty_message(qtbot, tmp_path):
     view = WaveformView(str(path), None)
     qtbot.addWidget(view)
     assert view.steps_list.count() == 0 and view.plot.full_range() is None
+
+
+def two_scope_run(tmp_path):
+    path = tmp_path / "two.jsonl"
+    path.write_text("{}\n")
+    t = -1e-6 + 1e-8 * np.arange(400)
+    pulse = np.exp(-(((t - 1.5e-6) / 3e-7) ** 2))
+    for scope, shift in (("osc1", 0.0), ("osc2", 4e-8)):
+        pulse_s = np.exp(-(((t + shift - 1.5e-6) / 3e-7) ** 2)).astype(np.float32)
+        save_capture(
+            wave_folder(path),
+            Capture(
+                0, "long", scope, {"CH1": pulse_s}, 1e-8, float(t[0]) - shift,
+                channels={"CH1": {"signal": "VGS"}},
+            ),
+        )  # fmt: skip
+    del pulse
+    return path
+
+
+def test_align_now_puts_two_oscilloscopes_on_one_time_axis(qtbot, tmp_path):
+    view = WaveformView(str(two_scope_run(tmp_path)), None)
+    qtbot.addWidget(view)
+    assert view.align_btn.isEnabled() and not view.align_box.isEnabled()
+    view.align_now()
+    assert view.align_box.isEnabled() and view.align_box.isChecked()
+    assert (tmp_path / "two_waves" / "alignment.json").is_file()
+    view.channel_list.item(1).setCheckState(Qt.CheckState.Checked)  # osc2 as well
+    assert len(view.plot.curves) == 2
+    first, second = view.plot.curves[0][1], view.plot.curves[1][1]
+    assert abs(first[0] - second[0]) > 1e-9  # the second one was moved by the shift
+
+
+def test_align_now_says_why_it_cannot(qtbot, tmp_path):
+    path = tmp_path / "one.jsonl"
+    path.write_text("{}\n")
+    save_capture(wave_folder(path), make(0, "osc1"))
+    view = WaveformView(str(path), None)
+    qtbot.addWidget(view)
+    assert not view.align_btn.isEnabled() and view.align_btn.toolTip()

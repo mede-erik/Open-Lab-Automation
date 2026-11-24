@@ -27,8 +27,9 @@ Each measurement lives in its own file whose extension identifies the measuremen
     {"type": "time_log", "module_version": "1.0.0", "api_version": 1,
      "role_bindings": {"instruments": ["dmm1", "psu1"]}, "params": {...}}
 
-Keys the program does not know are preserved when a project is saved. No compatibility with the
-old ``eff_files`` project format (decision recorded in PLAN.md). The key ``was_files`` of the
+Keys the program does not know are preserved when a project is saved. A project of the old
+``eff_files`` format is not read as it is: ``upgrade_legacy`` converts it first (see
+``ola/legacy_project.py``). The key ``was_files`` of the
 early projects of format 2 is still read: its files become the ``scope_settings`` list, all
 enabled; it is not written any more.
 """
@@ -273,13 +274,19 @@ class Project:
         return target
 
     @staticmethod
-    def upgrade_legacy(path: Union[str, Path], backup: bool = True) -> bool:
+    def upgrade_legacy(
+        path: Union[str, Path], backup: bool = True, report: Optional[List[Any]] = None
+    ) -> bool:
         """Turn a project file of the first format (``eff_files`` / ``was_files``) into a current
-        one, in place and without losing a key: it only gains ``format_version`` and an empty
-        ``measurements`` list (the old ``eff_files`` are kept as they are, they are not turned
-        into measurements). Before the first write the file is copied to ``Name.json.bkp``
-        (``make_backup``) unless ``backup`` is False. Returns True if the file was changed; a file
-        that is already current, or is not a project, is left alone."""
+        one, in place and without losing a key: it gains ``format_version`` and a ``measurements``
+        list, and the efficiency files it lists (``eff_files``) are converted to measurements
+        (``ola.legacy_project``; each old file is copied to ``<name>.bkp`` first). Before the first
+        write the project file is copied to ``Name.json.bkp`` (``make_backup``) unless ``backup``
+        is False. ``report``, if given, receives one ``Converted`` per old efficiency file. Returns
+        True if the file was changed; a file that is already current, or is not a project, is left
+        alone."""
+        from .legacy_project import convert_files
+
         path = Path(path)
         if not Project.needs_upgrade(path):
             return False
@@ -288,6 +295,9 @@ class Project:
             Project.make_backup(path)
         raw["format_version"] = FORMAT_VERSION
         raw.setdefault("measurements", [])
+        done = convert_files(raw, path.parent)
+        if report is not None:
+            report.extend(done)
         path.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return True
 

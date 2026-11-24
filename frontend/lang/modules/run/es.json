@@ -77,5 +77,6 @@
   "run_waves_hint": "Rueda: zoom del tiempo (Ctrl: tensión). Arrastrar: mover. Clic: cursores A y B. Doble clic: restablecer.",
   "run_waves_forced": "disparo forzado",
   "run_waves_missing": "Archivos que faltan: {files}",
-  "run_waves_not_aligned": "No se pudo alinear: {reason}"
+  "run_waves_not_aligned": "No se pudo alinear: {reason}",
+  "run_waves_align_need": "Se necesitan dos osciloscopios en la medición, con un canal del mismo nombre en ambos."
 }

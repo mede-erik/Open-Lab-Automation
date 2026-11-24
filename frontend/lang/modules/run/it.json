@@ -77,5 +77,6 @@
   "run_waves_hint": "Rotella: zoom sul tempo (Ctrl: tensione). Trascina: sposta. Clic: cursori A e B. Doppio clic: azzera.",
   "run_waves_forced": "trigger forzato",
   "run_waves_missing": "File mancanti: {files}",
-  "run_waves_not_aligned": "Impossibile allineare: {reason}"
+  "run_waves_not_aligned": "Impossibile allineare: {reason}",
+  "run_waves_align_need": "Servono due oscilloscopi nella misura, con un canale con lo stesso nome su entrambi."
 }

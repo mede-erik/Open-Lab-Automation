@@ -343,6 +343,7 @@ def test_opening_an_old_project_asks_first(window, monkeypatch, tmp_path):
     assert asked and path.read_bytes() == original and not list(tmp_path.glob("*.bkp*"))
 
     monkeypatch.setattr(window, "confirm_project_upgrade", lambda p: asked.append(p) or True)
+    monkeypatch.setattr(window, "show_upgrade_report", lambda report: None)
     window._open_project_path(str(path))
     assert (tmp_path / "Old.json.bkp").read_bytes() == original
     assert json.loads(path.read_text(encoding="utf-8"))["format_version"] == 2

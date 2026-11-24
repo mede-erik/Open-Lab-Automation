@@ -531,6 +531,19 @@ class MainWindow(QMainWindow):
         box.setDefaultButton(QMessageBox.StandardButton.Yes)
         return box.exec() == QMessageBox.StandardButton.Yes
 
+    def show_upgrade_report(self, report) -> None:
+        """Say what became of the efficiency files of an old project (one line each, with what
+        is still to do). Tests replace this method."""
+        lines = []
+        for item in report:
+            head = self.translator.t(
+                "project_upgrade_converted" if item.converted else "project_upgrade_kept"
+            ).replace("{file}", item.file)
+            lines.append(head + "".join(f"\n    - {note}" for note in item.notes))
+        QMessageBox.information(
+            self, self.translator.t("project_upgrade_title"), "\n".join(lines)
+        )
+
     def _open_project_path(self, path):
         """Open a project file in both views: the Project menu and file list (this window) and the
         Measurements tab. A project of the first format is upgraded in place after the user agrees (a copy is kept in
@@ -538,7 +551,10 @@ class MainWindow(QMainWindow):
         if Project.needs_upgrade(path):
             if not self.confirm_project_upgrade(path):
                 raise MeasurementError(self.translator.t("project_upgrade_declined"))
-            Project.upgrade_legacy(path)  # copies the file to ``.bkp`` first
+            report = []
+            Project.upgrade_legacy(path, report=report)  # copies the file to ``.bkp`` first
+            if report:
+                self.show_upgrade_report(report)
         self._loaded_inst_path = None
         data = read_json(path)
         self.current_project_dir = os.path.dirname(path)
