@@ -409,8 +409,8 @@ class RemoteControlTab(QWidget):
             connection = VisaConnection(instr, visa_addr, timeout_ms, pyvisa)
             cfg = self.__dict__.get('_serial_cfg', {}).get(visa_addr)
             if cfg and ('write_termination' in cfg or 'read_termination' in cfg):
-                connection.set_terminators(
-                    cfg.get('write_termination', '\n'), cfg.get('read_termination', '\n'))
+                from ola.serial_config import apply_terminators
+                apply_terminators(connection, cfg)
             driver = driver_for(library, model_id, connection) if library and model_id else None
             entry = (instr, Instrument(name, connection, driver))
             executors[visa_addr] = entry
@@ -1513,8 +1513,26 @@ class RemoteControlTab(QWidget):
                 controls,
                 lambda n=name: self._vna_connector.connect(n),
                 self._t,
+                restore=self._restore_vna_calibration,
+                calibration_sweep=self._vna_calibration_sweep,
             )
             self.meas_layout.addWidget(panel)
+
+    def _restore_vna_calibration(self, handle, sweep):
+        """Before a sweep of a VNA panel: the saved calibration of this apparatus, if the open
+        project has one for the sweep (ola.vna_controls.restore_saved_calibration)."""
+        from ola.vna_controls import restore_saved_calibration
+        project = self._project()
+        return restore_saved_calibration(
+            handle, project.get("project_file") if project else None, sweep)
+
+    def _vna_calibration_sweep(self, handle, sweep):
+        """The sweep of the saved calibration of this apparatus when it is not the asked one
+        (ola.vna_controls.calibration_for_another_sweep), or None."""
+        from ola.vna_controls import calibration_for_another_sweep
+        project = self._project()
+        return calibration_for_another_sweep(
+            handle, project.get("project_file") if project else None, sweep)
 
     def _load_controls(self, inst):
         """What the panel of an electronic load shows (ola.load_controls): only the calls its

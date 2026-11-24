@@ -427,6 +427,8 @@
   "vna_export": "Exportar Touchstone…",
   "vna_running": "Barrido en curso…",
   "vna_not_calibrated": "Los datos no están calibrados: calibre el analizador (Medidas, calibración) para resultados corregidos.",
+  "vna_calibration_sweep": "Hay una calibración guardada para este analizador para otro barrido: {start} – {stop}, {points} puntos.",
+  "vna_use_calibration_sweep": "Usar el barrido de la calibración",
   "vna_err_call": "Error: {error}",
   "vna_err_number": "Escriba una frecuencia (por ejemplo 2.4G, 100k o 1500000) o un número.",
   "vna_err_traces": "Elija al menos una traza.",

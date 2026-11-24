@@ -427,6 +427,8 @@
   "vna_export": "Touchstone exportieren…",
   "vna_running": "Sweep läuft…",
   "vna_not_calibrated": "Die Daten sind nicht kalibriert: den Analysator kalibrieren (Messungen, Kalibrierung) für korrigierte Ergebnisse.",
+  "vna_calibration_sweep": "Für diesen Analysator ist eine Kalibrierung für einen anderen Sweep gespeichert: {start} – {stop}, {points} Punkte.",
+  "vna_use_calibration_sweep": "Sweep der Kalibrierung verwenden",
   "vna_err_call": "Fehler: {error}",
   "vna_err_number": "Eine Frequenz (zum Beispiel 2.4G, 100k oder 1500000) oder eine Zahl eingeben.",
   "vna_err_traces": "Mindestens eine Kurve wählen.",

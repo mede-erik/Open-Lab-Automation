@@ -131,6 +131,58 @@ def sweep_settings(
     return sweep
 
 
+def restore_saved_calibration(
+    handle: Any, project_file: Any, sweep: Optional[Mapping[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """Before a sweep of the panel: put back the saved software calibration of this apparatus when
+    it was made for the sweep (see ``ola.vna_calibration_flow.auto_restore``), and bypass a
+    calibration that does not fit the sweep.
+
+    The calibration of a driver (the LiteVNA) lives in the connection that measured it, and the
+    panel has its own: without this the panel never uses what was calibrated and saved. A
+    calibration already applied to the connection is left alone while it fits the sweep; once the
+    sweep changes the driver would refuse to read, so the correction is switched off (the data
+    come uncalibrated, with the usual note) and the connection forgets it, so that a saved
+    calibration comes back when the sweep fits again.
+
+    An instrument that keeps its own calibration (no ``calibration_import``) is left as it is.
+    Returns what ``auto_restore`` returns: ``None`` when nothing was restored now."""
+    from .call_errors import CallError
+    from .vna_calibration_flow import _same_sweep, auto_restore
+
+    if not handle.supports("calibration_import"):
+        return None
+    applied = handle.calibration
+    if applied:
+        if _same_sweep(applied.get("sweep"), sweep):
+            return None  # applied before and still valid for this sweep
+        if handle.supports("set_correction_state"):
+            try:
+                handle.call("set_correction_state", state=False)
+            except CallError:
+                pass  # the instrument has no correction to switch off
+        handle.set_calibration(None)
+    return auto_restore(handle, project_file, sweep) if project_file else None
+
+
+def calibration_for_another_sweep(
+    handle: Any, project_file: Any, sweep: Optional[Mapping[str, Any]]
+) -> Optional[Dict[str, float]]:
+    """The sweep (``start``, ``stop``, ``points``) of the newest saved software calibration of this
+    apparatus when it is **not** the sweep asked, or None (no calibration saved for it, or it is
+    for this very sweep). The panel says so when its data are not calibrated: a calibration is only
+    valid for the sweep it was made for."""
+    from .vna_calibration_flow import _same_sweep, find_record
+
+    if not project_file:
+        return None
+    identity = getattr(handle, "identity", None)
+    found = find_record(project_file, getattr(identity, "serial_number", None))
+    if found is None or not found[0].data or not found[0].sweep:
+        return None
+    return None if _same_sweep(found[0].sweep, sweep) else dict(found[0].sweep)
+
+
 def run_one_sweep(
     handle: Any, sweep: Mapping[str, Any], sparameters: Sequence[str], configure: bool = True
 ) -> Tuple[List[float], Dict[str, List[complex]], List[str]]:
