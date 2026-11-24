@@ -190,6 +190,109 @@ class ValuesTable(QWidget):
             self.textChanged.emit(self.text())
 
 
+# ---- conditions on a quantity of the step ----------------------------------------------------
+
+
+class ConditionsTable(QWidget):
+    """The conditions that make the waveforms be taken at a step: a table of quantity (``vin``,
+    ``vout@daq``, ``efficiency``), *below* and *above*; any row that holds is enough. ``changed``
+    is emitted after every edit; ``invalid`` is True while a limit is not a number or a row has
+    no name or no limit."""
+
+    changed = pyqtSignal()
+
+    def __init__(self, labels: Optional[Dict[str, str]] = None, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        texts = labels or {}
+        self._busy = False
+        self.invalid = False
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(
+            [texts.get("name", ""), texts.get("below", ""), texts.get("above", "")]
+        )
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setMaximumHeight(130)
+        self.table.itemChanged.connect(lambda _item: self._edited())
+        add = QPushButton(texts.get("add", "+"))
+        add.clicked.connect(lambda: self.add_row())
+        remove = QPushButton(texts.get("remove", "-"))
+        remove.clicked.connect(self.remove_selected)
+        buttons = QHBoxLayout()
+        buttons.addWidget(add)
+        buttons.addWidget(remove)
+        buttons.addStretch(1)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.table)
+        layout.addLayout(buttons)
+
+    def _text(self, row: int, column: int) -> str:
+        item = self.table.item(row, column)
+        return item.text().strip() if item is not None else ""
+
+    def value(self) -> List[dict]:
+        """The rows as ``[{"name", "below", "above"}]`` (an empty row is left out). ``invalid`` says
+        whether every row that is there is usable."""
+        out: List[dict] = []
+        self.invalid = False
+        for row in range(self.table.rowCount()):
+            name, below, above = (self._text(row, c) for c in range(3))
+            if not (name or below or above):
+                continue
+            condition: dict = {"name": name}
+            for key, text in (("below", below), ("above", above)):
+                if text:
+                    ok, number = parse_number(text)
+                    if not ok or number is None:
+                        self.invalid = True
+                    else:
+                        condition[key] = number
+            if not name or ("below" not in condition and "above" not in condition):
+                self.invalid = True
+            out.append(condition)
+        return out
+
+    def set_value(self, conditions: Optional[Sequence[dict]]) -> None:
+        """Show the conditions; does not emit ``changed``."""
+        self._busy = True
+        items = [c for c in (conditions or []) if isinstance(c, dict)]
+        self.table.setRowCount(len(items))
+        for row, item in enumerate(items):
+            for column, key in enumerate(("name", "below", "above")):
+                value = item.get(key)
+                text = (
+                    ""
+                    if value is None
+                    else (value if isinstance(value, str) else format_number(value))
+                )
+                self.table.setItem(row, column, QTableWidgetItem(text))
+        self._busy = False
+        self.value()
+
+    def add_row(self, name: str = "", below: str = "", above: str = "") -> None:
+        """A new row, ready to type in."""
+        row = self.table.rowCount()
+        self._busy = True
+        self.table.insertRow(row)
+        for column, text in enumerate((name, below, above)):
+            self.table.setItem(row, column, QTableWidgetItem(text))
+        self._busy = False
+        self.table.setCurrentCell(row, 0)
+        self.table.editItem(self.table.item(row, 0))
+        self._edited()
+
+    def remove_selected(self) -> None:
+        """Remove the selected rows."""
+        for row in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
+            self.table.removeRow(row)
+        self._edited()
+
+    def _edited(self) -> None:
+        if not self._busy:
+            self.value()
+            self.changed.emit()
+
+
 # ---- the arguments of a call in a table ------------------------------------------------------
 
 

@@ -272,7 +272,33 @@ def test_the_scope_files_can_be_switched_off_and_moved_from_the_file_list(window
     names = {window.project_files_list.item(i).text(): window.project_files_list.item(i)
              for i in range(window.project_files_list.count())}  # fmt: skip
     assert names["osc1.was"].font().italic() and not names["fall.was"].font().italic()
-    source = window.open_project_source()
-    assert source["scope_settings"] == ["fall.was", "rise.was"]  # what the remote control sees
+
+    def on(source):
+        return [e["file"] for e in source["scope_settings"]]
+
+    assert on(window.open_project_source()) == [
+        "fall.was",
+        "rise.was",
+    ]  # what the remote control sees
     window.change_scope_file("osc1.was", "toggle")
-    assert window.open_project_source()["scope_settings"] == ["osc1.was", "fall.was", "rise.was"]
+    assert on(window.open_project_source()) == ["osc1.was", "fall.was", "rise.was"]
+
+
+def test_a_scope_file_can_be_set_for_one_oscilloscope_from_the_file_list(window, home, tmp_path):
+    folder = tmp_path / "p"
+    shutil.copytree(EXAMPLE, folder)
+    window._open_project_path(str(folder / "Test DC-DC Converter.json"))
+    project = window.project_tab.session.project
+    window.set_scope_target("osc1.was", "OSC2")
+    assert project.scope_target("osc1.was") == "OSC2"
+    on_disk = json.loads(project.path.read_text(encoding="utf-8"))
+    assert on_disk["scope_settings"][0]["scope"] == "OSC2"  # saved at once
+    assert window.open_project_source()["scope_settings"] == [{"file": "osc1.was", "scope": "OSC2"}]
+    names = {
+        window.project_files_list.item(i).text(): window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+    }
+    assert "OSC2" in names["osc1.was"].toolTip()
+    window.set_scope_target("osc1.was", "")
+    assert window.open_project_source()["scope_settings"] == [{"file": "osc1.was", "scope": ""}]
+    window.set_scope_target("missing.was", "OSC1")  # not in the project: nothing happens

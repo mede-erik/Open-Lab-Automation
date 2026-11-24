@@ -732,5 +732,8 @@
   "scope_file_disable": "Ausschalten (im Projekt behalten)",
   "scope_file_enable": "Einschalten",
   "scope_file_up": "Nach oben (frühere Aufnahme)",
-  "scope_file_down": "Nach unten (spätere Aufnahme)"
+  "scope_file_down": "Nach unten (spätere Aufnahme)",
+  "scope_file_target": "Oszilloskop, für das diese Datei gilt...",
+  "scope_target_all": "(jedes Oszilloskop)",
+  "scope_file_for": "Für das Oszilloskop {scope}."
 }

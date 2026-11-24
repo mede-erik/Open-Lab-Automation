@@ -161,7 +161,7 @@ name or list of names) and `params`. File names in a project must be plain names
 
 **Project definition files.** `inst_file` (the instruments, `.inst`) and `scope_settings` (the settings of the
 oscilloscopes, `.was`) name files that are not measurements. `scope_settings` is an **ordered list** of `.was` files, each
-`{"file": "rise.was", "enabled": true}`: every file is a different acquisition (a long view of the signal, a rising edge, a
+`{"file": "rise.was", "enabled": true, "scope": "osc2"}` (`scope`, the oscilloscope the file is for, is optional: without it the file is for every oscilloscope): every file is a different acquisition (a long view of the signal, a rising edge, a
 falling edge...). A measurement that acquires waveforms runs the files that are enabled **one after another, in this order**; the
 remote control, when several are enabled, opens a menu under the button to choose which one to apply. Any file can be switched off
 (not only the last ones) and moved up or down from the file list of the project (right click); a new file starts enabled. A switched

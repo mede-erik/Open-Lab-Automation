@@ -556,7 +556,11 @@ class MainWindow(QMainWindow):
         return {
             "dir": self.current_project_dir,
             "inst_file": self.current_project_data.get('inst_file'),
-            "scope_settings": session.project.active_scope_files(),
+            # the files that are on, in order, each with the oscilloscope it is for ('' = every one)
+            "scope_settings": [
+                {"file": f, "scope": session.project.scope_target(f)}
+                for f in session.project.active_scope_files()
+            ],
         }
 
     def refresh_project_files(self):
@@ -586,6 +590,10 @@ class MainWindow(QMainWindow):
                 font.setItalic(True)
                 item.setFont(font)
                 item.setToolTip(self.translator.t('scope_file_disabled'))
+            target = project.scope_target(f) if project is not None else ''
+            if target:  # a file for one oscilloscope: the tooltip says which
+                tip = self.translator.t('scope_file_for').format(scope=target)
+                item.setToolTip((item.toolTip() + ' ' if item.toolTip() else '') + tip)
             self.project_files_list.addItem(item)
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
@@ -996,12 +1004,13 @@ class MainWindow(QMainWindow):
         copy_action = menu.addAction(self.translator.t('copy_file_name'))
         # paste_action = menu.addAction(self.translator.t('paste_file'))  # Implementa se serve
         scope = self._scope_entry(item.text())
-        toggle_action = up_action = down_action = None
-        if scope is not None:  # the settings of the oscilloscopes: on or off, and their order
+        toggle_action = up_action = down_action = target_action = None
+        if scope is not None:  # the settings of the oscilloscopes: on or off, their order, their scope
             toggle_action = menu.addAction(
                 self.translator.t('scope_file_disable' if scope['enabled'] else 'scope_file_enable'))
             up_action = menu.addAction(self.translator.t('scope_file_up'))
             down_action = menu.addAction(self.translator.t('scope_file_down'))
+            target_action = menu.addAction(self.translator.t('scope_file_target'))
         delete_action = menu.addAction(self.translator.t('delete_file'))
         action = menu.exec(self.project_files_list.mapToGlobal(pos))
         if action is None:
@@ -1011,9 +1020,33 @@ class MainWindow(QMainWindow):
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
+        elif action == target_action:
+            self.choose_scope_target(item.text())
         elif action in (toggle_action, up_action, down_action):
             self.change_scope_file(item.text(), 'toggle' if action == toggle_action
                                    else ('up' if action == up_action else 'down'))
+
+    def choose_scope_target(self, file_name):
+        """Ask which oscilloscope a scope settings file is for (or every one)."""
+        session = self.project_tab.session
+        if session is None or self._scope_entry(file_name) is None:
+            return
+        everyone = self.translator.t('scope_target_all')
+        choices = [everyone] + list(session.instruments)
+        current = session.project.scope_target(file_name)
+        index = choices.index(current) if current in choices else 0
+        choice, ok = QInputDialog.getItem(
+            self, self.translator.t('scope_file_target'), file_name, choices, index, False)
+        if ok:
+            self.set_scope_target(file_name, '' if choice == everyone else choice)
+
+    def set_scope_target(self, file_name, scope):
+        """The oscilloscope a scope settings file is for (``''``: every oscilloscope)."""
+        if self._scope_entry(file_name) is None:
+            return
+        self.project_tab.session.project.set_scope_target(file_name, scope)
+        self.save_project_json()
+        self.refresh_project_files()
 
     def _scope_entry(self, file_name):
         """The entry of a scope settings file of the open project, or None."""

@@ -242,16 +242,21 @@ class RemoteControlTab(QWidget):
         if project is None:
             self._scope_note("error", "rc_scope_no_project")
             return
-        active = project.get("scope_settings") or []  # the scope settings files that are on
-        if isinstance(active, str):
-            active = [active]
-        if not active:
+        # the scope settings files that are on: names, or {"file", "scope"} (the oscilloscope the
+        # file is for; none: every oscilloscope)
+        entries = project.get("scope_settings") or []
+        if isinstance(entries, str):
+            entries = [entries]
+        entries = [e if isinstance(e, dict) else {"file": e} for e in entries]
+        if not entries:
             self._scope_note("error", "rc_scope_no_was")
             return
         # one file: apply it. Several (a long view, a rising edge...): the user chooses which one
-        was_file = active[0] if len(active) == 1 else self._choose_scope_file(active)
+        names = [e["file"] for e in entries]
+        was_file = names[0] if len(names) == 1 else self._choose_scope_file(names)
         if was_file is None:
             return  # the menu was closed: nothing is applied
+        only = next((e.get("scope") for e in entries if e["file"] == was_file), None) or None
         was_path = os.path.join(project["dir"], was_file)
         if not os.path.exists(was_path):
             self._scope_note("error", "rc_scope_was_missing", file=was_file)
@@ -262,11 +267,14 @@ class RemoteControlTab(QWidget):
         except (OSError, ValueError) as e:
             self._scope_note("error", "rc_scope_was_unreadable", file=was_file, error=e)
             return
-        self._apply_oscilloscope_settings(was_data, was_file)
+        self._apply_oscilloscope_settings(was_data, was_file, only)
 
-    def _apply_oscilloscope_settings(self, was_data, was_file=""):
-        """Apply the settings to every oscilloscope of the instrument file."""
+    def _apply_oscilloscope_settings(self, was_data, was_file="", only=None):
+        """Apply the settings to every oscilloscope of the instrument file, or only to the one
+        called ``only`` (a file that names its oscilloscope)."""
         oscilloscopes = self._get_project_oscilloscopes()
+        if only:
+            oscilloscopes = [o for o in oscilloscopes if o.get('instance_name') == only]
         if not oscilloscopes:
             self._scope_note("error", "rc_scope_none")
             return

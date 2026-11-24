@@ -44,10 +44,10 @@ drawing, or the relays of a multiplexer are closed), the measurement waits ``set
 outputs are switched on again. Every reading of the output voltage is used to check the power in
 the resistors: if one is above its rating the measurement stops. The relays are opened at the end.
 
-Waveforms (``scope_capture``, ``ola/scope_capture.py``): at every step, or every *N* steps, after
-the readings of the step, the oscilloscope bound to the role ``scope`` takes one capture for each
-scope settings file of the project that is on, in order; they are binary files next to the run
-file.
+Waveforms (``scope_capture``, ``ola/scope_capture.py``): at every step, every *N* steps, or when a
+quantity of the step goes beyond a limit, after the readings of the step, the oscilloscopes bound
+to the role ``scope`` take one capture for each scope settings file of the project that is on, in
+order; they are binary files next to the run file.
 
 A load that is only the output left open (``{"open": true}``) is a point like any other: nothing is
 connected for it (the operator is asked to disconnect, or the relays only open) and its resistance
@@ -214,8 +214,11 @@ class Efficiency(Measurement):
                 row["verify_skipped"] = ",".join(sorted(skipped))
             ctx.emit_point(row, points)
             rows.append(row)
-            if self._capture is not None and points == "points" and self._capture.due(index):
-                self._capture.capture(ctx, index, targets)  # the waveforms of this step
+            if self._capture is not None and points == "points":
+                env = {**row, **self.derived(row)} if self._capture.when else row
+                why = self._capture.due(index, env)
+                if why:  # every N steps, or a quantity of the step beyond a limit
+                    self._capture.capture(ctx, index, targets, why)
             ctx.progress(index + 1, total, f"{label}point {index + 1} of {total}")
         return rows
 

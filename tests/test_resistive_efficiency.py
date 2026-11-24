@@ -107,7 +107,7 @@ def test_the_module_is_the_efficiency_with_its_own_extension(registry):
     assert info.extension == ".rfe"
     assert [(r.name, r.multiple, r.required) for r in info.roles] == [
         ("instruments", True, True),
-        ("scope", False, False),  # the oscilloscope of the waveforms: optional
+        ("scope", True, False),  # the oscilloscopes of the waveforms: optional
     ]
     assert registry.create("resistive_efficiency", BASE).validate() == []
 

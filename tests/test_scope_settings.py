@@ -222,3 +222,40 @@ def test_the_was_editor_has_a_reset_box_that_writes_only_what_is_not_the_default
     assert "reset" not in again.data  # the default is not written: the file is as an old one
     again.close()
     dialog.close()
+
+
+# ---- a file for one oscilloscope (#113) ----------------------------------------------------------
+def test_a_file_can_name_the_oscilloscope_it_is_for(tmp_path):
+    project = Project.new("Lab", tmp_path)
+    project.add_scope_file("long.was")  # for every oscilloscope
+    project.add_scope_file("rise.was", "osc2")
+    project.add_scope_file("fall.was", " osc1 ")
+    assert project.scope_target("long.was") == "" and project.scope_target("rise.was") == "osc2"
+    assert project.scope_target("fall.was") == "osc1"  # the name is trimmed
+    assert project.active_scope_files() == ["long.was", "rise.was", "fall.was"]
+    assert project.active_scope_files("osc1") == ["long.was", "fall.was"]
+    assert project.active_scope_files("osc2") == ["long.was", "rise.was"]
+    project.set_scope_enabled("long.was", False)
+    assert project.active_scope_files("osc1") == ["fall.was"]  # off: for nobody
+    project.set_scope_target("rise.was", "")
+    assert project.active_scope_files("osc1") == ["rise.was", "fall.was"]  # now for every one
+    with pytest.raises(MeasurementError):
+        project.set_scope_target("x.was", "osc1")
+    project.save()
+    data = saved(project)["scope_settings"]
+    assert data[0] == {"file": "long.was", "enabled": False}  # no key for "every oscilloscope"
+    assert data[2] == {"file": "fall.was", "enabled": True, "scope": "osc1"}
+    assert Project.load(project.path).scope_settings == project.scope_settings
+
+
+def test_the_oscilloscope_of_a_file_survives_the_early_formats(tmp_path):
+    base = {"format_version": 2, "project_id": "x", "project_name": "P", "measurements": []}
+    raw = {
+        **base,
+        "scope_settings": [{"file": "a.was", "scope": "osc2"}, {"file": "b.was", "scope": " "}],
+    }
+    project = Project.load(write(tmp_path / "p.json", raw))
+    assert project.scope_settings == [
+        {"file": "a.was", "enabled": True, "scope": "osc2"},
+        {"file": "b.was", "enabled": True},  # an empty name is none
+    ]

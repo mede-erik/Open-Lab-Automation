@@ -732,5 +732,8 @@
   "scope_file_disable": "Switch off (keep in the project)",
   "scope_file_enable": "Switch on",
   "scope_file_up": "Move up (earlier acquisition)",
-  "scope_file_down": "Move down (later acquisition)"
+  "scope_file_down": "Move down (later acquisition)",
+  "scope_file_target": "Oscilloscope this file is for...",
+  "scope_target_all": "(every oscilloscope)",
+  "scope_file_for": "For the oscilloscope {scope}."
 }

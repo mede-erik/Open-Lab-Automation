@@ -732,5 +732,8 @@
   "scope_file_disable": "Desactivar (mantener en el proyecto)",
   "scope_file_enable": "Activar",
   "scope_file_up": "Subir (adquisición antes)",
-  "scope_file_down": "Bajar (adquisición después)"
+  "scope_file_down": "Bajar (adquisición después)",
+  "scope_file_target": "Osciloscopio al que se aplica este archivo...",
+  "scope_target_all": "(cada osciloscopio)",
+  "scope_file_for": "Para el osciloscopio {scope}."
 }

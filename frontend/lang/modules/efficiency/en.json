@@ -192,8 +192,14 @@
   "eff_plan_vin_param": "Parameter that is the input voltage",
   "eff_plan_learn_points": "Points of the quick sweep (0 A included)",
   "eff_waves": "Waveforms",
-  "eff_waves_help": "An oscilloscope can take waveforms during the measurement: at every step, or every N steps, after the readings. It is set by the scope settings files of the project that are on (one capture for each, in the order of the list) and every capture is a binary file in a folder next to the results. Leave it empty for none.",
-  "eff_waves_instrument": "Oscilloscope",
+  "eff_waves_help": "Oscilloscopes can take waveforms during the measurement: at every step, every N steps, or when a quantity of the step goes beyond a limit, after the readings. They are set by the scope settings files of the project that are on (one capture for each, in the order of the list; a file that names an oscilloscope is for that one) and every capture is a binary file in a folder next to the results. Leave it empty for none.",
   "eff_waves_every": "Every N steps",
-  "eff_waves_summary": "{taken} of {steps} steps are captured. About {mb} MB for each acquisition and channel at 1 million points."
+  "eff_waves_summary": "{taken} of {steps} steps are captured. About {mb} MB for each acquisition and channel at 1 million points.",
+  "eff_waves_instruments": "Oscilloscopes (names, comma separated)",
+  "eff_waves_when": "Also when",
+  "eff_waves_quantity": "Quantity",
+  "eff_waves_below": "Below",
+  "eff_waves_above": "Above",
+  "eff_waves_max": "At most N steps captured",
+  "eff_waves_summary_when": "The steps where a condition holds are captured too (up to the maximum)."
 }

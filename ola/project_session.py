@@ -358,10 +358,10 @@ class ProjectSession:
                 f"says '{ref.type}'"
             )
         cancel = threading.Event()  # shared by the runner (Stop) and the instrument handles
-        scope = (measurement_file.params.get("scope_capture") or {}).get("instrument")
-        if scope and not measurement_file.role_bindings.get("scope"):
-            # a file written by hand: the oscilloscope of the waveforms is the one it names
-            measurement_file.role_bindings = {**measurement_file.role_bindings, "scope": [scope]}
+        scopes = (measurement_file.params.get("scope_capture") or {}).get("instruments")
+        if scopes and not measurement_file.role_bindings.get("scope"):
+            # a file written by hand: the oscilloscopes of the waveforms are the ones it names
+            measurement_file.role_bindings = {**measurement_file.role_bindings, "scope": scopes}
         handles = self.bind(measurement_file, row.info, cancel)
         params = self.resolve_scope_settings(measurement_file.params)
         measurement = self.registry.create(
@@ -401,7 +401,7 @@ class ProjectSession:
         ``MeasurementError`` if there is none, or one is missing, unreadable or wrong, so that the
         run does not start. Parameters that do not ask for waveforms are returned as they are."""
         capture = params.get("scope_capture")
-        if not isinstance(capture, dict) or not capture.get("every"):
+        if not isinstance(capture, dict) or not (capture.get("every") or capture.get("when")):
             return dict(params)
         acquisitions = []
         for name in self.project.active_scope_files():
@@ -415,7 +415,11 @@ class ProjectSession:
             problems = check_was(settings)
             if problems:
                 raise MeasurementError(f"{name}: {problems[0]}")
-            acquisitions.append({"name": path.stem, "file": name, "settings": settings})
+            acquisition = {"name": path.stem, "file": name, "settings": settings}
+            target = self.project.scope_target(name)
+            if target:  # the file is for one oscilloscope only
+                acquisition["scope"] = target
+            acquisitions.append(acquisition)
         if not acquisitions:
             raise MeasurementError(
                 "waveforms are asked for, but the project has no scope settings file that is on "
@@ -434,7 +438,7 @@ class ProjectSession:
         except Exception:  # the file cannot be read: the run will say so
             return None
         capture = params.get("scope_capture")
-        if not isinstance(capture, dict) or not capture.get("every"):
+        if not isinstance(capture, dict) or not (capture.get("every") or capture.get("when")):
             return None
         try:
             load = ref.type == "resistive_efficiency"
@@ -444,10 +448,12 @@ class ProjectSession:
             return None
         found = scope_estimate(
             steps,
-            int(capture["every"]),
+            capture.get("every"),
             resolved["scope_capture"]["acquisitions"],
             capture.get("channels"),
             int(capture.get("points") or DEFAULT_POINTS),
+            capture.get("instruments") or [""],
+            capture.get("max"),
         )
         return {"steps": steps, **found}
 

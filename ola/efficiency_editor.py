@@ -186,9 +186,9 @@ class EfficiencyEditor:
     def to_measurement_file(self) -> MeasurementFile:
         """The measurement file to save: the params and the instruments they use as role binding."""
         bindings = {"instruments": self.used_instruments()}
-        scope = self.scope_instrument()
-        if scope:  # the oscilloscope of the waveforms has a role of its own
-            bindings["scope"] = [scope]
+        scopes = self.scope_instruments()
+        if scopes:  # the oscilloscopes of the waveforms have a role of their own
+            bindings["scope"] = scopes
         return MeasurementFile(
             type=self.type,
             module_version="1.0.0",
@@ -210,11 +210,11 @@ class EfficiencyEditor:
         except SpecError:
             return None
 
-    def scope_instrument(self) -> str:
-        """The oscilloscope that takes the waveforms (``scope_capture.instrument``), or ''."""
+    def scope_instruments(self) -> List[str]:
+        """The oscilloscopes that take the waveforms (``scope_capture.instruments``)."""
         capture = self.params.get("scope_capture")
-        name = capture.get("instrument") if isinstance(capture, dict) else ""
-        return name if isinstance(name, str) else ""
+        names = capture.get("instruments") if isinstance(capture, dict) else None
+        return [n for n in names if isinstance(n, str) and n] if isinstance(names, list) else []
 
     def used_instruments(self) -> List[str]:
         """The names of all the instruments referenced anywhere in the parameters, sorted (not the

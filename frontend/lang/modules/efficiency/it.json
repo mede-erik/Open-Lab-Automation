@@ -192,8 +192,14 @@
   "eff_plan_vin_param": "Parametro che è la tensione di ingresso",
   "eff_plan_learn_points": "Punti dello sweep veloce (0 A compreso)",
   "eff_waves": "Forme d'onda",
-  "eff_waves_help": "Un oscilloscopio può acquisire forme d'onda durante la misura: a ogni passo, o ogni N passi, dopo le letture. Viene impostato dai file di impostazioni dell'oscilloscopio del progetto che sono attivi (una acquisizione per ciascuno, nell'ordine dell'elenco) e ogni acquisizione è un file binario in una cartella accanto ai risultati. Lascia vuoto per non acquisire.",
-  "eff_waves_instrument": "Oscilloscopio",
+  "eff_waves_help": "Gli oscilloscopi possono acquisire forme d'onda durante la misura: a ogni passo, ogni N passi, o quando una grandezza del passo supera un limite, dopo le letture. Sono impostati dai file di impostazioni del progetto che sono attivi (una acquisizione per ciascuno, nell'ordine dell'elenco; un file che nomina un oscilloscopio è per quello) e ogni acquisizione è un file binario in una cartella accanto ai risultati. Lascia vuoto per non acquisire.",
   "eff_waves_every": "Ogni N passi",
-  "eff_waves_summary": "{taken} passi su {steps} vengono acquisiti. Circa {mb} MB per ogni acquisizione e canale a 1 milione di punti."
+  "eff_waves_summary": "{taken} passi su {steps} vengono acquisiti. Circa {mb} MB per ogni acquisizione e canale a 1 milione di punti.",
+  "eff_waves_instruments": "Oscilloscopi (nomi, separati da virgola)",
+  "eff_waves_when": "Anche quando",
+  "eff_waves_quantity": "Grandezza",
+  "eff_waves_below": "Sotto",
+  "eff_waves_above": "Sopra",
+  "eff_waves_max": "Al massimo N passi acquisiti",
+  "eff_waves_summary_when": "Vengono acquisiti anche i passi in cui una condizione è vera (fino al massimo)."
 }

@@ -9,7 +9,7 @@
   "roles": [
     {"name": "instruments", "category": "any", "multiple": true,
      "description": "Every instrument used: sources, loads, meters, data loggers"},
-    {"name": "scope", "category": "oscilloscope", "required": false,
+    {"name": "scope", "category": "oscilloscope", "required": false, "multiple": true,
      "description": "An oscilloscope that takes waveforms during the measurement (optional: the scope settings files of the project say how, see scope_capture)"}
   ],
   "params_schema": {
@@ -21,7 +21,7 @@
                "description": "settle_s after setting, then 'samples' readings 'interval_s' apart, averaged"},
     "derived": {"type": "object", "required": false, "description": "name -> formula"},
     "scope_capture": {"type": "object", "required": false,
-                      "description": "waveforms during the measurement: instrument (the oscilloscope, role scope), every (a capture every N steps, 1 = every step), and optionally channels, bits (8 or 16) and wait_s; the acquisitions are the scope settings files of the project that are on, one after another"},
+                      "description": "waveforms during the measurement: instruments (the oscilloscopes, role scope), every (a capture every N steps, 1 = every step) and/or when (conditions on a quantity of the step), and optionally max, channels, bits (8 or 16) and wait_s; the acquisitions are the scope settings files of the project that are on, one after another"},
     "startup": {"type": "list", "required": false},
     "shutdown": {"type": "list", "required": false}
   }

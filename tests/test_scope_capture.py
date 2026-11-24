@@ -46,15 +46,20 @@ def registry():
 def params(every=2, **extra):
     p = demo_params(samples=1, interval_s=0.0)
     p["scope_capture"] = {
-        "instrument": "osc1", "every": every, "wait_s": 0.0, "acquisitions": ACQUISITIONS, **extra
+        "instruments": ["osc1"], "wait_s": 0.0, "acquisitions": ACQUISITIONS, **extra
     }  # fmt: skip
+    if every is not None:
+        p["scope_capture"]["every"] = every
     return p
 
 
-def run(registry, p, tmp_path, scope=None, run_path=True):
+def run(registry, p, tmp_path, scope=None, run_path=True, scopes=None):
     scope = scope or SimScope(name="osc1", default_depth=2000)
     lab = DemoLab()
-    handles = {"instruments": [DemoHandle(n, lab) for n in INSTRUMENTS], "scope": [scope]}
+    handles = {
+        "instruments": [DemoHandle(n, lab) for n in INSTRUMENTS],
+        "scope": scopes or [scope],
+    }
     measurement = registry.create("efficiency", p)
     path = tmp_path / "runs" / "eff_run.jsonl"
     if run_path:
@@ -108,7 +113,7 @@ def test_the_parameters_of_the_waveforms_are_checked():
     del bad["scope_capture"]["every"]
     assert any("every how many steps" in p.message for p in validate_params(bad))
     bad = params()
-    bad["scope_capture"]["instrument"] = "nope"
+    bad["scope_capture"]["instruments"] = ["nope"]
     assert any("not in the project" in p.message for p in validate_params(bad, ["psu1", "osc1"]))
     off = params()
     off["scope_capture"] = {}
@@ -226,10 +231,11 @@ def test_asking_for_waveforms_without_what_they_need_stops_before_anything_is_to
     lab = DemoLab()
     handles = [DemoHandle(n, lab) for n in INSTRUMENTS]
     for bound, p, text in (
-        ([], params(), "one oscilloscope"),  # no oscilloscope
+        ([], params(), "needs its oscilloscope"),  # none bound
+        ([SimScope(name="x")], params(), "osc1 not bound"),  # another one bound
         (
             [SimScope(name="a")],
-            {**params(), "scope_capture": {"instrument": "a", "every": 2}},
+            {**params(), "scope_capture": {"instruments": ["a"], "every": 2}},
             "scope settings",
         ),
     ):
@@ -239,14 +245,8 @@ def test_asking_for_waveforms_without_what_they_need_stops_before_anything_is_to
         runner.start()
         runner.join(30)
         assert runner.state is RunState.FAILED and text in str(runner.error), (text, runner.error)
-    two = Runner(
-        registry.create("efficiency", params()),
-        {"instruments": handles, "scope": [SimScope(name="a"), SimScope(name="b")]},
-    )
-    with pytest.raises(MeasurementError, match="accepts one instrument"):  # the runner says it
-        two.start()
     measurement = registry.create("efficiency", params())  # no run file to put the waves next to
-    runner = Runner(measurement, {"instruments": handles, "scope": [SimScope(name="a")]})
+    runner = Runner(measurement, {"instruments": handles, "scope": [SimScope(name="osc1")]})
     runner.start()
     runner.join(30)
     assert runner.state is RunState.FAILED and "run file" in str(runner.error)
@@ -296,7 +296,7 @@ def make_session(tmp_path, scope_files=("long.was", "rise.was"), settings=None, 
     )
     ref = session.create("efficiency", "Eff")
     p = demo_params(samples=1, interval_s=0.0)
-    p["scope_capture"] = {"instrument": "osc1", "every": every, "wait_s": 0.0}
+    p["scope_capture"] = {"instruments": ["osc1"], "every": every, "wait_s": 0.0}
     MeasurementFile(
         type="efficiency", role_bindings={"instruments": INSTRUMENTS, "scope": ["osc1"]}, params=p
     ).save(session.path(ref))
@@ -400,16 +400,16 @@ def test_the_editor_asks_for_the_oscilloscope_and_how_often_and_says_what_it_cos
     editor.save(str(path))
     dialog = EfficiencyEditorDialog(str(path), None, INSTRUMENTS + ["osc1"])
     assert dialog.waves_summary.text() == ""
-    dialog.waves_instrument.setCurrentText("osc1")
+    dialog.waves_instruments.setText("osc1")
     dialog.waves_every.setText("2")
-    assert dialog.editor.params["scope_capture"] == {"instrument": "osc1", "every": 2}
+    assert dialog.editor.params["scope_capture"] == {"instruments": ["osc1"], "every": 2}
     assert dialog.waves_summary.text()  # "5 of 9 steps are captured..."
     assert "5" in dialog.waves_summary.text() and "9" in dialog.waves_summary.text()
     saved = dialog.editor.to_measurement_file()
     assert saved.role_bindings["scope"] == ["osc1"]  # its own role
     assert "osc1" not in saved.role_bindings["instruments"]
     dialog.waves_every.setText("")
-    dialog.waves_instrument.setCurrentText("")
+    dialog.waves_instruments.setText("")
     assert "scope_capture" not in dialog.editor.params  # emptied: no waveforms, no block
     dialog.dirty = False
     dialog.close()
@@ -428,7 +428,7 @@ def test_a_run_that_takes_gigabytes_asks_first(app, tmp_path, monkeypatch):
     )
     ref = window.session.project.measurements[0]
     content = window.session.load(ref)
-    content.params["scope_capture"] = {"instrument": "psu1", "every": 1, "points": 100_000_000}
+    content.params["scope_capture"] = {"instruments": ["psu1"], "every": 1, "points": 100_000_000}
     content.save(window.session.path(ref))
     (tmp_path / "a.was").write_text(json.dumps(LONG), encoding="utf-8")
     window.session.project.add_scope_file("a.was")
@@ -448,3 +448,162 @@ def test_a_run_that_takes_gigabytes_asks_first(app, tmp_path, monkeypatch):
     assert window._confirm_waves(ref) is True and len(asked) == 1
     window._timer.stop()
     window.close()
+
+
+# ---- several oscilloscopes (#113) ---------------------------------------------------------------
+def two_scopes(**extra):
+    """The long view on both oscilloscopes, the rising edge only on osc2."""
+    acquisitions = [
+        {"name": "long", "file": "long.was", "settings": LONG},
+        {"name": "rise", "file": "rise.was", "settings": RISE, "scope": "osc2"},
+    ]
+    p = params(every=4, **extra)
+    p["scope_capture"].update(instruments=["osc1", "osc2"], acquisitions=acquisitions)
+    return p
+
+
+def test_each_file_goes_to_the_oscilloscopes_it_is_for_in_order(registry, tmp_path):
+    osc1, osc2 = SimScope(name="osc1", default_depth=300), SimScope(name="osc2", default_depth=300)
+    runner, _s, tables, logs, path = run(registry, two_scopes(), tmp_path, scopes=[osc1, osc2])
+    assert runner.state is RunState.FINISHED
+    rows = tables["waves"]
+    assert [(r["step"], r["acquisition"], r["scope"]) for r in rows] == [
+        (s, a, o)
+        for s in (0, 4, 8)
+        for a, o in (("long", "osc1"), ("long", "osc2"), ("rise", "osc2"))
+    ]  # one file after the other; a file for every oscilloscope goes to each of them
+    assert len(list(wave_folder(path).iterdir())) == 9
+    assert all(r["points"] == 300 for r in rows)
+    # osc1 was only set by the long view, osc2 by both
+    assert [c[1]["value"] for c in osc1.calls if c[0] == "set_timebase_scale"] == [1e-3] * 3
+    assert [c[1]["value"] for c in osc2.calls if c[0] == "set_timebase_scale"] == [1e-3, 1e-6] * 3
+    assert not [m for lvl, m in logs if lvl in ("warning", "error")]
+
+
+def test_every_oscilloscope_is_armed_before_the_first_is_read(registry, tmp_path):
+    order = []
+
+    class Spy(SimScope):
+        def call(self, name, **args):
+            if name == "run_acquisition":
+                order.append((self.name, "arm"))
+            return super().call(name, **args)
+
+        def read_waveform_full(self, channel_number, bits=8, stop=True):
+            order.append((self.name, "read"))
+            return super().read_waveform_full(channel_number, bits, stop)
+
+    osc1, osc2 = Spy(name="osc1", default_depth=100), Spy(name="osc2", default_depth=100)
+    p = two_scopes()
+    p["scope_capture"]["every"] = 9  # only the first step
+    p["scope_capture"]["acquisitions"] = p["scope_capture"]["acquisitions"][:1]
+    run(registry, p, tmp_path, scopes=[osc1, osc2])
+    first = [o for o in order[:4]]
+    assert first[:2] == [("osc1", "arm"), ("osc2", "arm")]  # both armed, then read
+    assert [e for e in order if e[1] == "read"][0][0] == "osc1"
+
+
+def test_one_oscilloscope_failing_does_not_stop_the_other(registry, tmp_path):
+    class Down(SimScope):
+        def read_waveform_full(self, channel_number, bits=8, stop=True):
+            raise TimeoutError("osc2 does not answer")
+
+    osc1, osc2 = SimScope(name="osc1", default_depth=100), Down(name="osc2", default_depth=100)
+    runner, _s, tables, logs, _p = run(registry, two_scopes(), tmp_path, scopes=[osc1, osc2])
+    assert runner.state is RunState.FINISHED
+    assert {r["scope"] for r in tables["waves"]} == {"osc1"} and len(tables["waves"]) == 3
+    assert sum("osc2 does not answer" in m for lvl, m in logs if lvl == "warning") == 6
+
+
+def test_an_oscilloscope_without_a_file_for_it_stops_the_run_before_it_starts(registry, tmp_path):
+    only_osc2 = [{"name": "rise", "file": "rise.was", "settings": RISE, "scope": "osc2"}]
+    p = two_scopes()
+    p["scope_capture"]["acquisitions"] = only_osc2
+    runner, _s, _t, _l, _p = run(
+        registry, p, tmp_path, scopes=[SimScope(name="osc1"), SimScope(name="osc2")]
+    )
+    assert runner.state is RunState.FAILED and "osc1 has no scope settings file" in str(
+        runner.error
+    )
+
+
+def test_the_estimate_counts_every_oscilloscope(registry):
+    acquisitions = two_scopes()["scope_capture"]["acquisitions"]
+    found = estimate(9, 4, acquisitions, scopes=["osc1", "osc2"])
+    # 3 steps x (long on both: 2 x 2 channels + rise on osc2: 1 channel) = 3 x 5 waveforms
+    assert found["captures"] == 3 * 3 and found["waveforms"] == 3 * 5
+
+
+# ---- capture when a quantity crosses a limit (#114) ----------------------------------------------
+def test_a_condition_picks_the_steps_without_every(registry, tmp_path):
+    p = params(every=None, when=[{"name": "vin", "above": 14}])
+    runner, _s, tables, _l, _p = run(registry, p, tmp_path)
+    assert runner.state is RunState.FINISHED
+    steps = sorted({r["step"] for r in tables["waves"]})
+    vins = {row["vin"] for i, row in enumerate(tables["points"]) if i in steps}
+    assert vins == {15.0} and len(steps) == 3  # vin = 15 V: three steps of nine
+    assert {r["why"] for r in tables["waves"]} == {"vin = 15 above 14"}
+
+
+def test_every_and_a_condition_together_and_the_limit(registry, tmp_path):
+    p = params(every=4, when=[{"name": "vin", "above": 14}], max=2)
+    runner, _s, tables, _l, _p = run(registry, p, tmp_path)
+    assert runner.state is RunState.FINISHED
+    steps = sorted({r["step"] for r in tables["waves"]})
+    assert steps == [0, 2] or len(steps) == 2  # at most two steps are captured
+    assert len(steps) == 2 and tables["waves"][0]["why"] == "every 4"
+    big = params(every=None, when=[{"name": "vin", "above": 0}])  # always true: the limit stops it
+    big["scope_capture"]["max"] = 4
+    runner, _s, tables, _l, _p = run(registry, big, tmp_path)
+    assert len({r["step"] for r in tables["waves"]}) == 4
+
+
+def test_a_condition_on_a_reading_a_derived_value_and_below(registry, tmp_path):
+    for name, key, limit in (("efficiency", "below", 1000), ("vout@daq", "above", 0)):
+        p = params(every=None, when=[{"name": name, key: limit}], max=1)
+        runner, _s, tables, _l, _p = run(registry, p, tmp_path)
+        assert runner.state is RunState.FINISHED and len(tables["waves"]) == 2, name
+        assert key in tables["waves"][0]["why"] and name in tables["waves"][0]["why"]
+    # a condition that never holds takes nothing
+    p = params(every=None, when=[{"name": "vin", "below": 1}])
+    runner, _s, tables, _l, _p = run(registry, p, tmp_path)
+    assert runner.state is RunState.FINISHED and "waves" not in tables
+
+
+def test_the_conditions_are_checked_in_the_file():
+    ok = params(every=None, when=[{"name": "vin", "above": 14}])
+    assert [p for p in validate_params(ok) if p.severity == "error"] == []
+    for when, text in (
+        ([{"name": "nothing", "above": 1}], "unknown name"),
+        ([{"name": "vin"}], "'above' and/or 'below'"),
+        ([{"above": 1}], "quantity of the step"),
+        ([{"name": "vin", "above": "x"}], "number"),
+        ([{"name": "vin", "above": 1, "x": 2}], "unknown field"),
+        ([], "must be a list"),
+        ("vin > 3", "must be a list"),
+    ):
+        found = validate_params(params(every=None, when=when))
+        assert any(text in p.message for p in found), (when, found)
+    both_missing = params(every=None)
+    assert any("say when" in p.message for p in validate_params(both_missing))
+    assert any("at least 1" in p.message for p in validate_params(params(every=2, max=0)))
+
+
+def test_the_name_of_a_channel_goes_into_the_capture_to_find_a_shared_signal(registry, tmp_path):
+    from ola.wave_align import shared_signals
+
+    named = json.loads(json.dumps(LONG))
+    named["channels"][0]["name"] = "VGS_Q1"
+    named["channels"][1]["name"] = "only_here"
+    p = params(every=9)
+    p["scope_capture"]["instruments"] = ["osc1", "osc2"]
+    p["scope_capture"]["acquisitions"] = [{"name": "long", "file": "long.was", "settings": named}]
+    osc1, osc2 = SimScope(name="osc1", default_depth=200), SimScope(name="osc2", default_depth=200)
+    runner, _s, tables, _l, path = run(registry, p, tmp_path, scopes=[osc1, osc2])
+    assert runner.state is RunState.FINISHED and len(tables["waves"]) == 2
+    a = load_capture(wave_folder(path) / "s00000_long_osc1.npz")
+    b = load_capture(wave_folder(path) / "s00000_long_osc2.npz")
+    assert a.channels["CH1"]["signal"] == "VGS_Q1" and shared_signals(a, b) == [
+        "VGS_Q1",
+        "only_here",
+    ]

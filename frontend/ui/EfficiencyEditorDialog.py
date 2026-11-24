@@ -60,6 +60,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.efficiency_widgets import (
     text_color,
     CallEdit,
+    ConditionsTable,
     ValuesTable,
     format_number,
     format_number_list,
@@ -518,21 +519,33 @@ class EfficiencyEditorDialog(QDialog):
         return page
 
     def _build_waves_group(self) -> QGroupBox:
-        """The waveforms taken during the measurement: which oscilloscope, and every how many
-        steps (the settings are the scope settings files of the project that are on)."""
+        """The waveforms taken during the measurement: which oscilloscopes, and when (every N
+        steps, and/or when a quantity of the step goes beyond a limit). The settings are the scope
+        settings files of the project that are on."""
         group = QGroupBox(self._t("eff_waves"))
         form = QFormLayout(group)
         form.addRow(self._note("eff_waves_help"))
-        self.waves_instrument = QComboBox()
-        self.waves_instrument.setEditable(True)
-        self.waves_instrument.addItem("")
-        self.waves_instrument.addItems(self.instruments)
-        field = _Field(self.waves_instrument, "scope_capture.instrument", "combo", False)
-        self._fields.append(field)
-        self.waves_instrument.currentTextChanged.connect(lambda _t, f=field: self._field_changed(f))
-        form.addRow(self._t("eff_waves_instrument"), self.waves_instrument)
+        self.waves_instruments = self._line(
+            "scope_capture.instruments", "namelist", scoped=False, tip="osc1, osc2"
+        )
+        form.addRow(self._t("eff_waves_instruments"), self.waves_instruments)
         self.waves_every = self._line("scope_capture.every", "int", scoped=False, tip="1, 2, 5...")
         form.addRow(self._t("eff_waves_every"), self.waves_every)
+        self.waves_when = ConditionsTable(
+            {
+                "name": self._t("eff_waves_quantity"),
+                "below": self._t("eff_waves_below"),
+                "above": self._t("eff_waves_above"),
+                "add": self._t("eff_args_add"),
+                "remove": self._t("eff_args_remove"),
+            }
+        )
+        field = _Field(self.waves_when, "scope_capture.when", "conditions", False)
+        self._fields.append(field)
+        self.waves_when.changed.connect(lambda f=field: self._field_changed(f))
+        form.addRow(self._t("eff_waves_when"), self.waves_when)
+        self.waves_max = self._line("scope_capture.max", "int", scoped=False, tip="20")
+        form.addRow(self._t("eff_waves_max"), self.waves_max)
         self.waves_summary = QLabel()
         self.waves_summary.setWordWrap(True)
         form.addRow(self.waves_summary)
@@ -552,6 +565,10 @@ class EfficiencyEditorDialog(QDialog):
         self.waves_summary.setText(
             self._t("eff_waves_summary", taken=taken, steps=steps, mb=f"{megabytes:,.0f}")
         )
+        if capture.get("when"):  # a condition adds the steps where it holds
+            self.waves_summary.setText(
+                self.waves_summary.text() + " " + self._t("eff_waves_summary_when")
+            )
 
     # ---- formulas tab -----------------------------------------------------------------------
     def _build_formulas_tab(self) -> QWidget:
@@ -647,6 +664,10 @@ class EfficiencyEditorDialog(QDialog):
             widget.setText(format_number(value) if value is not None else "")
         elif field.kind == "numlist":
             widget.setText(format_number_list(value) if isinstance(value, list) else "")
+        elif field.kind == "namelist":
+            widget.setText(", ".join(str(v) for v in value) if isinstance(value, list) else "")
+        elif field.kind == "conditions":
+            widget.set_value(value if isinstance(value, list) else None)
         elif field.kind == "choice":
             position = widget.findData(value)
             widget.setCurrentIndex(position if position >= 0 else 0)
@@ -665,6 +686,12 @@ class EfficiencyEditorDialog(QDialog):
             return True, widget.currentText().strip() or None
         if field.kind in ("number", "int"):
             return parse_number(widget.text(), integer=field.kind == "int")
+        if field.kind == "namelist":
+            names = [n.strip() for n in widget.text().split(",") if n.strip()]
+            return True, names or None
+        if field.kind == "conditions":
+            conditions = widget.value()
+            return (False, None) if widget.invalid else (True, conditions or None)
         if field.kind == "numlist":
             values = parse_number_list(widget.text())
             return (False, None) if values is None else (True, values or None)

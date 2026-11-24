@@ -13,11 +13,13 @@
 
 ``inst_file`` and ``scope_settings`` are **project definition files**, not measurements: the
 instruments, and the settings of the oscilloscopes. ``scope_settings`` is an ordered list of
-``.was`` files, each ``{"file": "rise.was", "enabled": true}``: every one is a different
-acquisition (a long view of the signal, a rising edge, a falling edge...). A measurement that
-acquires waveforms runs the files that are **enabled one after another, in this order**; the remote
-control lets the user choose which one to apply. Any file can be switched off; it stays in the
-folder and in the list, never deleted or renamed. An empty list is valid.
+``.was`` files, each ``{"file": "rise.was", "enabled": true, "scope": "osc1"}``: every one is a
+different acquisition (a long view of the signal, a rising edge, a falling edge...). ``scope`` is
+the oscilloscope the file applies to (the name in the ``.inst`` file); without it the file applies
+to every oscilloscope, which is what one oscilloscope needs. A measurement that acquires waveforms
+runs the files that are **enabled one after another, in this order**, on each oscilloscope they
+apply to; the remote control lets the user choose which one to apply. Any file can be switched off;
+it stays in the folder and in the list, never deleted or renamed. An empty list is valid.
 
 Each measurement lives in its own file whose extension identifies the measurement type
 (``.eff``, ``.tlg``...), so files can be recognised, copied and deleted one by one::
@@ -266,24 +268,56 @@ class Project:
         for item in listed:
             name = item.get("file") if isinstance(item, Mapping) else item
             enabled = item.get("enabled", True) is not False if isinstance(item, Mapping) else True
+            target = item.get("scope") if isinstance(item, Mapping) else None
             if isinstance(name, str) and name and name not in [e["file"] for e in found]:
-                found.append({"file": name, "enabled": enabled})
+                entry: Dict[str, Any] = {"file": name, "enabled": enabled}
+                if isinstance(target, str) and target.strip():
+                    entry["scope"] = target.strip()
+                found.append(entry)
         self.scope_settings = found
 
     def scope_file_names(self) -> List[str]:
         """Every scope settings file of the project, in order (the order of the acquisitions)."""
         return [entry["file"] for entry in self.scope_settings]
 
-    def active_scope_files(self) -> List[str]:
+    def active_scope_files(self, scope: Optional[str] = None) -> List[str]:
         """The scope settings files that are on, in order: a measurement that acquires waveforms
-        runs them one after another, in this order."""
-        return [entry["file"] for entry in self.scope_settings if entry["enabled"]]
+        runs them one after another, in this order. With ``scope`` (the name of an oscilloscope)
+        only the ones that apply to it: those that name it and those that name none."""
+        return [
+            entry["file"]
+            for entry in self.scope_settings
+            if entry["enabled"] and (scope is None or entry.get("scope", scope) == scope)
+        ]
 
-    def add_scope_file(self, name: str) -> None:
-        """Put a ``.was`` file of the project folder in the project, at the end, active."""
+    def scope_target(self, name: str) -> str:
+        """The oscilloscope a scope settings file applies to, or '' for every oscilloscope."""
+        for entry in self.scope_settings:
+            if entry["file"] == name:
+                return entry.get("scope", "")
+        return ""
+
+    def set_scope_target(self, name: str, scope: str = "") -> None:
+        """Say which oscilloscope a file applies to (``''``: every oscilloscope).
+        ``MeasurementError`` if the file is not in the project."""
+        for entry in self.scope_settings:
+            if entry["file"] == name:
+                if scope.strip():
+                    entry["scope"] = scope.strip()
+                else:
+                    entry.pop("scope", None)
+                return
+        raise MeasurementError(f"{name!r} is not a scope settings file of the project")
+
+    def add_scope_file(self, name: str, scope: str = "") -> None:
+        """Put a ``.was`` file of the project folder in the project, at the end, active (for the
+        oscilloscope ``scope``, or for every one)."""
         check_plain_filename(name)
         if name not in self.scope_file_names():
-            self.scope_settings.append({"file": name, "enabled": True})
+            entry: Dict[str, Any] = {"file": name, "enabled": True}
+            if scope.strip():
+                entry["scope"] = scope.strip()
+            self.scope_settings.append(entry)
 
     def remove_scope_file(self, name: str) -> None:
         """Take a file out of the project (the file itself is not touched)."""

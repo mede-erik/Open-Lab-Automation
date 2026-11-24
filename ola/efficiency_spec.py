@@ -75,7 +75,14 @@ from .sweep import SweepError, axis_values, total_points
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TOP_KEYS = (
-    "variables", "timing", "derived", "startup", "shutdown", "power_order", "golden", "device",
+    "variables",
+    "timing",
+    "derived",
+    "startup",
+    "shutdown",
+    "power_order",
+    "golden",
+    "device",
     "scope_capture",
 )
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
@@ -567,8 +574,10 @@ class _Checker:
             self.error(f"{path}.kit", "learning needs the kit of resistors the loads come from")
         low = self.number(plan, "i_min", path, None, 0.0)
         high = self.number(plan, "i_max", path, None, 0.0)
-        if "i_min" not in plan or "i_max" not in plan or (
-            low is not None and high is not None and high <= low
+        if (
+            "i_min" not in plan
+            or "i_max" not in plan
+            or (low is not None and high is not None and high <= low)
         ):
             self.error(path, "give the smallest and the largest current (the largest above)")
         self.number(plan, "points", path, None, 2, True)
@@ -992,25 +1001,47 @@ def _check_vout(c: "_Checker", variables: Mapping[str, Variable]) -> None:
             c.error(where, f"'{label}' has more readings: write which, like '{label}@daq'")
 
 
-SCOPE_CAPTURE_KEYS = ("instrument", "every", "channels", "bits", "wait_s", "points", "acquisitions")
+SCOPE_CAPTURE_KEYS = (
+    "instruments", "every", "when", "max", "channels", "bits", "wait_s", "points", "acquisitions",
+)  # fmt: skip
 
 
-def _check_scope_capture(c: "_Checker", raw: Any) -> None:
-    """The waveforms taken during the measurement (``ola.scope_capture``): the oscilloscope and
-    *how often*. The files of scope settings come from the project, which writes them in
-    ``acquisitions`` when the run starts. Missing or ``{}``: no waveforms."""
+def _check_scope_capture(
+    c: "_Checker", raw: Any, variables: Mapping[str, Variable], formulas: Mapping[str, Formula]
+) -> None:
+    """The waveforms taken during the measurement (``ola.scope_capture``): the oscilloscopes, and
+    *when* (``every`` N steps and/or ``when`` a quantity of the step goes beyond a value). The files
+    of scope settings come from the project, which writes them in ``acquisitions`` when the run
+    starts. Missing or ``{}``: no waveforms."""
     if raw is None or raw == {}:
         return
     path = "scope_capture"
     if not isinstance(raw, dict):
-        c.error(path, 'must be an object like {"instrument": "osc1", "every": 2}')
+        c.error(path, 'must be an object like {"instruments": ["osc1"], "every": 2}')
         return
     c.unknown_keys(raw, SCOPE_CAPTURE_KEYS, path)
-    c.instrument(raw, path)
-    if "every" not in raw:
-        c.error(f"{path}.every", "say every how many steps (1 = every step)")
+    names = raw.get("instruments")
+    if not isinstance(names, list) or not names or not all(isinstance(n, str) and n for n in names):
+        c.error(f"{path}.instruments", 'give the oscilloscopes, like ["osc1"]')
     else:
+        if len(set(names)) != len(names):
+            c.error(f"{path}.instruments", "an oscilloscope is named twice")
+        for i, name in enumerate(names):
+            if c.bound is not None and name not in c.bound:
+                known = ", ".join(c.bound) or "none"
+                c.error(
+                    f"{path}.instruments[{i}]",
+                    f"instrument '{name}' is not in the project{c.hint(name, c.bound)}; "
+                    f"available: {known}",
+                )
+    if "every" not in raw and "when" not in raw:
+        c.error(path, "say when: 'every' (every how many steps, 1 = every step) and/or 'when'")
+    if "every" in raw:
         c.number(raw, "every", path, None, 1, True)
+    if "max" in raw:
+        c.number(raw, "max", path, None, 1, True)
+    if "when" in raw:
+        _check_when(c, raw["when"], variables, formulas, f"{path}.when")
     channels = raw.get("channels")
     if channels is not None and (
         not isinstance(channels, list)
@@ -1028,6 +1059,40 @@ def _check_scope_capture(c: "_Checker", raw: Any) -> None:
         and all(isinstance(a, dict) and a.get("name") and "settings" in a for a in acquisitions)
     ):
         c.error(f"{path}.acquisitions", "must be a list of {name, file, settings}")
+
+
+def _check_when(
+    c: "_Checker", raw: Any, variables: Mapping[str, Variable], formulas: Mapping[str, Formula],
+    path: str,
+) -> None:  # fmt: skip
+    """The conditions that make the waveforms be taken at a step: ``[{"name": "efficiency",
+    "below": 85}]``, a quantity of the step (a parameter, a reading ``vout@daq``, a ``derived``
+    one) and a limit; any condition that holds is enough."""
+    if not isinstance(raw, list) or not raw:
+        c.error(path, 'must be a list like [{"name": "efficiency", "below": 85}]')
+        return
+    usable = [v for v, var in variables.items() if var.set is not None or var.load]
+    usable += sorted(load_names(variables)) + list(formulas)
+    for i, item in enumerate(raw):
+        where = f"{path}[{i}]"
+        if not isinstance(item, dict):
+            c.error(where, 'must be an object like {"name": "efficiency", "below": 85}')
+            continue
+        c.unknown_keys(item, ("name", "above", "below"), where)
+        name = item.get("name")
+        if not isinstance(name, str) or not name:
+            c.error(
+                f"{where}.name", "the quantity of the step is missing (vin, vout@daq, efficiency)"
+            )
+        else:
+            message = c.name_problem(name, variables, formulas, usable)
+            if message:
+                c.error(f"{where}.name", message)
+        if "above" not in item and "below" not in item:
+            c.error(where, "give 'above' and/or 'below'")
+        for key in ("above", "below"):
+            if key in item:
+                c.number(item, key, where)
 
 
 def _check_device(c: "_Checker", device: Any) -> None:
@@ -1098,7 +1163,7 @@ def _analyse(
             c.error(
                 f"shutdown[{i}]", f"this switches off the output of '{owner}', which is always on"
             )
-    _check_scope_capture(c, params.get("scope_capture"))
+    _check_scope_capture(c, params.get("scope_capture"), variables, derived)
     c.cooldown_warnings(variables, axes, timing)
     power_order = c.power_order(params.get("power_order"), variables)
     if not any(p.severity == "error" for p in c.problems):

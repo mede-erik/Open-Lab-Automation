@@ -53,7 +53,17 @@ longer there, and `delete_waves(run_path)` deletes the folder.
 `estimate_bytes(points, channels, captures)` is `points x channels x captures x 4`: one million points, two channels, 30 captures
 (5 steps, 3 acquisitions, 2 oscilloscopes) are 240 MB. It is meant to be shown **before** a run starts.
 
+## Aligning two oscilloscopes
+
+Two oscilloscopes only share a time origin if they share a trigger. If both measure the **same signal**, a channel with the same
+name on the two (`VGS_Q1` on oscilloscope 1 and on oscilloscope 2; the name is kept in `channels` of `meta` as `signal`) is the
+synchroniser: `ola.wave_align.align(a, b)` takes the cross-correlation of that signal (on the finer of the two sample intervals,
+refined to a fraction of a sample) and gives `shift_s`, what is **added to the time of the second capture** to put it on the time
+axis of the first, with the `quality` of the match (1 = identical) and the `resolution_s`. A poor match (below 0.5) is refused with a
+message, not guessed. `align_run(run_file)` does it for every step and acquisition of a run that has two or more oscilloscopes with
+a signal in common and writes `alignment.json` in the folder (the waveform files are not changed); a pair it cannot align is listed
+with the reason. `export_aligned_csv(file_a, file_b, shift_s, csv)` writes both captures on the time axis of the first.
+
 ## Not done yet
 
-* Several oscilloscopes in one measurement and the alignment between them: issues #113 and #115.
 * Drawing the waveforms in the Curves tab (the run window lists them in the table `waves`).

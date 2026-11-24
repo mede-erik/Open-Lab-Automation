@@ -732,5 +732,8 @@
   "scope_file_disable": "Disattiva (tieni nel progetto)",
   "scope_file_enable": "Attiva",
   "scope_file_up": "Sposta su (acquisizione prima)",
-  "scope_file_down": "Sposta giù (acquisizione dopo)"
+  "scope_file_down": "Sposta giù (acquisizione dopo)",
+  "scope_file_target": "Oscilloscopio a cui si applica questo file...",
+  "scope_target_all": "(ogni oscilloscopio)",
+  "scope_file_for": "Per l'oscilloscopio {scope}."
 }
