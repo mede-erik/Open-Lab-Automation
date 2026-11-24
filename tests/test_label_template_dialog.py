@@ -71,7 +71,7 @@ def test_a_template_is_a_format_of_the_label_window(qtbot, tmp_path):
     assert not any("Owner" in t for t in shown)  # the card has no owner: the line is not printed
     window.qr_box.setChecked(False)  # the QR can still be switched off
     assert window.current() is not None
-    window.format_box.setCurrentIndex(0)  # back to a built-in format
+    window.format_box.setCurrentIndex(window.format_box.findData("single:50x25"))  # a built-in one
     assert all(box.isEnabled() for box in window.field_boxes.values())
 
 

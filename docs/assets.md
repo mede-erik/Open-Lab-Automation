@@ -69,6 +69,30 @@ program does not drive printers itself.
 The QR code needs the `segno` package (`pip install segno`, in `requirements.txt`); without it the window says so and
 a label without the QR code still works.
 
+## The label of each kind (Label design...)
+
+You print on one label size (a roll, a sheet of one format), so the size is set **once** for every kind and each kind has its
+own design. **Label design...** in the label window opens the tool; the first format of the label window, **By type**, draws each
+card with the design of its kind at that size (QR and border can be switched off for one printing).
+
+* **Size**: width, height, single label or flag, margin, QR code, border. The same for every kind.
+* **Kinds**: cable, attenuator, amplifier, adapter and the devices under test (antenna, filter, converter, generic). Each has a
+  **ready-made design** that works as it is: cable `{id}`, `{name}`, `{connectors}  {length}`, `{last_measurement}`; attenuator,
+  amplifier `{id}`, `{name}`, `{specs}`, `{connectors}`, `{last_measurement}`; adapter `{id}`, `{name}`, `{connectors}`,
+  `{last_measurement}`; the devices `{id}`, `{name}`, `{version}`, `{specs}`, `{last_measurement}`. A kind you do not touch keeps it.
+* **Automatic**: write the lines yourself (one per row, same rules as the templates below); the program stacks them and shrinks the
+  text to fit.
+* **Manual**: every text and the QR code is an **element with a position in mm** (x, y of its top left corner), the **width** the
+  text may take (it shrinks to fit, then is cut with an ellipsis and the window says so), the **letter height** (for the QR code, the
+  side of its square), bold and alignment (left, centre, right). Click an element in the preview and drag it, or type the numbers.
+  *Start from the automatic layout* turns the lines into elements exactly as they were drawn. A text outside the label, a QR code
+  whose modules would print below 0.3 mm and a text that was cut are listed under the preview. A flag is always automatic.
+* In every text you may use the places of the cards (see below) and the **attributes of each kind** with their unit:
+  `{nominal_db}` (`10 dB`), `{max_frequency}` (`6 GHz`), `{length_m}`, `{connectors}`, `{topology}`, `{input_voltage}` ... plus
+  `{kind}` and `{manufacturer}`. A text whose places are all empty is not printed.
+* The size and the designs you changed are in the same file as the templates; a kind you did not change is not in it.
+  *Back to the ready-made design* forgets your changes to a kind.
+
 ## Your own label templates
 
 **Templates...** in the label window opens the editor of your own formats, kept in one file shared by all projects

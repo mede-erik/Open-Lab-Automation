@@ -17,7 +17,14 @@ is not printed. The code of the card must be in some line (the QR code holds it,
 must be able to read it too). The QR code itself always holds ``OLA:<code>``: it cannot be edited,
 so that a scan always gives the code back.
 
-``TemplateStore`` keeps the templates in one JSON file (``$OLA_LABEL_TEMPLATES``, else
+Besides the named templates the file keeps the **label of each kind of object**
+(``ola.label_design``): one ``LabelSetup`` (the size of the label the user prints on, the same for
+every kind) and a ``KindDesign`` for the kinds the user changed (cable, attenuator, amplifier,
+adapter, antenna, filter, converter, generic); a kind that was not changed has the ready-made design
+(``default_design``). ``TemplateStore.drawing`` lays out the label of a card with the design of its
+kind.
+
+``TemplateStore`` keeps all of it in one JSON file (``$OLA_LABEL_TEMPLATES``, else
 ``~/.open_lab_automation/label_templates.json``) shared by all projects, written atomically; a
 damaged file is reported and never overwritten.
 """
@@ -30,11 +37,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
+from .assets import Asset
 from .fileio import atomic_write_json
-from .labels import PRESETS, LabelSpec, unknown_placeholders
+from .label_design import (
+    DesignError,
+    KindDesign,
+    LabelSetup,
+    build_kind_drawing,
+    default_design,
+    design_problems,
+    setup_problems,
+)
+from .labels import PRESETS, Drawing, LabelSpec, Measure, unknown_placeholders
 
 ENV_FILE = "OLA_LABEL_TEMPLATES"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2  # 1: only the named templates (still read)
 LAYOUTS = ("single", "flag")
 MAX_LINES = 12
 MAX_LINE_CHARS = 80
@@ -153,12 +170,14 @@ class TemplateStore:
     def __init__(self, path: Union[str, Path, None] = None):
         self.path = Path(path) if path else default_path()
         self.templates: List[LabelTemplate] = []
+        self.setup = LabelSetup()
+        self.designs: Dict[str, KindDesign] = {}  # only the kinds the user changed
         self.load()
 
     def load(self) -> None:
         """Read the file (a missing file is an empty list); ``LabelTemplateError`` if damaged: the
         file is not touched, so it can be repaired by hand."""
-        self.templates = []
+        self.templates, self.setup, self.designs = [], LabelSetup(), {}
         if not self.path.is_file():
             return
         try:
@@ -167,7 +186,13 @@ class TemplateStore:
             if not isinstance(items, list):
                 raise TypeError("'templates' is not a list")
             self.templates = [LabelTemplate.from_dict(x) for x in items]
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+            if "setup" in raw:
+                self.setup = LabelSetup.from_dict(raw["setup"])
+            self.designs = {
+                str(kind): KindDesign.from_dict(body)
+                for kind, body in (raw.get("designs") or {}).items()
+            }
+        except (OSError, ValueError, KeyError, TypeError, DesignError) as exc:
             raise LabelTemplateError(f"{self.path}: {exc}") from exc
 
     def save(self) -> None:
@@ -175,7 +200,60 @@ class TemplateStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_json(
             self.path,
-            {"format_version": FORMAT_VERSION, "templates": [t.to_dict() for t in self.templates]},
+            {
+                "format_version": FORMAT_VERSION,
+                "setup": self.setup.to_dict(),
+                "designs": {k: d.to_dict() for k, d in self.designs.items()},
+                "templates": [t.to_dict() for t in self.templates],
+            },
+        )
+
+    # ----- the label of each kind ---------------------------------------------------------
+    def set_setup(self, setup: LabelSetup) -> None:
+        """Change the size of the label (for every kind); ``LabelTemplateError`` if not valid.
+        Saved at once."""
+        wrong = setup_problems(setup)
+        if wrong:
+            raise LabelTemplateError("; ".join(wrong))
+        self.setup = setup
+        self.save()
+
+    def design(self, kind: str) -> KindDesign:
+        """The design of a kind: the one the user made, else the ready-made one."""
+        return self.designs.get(kind) or default_design(kind)
+
+    def is_customised(self, kind: str) -> bool:
+        """True if the user changed the design of this kind."""
+        return kind in self.designs
+
+    def set_design(self, kind: str, design: KindDesign) -> None:
+        """Keep the design of a kind; ``LabelTemplateError`` if it is not valid. Saved at once."""
+        wrong = design_problems(design, self.setup)
+        if wrong:
+            raise LabelTemplateError("; ".join(wrong))
+        self.designs[kind] = design
+        self.save()
+
+    def reset_design(self, kind: str) -> bool:
+        """Go back to the ready-made design of a kind; False if it had not been changed."""
+        if kind not in self.designs:
+            return False
+        del self.designs[kind]
+        self.save()
+        return True
+
+    def drawing(
+        self,
+        asset: Asset,
+        last_measurement: str = "",
+        measure: Optional[Measure] = None,
+        setup: Optional[LabelSetup] = None,
+    ) -> Drawing:
+        """The label of a card, with the design of its kind on the label size of the user.
+        ``setup`` replaces the saved size for this drawing (the label window can switch the QR
+        code or the border off for one printing without changing the design)."""
+        return build_kind_drawing(
+            setup or self.setup, self.design(asset.kind), asset, last_measurement, measure
         )
 
     def names(self) -> List[str]:

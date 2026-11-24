@@ -279,7 +279,11 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
         return f"S/N {asset.serial}" if asset.serial else ""
     if key == "notes":
         return asset.notes.replace("\n", " ").strip()
-    return ""
+    if key == "kind":
+        return asset.kind
+    if key == "manufacturer":
+        return asset.manufacturer
+    return attribute_text(asset, key)
 
 
 def char_width(ch: str) -> float:
@@ -364,6 +368,42 @@ def build_drawing(
 
 
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
+EXTRA_FIELDS = ("kind", "manufacturer")  # more places for the lines of your own
+
+
+def attribute_units() -> Dict[str, str]:
+    """The attributes of the cards of every kind (cable, attenuator... and the devices under test)
+    with their unit: ``{"nominal_db": "dB", "connectors": "", ...}``. Each can be a place in a
+    line (``{nominal_db}`` gives ``10 dB``)."""
+    from .assets import KINDS
+    from .duts import CATEGORIES
+
+    units: Dict[str, str] = {}
+    for table in (KINDS, CATEGORIES):
+        for kind in table.values():
+            for name, unit in kind["attributes"]:
+                units.setdefault(name, unit)
+    return units
+
+
+def placeholder_names() -> List[str]:
+    """Every name a line of your own may have between braces: the lines of ``FIELDS``, ``kind``,
+    ``manufacturer`` and the attributes of the cards."""
+    names = list(FIELDS) + list(EXTRA_FIELDS)
+    return names + [n for n in attribute_units() if n not in names]
+
+
+def attribute_text(asset: Asset, name: str) -> str:
+    """One attribute of a card as text with its unit (``10 dB``, ``6 GHz``); '' if it has none."""
+    value = asset.attributes.get(name)
+    unit = attribute_units().get(name, "")
+    if isinstance(value, bool) or value in (None, ""):
+        return ""
+    if isinstance(value, (int, float)):
+        if not value:
+            return ""
+        return format_si(float(value), "Hz") if unit == "Hz" else f"{float(value):g} {unit}".strip()
+    return str(value)
 
 
 def placeholders(template: str) -> List[str]:
@@ -372,8 +412,9 @@ def placeholders(template: str) -> List[str]:
 
 
 def unknown_placeholders(template: str) -> List[str]:
-    """The names between braces that are not a line of ``FIELDS``."""
-    return [name for name in placeholders(template) if name not in FIELDS]
+    """The names between braces that are not a place (``placeholder_names``)."""
+    known = placeholder_names()
+    return [name for name in placeholders(template) if name not in known]
 
 
 def fill_line(template: str, asset: Asset, last_measurement: str = "") -> str:
@@ -383,7 +424,8 @@ def fill_line(template: str, asset: Asset, last_measurement: str = "") -> str:
     (the built-in line adds ``S/N``); a name that is not known stays as
     typed. Spaces left over by an empty placeholder are squeezed."""
     names = placeholders(template)
-    values = {n: field_text(n, asset, last_measurement) for n in names if n in FIELDS}
+    known = placeholder_names()
+    values = {n: field_text(n, asset, last_measurement) for n in names if n in known}
     if "serial" in values:  # the fixed lines print "S/N x"; in a line of your own it is just x
         values["serial"] = asset.serial
     if names and not any(values.get(n) for n in names):
