@@ -407,6 +407,7 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
     - [ ] RTD as PT100 and PT1000 (nominal resistance)
   - [ ] guided zero with shorted inputs (before a measurement starts)
 - [ ] RF signal generator panel (AM, FM, PM and pulse modulation)
+- [ ] Spectrum analyzer: the instrument can be added from the library and its logical calls run (trace, markers); there is no panel for it yet
 
 ### Measurements
 

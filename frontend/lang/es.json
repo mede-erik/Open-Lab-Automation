@@ -726,5 +726,6 @@
   "diag_rec_open_port": "El puerto está abierto pero la conexión aún puede fallar. Con VXI-11:\n  - Verifique que el portmapper RPC esté activo en el instrumento\n  - Pruebe el protocolo HiSLIP: TCPIP0::{host}::hislip0::INSTR",
   "diag_rec_enable_remote": "Active el control remoto / la interfaz LXI en el instrumento.",
   "diag_rec_manual": "Consulte el manual del instrumento para configurar VXI-11 o SCPI sobre LAN.",
-  "diag_rec_firewall": "Verifique que el cortafuegos no bloquee la conexión."
+  "diag_rec_firewall": "Verifique que el cortafuegos no bloquee la conexión.",
+  "spectrum_analyzer": "Analizador de espectro"
 }
