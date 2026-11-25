@@ -195,5 +195,6 @@
   "run_col_velocity_factor": "Factor de velocidad",
   "run_col_min_return_loss_db": "Pérdida de retorno mín. (dB)",
   "run_col_frequency_hz": "Frecuencia",
-  "run_view_smith_unavailable": "La carta de Smith necesita datos complejos (parámetros S): algunas de las curvas mostradas no lo son."
+  "run_view_smith_unavailable": "La carta de Smith necesita datos complejos (parámetros S): algunas de las curvas mostradas no lo son.",
+  "run_file_not_kept": "La medición falló y no se guardó (Ajustes: conservar las mediciones fallidas)."
 }

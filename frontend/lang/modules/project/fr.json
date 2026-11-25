@@ -59,5 +59,8 @@
   "prj_cal_no_library": "la bibliothèque d'instruments n'est pas disponible",
   "prj_cal_no_inst": "le projet n'a pas de fichier d'instruments (.inst)",
   "prj_waves_confirm": "Les formes d'onde de cette exécution prendront environ {size} de disque ({waveforms} formes d'onde en {captures} acquisitions, à 1 million de points chacune). Démarrer ?",
-  "prj_waves": "Formes d'onde..."
+  "prj_waves": "Formes d'onde...",
+  "prj_delete": "Supprimer...",
+  "prj_delete_confirm": "Supprimer {file} ? Le fichier de la mesure et ses fichiers de formes d'onde sont supprimés définitivement.",
+  "prj_delete_failed": "Impossible de supprimer {file} : {error}"
 }

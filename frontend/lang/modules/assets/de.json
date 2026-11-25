@@ -118,5 +118,9 @@
   "ast_t_days": "Tage seit {date}",
   "ast_t_failed": "Speichern nicht möglich: {error}",
   "ast_t_saved": "Gespeichert: {path}",
-  "ast_unreadable": "beschädigt oder nicht lesbar"
+  "ast_unreadable": "beschädigt oder nicht lesbar",
+  "ast_delete_runs": "Löschen...",
+  "ast_delete_help": "Löscht die ausgewählten Messungen aus dem Verlauf: die Messdatei und ihre Wellenformdateien werden endgültig gelöscht.",
+  "ast_delete_confirm": "{n} Messung(en) aus dem Verlauf löschen? Die Messdatei und die Wellenformdateien werden endgültig gelöscht:\n{files}",
+  "ast_delete_failed": "{file} konnte nicht gelöscht werden: {error}"
 }

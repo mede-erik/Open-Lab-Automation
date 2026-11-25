@@ -743,5 +743,7 @@
   "project_upgrade_declined": "Il progetto non è stato aggiornato, quindi non è aperto. Aprilo di nuovo e rispondi Sì per aggiornarlo; fino ad allora l'originale non viene toccato.",
   "spectrum_analyzer": "Analizzatore di spettro",
   "project_upgrade_converted": "{file}: convertito in misura",
-  "project_upgrade_kept": "{file}: non convertito"
+  "project_upgrade_kept": "{file}: non convertito",
+  "keep_failed_runs": "Conserva le misure fallite",
+  "keep_failed_runs_help": "Spento (predefinito): una misura che fallisce viene eliminata quando finisce, così non riempie lo storico di un cavo o di un dispositivo. L'errore resta nel log e nella finestra."
 }

@@ -93,16 +93,15 @@ class AssetHistoryDialog(QDialog):
         keys = ["ast_h_date", "ast_h_measurement", "ast_h_state"]
         keys += ["ast_h_variant"] if with_variant else []
         keys += ["ast_h_file"]
+        self.with_variant = with_variant
+        self.deleted: List[Path] = []  # the runs deleted from this window
         self.table = QTableWidget(len(self.runs), len(keys))
         self.table.setHorizontalHeaderLabels([self._t(k) for k in keys])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        for row, ref in enumerate(self.runs):
-            cells = [ref.when, ref.measurement, self._t(f"ast_state_{ref.state}")]
-            cells += [ref.variant] if with_variant else []
-            cells += [ref.path.name]
-            for col, text in enumerate(cells):
-                self.table.setItem(row, col, QTableWidgetItem(text))
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._fill_table()
+        self.table.itemSelectionChanged.connect(self._update_buttons)
         self.table.horizontalHeader().setSectionResizeMode(
             len(keys) - 1, QHeaderView.ResizeMode.Stretch
         )
@@ -115,13 +114,75 @@ class AssetHistoryDialog(QDialog):
         self.trend_btn = QPushButton(self._t("ast_trend"))
         self.trend_btn.setEnabled(any(r.state == "finished" for r in self.runs))
         self.trend_btn.clicked.connect(self.show_trend)
+        self.delete_btn = QPushButton(self._t("ast_delete_runs"))
+        self.delete_btn.setToolTip(self._t("ast_delete_help"))
+        self.delete_btn.clicked.connect(self.delete_selected)
         close = QPushButton(self._t("ast_close"))
         close.clicked.connect(self.accept)
         self.trend_btn.setVisible(trend)
+        row_buttons.addWidget(self.delete_btn)
         row_buttons.addWidget(self.trend_btn)
         row_buttons.addWidget(self.compare_btn)
         row_buttons.addWidget(close)
         root.addLayout(row_buttons)
+        self._update_buttons()
+
+    def _fill_table(self) -> None:
+        """The rows of the table from ``self.runs``."""
+        self.table.setRowCount(len(self.runs))
+        for row, ref in enumerate(self.runs):
+            cells = [ref.when, ref.measurement, self._t(f"ast_state_{ref.state}")]
+            cells += [ref.variant] if self.with_variant else []
+            cells += [ref.path.name]
+            for col, text in enumerate(cells):
+                self.table.setItem(row, col, QTableWidgetItem(text))
+
+    def selected_runs(self) -> List[RunRef]:
+        """The runs of the selected rows."""
+        rows = sorted({i.row() for i in self.table.selectedIndexes()})
+        return [self.runs[r] for r in rows if 0 <= r < len(self.runs)]
+
+    def _update_buttons(self) -> None:
+        self.compare_btn.setEnabled(len(self.runs) >= 1)
+        self.trend_btn.setEnabled(any(r.state == "finished" for r in self.runs))
+        self.delete_btn.setEnabled(bool(self.selected_runs()))
+
+    def delete_selected(self) -> int:
+        """Delete the selected measurements, after asking: the run file and the folder of its
+        waveforms are deleted for good, so the run is no longer in the history. Returns how many
+        were deleted."""
+        chosen = self.selected_runs()
+        if not chosen:
+            return 0
+        names = "\n".join(r.path.name for r in chosen[:8]) + ("\n..." if len(chosen) > 8 else "")
+        ask = QMessageBox.question(
+            self,
+            self._t("ast_delete_runs"),
+            self._t("ast_delete_confirm", n=len(chosen), files=names),
+        )
+        if ask != QMessageBox.StandardButton.Yes:
+            return 0
+        from ola.runs import delete_run
+
+        done = 0
+        for ref in chosen:
+            try:
+                delete_run(ref.path)
+            except (OSError, ValueError) as exc:
+                show_problem(
+                    self,
+                    self.windowTitle(),
+                    self._t("ast_delete_failed", file=ref.path.name, error=exc),
+                    code="AST-004",
+                    exception=exc,
+                )
+                continue
+            self.deleted.append(ref.path)
+            self.runs.remove(ref)
+            done += 1
+        self._fill_table()
+        self._update_buttons()
+        return done
 
     def compare(self) -> None:
         """Open the comparison tool with these runs (finished or stopped ones: they have data)."""
@@ -363,6 +424,7 @@ class AssetsDialog(QDialog):
         self.history_tool = AssetHistoryDialog(
             chosen[0], runs, self.translator, self, self.run_dirs()
         )
+        self.history_tool.finished.connect(lambda _result: self.refresh())  # runs may be deleted
         self.history_tool.show()
 
 

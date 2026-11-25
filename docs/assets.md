@@ -45,6 +45,16 @@ registry counts the runs found by code in the runs folder of the open project; *
 measurement, result), **Compare...** puts their curves together in the [comparison tool](compare.md) and **Trend...** shows how a figure
 of the measurements (the loss of a cable) changes with the date, with a verdict before the cable is out of use ([`trend.md`](trend.md)).
 
+**A measurement that fails is not kept.** When a run ends as *failed* its file (and the folder of its waveforms) is deleted, so the
+history of a cable or of a device holds only measurements that say something; the error stays in the log and in the run window, which
+says that the measurement was not saved. A run that you **stop** is kept (it has data). To keep the failed ones too, tick *Keep the
+measurements that failed* in the **Settings**.
+
+**Delete...** in the history removes the selected measurements (one or several rows) from it: after asking, the run file and its
+waveform files are **deleted for good**, and the count in the registry follows when the history is closed. Only run files are
+deleted (anything else is refused). The same button is in the list of the runs of a project (*Measurements* tab). The same window is
+used for the devices under test (*Tools > DUT*).
+
 ## Labels
 
 **Label...** on one or more selected cards opens the label window. A label has:

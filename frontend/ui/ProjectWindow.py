@@ -33,7 +33,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -310,6 +310,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.delete_btn = QPushButton(self._t("prj_delete"))
+        self.delete_btn.clicked.connect(self.delete_run)
+        row.addWidget(self.delete_btn)
         self.waves_btn = QPushButton(self._t("prj_waves"))
         self.waves_btn.clicked.connect(self.show_waves)
         row.addWidget(self.waves_btn)
@@ -521,6 +524,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
         run = self._selected_run()
+        self.delete_btn.setEnabled(run is not None)
         self.waves_btn.setEnabled(run is not None and wave_folder(run).is_dir())
         self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
@@ -793,6 +797,10 @@ class ProjectWindow(QMainWindow):
                 accepted_differences=accepted,
                 bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
                 variant=variant,
+                # a measurement that fails is deleted when it ends, unless the settings keep it
+                keep_failed=QSettings("LabAutomation", "App").value(
+                    "keep_failed_runs", False, type=bool
+                ),
             )
         except MeasurementError as exc:
             show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
@@ -860,6 +868,31 @@ class ProjectWindow(QMainWindow):
             if path == keep:
                 self.runs_table.selectRow(row)
         self._update_buttons()
+
+    def delete_run(self) -> None:
+        """Delete the selected run (its file and its waveform files), after asking."""
+        path = self._selected_run()
+        if path is None:
+            return
+        ask = QMessageBox.question(
+            self, self._t("prj_delete"), self._t("prj_delete_confirm", file=path.name)
+        )
+        if ask != QMessageBox.StandardButton.Yes:
+            return
+        from ola.runs import delete_run
+
+        try:
+            delete_run(path)
+        except (OSError, ValueError) as exc:
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_delete_failed", file=path.name, error=exc),
+                code="AST-004",
+                exception=exc,
+            )
+            return
+        self._refresh_runs()
 
     def show_waves(self) -> None:
         """Open the waveforms of the selected run (the binary files next to the run file)."""

@@ -553,9 +553,7 @@ def app_instance():
 
 def test_the_headers_of_the_results_are_translated(app, windows):
     w = cable_window(windows)
-    headers = [
-        w.table.horizontalHeaderItem(c).text() for c in range(w.table.columnCount())
-    ]
+    headers = [w.table.horizontalHeaderItem(c).text() for c in range(w.table.columnCount())]
     assert "Max loss (dB)" in headers and "Mean delay (ns)" in headers
     assert "Velocity factor" in headers
     assert not any("_" in h for h in headers)  # no raw column names
@@ -608,9 +606,7 @@ def test_curves_of_different_units_get_their_own_y_scale(app, windows):
     for i in range(w.trace_list.count()):
         name = w.trace_list.item(i).text()
         on = name in ("loss_db", "loss_db_per_m", "group_delay_ns", "return_loss_db")
-        w.trace_list.item(i).setCheckState(
-            Qt.CheckState.Checked if on else Qt.CheckState.Unchecked
-        )
+        w.trace_list.item(i).setCheckState(Qt.CheckState.Checked if on else Qt.CheckState.Unchecked)
     axes = w.trace_plot.y_axes()
     titles = [a[1] for a in axes]
     assert len(axes) == 3  # dB (loss, return loss), dB/m, ns
@@ -686,3 +682,21 @@ def test_the_axis_and_smith_rules_of_the_model():
     assert axis_key(cplx, "phase_deg") == "view:phase_deg"
     assert smith_compatible([cplx]) and not smith_compatible([cplx, real])
     assert not smith_compatible([])
+
+
+def test_a_run_that_failed_and_was_not_kept_has_nothing_to_export(app, windows, tmp_path):
+    from ola.measurement import Event
+
+    runner, _ = make()
+    path = tmp_path / "run.jsonl"  # the file is never written: it was deleted when the run ended
+    w = window(windows, runner, run_file=str(path))
+    assert not w.file_kept()
+    w.model.apply(Event("point", {"values": {"a": 1}, "table": "points", "index": 0}))
+    w.model.state = "failed"
+    w._refresh()
+    assert not w.export_btn.isEnabled()
+    assert "not saved" in w.file_label.text()
+    path.write_text("{}\n")  # a kept run: the file is there
+    assert w.file_kept()
+    w._refresh()
+    assert w.export_btn.isEnabled()

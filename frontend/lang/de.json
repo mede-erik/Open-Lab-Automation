@@ -743,5 +743,7 @@
   "project_upgrade_declined": "Das Projekt wurde nicht aktualisiert und ist daher nicht geöffnet. Öffnen Sie es erneut und antworten Sie mit Ja; bis dahin bleibt das Original unverändert.",
   "spectrum_analyzer": "Spektrumanalysator",
   "project_upgrade_converted": "{file}: in Messung umgewandelt",
-  "project_upgrade_kept": "{file}: nicht umgewandelt"
+  "project_upgrade_kept": "{file}: nicht umgewandelt",
+  "keep_failed_runs": "Fehlgeschlagene Messungen behalten",
+  "keep_failed_runs_help": "Aus (Standard): eine fehlgeschlagene Messung wird am Ende gelöscht, damit sie den Verlauf eines Kabels oder Geräts nicht füllt. Der Fehler bleibt im Protokoll und im Fenster."
 }

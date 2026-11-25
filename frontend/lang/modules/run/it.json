@@ -195,5 +195,6 @@
   "run_col_velocity_factor": "Fattore di velocità",
   "run_col_min_return_loss_db": "Perdita di ritorno min (dB)",
   "run_col_frequency_hz": "Frequenza",
-  "run_view_smith_unavailable": "Lo Smith chart richiede dati complessi (parametri S): alcune delle curve mostrate non lo sono."
+  "run_view_smith_unavailable": "Lo Smith chart richiede dati complessi (parametri S): alcune delle curve mostrate non lo sono.",
+  "run_file_not_kept": "La misura è fallita e non è stata salvata (Impostazioni: conserva le misure fallite)."
 }

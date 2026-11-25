@@ -22,6 +22,7 @@ Strings: ``frontend/lang/modules/run/<lang>.json``. Try it: ``python -m frontend
 """
 
 import html
+import os
 import re
 import sys
 import time
@@ -441,6 +442,11 @@ class RunWindow(QWidget):
         self.file_label = QLabel(self._t("run_file", path=self.run_file) if self.run_file else "")
         root.addWidget(self.file_label)
 
+    def file_kept(self) -> bool:
+        """True if the run file is there: a run that failed is deleted when it ends (``ola.runs``,
+        unless the settings say to keep it), and then there is nothing to export or to read."""
+        return bool(self.run_file) and os.path.isfile(self.run_file)
+
     def _build_plot_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -522,7 +528,7 @@ class RunWindow(QWidget):
 
     def export_csv(self) -> None:
         """Write the table of points to a CSV file chosen by the user."""
-        if not self.run_file:
+        if not self.file_kept():
             return
         path, _ = QFileDialog.getSaveFileName(self, self._t("run_export"), "", "CSV (*.csv)")
         if not path:
@@ -548,7 +554,7 @@ class RunWindow(QWidget):
             self.model.apply(event)
         if self.model.bench is not None and self._bench_view is None:
             self._show_bench(self.model.bench)
-        if self.run_file and self.model.tables.get("waves"):
+        if self.file_kept() and self.model.tables.get("waves"):
             self._update_waves()
         if events:
             self._update_table()
@@ -608,7 +614,9 @@ class RunWindow(QWidget):
         self.pause_btn.setEnabled(state in ("running", "paused"))
         self.pause_btn.setText(self._t("run_resume" if state == "paused" else "run_pause"))
         self.stop_btn.setEnabled(running and state != "stopping")
-        self.export_btn.setEnabled(bool(self.run_file) and m.finished and bool(m.points))
+        self.export_btn.setEnabled(self.file_kept() and m.finished and bool(m.points))
+        if m.finished and self.run_file and not self.file_kept():
+            self.file_label.setText(self._t("run_file_not_kept"))
         fraction = m.fraction
         if fraction is None:
             self.progress.setRange(0, 0 if running else 1)
@@ -801,7 +809,7 @@ class RunWindow(QWidget):
         if view == VIEW_SMITH and not smith_compatible(shown):
             self.view_box.setCurrentIndex(0)  # data the chart cannot show: back to a plain view
             view = self.view_box.currentData() or views[0]
-        has_export = bool(self.run_file) and bool(self.model.traces)
+        has_export = self.file_kept() and bool(self.model.traces)
         self.csv_btn.setEnabled(has_export and self.trace_list.currentRow() >= 0)
         self.touchstone_btn.setEnabled(has_export and self._touchstone_names() != {})
         if view == VIEW_SMITH:
@@ -865,7 +873,7 @@ class RunWindow(QWidget):
     def export_trace(self) -> None:
         """Write the selected trace to CSV."""
         item = self.trace_list.currentItem()
-        if not self.run_file or item is None:
+        if not self.file_kept() or item is None:
             return
         path, _ = QFileDialog.getSaveFileName(
             self, self._t("run_traces_export_csv"), f"{item.text()}.csv", "CSV (*.csv)"
@@ -876,7 +884,7 @@ class RunWindow(QWidget):
     def export_touchstone_file(self) -> None:
         """Write the S-parameters of the run as a Touchstone file."""
         names = self._touchstone_names()
-        if not self.run_file or not names:
+        if not self.file_kept() or not names:
             return
         ports = 2 if set(names) - {"S11"} else 1
         path, _ = QFileDialog.getSaveFileName(

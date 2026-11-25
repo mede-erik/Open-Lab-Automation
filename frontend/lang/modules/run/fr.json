@@ -195,5 +195,6 @@
   "run_col_velocity_factor": "Facteur de vélocité",
   "run_col_min_return_loss_db": "Perte de retour min (dB)",
   "run_col_frequency_hz": "Fréquence",
-  "run_view_smith_unavailable": "L'abaque de Smith exige des données complexes (paramètres S) : certaines courbes affichées n'en sont pas."
+  "run_view_smith_unavailable": "L'abaque de Smith exige des données complexes (paramètres S) : certaines courbes affichées n'en sont pas.",
+  "run_file_not_kept": "La mesure a échoué et n'a pas été enregistrée (Paramètres : conserver les mesures échouées)."
 }

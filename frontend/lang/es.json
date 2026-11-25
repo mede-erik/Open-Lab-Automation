@@ -743,5 +743,7 @@
   "project_upgrade_declined": "El proyecto no se actualizó, así que no está abierto. Ábralo de nuevo y responda Sí para actualizarlo; hasta entonces el original no se toca.",
   "spectrum_analyzer": "Analizador de espectro",
   "project_upgrade_converted": "{file}: convertido en medición",
-  "project_upgrade_kept": "{file}: no convertido"
+  "project_upgrade_kept": "{file}: no convertido",
+  "keep_failed_runs": "Conservar las mediciones fallidas",
+  "keep_failed_runs_help": "Desactivado (por defecto): una medición que falla se elimina al terminar, para que no llene el historial de un cable o de un dispositivo. El error queda en el registro y en la ventana."
 }

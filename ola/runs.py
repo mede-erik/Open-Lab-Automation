@@ -18,6 +18,12 @@ A run file is JSON Lines, one object per line::
     {"kind": "end",   "state": "finished|stopped|failed", "error": null | {...}}
 
 A file without the final "end" line is a run that was interrupted: it can still be read.
+
+A run that **failed** is not kept by default (``RunWriter(discard_failed=True)``: the file and the
+folder of its waveforms are deleted when it ends; the error is in the log and in the window), so
+that the history of a cable or of a device does not fill up with measurements that say nothing.
+``delete_run`` deletes a run on purpose (the history window and the list of the runs of a project
+use it).
 Traces are stored inline as JSON (simple; very long waveforms will get a binary sidecar later).
 """
 
@@ -34,6 +40,38 @@ from .provenance import provenance
 from .runner import FINAL_STATES, Runner
 
 
+def delete_run(path: Union[str, Path], check: bool = True) -> List[str]:
+    """Delete a run on purpose: its file and the folder of its waveforms (``ola.wavefiles``).
+    Returns what was deleted, as paths. With ``check`` (the default) only a run file is deleted:
+    ``ValueError`` for anything else, so that a wrong path never deletes another file. A run that
+    is already gone is not an error."""
+    from .wavefiles import delete_waves, wave_folder
+
+    path = Path(path)
+    if check and path.is_file():
+        first = ""
+        try:
+            with open(path, encoding="utf-8") as f:
+                first = f.readline()
+        except OSError as exc:
+            raise ValueError(f"{path}: cannot be read: {exc}") from exc
+        try:
+            header = json.loads(first)
+        except ValueError:
+            header = None
+        if path.suffix != ".jsonl" or not isinstance(header, dict) or header.get("kind") != "run":
+            raise ValueError(f"{path} is not a run file")
+    removed: List[str] = []
+    folder = wave_folder(path)
+    if folder.is_dir():
+        delete_waves(path)
+        removed.append(str(folder))
+    if path.is_file():
+        path.unlink()
+        removed.append(str(path))
+    return removed
+
+
 class RunWriter:
     """Listener for ``Runner`` that appends events to a run file."""
 
@@ -42,10 +80,15 @@ class RunWriter:
         path: Union[str, Path],
         header: Mapping[str, Any],
         observed: Optional[Callable[[], Mapping[str, Any]]] = None,
+        discard_failed: bool = False,
     ):
         """``observed()``: called when the run ends, gives what the instruments were asked and gave
-        (see ``ola.compat.observed_of``), which goes into the ``end`` record."""
+        (see ``ola.compat.observed_of``), which goes into the ``end`` record. ``discard_failed``:
+        a run that ends as ``failed`` is deleted (``discarded`` is then True); stopped and finished
+        runs are always kept."""
         self._observed = observed
+        self.discard_failed = discard_failed
+        self.discarded = False
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._f = open(self.path, "w", encoding="utf-8", newline="\n")
@@ -81,6 +124,8 @@ class RunWriter:
                     end["observed"] = seen
                 self._write(end)
                 self.close()
+                if state == "failed" and self.discard_failed:
+                    self._discard()
             return
         if event.kind == "error":
             self.error = event.data
@@ -89,6 +134,14 @@ class RunWriter:
     def _write(self, obj: Mapping[str, Any]) -> None:
         self._f.write(json.dumps(obj, ensure_ascii=False, default=str, allow_nan=True) + "\n")
         self._f.flush()
+
+    def _discard(self) -> None:
+        """Delete the run file and its waveform folder (a failed run that is not kept)."""
+        try:
+            delete_run(self.path, check=False)
+        except OSError:
+            return  # it stays: better a failed run in the history than an error at the end of a run
+        self.discarded = True
 
     def close(self) -> None:
         """Close the file (done automatically when the run ends)."""
