@@ -38,6 +38,31 @@ def read(*parts):
         return handle.read()
 
 
+# ---------------------------------------------------------------- the QR code library (segno)
+
+
+def test_segno_is_in_every_place_the_program_is_built_or_installed():
+    """The labels need ``segno``; without it the QR code is missing (and once a button crashed)."""
+    assert re.search(r"^segno\b", read("requirements.txt"), re.MULTILINE)
+    assert '"segno' in read("pyproject.toml")  # a ``pip install .`` pulls it in
+    assert '"segno"' in read(
+        "packaging", "pyinstaller", "ola.spec"
+    )  # frozen bundles (deb, rpm, exe)
+    assert "check_qr_code" in read("packaging", "pyinstaller", "selftest.py")
+    pkgbuild = read("packaging", "arch", "PKGBUILD")  # Arch: the wheel, with its checksum
+    assert re.search(r"^_segno_ver=\S+", pkgbuild, re.MULTILINE)
+    assert "segno-${_segno_ver}-py3-none-any.whl" in pkgbuild
+    wheels = pkgbuild.count('"${_pypi}/')  # every downloaded wheel has a checksum
+    sums = re.search(r"sha256sums=\((.*?)\)", pkgbuild, re.S).group(1)
+    assert len(re.findall(r"'[0-9a-f]{64}'", sums)) == wheels >= 3
+
+
+def test_every_runtime_requirement_is_a_dependency_of_the_package():
+    deps = read("pyproject.toml")
+    for name in ("PyQt6", "pyvisa", "pyvisa-py", "pyserial", "segno", "numpy", "matplotlib"):
+        assert f'"{name}' in deps, f"{name} is in requirements.txt but not in pyproject.toml"
+
+
 # ---------------------------------------------------------------- versions
 
 
@@ -169,7 +194,7 @@ def test_cancel_stale_runs_on_closed_pull_request_and_deleted_branch():
     assert "actions: write" in workflow
     assert "gh run cancel" in workflow
     # the run of this workflow is never cancelled by itself
-    assert 'SELF: ${{ github.run_id }}' in workflow
+    assert "SELF: ${{ github.run_id }}" in workflow
 
 
 def test_nightly_is_built_only_for_the_newest_commit_of_main():
