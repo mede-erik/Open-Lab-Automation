@@ -289,12 +289,19 @@ class ProjectSession:
     def _restore_calibrations(self, handles: List[Any], params: Dict[str, Any]) -> None:
         """Before a run: each VNA gets back the saved software calibration made for **it** (its
         serial number) and for the sweep of the measurement, if there is one. A failure is only
-        logged: the measurement then runs as before (it can require a calibration itself)."""
+        logged: the measurement then runs as before (it can require a calibration itself).
+
+        A software calibration that is already applied to the connection but was made for another
+        sweep stops the run here (``MeasurementError`` with the two sweeps): the driver would refuse
+        to read, after the questions of the measurement."""
         from .compat import sweep_of
-        from .vna_calibration_flow import auto_restore
+        from .vna_calibration_flow import auto_restore, sweep_problem
 
         sweep = sweep_of(params)
         for handle in handles:
+            problem = sweep_problem(handle, sweep)
+            if problem:
+                raise MeasurementError(f"{handle.name}: {problem}")
             try:
                 auto_restore(handle, self.project.path, sweep)
             except Exception as exc:

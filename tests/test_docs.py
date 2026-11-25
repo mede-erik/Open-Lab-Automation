@@ -264,7 +264,7 @@ def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna(
     names = (
         "set_frequency_sweep", "run_sweep", "read_sparameters", "set_if_bandwidth",
         "set_source_power", "set_sweep", "read_sparameter", "network_analyzers_series",
-        "calibrated",
+        "calibrated", "uncorrected",
     )  # fmt: skip
     for name in names:
         assert name in text, name
@@ -288,7 +288,8 @@ def test_the_vna_contract_in_the_docs_matches_the_library_and_the_simulated_vna(
     lib.call("set_frequency_sweep", start_frequency=1e6, stop_frequency=2e6, points=5)
     lib.call("run_sweep")
     got = lib.call("read_sparameters", sparameters=["S21"])
-    assert set(got) == {"frequency", "parameters", "calibrated"} and len(got["frequency"]) == 5
+    assert set(got) == {"frequency", "parameters", "calibrated", "uncorrected"}
+    assert len(got["frequency"]) == 5
     assert set(got["parameters"]["S21"]) == {"real", "imaginary"}
 
 

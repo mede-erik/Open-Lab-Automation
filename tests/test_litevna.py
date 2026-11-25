@@ -193,7 +193,7 @@ def test_the_library_models_work_through_the_handle():
     with pytest.raises(CallNotSupportedError):
         handle.call("set_source_power", value=0)
     ref = library.find_model("VNA_Zenko_LiteVNA67")
-    assert ref.model["experimental"] is True
+    assert ref.model["access"] == "driver"  # (the experimental flag is the library's to clear)
     assert isinstance(driver_for(library, "VNA_Zenko_LiteVNA67", sim), LiteVnaDriver)
     assert driver_for(library, "OSC_Siglent_SDS824X_HD", sim) is None
     plan = plan_call(
@@ -211,3 +211,30 @@ def test_litevna_sweeps_linearly_only():
     d.call("set_sweep_type", {"sweep_type": "LINEAR"})
     with pytest.raises(ValueNotHandledError):
         d.call("set_sweep_type", {"sweep_type": "LOG"})
+
+
+def test_the_read_says_which_asked_parameters_the_calibration_does_not_correct():
+    d, sim = driver()
+    d.call("set_frequency_sweep", {"start_frequency": 1e6, "stop_frequency": 2e6, "points": 21})
+    d.call("calibration_begin", {"kind": "ONE_PORT", "port": 1})
+    for standard, gamma in (("OPEN", 1), ("SHORT", -1), ("LOAD", 0)):
+        sim.connect(gamma)
+        d.call("calibration_measure", {"standard": standard, "port": 1})
+    d.call("calibration_apply", {})
+    sim.connect(GAMMA)
+    sim.connect_thru(lambda f: 0.25 - 0.1j)
+    # a one-port calibration corrects S11 only: S21 is read raw, and the read says so
+    both = d.call("read_sparameters", {"sparameters": ["S11", "S21"]})
+    assert both["calibrated"] is True and both["uncorrected"] == ["S21"]
+    assert d.call("read_sparameters", {"sparameters": ["S11"]})["uncorrected"] == []
+    assert d.call("read_sparameters", {"sparameters": ["S21"]})["calibrated"] is False
+    # a thru calibration on top of it corrects S21 too
+    d.call("calibration_begin", {"kind": "TRANSMISSION_RESPONSE", "port": 1, "port2": 2})
+    sim.connect_thru(1 + 0j)
+    d.call("calibration_measure", {"standard": "THRU", "port": 1, "port2": 2})
+    d.call("calibration_apply", {})
+    assert d.call("read_sparameters", {"sparameters": ["S11", "S21"]})["uncorrected"] == []
+    # correction switched off: it is the "not calibrated" case, nothing is partly corrected
+    d.call("set_correction_state", {"state": False})
+    raw = d.call("read_sparameters", {"sparameters": ["S11", "S21"]})
+    assert raw["calibrated"] is False and raw["uncorrected"] == []
