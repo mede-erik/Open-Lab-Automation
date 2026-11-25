@@ -61,5 +61,20 @@
   "run_q_zero_title": "Kanal nullen",
   "run_q_zero_short": "Kanal <b>{channel}</b> {name}: Schritt 1 von 2. Die beiden Eingangsklemmen verbinden, damit das Gerät nur den Offset der Verdrahtung und seines Eingangs misst, dann fortfahren.",
   "run_q_zero_back": "Kanal <b>{channel}</b> {name}: Schritt 2 von 2. Der Offset wurde übernommen {offset}. Die Klemmen wieder anschließen und fortfahren.",
-  "run_choice_skip_zero": "Diesen Kanal überspringen"
+  "run_choice_skip_zero": "Diesen Kanal überspringen",
+  "run_q_calibration_question": "Ist das VNA für dieses Gerät und diesen Frequenzbereich kalibriert?",
+  "run_q_calibration_then": "Danach fortfahren.",
+  "run_connect_attenuator": "Verbinden Sie das Prüfdämpfungsglied zwischen Port 1 und Port 2 des VNA.",
+  "run_connect_filter": "Verbinden Sie den Prüffilter zwischen Port 1 und Port 2 des VNA.",
+  "run_connect_cable": "Verbinden Sie das Prüfkabel zwischen Port 1 und Port 2 des VNA.",
+  "run_connect_cable_reflection": "Verbinden Sie ein Ende des Prüfkabels mit Port 1 und legen Sie am anderen Ende einen {far}-Abschluss an.",
+  "run_far_open": "offenen",
+  "run_far_short": "Kurzschluss-",
+  "run_connect_antenna": "Verbinden Sie die Antenne mit Port 1 des VNA.",
+  "run_connect_device": "Verbinden Sie das Prüfobjekt mit Port 1 des VNA.",
+  "run_connect_behind_cable_antenna": "Die Antenne liegt hinter dem gemessenen Kabel: Verbinden Sie dieses Kabel mit Port 1 des VNA (am Ende des Messkabels kalibriert, OHNE das Kabel) und die Antenne an dessen anderes Ende.",
+  "run_connect_behind_cable_device": "Das Prüfobjekt liegt hinter dem gemessenen Kabel: Verbinden Sie dieses Kabel mit Port 1 des VNA (am Ende des Messkabels kalibriert, OHNE das Kabel) und das Prüfobjekt an dessen anderes Ende.",
+  "run_connect_line": "Verbinden Sie die Prüfleitung mit Port 1 des VNA, ihr fernes Ende offen, kurzgeschlossen oder am Gerät.",
+  "run_connect_amplifier": "Verbinden Sie den Verstärker zwischen Port 1 und Port 2 des VNA, mit den Dämpfungsgliedern, die zur Kalibrierung gehörten. Prüfen Sie, dass der Ausgang des Verstärkers die maximale Eingangsleistung des VNA nicht überschreiten kann und dass die Quellenleistung den Verstärkereingang nicht beschädigen kann.",
+  "run_connect_amplifier_max": "Verbinden Sie den Verstärker zwischen Port 1 und Port 2 des VNA, mit den Dämpfungsgliedern, die zur Kalibrierung gehörten. Prüfen Sie, dass der Ausgang des Verstärkers die maximale Eingangsleistung des VNA nicht überschreiten kann und dass nicht mehr als {max} dBm am Verstärkereingang ankommen."
 }

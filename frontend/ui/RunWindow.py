@@ -21,6 +21,7 @@ Strings: ``frontend/lang/modules/run/<lang>.json``. Try it: ``python -m frontend
 (simulated instruments; ``--fault`` makes the data logger disagree to see the pop-up).
 """
 
+import html
 import sys
 import time
 from typing import Any, Dict, Optional
@@ -104,15 +105,26 @@ class QuestionDialog(QDialog):
         self.setWindowTitle(t(f"run_q_{kind}_title"))
         self.setModal(True)
         layout = QVBoxLayout(self)
-        text = QLabel(question.get("text", ""))
+        data = question.get("data") or {}
+        if kind == QUESTION_CALIBRATION:
+            # the question is translated here (the engine's sentence is English)
+            text = QLabel(t("run_q_calibration_question"))
+        else:
+            text = QLabel(question.get("text", ""))
         text.setWordWrap(True)
         text.setMinimumWidth(460)
         layout.addWidget(text)
-        details = self._details(kind, question.get("data") or {}, t)
+        details = self._details(kind, data, t)
+        if kind == QUESTION_CALIBRATION:
+            connect = self._connect_sentence(data, t)
+            if connect:
+                then = html.escape(t("run_q_calibration_then"))
+                details = f"{details}<br>{html.escape(connect)} {then}"
         if details:
             label = QLabel(details)
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
+            label.setMinimumWidth(460)  # the same width as the question: its height is the text's
             layout.addWidget(label)
         picture = self._picture(question.get("data") or {})
         if picture is not None:
@@ -135,6 +147,27 @@ class QuestionDialog(QDialog):
             self.buttons[choice] = button
             row.addWidget(button)
         layout.addLayout(row)
+        # the window is as tall as its text: the wrapped sentences need the layout to know their
+        # height first, or they were cut
+        layout.activate()
+
+    @staticmethod
+    def _connect_sentence(data: Dict[str, Any], t) -> str:
+        """How to connect the device for a VNA sweep, translated from the key the measurement
+        gives (``data["connect_key"]``, with its arguments); '' if it gives none."""
+        key = data.get("connect_key") or ""
+        if not key:
+            return ""
+        args = dict(data.get("connect_args") or {})
+        if "far" in args:
+            args["far"] = t(f"run_far_{args['far']}")
+        text = t(key)
+        if text == key:  # no translation: nothing to show rather than a key
+            return ""
+        try:
+            return text.format(**args)
+        except (KeyError, IndexError, ValueError):
+            return text
 
     @staticmethod
     def _details(kind: str, data: Dict[str, Any], t) -> str:

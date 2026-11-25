@@ -418,10 +418,19 @@ def acquire(
     return freq, {name: [v / averages for v in values] for name, values in totals.items()}
 
 
-def ask_setup(ctx: MeasurementContext, connect: str, sweep: Mapping[str, Any], **data: Any) -> None:
+def ask_setup(
+    ctx: MeasurementContext,
+    connect: str,
+    sweep: Mapping[str, Any],
+    connect_key: str = "",
+    connect_args: Optional[Mapping[str, Any]] = None,
+    **data: Any,
+) -> None:
     """Ask once whether the VNA is calibrated for this sweep and how to connect the device
-    (``connect`` is that sentence). Raises ``Stopped`` if the user chooses to abort: nothing has
-    been sent to the instrument yet."""
+    (``connect`` is that sentence, in English: for the log and the text of the question). The
+    window translates the question from ``connect_key`` (a key of ``frontend/lang/modules/run``)
+    and ``connect_args``. Raises ``Stopped`` if the user chooses to abort: nothing has been sent to
+    the instrument yet."""
     text = (
         "Is the VNA calibrated for this device and this frequency range "
         f"({format_si(sweep['start_hz'], 'Hz')} to {format_si(sweep['stop_hz'], 'Hz')})? "
@@ -432,6 +441,8 @@ def ask_setup(ctx: MeasurementContext, connect: str, sweep: Mapping[str, Any], *
         "start_hz": sweep["start_hz"],
         "stop_hz": sweep["stop_hz"],
         "points": sweep["points"],
+        "connect_key": connect_key,
+        "connect_args": dict(connect_args or {}),
         **data,
     }
     if ctx.ask(text, ["continue", "abort"], default="abort", data=info) == "abort":

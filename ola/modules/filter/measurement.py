@@ -217,6 +217,7 @@ class FilterResponse(Measurement):
                 ctx,
                 "Connect the filter under test between port 1 and port 2 of the VNA.",
                 p["sweep"],
+                connect_key="run_connect_filter",
                 mode="transmission",
             )
         wanted = wanted_parameters(p, ["S21"] + (["S11"] if p.get("also_s11") else []))

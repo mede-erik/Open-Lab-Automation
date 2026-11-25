@@ -61,5 +61,20 @@
   "run_q_zero_title": "Azzera il canale",
   "run_q_zero_short": "Canale <b>{channel}</b> {name}: passo 1 di 2. Collega insieme i suoi due morsetti d'ingresso, così lo strumento misura solo l'offset del cablaggio e del suo ingresso, poi continua.",
   "run_q_zero_back": "Canale <b>{channel}</b> {name}: passo 2 di 2. L'offset è stato preso {offset}. Ricollega i morsetti dove erano e continua.",
-  "run_choice_skip_zero": "Salta questo canale"
+  "run_choice_skip_zero": "Salta questo canale",
+  "run_q_calibration_question": "Il VNA è calibrato per questo dispositivo e per questo intervallo di frequenze?",
+  "run_q_calibration_then": "Poi continua.",
+  "run_connect_attenuator": "Collega l'attenuatore in prova tra la porta 1 e la porta 2 del VNA.",
+  "run_connect_filter": "Collega il filtro in prova tra la porta 1 e la porta 2 del VNA.",
+  "run_connect_cable": "Collega il cavo in prova tra la porta 1 e la porta 2 del VNA.",
+  "run_connect_cable_reflection": "Collega un capo del cavo in prova alla porta 1 e metti un circuito {far} all'altro capo.",
+  "run_far_open": "aperto",
+  "run_far_short": "in corto",
+  "run_connect_antenna": "Collega l'antenna alla porta 1 del VNA.",
+  "run_connect_device": "Collega il dispositivo in prova alla porta 1 del VNA.",
+  "run_connect_behind_cable_antenna": "L'antenna è dietro il cavo già misurato: collega quel cavo alla porta 1 del VNA (calibrato alla fine del cavetto di prova, SENZA il cavo) e l'antenna all'altro capo.",
+  "run_connect_behind_cable_device": "Il dispositivo è dietro il cavo già misurato: collega quel cavo alla porta 1 del VNA (calibrato alla fine del cavetto di prova, SENZA il cavo) e il dispositivo in prova all'altro capo.",
+  "run_connect_line": "Collega la linea in prova alla porta 1 del VNA, con l'estremo lontano aperto, in corto o sul dispositivo.",
+  "run_connect_amplifier": "Collega l'amplificatore tra la porta 1 e la porta 2 del VNA, con gli attenuatori che facevano parte della calibrazione. Verifica che l'uscita dell'amplificatore non possa superare la potenza massima d'ingresso del VNA e che la potenza della sorgente non possa danneggiare l'ingresso dell'amplificatore.",
+  "run_connect_amplifier_max": "Collega l'amplificatore tra la porta 1 e la porta 2 del VNA, con gli attenuatori che facevano parte della calibrazione. Verifica che l'uscita dell'amplificatore non possa superare la potenza massima d'ingresso del VNA e che non arrivino più di {max} dBm all'ingresso dell'amplificatore."
 }

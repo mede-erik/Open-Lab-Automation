@@ -61,5 +61,20 @@
   "run_q_zero_title": "Mettre le canal à zéro",
   "run_q_zero_short": "Canal <b>{channel}</b> {name} : étape 1 sur 2. Reliez ensemble ses deux bornes d'entrée, pour que l'instrument ne mesure que le décalage du câblage et de son entrée, puis continuez.",
   "run_q_zero_back": "Canal <b>{channel}</b> {name} : étape 2 sur 2. Le décalage a été pris {offset}. Reconnectez les bornes à leur place et continuez.",
-  "run_choice_skip_zero": "Passer ce canal"
+  "run_choice_skip_zero": "Passer ce canal",
+  "run_q_calibration_question": "Le VNA est-il étalonné pour ce dispositif et cette plage de fréquences ?",
+  "run_q_calibration_then": "Puis continuez.",
+  "run_connect_attenuator": "Connectez l'atténuateur testé entre le port 1 et le port 2 du VNA.",
+  "run_connect_filter": "Connectez le filtre testé entre le port 1 et le port 2 du VNA.",
+  "run_connect_cable": "Connectez le câble testé entre le port 1 et le port 2 du VNA.",
+  "run_connect_cable_reflection": "Connectez une extrémité du câble testé au port 1 et placez un circuit {far} à l'autre extrémité.",
+  "run_far_open": "ouvert",
+  "run_far_short": "en court-circuit",
+  "run_connect_antenna": "Connectez l'antenne au port 1 du VNA.",
+  "run_connect_device": "Connectez le dispositif testé au port 1 du VNA.",
+  "run_connect_behind_cable_antenna": "L'antenne se trouve derrière le câble mesuré : connectez ce câble au port 1 du VNA (étalonné au bout du cordon de test, SANS le câble) et l'antenne à son autre extrémité.",
+  "run_connect_behind_cable_device": "Le dispositif se trouve derrière le câble mesuré : connectez ce câble au port 1 du VNA (étalonné au bout du cordon de test, SANS le câble) et le dispositif testé à son autre extrémité.",
+  "run_connect_line": "Connectez la ligne testée au port 1 du VNA, son extrémité éloignée ouverte, en court-circuit ou sur le dispositif.",
+  "run_connect_amplifier": "Connectez l'amplificateur entre le port 1 et le port 2 du VNA, avec les atténuateurs qui faisaient partie de l'étalonnage. Vérifiez que la sortie de l'amplificateur ne peut pas dépasser la puissance d'entrée maximale du VNA et que la puissance de la source ne peut pas endommager l'entrée de l'amplificateur.",
+  "run_connect_amplifier_max": "Connectez l'amplificateur entre le port 1 et le port 2 du VNA, avec les atténuateurs qui faisaient partie de l'étalonnage. Vérifiez que la sortie de l'amplificateur ne peut pas dépasser la puissance d'entrée maximale du VNA et que pas plus de {max} dBm n'atteignent l'entrée de l'amplificateur."
 }

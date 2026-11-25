@@ -150,9 +150,11 @@ class ReturnLoss(Measurement):
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):
             connect = "Connect the device under test to port 1 of the VNA."
+            key = "run_connect_device"
             if (p.get("correction") or {}).get("cable"):
                 connect = CABLE_CONNECT.format(device="device under test")
-            ask_setup(ctx, connect, sweep, mode="reflection")
+                key = "run_connect_behind_cable_device"
+            ask_setup(ctx, connect, sweep, connect_key=key, mode="reflection")
         freq, traces = acquire(ctx, handle, sweep, ["S11"], int(p.get("averages", 1)))
         s11, info = apply_correction(ctx, p, freq, traces["S11"])
         self._report(ctx, freq, s11, traces["S11"], info)
