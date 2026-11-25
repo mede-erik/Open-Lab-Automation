@@ -96,6 +96,45 @@ card with the design of its kind at that size (QR and border can be switched off
 * The size and the designs you changed are in the same file as the templates; a kind you did not change is not in it.
   *Back to the ready-made design* forgets your changes to a kind.
 
+### Small labels, and what the tool tells you
+
+The layout works down to small labels (the size can be as small as 10 x 8 mm; a face of a cable flag as small as 5 mm). The tool
+**guides** you with notes under the preview, in your language:
+
+* **The QR code is left out when it does not fit.** By default (*Leave the QR code out when it does not fit*) a QR code whose modules
+  would print under 0.3 mm, or that would leave less than 10 mm for the text, is not printed and the text gets the room; the note says
+  how wide and high the design must be to have it (and, for a cable flag, how long the strip). A QR code that can fit is made as big as
+  it needs to be. Untick the box to print it anyway: a small one is then flagged as a warning. A thinner cable leaves a bigger face
+  and so the same strip gets its QR code back.
+* **Lines that do not fit** are named (they go from the last one, the code is always kept) and the note says when only the code is left.
+* **Text that would be hard to read** (under about 2.2 mm, 6 pt) is flagged, with the reason: use a bigger label or fewer lines.
+* **A tall narrow label** (taller than 1.6 times its width) suggests writing the label turned by 90 degrees.
+
+### Writing in both directions (rotation)
+
+* **Automatic design**: *Write the label turned by* 0 / 90 / 180 / 270 degrees (clockwise). The label is laid out on a label turned
+  the other way and then turned, so a 12 x 40 mm strip gets text that runs along its length, with the QR code turned too.
+* **Manual design**: each text has its own **rotation**: 0 (horizontal), 90 (reads from the top down), 180 (upside down), 270 (reads
+  from the bottom up). The position x, y is the top left corner of the box the text takes **after** turning (a text on its side has a
+  tall narrow box: its width is the length it may take, now vertical), so a rotated text is dragged and positioned like any other.
+  *Start from the automatic layout* resets the rotation of the design: turn the texts you want one by one.
+
+## Using the labels with other programs
+
+The program does not drive printers; it writes files that other programs print:
+
+* **PDF** at the real size, one page per label (or per sheet): print it at 100 % with the printer's own program or from the command
+  line with CUPS (`lp -o fit-to-page=false labels.pdf`), which is how Linux and macOS drive most label printers.
+* **SVG** in millimetres (1 unit = 1 mm, `width`/`height` in `mm`, plain `<text>`, `<rect>`, `<line>` and `<path>`): opens in
+  **Inkscape**, LibreOffice Draw and any SVG editor, where a label can be touched up; rotated texts are ordinary `rotate()` transforms.
+* **PNG** at the dpi of your printer (203, 300 or 600; the real size in millimetres is written in the file): the images the command-line
+  printing programs take, such as `brother_ql` for the Brother QL printers and `ptouch-print` for the P-touch ones.
+* **Save every label as a file** (SVG or PNG) writes one file per label in a folder, named with its code (`CBL-0042.png`), for
+  programs that take one image per label. Sheets are written one file per page.
+
+These are the file formats those programs read; the program has not been tried with them yet (see the test list in the README).
+The templates of gLabels or of a printer's own software are not written.
+
 ## The label for a cable (flag)
 
 For a cable choose the layout **Flag for a cable (from its diameter)** in *Label design...*: you give the **size of the label** (the

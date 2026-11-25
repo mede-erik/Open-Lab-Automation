@@ -37,6 +37,7 @@ QUIET_MODULES = (
     2  # empty border around a QR code, in modules (the standard asks 4; labels are small)
 )
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
+MIN_TEXT_MM = 10.0  # the text beside a QR code needs at least this width, or the QR code goes
 # the lines of a label: the first is always kept, the last goes first when there is no room
 FIELDS = ("id", "name", "version", "description", "specs", "connectors", "length", "date",
           "last_measurement", "owner", "serial", "notes")  # fmt: skip
@@ -55,6 +56,9 @@ class LabelSpec:
     qr: bool = True
     border: bool = False
     margin_mm: float = 1.5
+    qr_auto: bool = (
+        False  # leave the QR code out when it would not fit (``note``), not print it small
+    )
     # free lines (``"Rev {version}"``, see ``fill_line``); when there are any they replace fields
     lines: Tuple[str, ...] = ()
 
@@ -124,7 +128,9 @@ SHEETS: Dict[str, SheetSpec] = {
 # ----- what is drawn -------------------------------------------------------------------------
 @dataclass
 class Text:
-    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start``, ``middle`` or ``end``."""
+    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start``, ``middle`` or ``end``.
+    ``rotation`` (0, 90, 180 or 270 degrees, clockwise) turns the text round the point ``(x, y)``:
+    90 reads from the top down, 270 from the bottom up, 180 upside down."""
 
     x: float
     y: float
@@ -132,6 +138,7 @@ class Text:
     text: str
     bold: bool = False
     anchor: str = "start"
+    rotation: int = 0
 
 
 @dataclass
@@ -186,6 +193,9 @@ class Drawing:
     items: List[Item] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     dropped: List[str] = field(default_factory=list)  # the lines that did not fit, by field name
+    notes: List[str] = field(
+        default_factory=list
+    )  # what the layout decided by itself (QR left out)
 
     def translated(self, dx: float, dy: float) -> List[Item]:
         """The items moved by ``(dx, dy)`` (to place a label on a sheet)."""
@@ -202,6 +212,49 @@ class Drawing:
             else:
                 moved.append(replace(it, x=it.x + dx, y=it.y + dy))
         return moved
+
+
+def rotate_drawing(drawing: Drawing, degrees: int) -> Drawing:
+    """The drawing turned clockwise by 0, 90, 180 or 270 degrees (the size swaps for 90 and 270).
+    Texts keep their text and turn (``Text.rotation``), a QR code turns with its modules, boxes and
+    lines move. Warnings, dropped lines and notes are kept. ``ValueError`` for another angle."""
+    degrees = degrees % 360
+    if degrees not in (0, 90, 180, 270):
+        raise ValueError("a drawing turns by 0, 90, 180 or 270 degrees")
+    if degrees == 0:
+        return drawing
+    w, h = drawing.width, drawing.height
+
+    def point(x: float, y: float) -> Tuple[float, float]:
+        return {90: (h - y, x), 180: (w - x, h - y), 270: (y, w - x)}[degrees]
+
+    def rect(x: float, y: float, rw: float, rh: float) -> Tuple[float, float, float, float]:
+        (x1, y1), (x2, y2) = point(x, y), point(x + rw, y + rh)
+        return min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1)
+
+    new = Drawing(h if degrees != 180 else w, w if degrees != 180 else h)
+    new.warnings, new.dropped, new.notes = (
+        list(drawing.warnings), list(drawing.dropped), list(drawing.notes)
+    )  # fmt: skip
+    for it in drawing.items:
+        if isinstance(it, Text):
+            x, y = point(it.x, it.y)
+            new.items.append(replace(it, x=x, y=y, rotation=(it.rotation + degrees) % 360))
+        elif isinstance(it, Line):
+            (x1, y1), (x2, y2) = point(it.x1, it.y1), point(it.x2, it.y2)
+            new.items.append(replace(it, x1=x1, y1=y1, x2=x2, y2=y2))
+        elif isinstance(it, Box):
+            x, y, bw, bh = rect(it.x, it.y, it.w, it.h)
+            new.items.append(replace(it, x=x, y=y, w=bw, h=bh))
+        elif isinstance(it, QR):
+            x, y, _bw, _bh = rect(it.x, it.y, it.size, it.size)
+            matrix = it.matrix
+            for _ in range(degrees // 90):  # one quarter turn clockwise
+                matrix = [list(row) for row in zip(*matrix[::-1])]
+            new.items.append(replace(it, x=x, y=y, matrix=matrix))
+        else:
+            new.items.append(it)
+    return new
 
 
 # ----- the lines of text ---------------------------------------------------------------------
@@ -464,7 +517,13 @@ def _panel(
     left = x0 + m
     text_left, text_width_ = left, width - 2 * m
     if qr:
-        text_left, text_width_ = _place_qr(d, asset, x0, width, h, m)
+        side = qr_side(asset, width, h, m, spec.qr_auto)
+        if side is None:
+            note = "the QR code was left out: it does not fit this label"
+            if note not in d.notes:
+                d.notes.append(note)
+        else:
+            text_left, text_width_ = _place_qr(d, asset, x0, width, h, m, side)
     lines = _lines(spec, asset, last)
     if not lines:
         return
@@ -474,7 +533,9 @@ def _panel(
     placed: List[Tuple[str, str, float, bool]] = []  # key, text, size, bold
     for key, text in lines:
         if key == "id":
-            size, shown = fit_text(text, text_width_, id_size, 2.5, bold=True, measure=measure)
+            size, shown = fit_text(
+                text, text_width_, id_size, MIN_FONT_MM, bold=True, measure=measure
+            )
             placed.append((key, shown, size, True))
         else:
             size, shown = fit_text(text, text_width_, size_other, measure=measure)
@@ -490,11 +551,33 @@ def _panel(
         y += size * 0.2
 
 
-def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: float):
-    """Put the QR code at the left of the box; returns the left and the width left for the text."""
+def qr_min_side(asset: Asset) -> float:
+    """The smallest square (quiet zone included) in which the QR code of a card prints with modules
+    of ``MIN_MODULE_MM``."""
+    return MIN_MODULE_MM * (len(qr_matrix(qr_text(asset.id))) + 2 * QUIET_MODULES)
+
+
+def qr_side(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optional[float]:
+    """The side of the square for the QR code in a box ``width`` x ``h`` mm with margin ``m``: about
+    42 % of the width, no more than the height. With ``auto``: a bigger one if the modules would be
+    too small and the text keeps ``MIN_TEXT_MM``; ``None`` if it cannot fit (the QR code is left
+    out). Without ``auto`` the usual side is always given (a small code is flagged, not removed)."""
+    side = min(h - 2 * m, width * 0.42)
+    if not auto:
+        return side
+    needed = qr_min_side(asset)
+    if side < needed:
+        side = needed
+    if side > h - 2 * m + 1e-9 or width - 3 * m - side < MIN_TEXT_MM:
+        return None
+    return side
+
+
+def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: float, side: float):
+    """Put the QR code, ``side`` mm square, at the left of the box; returns the left and the width
+    left for the text."""
     matrix = qr_matrix(qr_text(asset.id))
     count = len(matrix)
-    side = min(h - 2 * m, width * 0.42)
     module = side / (count + 2 * QUIET_MODULES)
     inner = module * count
     qx, qy = x0 + m + module * QUIET_MODULES, (h - inner) / 2
@@ -587,10 +670,13 @@ def render_svg(drawing: Drawing) -> str:
         if isinstance(it, Text):
             weight = ' font-weight="bold"' if it.bold else ""
             anchor = f' text-anchor="{it.anchor}"' if it.anchor != "start" else ""
+            turn = (
+                f' transform="rotate({it.rotation} {it.x:.3f} {it.y:.3f})"' if it.rotation else ""
+            )
             out.append(
                 f'<text x="{it.x:.3f}" y="{it.y:.3f}" font-size="{it.size:.3f}" '
                 'font-family="Helvetica, Arial, sans-serif"'
-                f"{weight}{anchor}>{escape(it.text)}</text>"
+                f"{weight}{anchor}{turn}>{escape(it.text)}</text>"
             )
         elif isinstance(it, Box):
             dash = ' stroke-dasharray="1 1"' if it.dashed else ""

@@ -58,6 +58,8 @@ from ola.label_design import (
     Element,
     KindDesign,
     LabelSetup,
+    ROTATIONS,
+    advise,
     auto_elements,
     cable_flag_geometry,
     cable_flag_min_width,
@@ -189,6 +191,8 @@ class LabelDesignDialog(QDialog):
         self.cable_info.setWordWrap(True)
         self.qr_box = QCheckBox(self._t("lbl_qr"))
         self.border_box = QCheckBox(self._t("lbl_border"))
+        self.qr_auto_box = QCheckBox(self._t("ldg_qr_auto"))
+        self.qr_auto_box.setToolTip(self._t("ldg_qr_auto_help"))
         form.addRow(self._t("lbl_tpl_width"), self.width_box)
         form.addRow(self._t("lbl_tpl_height"), self.height_box)
         form.addRow(self._t("lbl_tpl_layout"), self.layout_box)
@@ -202,6 +206,7 @@ class LabelDesignDialog(QDialog):
         form.addRow(self.cable_info)
         form.addRow(self._t("lbl_tpl_margin"), self.margin_box)
         form.addRow(self.qr_box)
+        form.addRow(self.qr_auto_box)
         form.addRow(self.border_box)
         left.addWidget(size_group)
         for widget in (
@@ -216,6 +221,7 @@ class LabelDesignDialog(QDialog):
         self.layout_box.currentIndexChanged.connect(self._setup_changed)
         self.qr_box.toggled.connect(self._setup_changed)
         self.border_box.toggled.connect(self._setup_changed)
+        self.qr_auto_box.toggled.connect(self._setup_changed)
 
         self.kind_box = QComboBox()
         for kind in KINDS:
@@ -256,6 +262,10 @@ class LabelDesignDialog(QDialog):
         self.hint = QLabel(self._t("ldg_hint"))
         self.hint.setWordWrap(True)
         view.addWidget(self.hint)
+        self.advice = QLabel()
+        self.advice.setWordWrap(True)
+        self.advice.setTextFormat(Qt.TextFormat.RichText)
+        view.addWidget(self.advice)
         self.message = QLabel()
         self.message.setWordWrap(True)
         self.message.setTextFormat(Qt.TextFormat.RichText)
@@ -299,6 +309,14 @@ class LabelDesignDialog(QDialog):
         self.lines_edit.textChanged.connect(self._lines_changed)
         layout.addWidget(self.lines_edit, 1)
         layout.addWidget(self._insert_box(self.lines_edit))
+        row = QHBoxLayout()
+        row.addWidget(QLabel(self._t("ldg_rotate_design")), 1)
+        self.rotate_box = QComboBox()
+        for degrees in ROTATIONS:
+            self.rotate_box.addItem(self._t(f"ldg_rot_{degrees}"), degrees)
+        self.rotate_box.currentIndexChanged.connect(self._rotate_changed)
+        row.addWidget(self.rotate_box)
+        layout.addLayout(row)
         return page
 
     def _build_manual(self) -> QWidget:
@@ -354,6 +372,11 @@ class LabelDesignDialog(QDialog):
         form.addRow(self.bold_box)
         self.align_label = QLabel(self._t("ldg_align"))
         form.addRow(self.align_label, self.align_box)
+        self.rotation_box = QComboBox()
+        for degrees in ROTATIONS:
+            self.rotation_box.addItem(self._t(f"ldg_rot_{degrees}"), degrees)
+        self.rotation_label = QLabel(self._t("ldg_rotation"))
+        form.addRow(self.rotation_label, self.rotation_box)
         form.addRow(self._insert_box(self.text_edit))
         layout.addWidget(self.element_form)
         for widget in (
@@ -369,6 +392,7 @@ class LabelDesignDialog(QDialog):
         self.text_edit.textChanged.connect(self._element_edited)
         self.bold_box.toggled.connect(self._element_edited)
         self.align_box.currentIndexChanged.connect(self._element_edited)
+        self.rotation_box.currentIndexChanged.connect(self._element_edited)
         layout.addStretch(1)
         return page
 
@@ -379,6 +403,7 @@ class LabelDesignDialog(QDialog):
             self.width_box.value(), self.height_box.value(), self.layout_box.currentData(),
             self.margin_box.value(), self.qr_box.isChecked(), self.border_box.isChecked(),
             self.diameter_box.value(), self.overlap_box.value(), self.side_box.currentData(),
+            self.qr_auto_box.isChecked(),
         )  # fmt: skip
 
     def draft(self) -> KindDesign:
@@ -388,6 +413,7 @@ class LabelDesignDialog(QDialog):
             self.drafts[self.kind] = KindDesign(
                 tuple(saved.lines),
                 None if saved.elements is None else [replace(e) for e in saved.elements],
+                saved.rotate,
             )
         return self.drafts[self.kind]
 
@@ -400,6 +426,7 @@ class LabelDesignDialog(QDialog):
         self.layout_box.setCurrentIndex(max(self.layout_box.findData(setup.layout), 0))
         self.qr_box.setChecked(setup.qr)
         self.border_box.setChecked(setup.border)
+        self.qr_auto_box.setChecked(setup.qr_auto)
         self.diameter_box.setValue(setup.cable_diameter_mm)
         self.overlap_box.setValue(setup.overlap_mm)
         self.side_box.setCurrentIndex(max(self.side_box.findData(setup.wrap_side), 0))
@@ -410,6 +437,7 @@ class LabelDesignDialog(QDialog):
         design = self.draft()
         self._loading = True
         self.lines_edit.setPlainText("\n".join(design.lines))
+        self.rotate_box.setCurrentIndex(max(self.rotate_box.findData(design.rotate % 360), 0))
         self.manual_radio.setChecked(design.manual)
         self.auto_radio.setChecked(not design.manual)
         self.stack.setCurrentIndex(1 if design.manual else 0)
@@ -457,6 +485,7 @@ class LabelDesignDialog(QDialog):
             return
         design = self.draft()
         if self.manual_radio.isChecked() and not design.manual:
+            design.rotate = 0  # the elements are written one by one: turn the texts you want
             design.elements = auto_elements(
                 design_setup(self.setup()), design.lines, sample_asset(self.kind), text_measure
             )
@@ -473,9 +502,17 @@ class LabelDesignDialog(QDialog):
         self._update_state()
         self._redraw()
 
+    def _rotate_changed(self, *_args: Any) -> None:
+        if self._loading:
+            return
+        self.draft().rotate = self.rotate_box.currentData()
+        self._update_state()
+        self._redraw()
+
     def start_from_automatic(self) -> None:
         """Turn the lines into elements as the automatic layout draws them."""
         design = self.draft()
+        design.rotate = 0
         design.elements = auto_elements(
             design_setup(self.setup()), design.lines, sample_asset(self.kind), text_measure
         )
@@ -535,8 +572,11 @@ class LabelDesignDialog(QDialog):
         self.dashed_box.setChecked(element.dashed)
         self.bold_box.setChecked(element.bold)
         self.align_box.setCurrentIndex(max(self.align_box.findData(element.align), 0))
+        self.rotation_box.setCurrentIndex(
+            max(self.rotation_box.findData(element.rotation % 360), 0)
+        )
         for widget in (self.text_edit, self.text_label, self.bold_box, self.align_box,
-                       self.align_label):  # fmt: skip
+                       self.align_label, self.rotation_box, self.rotation_label):  # fmt: skip
             widget.setEnabled(text)
         for widget in (self.w_box, self.w_label):
             widget.setEnabled(text or shape)
@@ -565,6 +605,7 @@ class LabelDesignDialog(QDialog):
         if e.type == "text":
             e.text, e.w = self.text_edit.text(), self.w_box.value()
             e.bold, e.align = self.bold_box.isChecked(), self.align_box.currentData()
+            e.rotation = self.rotation_box.currentData()
             item = self.element_list.item(index)
             item.setText(f"{index + 1}. {e.text}")
         self._update_state()
@@ -638,6 +679,20 @@ class LabelDesignDialog(QDialog):
             wrong += [self._t("lbl_dropped", fields=d) for d in dict.fromkeys(drawing.dropped)
                       if d not in " ".join(drawing.warnings)]  # fmt: skip
         self.message.setText("<br>".join(wrong))
+        self.advice.setText(self._advice_text(setup, design, card))
+
+    def _advice_text(self, setup: LabelSetup, design: KindDesign, card: Any) -> str:
+        """What the label will and will not have, in the user's language (``ola.label_design.advise``)."""
+        if setup_problems(setup):
+            return ""
+        try:
+            lines = [
+                self._t(f"ldg_adv_{a.key}", **dict(a.params))
+                for a in advise(setup, design, card, "", text_measure)
+            ]
+        except RuntimeError:  # the QR code needs segno: the message above says so
+            return ""
+        return "<br>".join(f"&#8226; {line}" for line in lines)
 
     # ================================================================ saving
     def save(self) -> bool:

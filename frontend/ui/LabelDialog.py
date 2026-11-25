@@ -63,6 +63,7 @@ from frontend.core.errorhandler import show_problem
 SHEET = "sheet"
 SINGLE = "single"
 TEMPLATE = "tpl"
+DPI_CHOICES = (203, 300, 600)  # a 203 dpi thermal printer, a 300 dpi one (Brother QL), 600
 BY_KIND = "kind"  # each card with the design of its kind (ola.label_design)
 OPTIONAL_FIELDS = FIELDS[1:]  # the code ("id") is always there
 
@@ -184,6 +185,25 @@ class LabelDialog(QDialog):
         self.svg_btn.clicked.connect(self.save_svg)
         for button in (self.pdf_btn, self.png_btn, self.svg_btn):
             side.addWidget(button)
+        dpi_row = QHBoxLayout()
+        dpi_row.addWidget(QLabel(self._t("lbl_dpi")), 1)
+        self.dpi_box = QComboBox()
+        for dpi in DPI_CHOICES:
+            self.dpi_box.addItem(f"{dpi} dpi", dpi)
+        self.dpi_box.setCurrentIndex(self.dpi_box.findData(300))
+        self.dpi_box.setToolTip(self._t("lbl_dpi_help"))
+        dpi_row.addWidget(self.dpi_box)
+        side.addLayout(dpi_row)
+        each_row = QHBoxLayout()
+        self.each_btn = QPushButton(self._t("lbl_save_each"))
+        self.each_btn.setToolTip(self._t("lbl_save_each_help"))
+        self.each_btn.clicked.connect(self.save_each)
+        self.each_format = QComboBox()
+        for fmt in ("svg", "png"):
+            self.each_format.addItem(fmt.upper(), fmt)
+        each_row.addWidget(self.each_btn, 1)
+        each_row.addWidget(self.each_format)
+        side.addLayout(each_row)
         root.addLayout(side)
 
         view = QVBoxLayout()
@@ -357,9 +377,10 @@ class LabelDialog(QDialog):
             for fields in sorted({d for d in page.dropped}):
                 lines.append(self._t("lbl_dropped", fields=fields.replace(":", " - ")))
             lines += sorted({w for w in page.warnings})
+            lines += sorted({n for n in page.notes})  # what the layout decided by itself
         self.message.setText("<br>".join(dict.fromkeys(lines)))
         enabled = bool(self.pages)
-        for button in (self.pdf_btn, self.png_btn, self.svg_btn):
+        for button in (self.pdf_btn, self.png_btn, self.svg_btn, self.each_btn):
             button.setEnabled(enabled)
 
     def current(self) -> Optional[Drawing]:
@@ -376,14 +397,14 @@ class LabelDialog(QDialog):
         """Every label, at its real size."""
         path = self._ask("lbl_save_pdf", "labels.pdf", "PDF (*.pdf)")
         if path:
-            self._do(lambda: write_pdf(path, self.pages), path)
+            self._do(lambda: write_pdf(path, self.pages, self.dpi()), path)
 
     def save_png(self) -> None:
-        """The label on show, at 300 dpi."""
+        """The label on show, at the chosen dpi."""
         drawing = self.current()
         path = self._ask("lbl_save_png", "label.png", "PNG (*.png)") if drawing else ""
         if path:
-            self._do(lambda: render_image(drawing, 300).save(path) or True, path)
+            self._do(lambda: render_image(drawing, self.dpi()).save(path) or True, path)
 
     def save_svg(self) -> None:
         """The label on show as SVG (millimetres)."""
@@ -391,6 +412,46 @@ class LabelDialog(QDialog):
         path = self._ask("lbl_save_svg", "label.svg", "SVG (*.svg)") if drawing else ""
         if path:
             self._do(lambda: open(path, "w", encoding="utf-8").write(render_svg(drawing)), path)
+
+    def dpi(self) -> int:
+        """The resolution chosen for the images (the printer's own: 203, 300, 600)."""
+        return int(self.dpi_box.currentData() or 300)
+
+    def file_names(self, fmt: str) -> List[str]:
+        """The file name of each page for ``save_each``: the code of the card for one label per
+        card, ``page-1`` ... for a sheet."""
+        kind, _name = self._kind_and_name()
+        names = []
+        for n in range(len(self.pages)):
+            single = kind != SHEET and n < len(self.assets)
+            stem = self.assets[n].id if single else f"page-{n + 1}"
+            names.append(f"{stem}.{fmt}")
+        return names
+
+    def write_each(self, folder: str, fmt: str = "svg") -> List[str]:
+        """Write every label as a file of its own in ``folder`` (SVG in millimetres, or PNG at the
+        chosen dpi with the real size in the file) and return the paths. Label software that
+        takes one image per label (Inkscape, ``brother_ql``, ``ptouch-print``) reads these."""
+        import os
+
+        os.makedirs(folder, exist_ok=True)
+        paths = []
+        for drawing, name in zip(self.pages, self.file_names(fmt)):
+            path = os.path.join(folder, name)
+            if fmt == "svg":
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(render_svg(drawing))
+            elif not render_image(drawing, self.dpi()).save(path):
+                raise OSError(f"cannot write {path}")
+            paths.append(path)
+        return paths
+
+    def save_each(self) -> None:
+        """Ask for a folder and write every label in it as a separate file."""
+        folder = QFileDialog.getExistingDirectory(self, self._t("lbl_save_each"))
+        if folder:
+            fmt = self.each_format.currentData()
+            self._do(lambda: self.write_each(folder, fmt), folder)
 
     def _do(self, action: Callable[[], Any], path: str) -> None:
         try:

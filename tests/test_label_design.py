@@ -132,10 +132,11 @@ def test_the_qr_element_is_placed_and_can_be_left_out():
     small = KindDesign(
         ("{id}",), [Element("qr", x=0, y=0, size=6), Element("text", "{id}", 8, 1, 30, 4)]
     )
-    assert any(
-        "too small" in w
-        for w in build_kind_drawing(LabelSetup(), small, sample_asset("cable")).warnings
-    )
+    forced = build_kind_drawing(LabelSetup(qr_auto=False), small, sample_asset("cable"))
+    assert any("too small" in w for w in forced.warnings)  # forced: printed small and flagged
+    left_out = build_kind_drawing(LabelSetup(), small, sample_asset("cable"))
+    assert not any(isinstance(i, QR) for i in left_out.items)  # automatic: left out, with a note
+    assert any("left out" in n for n in left_out.notes) and not left_out.warnings
 
 
 def test_a_flag_is_always_automatic():
@@ -351,3 +352,143 @@ def test_the_cable_settings_are_kept_in_the_file(tmp_path):
     )
     with pytest.raises(LabelTemplateError, match="at least"):
         store.set_setup(cable_setup(width_mm=20, cable_diameter_mm=10))
+
+
+# ---- rotation -----------------------------------------------------------------------------
+def test_a_text_can_be_written_turned_and_its_box_turns_with_it():
+    setup = LabelSetup(width_mm=40, height_mm=60, qr=False)
+    design = KindDesign(
+        ("{id}",),
+        [
+            Element("text", "{id}", x=2, y=3, w=30, size=5, rotation=0),
+            Element("text", "{id}", x=2, y=10, w=30, size=5, rotation=90),
+            Element("text", "{id}", x=10, y=10, w=30, size=5, rotation=180),
+            Element("text", "{id}", x=30, y=50, w=30, size=5, rotation=270),
+        ],
+    )
+    a, b, c, d = texts(build_kind_drawing(setup, design, sample_asset("cable")))
+    assert [t.rotation for t in (a, b, c, d)] == [0, 90, 180, 270]
+    assert (a.x, a.y) == (2, 3 + a.size)
+    assert b.x == pytest.approx(2 + 0.2 * b.size) and b.y == 10  # the baseline is a vertical line
+    assert c.x == pytest.approx(10 + 30) and c.y == pytest.approx(10 + 0.2 * c.size)
+    assert d.x == pytest.approx(30 + d.size) and d.y == pytest.approx(50 + 30)
+    # the box of a text on its side is tall and narrow
+    turned = design.elements[1].box()
+    assert turned == pytest.approx((2, 10, 5 * 1.2, 30))
+    assert design.elements[0].box() == pytest.approx((2, 3, 30, 5 * 1.2))
+    assert any(
+        p for p in design_problems(KindDesign(("{id}",), [Element("text", "{id}", rotation=45)]))
+    )
+
+
+def test_a_turned_text_is_in_the_svg_and_in_the_picture():
+    from ola.labels import render_svg
+
+    design = KindDesign(("{id}",), [Element("text", "{id}", x=5, y=2, w=30, size=4, rotation=90)])
+    drawing = build_kind_drawing(LabelSetup(qr=False), design, sample_asset("cable"))
+    assert 'transform="rotate(90 ' in render_svg(drawing)
+
+
+def snap(items):
+    import dataclasses
+
+    return [
+        {k: round(v, 6) if isinstance(v, float) else v for k, v in dataclasses.asdict(i).items()}
+        for i in items
+    ]
+
+
+def test_a_whole_drawing_turns_and_turns_back():
+    from ola.labels import Box, Line, rotate_drawing
+
+    base = build_kind_drawing(
+        LabelSetup(border=True), default_design("cable"), sample_asset("cable")
+    )
+    for degrees in (90, 180, 270):
+        turned = rotate_drawing(base, degrees)
+        assert (turned.width, turned.height) == ((25, 50) if degrees != 180 else (50, 25))
+        again = rotate_drawing(turned, 360 - degrees)
+        assert snap(again.items) == snap(base.items) and (again.width, again.height) == (50, 25)
+    box = next(i for i in rotate_drawing(base, 90).items if isinstance(i, Box))
+    assert (round(box.w, 1), round(box.h, 1)) == (
+        round(next(i for i in base.items if isinstance(i, Box)).h, 1),
+        49.6,
+    )
+    with pytest.raises(ValueError):
+        rotate_drawing(base, 45)
+    assert not [i for i in base.items if isinstance(i, Line)]
+
+
+def test_an_automatic_design_can_be_written_along_a_tall_label():
+    setup = LabelSetup(width_mm=12, height_mm=40, qr=False)
+    plain = build_kind_drawing(setup, default_design("cable"), sample_asset("cable"))
+    design = default_design("cable")
+    design.rotate = 90
+    turned = build_kind_drawing(setup, design, sample_asset("cable"))
+    assert (turned.width, turned.height) == (12, 40)
+    assert all(t.rotation == 90 for t in texts(turned))
+    assert max(len(t.text) for t in texts(turned)) > max(
+        len(t.text) for t in texts(plain)
+    )  # more room
+    assert KindDesign.from_dict(design.to_dict()).rotate == 90
+
+
+# ---- small labels and guidance --------------------------------------------------------------
+def test_the_qr_code_is_left_out_when_it_does_not_fit_and_the_note_says_so():
+    narrow = cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=4)  # a face of about 20 mm
+    drawing = build_kind_drawing(narrow, default_design("cable"), sample_asset("cable"))
+    assert not any(isinstance(i, QR) for i in drawing.items)
+    assert shown(drawing).count("CAB-0042") == 2 and any("left out" in n for n in drawing.notes)
+    wide = build_kind_drawing(
+        cable_setup(width_mm=110), default_design("cable"), sample_asset("cable")
+    )
+    assert any(isinstance(i, QR) for i in wide.items) and not wide.notes
+    # a thinner cable leaves more room: the same strip gets the QR code
+    thin = build_kind_drawing(
+        cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=0.5, overlap_mm=0),
+        default_design("cable"),
+        sample_asset("cable"),
+    )
+    assert any(isinstance(i, QR) for i in thin.items)
+    # forced: printed anyway and flagged
+    forced = build_kind_drawing(
+        cable_setup(width_mm=50, height_mm=30, qr_auto=False),
+        default_design("cable"),
+        sample_asset("cable"),
+    )
+    assert any(isinstance(i, QR) for i in forced.items) and forced.warnings
+
+
+def test_a_small_label_keeps_the_code_and_drops_the_rest():
+    for width, height in ((20, 10), (25, 8), (16, 10)):
+        setup = LabelSetup(width_mm=width, height_mm=height)
+        drawing = build_kind_drawing(setup, default_design("cable"), sample_asset("cable"))
+        assert "CAB-0042" in shown(drawing), (width, height)
+        assert all(t.size >= 1.8 for t in texts(drawing))
+        assert all(0 <= t.x <= width and 0 <= t.y <= height for t in texts(drawing))
+
+
+def test_the_advice_says_what_fits_and_what_to_change():
+    from ola.label_design import advise
+
+    card = sample_asset("cable")
+
+    def keys(s, d=None):
+        return [a.key for a in advise(s, d or default_design("cable"), card)]
+
+    assert keys(LabelSetup()) == ["qr_fits"]
+    narrow = advise(cable_setup(width_mm=56, height_mm=30), default_design("cable"), card)
+    left_out = next(a for a in narrow if a.key == "qr_left_out")
+    assert (
+        left_out.params["min_strip"] > 56 and left_out.params["min_width"] > left_out.params["face"]
+    )
+    tall = LabelSetup(width_mm=12, height_mm=40, qr=False)
+    assert "try_rotate" in keys(tall)
+    rotated = default_design("cable")
+    rotated.rotate = 90
+    assert "try_rotate" not in keys(tall, rotated)
+    small = keys(LabelSetup(width_mm=20, height_mm=10))
+    assert "lines_dropped" in small and "qr_left_out" in small
+    assert (
+        advise(LabelSetup(width_mm=2), default_design("cable"), card) == []
+    )  # a wrong size: no advice

@@ -214,3 +214,76 @@ def test_on_a_cable_flag_the_elements_are_relative_to_a_face(tool, store):
     tool._moved(1, 10.0, 4.0)
     assert (elements[1].x, elements[1].y) == (10.0, 4.0)
     assert tool.save() is True and store.setup.layout == "cable_flag"
+
+
+# ---- rotation, QR left out, guidance, export --------------------------------------------------
+def test_a_text_can_be_rotated_in_the_tool_and_the_whole_design_too(tool, store):
+    tool.manual_radio.setChecked(True)
+    tool.element_list.setCurrentRow(1)
+    assert tool.rotation_box.isEnabled()
+    tool.rotation_box.setCurrentIndex(tool.rotation_box.findData(90))
+    assert tool.draft().elements[1].rotation == 90
+    assert any(getattr(i, "rotation", 0) == 90 for i in tool.preview.drawing.items)
+    tool.element_list.setCurrentRow(0)  # the QR code
+    assert not tool.rotation_box.isEnabled()  # a QR code does not turn
+    assert tool.save() is True
+    assert TemplateStore(store.path).design("cable").elements[1].rotation == 90
+    tool.auto_radio.setChecked(True)  # automatic again: the whole label can be written turned
+    tool.height_box.setValue(60)
+    tool.width_box.setValue(14)
+    tool.rotate_box.setCurrentIndex(tool.rotate_box.findData(90))
+    assert tool.draft().rotate == 90
+    assert all(
+        getattr(i, "rotation", 0) == 90 for i in tool.preview.drawing.items if hasattr(i, "text")
+    )
+    assert tool.save() is True and TemplateStore(store.path).design("cable").rotate == 90
+
+
+def test_the_tool_guides_a_small_label(tool):
+    assert "QR code fits" in tool.advice.text()
+    tool.width_box.setValue(56)
+    tool.height_box.setValue(30)
+    tool.layout_box.setCurrentIndex(tool.layout_box.findData("cable_flag"))
+    tool.diameter_box.setValue(4)
+    text = tool.advice.text()
+    assert "does not fit and is left out" in text and "at least" in text
+    assert not any(hasattr(i, "matrix") for i in tool.preview.drawing.items)
+    tool.qr_auto_box.setChecked(False)  # print it anyway: a warning instead
+    assert any(hasattr(i, "matrix") for i in tool.preview.drawing.items)
+    tool.qr_auto_box.setChecked(True)
+    tool.diameter_box.setValue(0.5)  # a thinner cable leaves a bigger face: the QR code comes back
+    assert any(hasattr(i, "matrix") for i in tool.preview.drawing.items)
+    assert "QR code fits" in tool.advice.text()
+    tool.save()
+    assert tool.store.setup.qr_auto is True
+
+
+def test_the_label_window_saves_every_label_as_a_file_and_the_chosen_dpi(qtbot, store, tmp_path):
+    window = LabelDialog([sample_asset("cable"), sample_asset("attenuator")], None, templates=store)
+    qtbot.addWidget(window)
+    window.dpi_box.setCurrentIndex(window.dpi_box.findData(203))
+    assert window.dpi() == 203
+    svgs = window.write_each(str(tmp_path / "svg"), "svg")
+    assert [p.rsplit("/", 1)[-1] for p in svgs] == ["CAB-0042.svg", "ATT-0042.svg"]
+    assert 'width="50mm" height="25mm"' in open(svgs[0], encoding="utf-8").read()
+    pngs = window.write_each(str(tmp_path / "png"), "png")
+    from PyQt6.QtGui import QImage
+
+    image = QImage(pngs[1])
+    assert (image.width(), image.height()) == (round(50 / 25.4 * 203), round(25 / 25.4 * 203))
+    assert round(image.dotsPerMeterX() * 0.0254) == 203  # the real size is in the file
+    sheet = window.format_box.findData("sheet:A4 3x8 (70x37)")
+    window.format_box.setCurrentIndex(sheet)
+    assert window.file_names("svg") == ["page-1.svg"]
+    window.dpi_box.setCurrentIndex(window.dpi_box.findData(300))
+    window.format_box.setCurrentIndex(0)
+    assert window.each_btn.isEnabled()
+
+
+def test_the_label_window_shows_what_the_layout_decided(qtbot, store):
+    from ola.label_design import LabelSetup
+
+    store.set_setup(LabelSetup(width_mm=20, height_mm=10))
+    window = LabelDialog([sample_asset("cable")], None, templates=store)
+    qtbot.addWidget(window)
+    assert "left out" in window.message.text()

@@ -36,7 +36,7 @@ manual) is drawn as a label of the size of one face, so manual positions are rel
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .assets import Asset, qr_text
@@ -49,17 +49,21 @@ from .labels import (
     Drawing,
     LabelSpec,
     Line,
+    MIN_TEXT_MM,
     Measure,
     Text,
     build_drawing,
     fill_line,
     fit_text,
     qr_matrix,
+    qr_min_side,
+    rotate_drawing,
     unknown_placeholders,
 )
 
 KINDS = ("cable", "attenuator", "amplifier", "adapter", "antenna", "filter", "converter", "generic")
 ALIGNS = ("left", "middle", "end")
+ROTATIONS = (0, 90, 180, 270)
 LAYOUTS = ("single", "flag", "cable_flag")
 WRAP_SIDES = ("left", "right")
 FLAG_GAP_MM = 1.0  # the width of the fold between the two faces
@@ -102,6 +106,9 @@ class LabelSetup:
     cable_diameter_mm: float = 4.0  # ``cable_flag``: the diameter of the cable
     overlap_mm: float = 3.0  # ``cable_flag``: how much the strip overlaps itself round the cable
     wrap_side: str = "left"  # ``cable_flag``: which end of the strip goes round the cable
+    qr_auto: bool = (
+        True  # leave the QR code out when it would not fit, instead of printing it small
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """As written in the file."""
@@ -109,7 +116,7 @@ class LabelSetup:
             "width_mm": self.width_mm, "height_mm": self.height_mm, "layout": self.layout,
             "margin_mm": self.margin_mm, "qr": self.qr, "border": self.border,
             "cable_diameter_mm": self.cable_diameter_mm, "overlap_mm": self.overlap_mm,
-            "wrap_side": self.wrap_side,
+            "wrap_side": self.wrap_side, "qr_auto": self.qr_auto,
         }  # fmt: skip
 
     @staticmethod
@@ -121,7 +128,7 @@ class LabelSetup:
                 str(raw.get("layout", "single")), float(raw.get("margin_mm", 1.5)),
                 bool(raw.get("qr", True)), bool(raw.get("border", False)),
                 float(raw.get("cable_diameter_mm", 4.0)), float(raw.get("overlap_mm", 3.0)),
-                str(raw.get("wrap_side", "left")),
+                str(raw.get("wrap_side", "left")), bool(raw.get("qr_auto", True)),
             )  # fmt: skip
         except (AttributeError, TypeError, ValueError) as exc:
             raise DesignError(f"the label size is not valid: {exc}") from exc
@@ -145,6 +152,7 @@ class Element:
     h: float = 0.0  # a box: its height; a line: how far it goes down (0 = horizontal)
     stroke: float = 0.3  # a box or a line: the width of the line in mm
     dashed: bool = False  # a box or a line
+    rotation: int = 0  # a text: 0, 90 (reads top to bottom), 180 or 270 (bottom to top) degrees
 
     def to_dict(self) -> Dict[str, Any]:
         """As written in the file (a QR code has no text, width or alignment)."""
@@ -157,7 +165,7 @@ class Element:
             }  # fmt: skip
         return {
             "type": "text", "text": self.text, "x": self.x, "y": self.y, "w": self.w,
-            "size": self.size, "bold": self.bold, "align": self.align,
+            "size": self.size, "bold": self.bold, "align": self.align, "rotation": self.rotation,
         }  # fmt: skip
 
     @staticmethod
@@ -170,6 +178,7 @@ class Element:
                 float(raw.get("size", 3)), bool(raw.get("bold", False)),
                 str(raw.get("align", "left")), float(raw.get("h", 0)),
                 float(raw.get("stroke", 0.3)), bool(raw.get("dashed", False)),
+                int(raw.get("rotation", 0)),
             )  # fmt: skip
         except (AttributeError, TypeError, ValueError) as exc:
             raise DesignError(f"an element is not valid: {exc}") from exc
@@ -180,6 +189,8 @@ class Element:
             return self.x, self.y, self.size, self.size
         if self.type in ("box", "line"):
             return self.x, self.y, self.w, self.h
+        if self.rotation in (90, 270):  # a text turned on its side: its box turns with it
+            return self.x, self.y, self.size * 1.2, self.w
         return self.x, self.y, self.w, self.size * 1.2
 
 
@@ -189,6 +200,7 @@ class KindDesign:
 
     lines: Tuple[str, ...] = ("{id}", "{name}")
     elements: Optional[List[Element]] = None
+    rotate: int = 0  # an automatic design written turned by 0, 90, 180 or 270 degrees (clockwise)
 
     @property
     def manual(self) -> bool:
@@ -200,6 +212,7 @@ class KindDesign:
         return {
             "lines": list(self.lines),
             "elements": None if self.elements is None else [e.to_dict() for e in self.elements],
+            "rotate": self.rotate,
         }
 
     @staticmethod
@@ -211,6 +224,7 @@ class KindDesign:
         return KindDesign(
             tuple(str(x) for x in raw.get("lines", ("{id}",))),
             None if listed is None else [Element.from_dict(e) for e in listed],
+            int(raw.get("rotate", 0)),
         )
 
 
@@ -261,7 +275,10 @@ def design_setup(setup: LabelSetup) -> LabelSetup:
     if setup.layout != "cable_flag":
         return setup
     face = max(cable_flag_geometry(setup).face_mm, 1.0)
-    return LabelSetup(face, setup.height_mm, "single", setup.margin_mm, setup.qr, setup.border)
+    return LabelSetup(
+        face, setup.height_mm, "single", setup.margin_mm, setup.qr, setup.border,
+        qr_auto=setup.qr_auto,
+    )  # fmt: skip
 
 
 # ----- the checks ----------------------------------------------------------------------------
@@ -300,6 +317,8 @@ def design_problems(design: KindDesign, setup: Optional[LabelSetup] = None) -> L
     """What is wrong with a design, one sentence each (empty if it is fine). With the setup, an
     element outside the label is listed too."""
     found: List[str] = []
+    if design.rotate % 360 not in ROTATIONS:
+        found.append("the rotation of the design must be one of: 0, 90, 180, 270")
     for n, line in enumerate(design.lines, 1):
         if len(line) > 80:
             found.append(f"line {n} is longer than 80 characters")
@@ -340,6 +359,8 @@ def design_problems(design: KindDesign, setup: Optional[LabelSetup] = None) -> L
         if e.type == "text":
             if e.w <= 0:
                 found.append(f"element {n}: the width must be above 0")
+            if e.rotation % 360 not in ROTATIONS:
+                found.append(f"element {n}: the rotation must be one of: 0, 90, 180, 270")
             if e.align not in ALIGNS:
                 found.append(f"element {n}: the alignment must be one of: {', '.join(ALIGNS)}")
             if len(e.text) > 80:
@@ -414,9 +435,21 @@ def build_kind_drawing(
         return _cable_flag(setup, design, asset, last_measurement, measure)
     if design.manual and setup.layout != "flag":
         return _manual(setup, design, asset, last_measurement, measure)
+    if design.rotate % 360 and setup.layout != "flag":
+        # an automatic design turned: lay it out on a label turned the other way, then turn it
+        sideways = design.rotate % 360 in (90, 270)
+        width, height = (
+            (setup.height_mm, setup.width_mm) if sideways else (setup.width_mm, setup.height_mm)
+        )
+        inner = build_kind_drawing(
+            replace(setup, width_mm=width, height_mm=height),
+            replace(design, rotate=0), asset, last_measurement, measure,
+        )  # fmt: skip
+        return rotate_drawing(inner, design.rotate)
     spec = LabelSpec(
         "design", setup.width_mm, setup.height_mm, setup.layout, qr=setup.qr,
         border=setup.border, margin_mm=setup.margin_mm, lines=tuple(design.lines),
+        qr_auto=setup.qr_auto,
     )  # fmt: skip
     return build_drawing(spec, asset, last_measurement, measure)
 
@@ -445,6 +478,7 @@ def _cable_flag(
     d.items.append(Line(geometry.base_x, 0, geometry.base_x, setup.height_mm, dashed=True))
     d.warnings += face.warnings
     d.dropped += face.dropped
+    d.notes += face.notes
     return d
 
 
@@ -480,6 +514,9 @@ def _manual(
                 continue
             matrix = qr_matrix(qr_text(asset.id))
             module = element.size / (len(matrix) + 2 * QUIET_MODULES)
+            if setup.qr_auto and module < MIN_MODULE_MM:
+                d.notes.append("the QR code was left out: it is too small to read")
+                continue
             d.items.append(
                 QR(element.x + module * QUIET_MODULES, element.y + module * QUIET_MODULES,
                    module, matrix)
@@ -503,11 +540,83 @@ def _manual(
             d.warnings.append(f"'{element.text}' was cut to fit its width")
         if outside:
             d.warnings.append(f"'{element.text}' is outside the label")
-        anchor_x = {"left": element.x, "middle": element.x + element.w / 2}.get(
-            element.align, element.x + element.w
-        )
-        d.items.append(Text(anchor_x, element.y + size, size, shown, element.bold, element.align))
+        along = {"left": 0.0, "middle": element.w / 2}.get(element.align, element.w)
+        turn = element.rotation % 360
+        if turn == 90:  # reads from the top down: the baseline is a vertical line
+            px, py = element.x + 0.2 * size, element.y + along
+        elif turn == 180:
+            px, py = element.x + element.w - along, element.y + 0.2 * size
+        elif turn == 270:
+            px, py = element.x + size, element.y + element.w - along
+        else:
+            turn, px, py = 0, element.x + along, element.y + size
+        d.items.append(Text(px, py, size, shown, element.bold, element.align, turn))
     return d
+
+
+# ----- guidance ------------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Advice:
+    """One thing the program tells the user about a label: ``key`` says what (the window has a text
+    for each: ``qr_fits``, ``qr_left_out``, ``lines_dropped``, ``only_code``, ``text_small``,
+    ``try_rotate``) and ``params`` fill it in."""
+
+    key: str
+    params: Mapping[str, Any]
+
+
+def advise(
+    setup: LabelSetup,
+    design: KindDesign,
+    asset: Asset,
+    last_measurement: str = "",
+    measure: Optional[Measure] = None,
+) -> List[Advice]:
+    """What the label of ``asset`` will and will not have, and what to change to get more: whether
+    the QR code fits (and, if it was left out, the width and height a label needs for it), which
+    lines did not fit, if only the code is left, if the text is very small, and whether turning an
+    automatic design by 90 degrees would suit a tall narrow label."""
+    if setup_problems(setup):
+        return []
+    drawing = build_kind_drawing(setup, design, asset, last_measurement, measure)
+    face = design_setup(setup)
+    found: List[Advice] = []
+    if setup.qr:
+        qr = next((i for i in drawing.items if isinstance(i, QR)), None)
+        if qr is not None:
+            found.append(Advice("qr_fits", {"side": round(qr.size, 1)}))
+        else:
+            need = qr_min_side(asset)
+            m = setup.margin_mm
+            face_width = 3 * m + need + MIN_TEXT_MM
+            params: Dict[str, Any] = {
+                "face": round(face.width_mm, 1),
+                "min_width": round(face_width, 1),
+                "min_height": round(2 * m + need, 1),
+            }
+            if setup.layout == "cable_flag":
+                params["min_strip"] = round(
+                    cable_flag_geometry(setup).wrap_mm + 2 * face_width + FLAG_GAP_MM, 1
+                )
+            found.append(Advice("qr_left_out", params))
+    if not design.manual and drawing.dropped:
+        names = ", ".join(dict.fromkeys(d.split(":")[-1] for d in drawing.dropped))
+        found.append(Advice("lines_dropped", {"names": names}))
+    sizes = [i.size for i in drawing.items if isinstance(i, Text)]
+    shown = {i.text for i in drawing.items if isinstance(i, Text)}
+    if len(shown) == 1 and len(design.lines) > 1:
+        found.append(Advice("only_code", {}))
+    if sizes and min(sizes) < 2.2:
+        found.append(Advice("text_small", {"size": round(min(sizes), 1),
+                                           "pt": round(min(sizes) / 0.3528)}))  # fmt: skip
+    if (
+        not design.manual
+        and not design.rotate
+        and setup.layout != "flag"
+        and face.height_mm > 1.6 * face.width_mm
+    ):
+        found.append(Advice("try_rotate", {}))
+    return found
 
 
 # ----- sample cards for the preview ----------------------------------------------------------
@@ -536,8 +645,8 @@ def sample_asset(kind: str) -> Asset:
 
 
 __all__ = [
-    "ALIGNS", "CableFlag", "DEFAULT_LINES", "DesignError", "Element", "KINDS", "KindDesign",
-    "LabelSetup", "WRAP_SIDES", "auto_elements", "build_kind_drawing", "cable_flag_geometry",
-    "cable_flag_min_width", "default_design", "design_problems", "design_setup", "sample_asset",
-    "setup_problems",
+    "ALIGNS", "Advice", "CableFlag", "DEFAULT_LINES", "DesignError", "Element", "KINDS",
+    "KindDesign", "LabelSetup", "ROTATIONS", "WRAP_SIDES", "advise", "auto_elements",
+    "build_kind_drawing", "cable_flag_geometry", "cable_flag_min_width", "default_design",
+    "design_problems", "design_setup", "sample_asset", "setup_problems",
 ]  # fmt: skip
