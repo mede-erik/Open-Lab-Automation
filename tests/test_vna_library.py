@@ -36,11 +36,17 @@ def commands(library, model, call, args):
     return [s["text"] for s in plan_call(library, model, call, args).steps]
 
 
-def test_all_models_are_experimental(library):
+# tried on a real instrument: the library clears the flag once the test is recorded
+# (Instruments_LIB/TESTING.md), so it may or may not be set, depending on the library's version
+TRIED_ON_HARDWARE = {"VNA_Zenko_LiteVNA67"}
+
+
+def test_the_models_not_tried_on_hardware_are_experimental(library):
     ids = [m["id"] for s in library.categories["network_analyzers_series"] for m in s["models"]]
     assert len(ids) == 3 + 19 + 16 + 14
     for model_id in ids:
-        assert library.find_model(model_id).model["experimental"] is True
+        if model_id not in TRIED_ON_HARDWARE:
+            assert library.find_model(model_id).model["experimental"] is True
 
 
 def test_siglent_commands(library):
