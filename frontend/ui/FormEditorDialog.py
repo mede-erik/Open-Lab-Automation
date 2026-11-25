@@ -50,6 +50,7 @@ from PyQt6.QtWidgets import (
 
 from frontend.ui.efficiency_widgets import mark_widget, text_color
 from frontend.ui.module_translator import CatalogTranslator
+from frontend.ui.VariantTable import VariantTable
 from ola.form_model import (
     FormField,
     FormModel,
@@ -58,7 +59,9 @@ from ola.form_model import (
     localized,
 )
 from ola.assets import normalize_code
+from ola.duts import upgrade_params
 from ola.run_view import format_si, parse_si
+from frontend.core.errorhandler import show_problem
 
 
 class _Row:
@@ -92,9 +95,11 @@ class FormEditorDialog(QDialog):
         role_instruments: Optional[Mapping[str, Sequence[str]]] = None,
         assets: Any = None,
         parent: Optional[QWidget] = None,
+        duts: Any = None,
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("form", translator)
+        self._variant_t = CatalogTranslator("variants", translator).t
         self._t = self.tr_.t
         self.lang = self.tr_.lang
         self.file_path, self.registry, self.type_id = file_path, registry, type_id
@@ -103,6 +108,7 @@ class FormEditorDialog(QDialog):
         # not in the mapping lists them all
         self.role_instruments = {k: list(v) for k, v in (role_instruments or {}).items()}
         self.assets = assets  # the registry of cables and devices (ola.assets), or None
+        self.duts = duts  # the archive of the devices under test (ola.duts), or None
         self.dirty = False
         self._loading = False
         self.rows: Dict[str, _Row] = {}
@@ -122,9 +128,15 @@ class FormEditorDialog(QDialog):
                 required_roles=roles,
                 role_message=say,
                 assets=assets,
+                duts=duts,
             )
         else:
-            self.model = FormModel(spec, {}, {}, check, type_id, info.version, roles, say, assets)
+            self.model = FormModel(
+                spec, {}, {}, check, type_id, info.version, roles, say, assets, duts
+            )
+        upgrade_params(
+            self.model.params, duts
+        )  # a file made before the archive: dut_id, not asset_id
         if not self.model.params:
             self.model.params = default_params_of(registry, type_id)
         self.setWindowTitle(f"{info.name} - {os.path.basename(file_path)}")
@@ -232,14 +244,24 @@ class FormEditorDialog(QDialog):
             for name in self.role_instruments.get(field.path, self.instruments):
                 widget.addItem(name, name)
             widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
-        elif field.kind == "asset":
+        elif field.kind in ("asset", "dut"):
             widget = QComboBox()
             widget.setEditable(True)  # a code can be typed, or scanned: a scanner types it
             widget.addItem("", None)
-            for choice in self.assets.choices(field.asset_kind) if self.assets is not None else []:
+            cards = self._cards(field)
+            for choice in cards.choices(field.asset_kind) if cards is not None else []:
                 widget.addItem(choice, choice.split(" - ")[0])
             widget.lineEdit().setPlaceholderText(self._t("form_asset_placeholder"))
             widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
+        elif field.kind == "dut_version":
+            widget = QComboBox()
+            widget.setEditable(True)  # free text: the versions of the DUT are only suggestions
+            widget.addItem("", None)
+            widget.lineEdit().setPlaceholderText(self._t("form_version_placeholder"))
+            widget.currentTextChanged.connect(lambda _t, f=field: self._edited(f))
+        elif field.kind == "variant":
+            widget = VariantTable(self._variant_t)  # a table of names and values
+            widget.changed.connect(lambda f=field: self._edited(f))
         elif field.kind == "json":
             widget = QPlainTextEdit()
             widget.setMaximumHeight(90)
@@ -261,6 +283,24 @@ class FormEditorDialog(QDialog):
         return container, widget
 
     # ================================================================ model <-> widgets
+    def _cards(self, field: FormField) -> Any:
+        """The registry a field takes its codes from: the archive of the DUTs, or the components."""
+        return self.duts if field.kind == "dut" else self.assets
+
+    def _fill_versions(self, row: _Row) -> None:
+        """List the versions of the DUT the version field belongs to (the text is kept)."""
+        w = row.widget
+        text = w.currentText()
+        code = self.model.get(row.field.dut_path) if row.field.dut_path else None
+        card = self.duts.get(code) if (self.duts is not None and code) else None
+        w.blockSignals(True)
+        w.clear()
+        w.addItem("", None)
+        for label in reversed(card.version_labels(include_retired=False) if card else []):
+            w.addItem(label, label)
+        w.setCurrentText(text)
+        w.blockSignals(False)
+
     def _show_value(self, row: _Row) -> None:
         f, w = row.field, row.widget
         if f.kind == "instrument":
@@ -270,9 +310,14 @@ class FormEditorDialog(QDialog):
             w.setCurrentText(name)
             return
         value = self.model.get(f.path)
-        if f.kind == "asset":
-            card = self.assets.get(value) if (self.assets is not None and value) else None
+        if f.kind in ("asset", "dut"):
+            cards = self._cards(f)
+            card = cards.get(value) if (cards is not None and value) else None
             w.setCurrentText(f"{card.id} - {card.name}" if card else (value or ""))
+            return
+        if f.kind == "dut_version":
+            self._fill_versions(row)
+            w.setCurrentText("" if value is None else str(value))
             return
         if f.kind == "bool":
             w.setChecked(bool(value))
@@ -283,6 +328,8 @@ class FormEditorDialog(QDialog):
             chosen = value if isinstance(value, list) else []
             for tick in w.boxes:
                 tick.setChecked(tick.value in chosen)
+        elif f.kind == "variant":
+            w.set_variant(value if isinstance(value, dict) else None)
         elif f.kind == "json":
             w.setPlainText(
                 json.dumps(value, indent=2, ensure_ascii=False) if value is not None else ""
@@ -316,7 +363,9 @@ class FormEditorDialog(QDialog):
             return True, [tick.value for tick in w.boxes if tick.isChecked()]
         if f.kind == "instrument":
             return True, w.currentText().strip() or None
-        if f.kind == "asset":
+        if f.kind == "dut_version":
+            return True, w.currentText().strip() or None
+        if f.kind in ("asset", "dut"):
             text = w.currentText().strip()
             if not text:
                 return True, None
@@ -325,6 +374,12 @@ class FormEditorDialog(QDialog):
                 row.invalid = self._t("form_asset_invalid")
                 return False, None
             return True, code
+        if f.kind == "variant":
+            message = w.problem()
+            if message:
+                row.invalid = message
+                return False, None
+            return True, w.variant() or None
         if f.kind == "json":
             text = w.toPlainText().strip()
             if not text:
@@ -367,14 +422,17 @@ class FormEditorDialog(QDialog):
                 self.model.set_instrument(field.path, value)
             else:
                 self.model.set(field.path, value)
-            if field.kind == "asset":
+            if field.kind in ("asset", "dut"):
                 self._fill_name_from(field, value)
+            if field.kind == "dut":
+                self._offer_versions(field, value)
         self.dirty = True
         self._refresh_state()
 
     def _fill_name_from(self, field: FormField, code: Optional[str]) -> None:
         """A code of the registry was chosen: its name goes in the name field if that is empty."""
-        card = self.assets.get(code) if (self.assets is not None and code) else None
+        cards = self._cards(field)
+        card = cards.get(code) if (cards is not None and code) else None
         if card is None or not field.label_path or self.model.get(field.label_path):
             return
         self.model.set(field.label_path, card.name)
@@ -382,6 +440,20 @@ class FormEditorDialog(QDialog):
         if target is not None:
             self._loading = True
             self._show_value(target)
+            self._loading = False
+
+    def _offer_versions(self, field: FormField, code: Optional[str]) -> None:
+        """A DUT was chosen: its versions go in the version field, and the one in use now is
+        put there if the field is empty."""
+        for row in self.rows.values():
+            if row.field.kind != "dut_version" or row.field.dut_path != field.path:
+                continue
+            card = self.duts.get(code) if (self.duts is not None and code) else None
+            current = self.duts.current_version(card.id) if card is not None else None
+            if current and not self.model.get(row.field.path):
+                self.model.set(row.field.path, current)
+            self._loading = True
+            self._show_value(row)
             self._loading = False
 
     # ================================================================ showing the state
@@ -455,7 +527,7 @@ class FormEditorDialog(QDialog):
         try:
             self.model.save(self.file_path)
         except Exception as exc:
-            QMessageBox.critical(self, self.windowTitle(), self._t("form_save_failed", error=exc))
+            show_problem(self, self.windowTitle(), self._t("form_save_failed", error=exc), code="MEAS-002", exception=exc, level="critical")
             return False
         self.dirty = False
         self.status_label.setText(self._t("form_saved"))

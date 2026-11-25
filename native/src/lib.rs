@@ -2,13 +2,15 @@
 // This file is part of Open Lab Automation.
 // Licensed under the GNU General Public License v3.0; see the LICENSE file.
 
-//! Low-latency instrument transport for Open Lab Automation.
+//! Low-latency instrument transport and the planner of resistor combinations for Open Lab
+//! Automation.
 //!
-//! The core (`conn`, `error`) is plain Rust and fully testable with `cargo test`.
+//! The core (`conn`, `error`, `combos`) is plain Rust and fully testable with `cargo test`.
 //! The Python bindings are compiled only with the `python` feature (see `python.rs`).
 
 #![warn(missing_docs)]
 
+pub mod combos;
 pub mod conn;
 pub mod error;
 

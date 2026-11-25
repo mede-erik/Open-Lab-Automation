@@ -156,8 +156,21 @@ type (`.tlg` for the time log), so files can be recognised, copied and deleted o
 
 Each measurement file holds `type`, `module_version`, `api_version`, `role_bindings` (role to instrument
 name or list of names) and `params`. File names in a project must be plain names; a name with a path
-(`../x`) is rejected. Keys the program does not know are kept when the project is saved. The old
-`eff_files` / `was_files` format is **not read** (decision recorded in `PLAN.md`).
+(`../x`) is rejected. Keys the program does not know are kept when the project is saved. A project of the old
+format is converted when it is opened, after the program asks (`ola/legacy_project.py`): the project file is copied
+to `<name>.json.bkp`, its `eff_files` become measurements (each old file is copied to `<name>.bkp`) and the report says
+what is left to do: the old files only had the sweeps and two delays, not the instrument call of each quantity.
+
+**Project definition files.** `inst_file` (the instruments, `.inst`) and `scope_settings` (the settings of the
+oscilloscopes, `.was`) name files that are not measurements. `scope_settings` is an **ordered list** of `.was` files, each
+`{"file": "rise.was", "enabled": true, "scope": "osc2"}` (`scope`, the oscilloscope the file is for, is optional: without it the file is for every oscilloscope): every file is a different acquisition (a long view of the signal, a rising edge, a
+falling edge...). A measurement that acquires waveforms runs the files that are enabled **one after another, in this order**; the
+remote control, when several are enabled, opens a menu under the button to choose which one to apply. Any file can be switched off
+(not only the last ones) and moved up or down from the file list of the project (right click); a new file starts enabled. A switched
+off file stays in the folder and in the list, never deleted or renamed. An empty list is valid (the remote control says there are
+no settings). The key `was_files` of the early projects of format 2 is still **read** (its files become the list, all enabled) and
+never written again; a project file is changed only when it is saved. The `.was` file may say `"reset": false` to apply only what it
+says (default: the oscilloscope is reset first); `ola.was_calls.check_was` says what is wrong with one.
 
 ## Errors
 
@@ -261,8 +274,8 @@ The engine part (`ola.library`, `ola.instrument_handle`, `ola.manual_instrument`
 tests of `ola/connection.py` are skipped where it is missing and run once it is merged.
 
 `python -m frontend.ui.ProjectWindow [project.json]` opens a project; with no argument it creates a demo project
-with simulated instruments in a temporary folder. A project in the old format (`eff_files`) is not read: the
-window says so.
+with simulated instruments in a temporary folder. A project in the old format (`eff_files`) is converted by the main window
+after asking; opened here directly it is refused with a message.
 
 ## Not done yet
 

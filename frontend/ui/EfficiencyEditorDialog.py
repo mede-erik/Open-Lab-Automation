@@ -60,6 +60,8 @@ from PyQt6.QtWidgets import (
 from frontend.ui.efficiency_widgets import (
     text_color,
     CallEdit,
+    ConditionsTable,
+    ValuesTable,
     format_number,
     format_number_list,
     mark_widget,
@@ -68,8 +70,15 @@ from frontend.ui.efficiency_widgets import (
 )
 from frontend.ui.layout_utils import resize_to_screen
 from frontend.ui.module_translator import CatalogTranslator
+from frontend.ui.LoadPanel import LoadPanel
+from ola.scope_capture import DEFAULT_POINTS, capture_steps
+from ola.wavefiles import SAMPLE_BYTES
+from frontend.ui.VariantTable import VariantTable
 from ola.efficiency_editor import EditorError, EfficiencyEditor
+from ola.assets import normalize_code
 from ola.efficiency_spec import CallChecker
+from ola.project import MeasurementFile
+from frontend.core.errorhandler import show_problem
 
 SWEEP_MODES = ("none", "fixed", "list", "points", "step", "log")
 OUTPUT_MODES = ("keep_on", "off_during_cooldown", "always_on")
@@ -100,12 +109,15 @@ class EfficiencyEditorDialog(QDialog):
         checker: Optional[CallChecker] = None,
         params: Optional[dict] = None,
         parent: Optional[QWidget] = None,
+        duts: Any = None,
     ):
         """``file_path``: the file to edit (created on save if it does not exist). ``instruments``:
         names of the instruments of the project. ``catalog(instrument)``: call names known for an
-        instrument (optional). ``checker``: the library check of calls and values (optional)."""
+        instrument (optional). ``checker``: the library check of calls and values (optional).
+        ``duts``: the archive of the devices under test (``ola.duts.DutRegistry``), or None."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("efficiency", translator)
+        self._variant_t = CatalogTranslator("variants", translator).t
         self._t = self.tr_.t
         self.file_path = file_path
         self.instruments = list(instruments)
@@ -116,6 +128,7 @@ class EfficiencyEditorDialog(QDialog):
         self._fields: List[_Field] = []  # fixed fields of the parameter form and other tabs
         self._dynamic: List[_Field] = []  # fields of the readings / extra calls (rebuilt)
         self._calls: Dict[str, CallEdit] = {}  # CallEdit of every bound path template
+        self.duts = duts
         self.editor = self._open_model(params, checker)
         self.setWindowTitle(self._t("eff_title"))
         resize_to_screen(self, 1180, 820)
@@ -129,16 +142,33 @@ class EfficiencyEditorDialog(QDialog):
         self, params: Optional[dict], checker: Optional[CallChecker]
     ) -> EfficiencyEditor:
         kwargs = {"instruments": self.instruments or None, "checker": checker}
+        kind = self._file_type()
         if params is not None:
+            kwargs["type"] = kind
             return EfficiencyEditor(params, **kwargs)
         if self.file_path and os.path.isfile(self.file_path):
             try:
                 return EfficiencyEditor.from_file(self.file_path, **kwargs)
             except Exception as exc:  # unreadable or another kind of file
-                QMessageBox.critical(
-                    self, self._t("eff_title"), self._t("eff_open_failed", error=exc)
+                show_problem(
+                    self,
+                    self._t("eff_title"),
+                    self._t("eff_open_failed", error=exc),
+                    code="MEAS-001",
+                    exception=exc,
+                    level="critical",
                 )
-        return EfficiencyEditor(EfficiencyEditor.template(self.instruments), **kwargs)
+        kwargs["type"] = kind
+        template = EfficiencyEditor.template(self.instruments, kind == "resistive_efficiency")
+        return EfficiencyEditor(template, **kwargs)
+
+    def _file_type(self) -> str:
+        """``efficiency`` or ``resistive_efficiency``: what the file being edited is."""
+        try:
+            kind = MeasurementFile.load(self.file_path).type
+        except Exception:  # a new or unreadable file: the ordinary efficiency
+            return "efficiency"
+        return kind if kind == "resistive_efficiency" else "efficiency"
 
     # ================================================================ building the window
     def _build_ui(self) -> None:
@@ -217,11 +247,14 @@ class EfficiencyEditorDialog(QDialog):
             ("eff_remove", self._remove_parameter),
             ("eff_up", lambda: self._move_parameter(-1)),
             ("eff_down", lambda: self._move_parameter(+1)),
+            ("eff_add_load", self._add_load),
         )):
             button = QPushButton(self._t(key))
             button.clicked.connect(handler)
             setattr(self, f"btn_{key}", button)
             row.addWidget(button, index // 3, index % 3)
+        # a resistive load can be added only to the efficiency with a resistive load
+        self.btn_eff_add_load.setVisible(self.editor.type == "resistive_efficiency")
         left_layout.addLayout(row)
 
         self.form_container = QWidget()
@@ -234,7 +267,32 @@ class EfficiencyEditorDialog(QDialog):
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._rename_current)
         name_row.addRow(self._t("eff_name"), self.name_edit)
+        self.device_box = QLineEdit()  # the converter under test: a name typed by hand
+        self.device_box.setPlaceholderText(self._t("eff_device_placeholder"))
+        self.device_box.editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_device"), self.device_box)
+        self.dut_box = QComboBox()  # a DUT of the archive: pick it, or type or scan its code
+        self.dut_box.setEditable(True)
+        self.dut_box.addItem("", None)
+        for choice in self.duts.choices() if self.duts is not None else []:
+            self.dut_box.addItem(choice, choice.split(" - ")[0])
+        self.dut_box.lineEdit().setPlaceholderText(self._t("eff_dut_placeholder"))
+        self.dut_box.activated.connect(lambda _i: self._device_changed())
+        self.dut_box.lineEdit().editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_dut"), self.dut_box)
+        self.version_box = QComboBox()  # its version, free text: the versions are only suggestions
+        self.version_box.setEditable(True)
+        self.version_box.lineEdit().setPlaceholderText(self._t("eff_dut_version_placeholder"))
+        self.version_box.activated.connect(lambda _i: self._device_changed())
+        self.version_box.lineEdit().editingFinished.connect(self._device_changed)
+        name_row.addRow(self._t("eff_dut_version"), self.version_box)
+        self.variant_edit = VariantTable(self._variant_t)  # what changed since another run
+        self.variant_edit.changed.connect(self._device_changed)
+        name_row.addRow(self._t("eff_variant"), self.variant_edit)
         form_layout.addLayout(name_row)
+        self.load_panel = LoadPanel(self._t, self.instruments)
+        self.load_panel.changed.connect(self._load_edited)
+        form_layout.addWidget(self.load_panel)
         form_layout.addWidget(self._build_set_group())
         form_layout.addWidget(self._build_value_group())
         form_layout.addWidget(self._build_reads_group())
@@ -258,6 +316,17 @@ class EfficiencyEditorDialog(QDialog):
         splitter.setSizes([340, 800])
         return splitter
 
+    def _args_texts(self) -> Dict[str, str]:
+        """The texts of the table of the arguments of a call."""
+        return {
+            "args_title": self._t("eff_args_title"),
+            "title": self._t("eff_args_title"),
+            "name": self._t("eff_args_name"),
+            "value": self._t("eff_args_value"),
+            "add": self._t("eff_args_add"),
+            "remove": self._t("eff_args_remove"),
+        }
+
     def _call_edit(self, path: str, scoped: bool = True) -> CallEdit:
         edit = CallEdit(
             self.instruments,
@@ -266,6 +335,7 @@ class EfficiencyEditorDialog(QDialog):
                 "instrument": self._t("eff_ph_instrument"),
                 "call": self._t("eff_ph_call"),
                 "args": self._t("eff_ph_args"),
+                **self._args_texts(),
             },
         )
         field = _Field(edit, path, "call", scoped)
@@ -282,6 +352,20 @@ class EfficiencyEditorDialog(QDialog):
         self._fields.append(field)
         edit.textChanged.connect(lambda _t, f=field: self._field_changed(f))
         return edit
+
+    def _values_table(self, path: str) -> ValuesTable:
+        """The values of a sweep, one per row."""
+        table = ValuesTable(
+            {
+                "value": self._t("eff_values_col"),
+                "add": self._t("eff_args_add"),
+                "remove": self._t("eff_args_remove"),
+            }
+        )
+        field = _Field(table, path, "numlist", True)
+        self._fields.append(field)
+        table.textChanged.connect(lambda _t, f=field: self._field_changed(f))
+        return table
 
     def _choice(self, path: str, values: Sequence[str], labels: Dict[str, str]) -> QComboBox:
         box = QComboBox()
@@ -331,7 +415,10 @@ class EfficiencyEditorDialog(QDialog):
             ("points", "variables[{i}].sweep.points", "int", ""),
             ("step", "variables[{i}].sweep.step", "number", ""),
         ):
-            edit = self._line(path, kind, tip=tip)
+            if kind == "numlist":
+                edit = self._values_table(path)
+            else:
+                edit = self._line(path, kind, tip=tip)
             label = QLabel(self._t(f"eff_{key}"))
             form.addRow(label, edit)
             self.sweep_rows[key] = (label, edit)
@@ -426,8 +513,61 @@ class EfficiencyEditorDialog(QDialog):
         self.timing_summary.setWordWrap(True)
         self.timing_summary.setWordWrap(True)
         layout.addWidget(self.timing_summary)
+        layout.addWidget(self._build_waves_group())
         layout.addStretch(1)
         return page
+
+    def _build_waves_group(self) -> QGroupBox:
+        """The waveforms taken during the measurement: which oscilloscopes, and when (every N
+        steps, and/or when a quantity of the step goes beyond a limit). The settings are the scope
+        settings files of the project that are on."""
+        group = QGroupBox(self._t("eff_waves"))
+        form = QFormLayout(group)
+        form.addRow(self._note("eff_waves_help"))
+        self.waves_instruments = self._line(
+            "scope_capture.instruments", "namelist", scoped=False, tip="osc1, osc2"
+        )
+        form.addRow(self._t("eff_waves_instruments"), self.waves_instruments)
+        self.waves_every = self._line("scope_capture.every", "int", scoped=False, tip="1, 2, 5...")
+        form.addRow(self._t("eff_waves_every"), self.waves_every)
+        self.waves_when = ConditionsTable(
+            {
+                "name": self._t("eff_waves_quantity"),
+                "below": self._t("eff_waves_below"),
+                "above": self._t("eff_waves_above"),
+                "add": self._t("eff_args_add"),
+                "remove": self._t("eff_args_remove"),
+            }
+        )
+        field = _Field(self.waves_when, "scope_capture.when", "conditions", False)
+        self._fields.append(field)
+        self.waves_when.changed.connect(lambda f=field: self._field_changed(f))
+        form.addRow(self._t("eff_waves_when"), self.waves_when)
+        self.waves_max = self._line("scope_capture.max", "int", scoped=False, tip="20")
+        form.addRow(self._t("eff_waves_max"), self.waves_max)
+        self.waves_summary = QLabel()
+        self.waves_summary.setWordWrap(True)
+        form.addRow(self.waves_summary)
+        return group
+
+    def _update_waves_summary(self) -> None:
+        """How many steps are captured and how much disk space one acquisition of one channel
+        takes at 1 M points (the project knows how many acquisitions and channels there are)."""
+        capture = self.editor.params.get("scope_capture")
+        every = capture.get("every") if isinstance(capture, dict) else None
+        steps = self.editor.step_count()
+        if not isinstance(every, int) or every < 1 or not steps:
+            self.waves_summary.setText("")
+            return
+        taken = capture_steps(steps, every)
+        megabytes = taken * DEFAULT_POINTS * SAMPLE_BYTES / 1e6
+        self.waves_summary.setText(
+            self._t("eff_waves_summary", taken=taken, steps=steps, mb=f"{megabytes:,.0f}")
+        )
+        if capture.get("when"):  # a condition adds the steps where it holds
+            self.waves_summary.setText(
+                self.waves_summary.text() + " " + self._t("eff_waves_summary_when")
+            )
 
     # ---- formulas tab -----------------------------------------------------------------------
     def _build_formulas_tab(self) -> QWidget:
@@ -523,6 +663,10 @@ class EfficiencyEditorDialog(QDialog):
             widget.setText(format_number(value) if value is not None else "")
         elif field.kind == "numlist":
             widget.setText(format_number_list(value) if isinstance(value, list) else "")
+        elif field.kind == "namelist":
+            widget.setText(", ".join(str(v) for v in value) if isinstance(value, list) else "")
+        elif field.kind == "conditions":
+            widget.set_value(value if isinstance(value, list) else None)
         elif field.kind == "choice":
             position = widget.findData(value)
             widget.setCurrentIndex(position if position >= 0 else 0)
@@ -541,6 +685,12 @@ class EfficiencyEditorDialog(QDialog):
             return True, widget.currentText().strip() or None
         if field.kind in ("number", "int"):
             return parse_number(widget.text(), integer=field.kind == "int")
+        if field.kind == "namelist":
+            names = [n.strip() for n in widget.text().split(",") if n.strip()]
+            return True, names or None
+        if field.kind == "conditions":
+            conditions = widget.value()
+            return (False, None) if widget.invalid else (True, conditions or None)
         if field.kind == "numlist":
             values = parse_number_list(widget.text())
             return (False, None) if values is None else (True, values or None)
@@ -591,6 +741,13 @@ class EfficiencyEditorDialog(QDialog):
         elif not on:
             self.editor.set(path, None)
         self._load_parameter()
+        self._after_change()
+
+    def _load_edited(self) -> None:
+        """The panel of a resistive load changed: store its block."""
+        if self._loading or self._current is None:
+            return
+        self.editor.set(f"variables[{self._current}].load", dict(self.load_panel.block))
         self._after_change()
 
     def _mode_changed(self, _index: int) -> None:
@@ -656,6 +813,10 @@ class EfficiencyEditorDialog(QDialog):
     def _add_parameter(self) -> None:
         index = self.editor.add_parameter(self._t("eff_new_name"))
         self._after_structure(select=index)
+
+    def _add_load(self) -> None:
+        """A new parameter that is a resistive load (for a converter with another output)."""
+        self._after_structure(select=self.editor.add_load())
 
     def _duplicate_parameter(self) -> None:
         if self._current is not None:
@@ -727,11 +888,29 @@ class EfficiencyEditorDialog(QDialog):
         self._update_dependent()
         self._apply_marks()
 
+    def _show_load_panel(self) -> None:
+        """A parameter that is a resistive load has its panel instead of set / value / output."""
+        index = self._current
+        block = self.editor.get(f"variables[{index}].load") if index is not None else None
+        is_load = isinstance(block, dict)
+        for widget in (self.set_group, self.value_group, self.verify_group, self.limits_group,
+                       self.output_group):  # fmt: skip
+            widget.setVisible(not is_load)
+        self.load_panel.setVisible(is_load)
+        if is_load:
+            self.load_panel.set_parameters(
+                [v["name"] for v in self.editor.variables if isinstance(v.get("set"), dict)]
+            )
+        if is_load and self.load_panel.block != block:
+            self.load_panel.set_block(block)
+
     def _update_dependent(self) -> None:
         """Show only the fields that mean something for the chosen mode."""
         index = self._current
         if index is None:
             return
+        self._show_load_panel()
+        self._update_waves_summary()
         mode = self.editor.sweep_mode(index)
         shown = {
             "none": (), "fixed": ("value",), "list": ("values",),
@@ -782,6 +961,7 @@ class EfficiencyEditorDialog(QDialog):
                 "instrument": self._t("eff_ph_instrument"),
                 "call": self._t("eff_ph_call"),
                 "args": self._t("eff_ph_args"),
+                **self._args_texts(),
             },
         )
         field = _Field(edit, path, "call", False)
@@ -1051,8 +1231,75 @@ class EfficiencyEditorDialog(QDialog):
         color = self._c("error" if error else "muted")
         self.status_label.setText(f"<span style='color:{color}'>{text}</span>")
 
+    def _show_device(self) -> None:
+        """The converter of the file in its boxes: the name, the DUT of the archive with its
+        version (the card if the archive has it, else the code) and the variant."""
+        device = self.editor.params.get("device")
+        device = device if isinstance(device, dict) else {}
+        code = str(device.get("dut_id") or "")
+        card = self.duts.get(code) if (self.duts is not None and code) else None
+        variant = device.get("variant")
+        widgets = (self.device_box, self.dut_box, self.version_box, self.variant_edit)
+        for widget in widgets:
+            widget.blockSignals(True)
+        self.device_box.setText(str(device.get("name") or ""))
+        self.dut_box.setCurrentText(f"{card.id} - {card.name}" if card else code)
+        self._fill_versions(card)
+        self.version_box.setCurrentText(str(device.get("version") or ""))
+        self.variant_edit.set_variant(variant if isinstance(variant, dict) else None)
+        for widget in widgets:
+            widget.blockSignals(False)
+        mark_widget(self.variant_edit, None)
+
+    def _fill_versions(self, card: Any) -> None:
+        """List the versions of the DUT in the version box (the text typed there is kept)."""
+        text = self.version_box.currentText()
+        self.version_box.clear()
+        self.version_box.addItem("")
+        if card is not None:
+            for label in reversed(card.version_labels(include_retired=False)):
+                self.version_box.addItem(label)
+        self.version_box.setCurrentText(text)
+
+    def _device_changed(self) -> None:
+        """Write the converter of the file from the boxes (empty boxes leave nothing)."""
+        code_text = self.dut_box.currentText().split(" - ")[0].strip()
+        code = normalize_code(code_text) if code_text else None
+        card = self.duts.get(code) if (self.duts is not None and code) else None
+        name = self.device_box.text().strip()
+        version = self.version_box.currentText().strip()
+        if card is not None and self.sender() is not self.version_box.lineEdit():
+            if not name:  # a DUT was chosen: its name, and the version in use, if empty
+                name = card.name
+            if not version:
+                version = self.duts.current_version(card.id) or ""
+        message = self.variant_edit.problem()
+        mark_widget(self.variant_edit, "error" if message else None, message or "")
+        if message:
+            return  # nothing wrong is written
+        variant = self.variant_edit.variant()
+        device: Dict[str, Any] = {}
+        for key, value in (("name", name), ("dut_id", code), ("version", version)):
+            if value:
+                device[key] = value
+        if variant:
+            device["variant"] = variant
+        if code_text and not code:  # not a code: leave it as typed, nothing wrong is written
+            mark_widget(self.dut_box, "error", self._t("eff_dut_invalid"))
+            return
+        mark_widget(self.dut_box, None)
+        if device == (self.editor.params.get("device") or {}):
+            return  # nothing changed: no edit, no "unsaved" mark
+        if device:
+            self.editor.params["device"] = device
+        else:
+            self.editor.params.pop("device", None)
+        self._show_device()
+        self._after_change()
+
     def _refresh_all(self) -> None:
         """Show everything from the model (used when the window opens)."""
+        self._show_device()
         self._loading = True
         for field in self._fields:
             if not field.scoped:
@@ -1200,7 +1447,8 @@ class EfficiencyEditorDialog(QDialog):
         path = self.file_path
         if not path:
             path, _ = QFileDialog.getSaveFileName(
-                self, self._t("eff_save"), "", "Efficiency (*.eff)"
+                self, self._t("eff_save"), "",
+                f"{self._t('file_filter_efficiency')} (*.eff)",
             )
             if not path:
                 return False
@@ -1209,7 +1457,7 @@ class EfficiencyEditorDialog(QDialog):
         try:
             self.editor.save(path)
         except Exception as exc:
-            QMessageBox.critical(self, self._t("eff_title"), self._t("eff_save_failed", error=exc))
+            show_problem(self, self._t("eff_title"), self._t("eff_save_failed", error=exc), code="MEAS-002", exception=exc, level="critical")
             return False
         self.file_path, self.dirty = path, False
         self._refresh_problems()

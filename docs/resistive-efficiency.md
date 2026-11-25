@@ -1,162 +1,141 @@
 # Efficiency with a resistive load (`.rfe`)
 
-The efficiency of a converter whose load is made of **real resistors** that you write down: one resistor, or resistors in series and in
-parallel, each with its tolerance and its power rating. For every load the measurement connects it, sweeps the input voltage, and works out
-the efficiency **with the range that the tolerances of the resistors allow**. It is the measurement for a supply that is tried on a few
-resistors (a bench of 10 ohm, 22 ohm, 22 || 47 ohm...) where an electronic load is not needed, or not wanted.
+It is the [efficiency measurement](efficiency.md) (`.eff`) with **one difference**: the load of the converter is not an
+instrument but **real resistors**, so the output current is not set, it follows from the resistance. The file has the same
+format, the same editor, the same `points` and `samples` tables, the same formulas, outputs, cooldown, golden sample and device
+card. Everything in [`efficiency.md`](efficiency.md) applies; this page is only about the resistors.
 
-For a load that is a **current** (an electronic load in constant-current mode) use the [efficiency measurement](efficiency.md), which is a
-sweep of any parameters. The two give the same efficiency: this one knows resistors, how to connect them, and how far they can be off.
+Two types of measurement exist (`.eff` and `.rfe`) so that a file says what it is, but both are opened with the same editor.
 
-## How it works
+## The load parameter
 
-```
-for every load:
-    supply off (unless told not to), connect the load: by hand (the program asks) or by the relays of a multiplexer
-    for every input voltage:
-        set the voltage, switch the supply on, wait, read   Vout, Iin (and Vin)  a few times and average
-        Pin = Vin * Iin          Pout = Vout^2 / R          efficiency = Pout / Pin
-end: supply off, relays open
-```
-
-* **The load** is a **resistor** (`r_ohm`) or a **group** (`series` or `parallel`, nested as far as needed): the program works out the
-  equivalent resistance. With the tolerances it is a **range**: the series add, and in parallel the lowest equivalent comes from
-  every resistor at its lowest value.
-* **The power in each resistor** is worked out from the output voltage and checked against its rating (`power_w`), as an **upper bound**
-  that takes the tolerances in the worst direction. A resistor above its rating **stops the measurement** (the supply goes off, the relays
-  open). With `safety.max_vout_v` the ratings are checked at that voltage **before anything is switched on**: a load that would overheat at
-  the highest output the converter can give is an error at the field.
-* **The efficiency** comes as `efficiency_pct` (nominal) and `efficiency_min_pct` / `efficiency_max_pct`: the resistance at its highest
-  gives the lowest power and the lowest efficiency. The verdict uses the **lowest**, the one the tolerances guarantee.
-* **The output current** is **assumed** (the one the resistors give, `Vout / R`) unless you give an `iout_reading`: then it is **measured**
-  with a shunt in the output line, `Pout = Vout * Iout`, and the resistors become a check (below).
-
-## The file
+A parameter has a `load` instead of `set` / `value` / `sweep`. Its **values are the loads**: the sweep goes through the list,
+and the value of the parameter (its name in the formulas) is the nominal resistance of each load.
 
 ```json resistive_efficiency.rfe
 {
-  "device": {"label": "5 V buck"},
-  "vin_v": {"values": [9, 12, 15]},
-  "loads": [
-    {"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 5, "channel": "201"},
-    {"name": "22||47", "parallel": [
-      {"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
-      {"r_ohm": 47, "tol_pct": 5, "power_w": 2, "channel": "203"}]},
-    {"name": "10+(22||47)", "series": [
-      {"r_ohm": 10, "tol_pct": 1, "power_w": 5, "channel": "201"},
-      {"parallel": [{"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
-                    {"r_ohm": 47, "tol_pct": 5, "power_w": 2, "channel": "203"}]}]}
+  "variables": [
+    {"name": "vin", "set": {"instrument": "psu", "call": "set_voltage"}, "sweep": {"values": [9, 12, 15]},
+     "reads": {"daq": {"instrument": "psu", "call": "read_voltage"}},
+     "output": {"on": {"instrument": "psu", "call": "output_on"}, "off": {"instrument": "psu", "call": "output_off"}}},
+    {"name": "rload",
+     "load": {
+       "loads": [
+         {"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 5, "channel": "201"},
+         {"name": "22||47", "parallel": [
+            {"r_ohm": 22, "tol_pct": 1, "power_w": 2, "channel": "202"},
+            {"kit": "PWR", "ref": "R47"}]}
+       ],
+       "switching": {"mode": "manual", "settle_s": 0.5},
+       "vout": "vout@daq",
+       "max_vout_v": 6}},
+    {"name": "iin", "reads": {"daq": {"instrument": "psu", "call": "read_current"}}},
+    {"name": "vout", "reads": {"daq": {"instrument": "dmm", "call": "measure_voltage"}}}
   ],
-  "switching": {"mode": "mux", "settle_s": 0.5, "supply_off": true},
-  "vout_reading": {"call": "measure_dc_voltage", "args": {"range": "AUTO", "resolution": "DEF", "channels": "103"}},
-  "iin_reading": {"role": "supply", "call": "read_current"},
-  "timing": {"settle_s": 1, "samples": 3, "interval_s": 0.1},
-  "safety": {"max_vin_v": 20, "max_vout_v": 6, "max_iin_a": 3},
-  "limits": {"min_efficiency_pct": 85},
-  "confirm_setup": false
+  "derived": {
+    "pin": "vin * iin@daq",
+    "pout": "vout@daq * vout@daq / rload",
+    "efficiency": "100 * pout / pin",
+    "efficiency_min": "100 * vout@daq * vout@daq / rload_max / pin"
+  }
 }
 ```
 
-| Field | Meaning |
-|---|---|
-| `device.label`, `device.asset_id` | the converter, and its code in the registry ([`assets.md`](assets.md)) |
-| `supply_channel` | the output of a multi-output supply |
-| `vin_v` | the input voltages: `{"values": [...]}` or `{"start", "stop", "points"}`. Each is tried with every load |
-| `loads` | the list of loads (below). The names must be different |
-| `switching.mode` | `manual` (the program asks you to connect each load) or `mux` (the relays do it) |
-| `switching.settle_s` | `mux`: the wait after the relays (0.5 s by default) |
-| `switching.supply_off` | `true` (the default): the supply is **off while the load is changed**. `false` switches the relays with the converter running (hot switching): a warning at the field |
-| `vout_reading` | how the output voltage is read: `call` (`measure_dc_voltage`), `args` (a datalogger wants `range`, `resolution` and the `channels`; a multimeter wants numbers), `scale`, `offset` |
-| `iin_reading` | how the input current is read (below) |
-| `vin_reading` | optional: the input voltage **at the converter** (it shows the drop in the cables); without it the supply setpoint is used |
-| `iout_reading` | optional: a shunt in the **output** line read by a datalogger (`scale` = 1 / the shunt in ohms). With it the output power is measured (below) |
-| `resistor_kit` | optional: the [kit of resistors](resistor-kits.md) where a resistor written `{"ref": "R22"}` is looked up |
-| `timing` | `settle_s` after a change (1 s), `samples` averaged (3), `interval_s` between them (0.1 s) |
-| `safety` | `max_vin_v` (a sweep above it is refused), `max_vout_v` (the ratings of the resistors are checked at this output before anything is switched on), `max_iin_a` (checked on every reading) |
-| `limits` | `min_efficiency_pct` (on the **lowest** efficiency), `vout_min_v`, `vout_max_v` |
-| `golden` | optional: check the rows against a golden sample of the project ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
-| `confirm_setup` | `false` skips the first question |
+* `loads`: each load is one resistor (`r_ohm`, `tol_pct`, `power_w`, `channel`) or a `series` / `parallel` group of resistors,
+  nested as needed (see [`ola/resistors.py`](../ola/resistors.py)), or `{"name": "0 A", "open": true}`: **nothing connected**, the
+  output left open (0 A; its resistance is infinite, so in the formulas `rload` is `inf` and `vout^2 / rload` is 0). Two loads
+  must not have the same resistance.
+* `switching`: `manual` (the program asks you to connect each load, showing its schematic). `settle_s` is the wait after connecting.
+  A **switch matrix** (relays that connect the resistors in series or in parallel by themselves) is planned for a future version:
+  the editor shows it as not yet usable. The engine still has a first, simple `mux` mode (the relays of an `instrument` close the
+  `channel` of every resistor of the load, so they end up in parallel), which is not offered by the editor and not supported.
+* `vout`: the reading of the output voltage (`vout@daq`) that checks the power in the resistors on **every** reading.
+* `max_vout_v`: the largest output voltage you expect; checked **before** the run against the rating of every resistor.
+* In the formulas, a load parameter called `rload` gives `rload` (nominal ohms), `rload_min` and `rload_max` (the resistance with
+  the tolerances of all the resistors at their worst), so the efficiency can be given with the range the tolerances allow.
 
-### A load
+A converter with **several outputs** has one load parameter for each (in the editor: **Add load**), each with its own resistors and
+its own `vout` reading; whenever any of them changes the outputs are switched off once, and you are asked to connect only the loads
+that changed.
 
-A resistor is `{"name", "r_ohm", "tol_pct", "power_w", "channel"}`:
+Where the load sits in the list of parameters is the nesting of the sweep, like any other parameter: put it **after** the input
+voltage to try every input voltage on each load (the load changes rarely), before it to change the load at every point.
 
-| Field | Meaning |
-|---|---|
-| `r_ohm` | the resistance in ohms (above 0) |
-| `tol_pct` | the tolerance in percent, from 0 (the default) to below 100 |
-| `power_w` | the rating in watts; without it the power in that resistor is not checked |
-| `channel` | the relay of the multiplexer that connects it (`"201"`); needed for every resistor in `mux` mode |
-| `name` | the name of the load (a resistor of a group needs none: the program names it from the load) |
-| `kit`, `ref` | instead of the values: the resistor `ref` of the kit `kit` ([`resistor-kits.md`](resistor-kits.md)). Anything else written in the entry wins over the kit (a relay, for example) |
+## Resistors from a kit
 
-A **group** is `{"name": "...", "series": [...]}` or `{"name": "...", "parallel": [...]}`, with at least two members, each a resistor or a
-group. In `mux` mode the load is connected by closing the channel of **every** resistor it contains, so the relays only connect each
-resistor, and the series / parallel structure is the one you wire (or that the program works out for the power). A resistor used in several
-loads (`"channel": "201"` above) is one physical resistor with one relay.
+A resistor can be `{"kit": "PWR", "ref": "R22"}` instead of its values: the program takes the values from the
+[kit](resistor-kits.md) when the measurement starts and writes them in the header of the run, so it is known later which values
+were used. In the editor, **Add from a kit...** picks the resistors of a kit (one load each, or all in series or in parallel as
+one load), **New load...** types one in, and **Save as a kit...** saves the resistors typed in as a **new** kit: a kit that
+exists is never changed.
 
-### How a load is connected
+## Loads for a range of output current
 
-* **`mux`**: the program closes the channel of every resistor of the load (and opens the ones of the load before). The relays only connect
-  each resistor: the series / parallel structure is the one **you wire** and write in the file, and the program uses it to work out the
-  resistance and the power in each resistor.
-* **`manual`**: the program asks you to connect the load, and the question gives **the resistors with their values and a schematic**,
-  nested as written. For `10 + (22 || 47)` the question reads *"10 ohm (+/-1 %, 5 W) in series with (22 ohm (+/-1 %, 2 W) in parallel
-  with 47 ohm (+/-5 %, 2 W)) = 24.99 ohm"* and under it the picture: the resistors in boxes with their value, tolerance and rating, the
-  series side by side and the parallel ones one above the other, between `+` (the output of the converter) and `-` (ground). The supply is
-  off while you do it; *continue* goes on, *abort* stops with nothing left on.
+In the editor, **Plan from a current range...** calculates the loads for you. You give the kit, the output voltage and the currents
+you want, for example 0 to 10 A in 11 points at 12 V, and the program combines **all** the resistors of the kit, in series and in
+parallel, nested as far as needed, each physical resistor at most once per load, so that the current at that voltage is as near as
+possible to equally spaced targets. It then shows the table (target, combination, resistance, real current, how far it is in
+percent of a step, the share of its rating the most loaded resistor carries, and how many resistors must be moved from the previous
+point) and, if you accept, **replaces the list of loads** (the resistors stay references to the kit).
 
-### The input current
+* **Output voltage**: *regulated* (a fixed value) or *not regulated*: the conversion ratio times a reference input voltage.
+  The plan is only a guide for choosing resistors: in the measurement the current of each point is always the output voltage read
+  divided by the resistance, so for a converter that is not regulated the points are equidistant only at the reference voltage.
+* **Largest share of the rating** (default 80 %): no resistor of the network carries more than this share of its rating at the
+  output voltage, so a resistor of 1 ohm alone is never offered at 12 V with a rating of 100 W (144 W).
+* **Fewest moves**: among the combinations near each target the plan prefers the path that moves the fewest resistors from one
+  point to the next. The cost of a point is 10 times its distance from the target (in steps) plus the resistors moved.
+* **0 A** (no load): if the range starts at 0 the first load is the open output, `{"name": "0 A", "open": true}`. By hand the
+  program asks you to *disconnect everything* from the output; with relays it only opens them. The measurement is made as for any
+  other point (the converter is on, nothing is connected).
+* **Speed**: the search is in Rust (`native/src/combos.rs`): 15 resistors take about 2 s, 20 about 8 s. Without the native module the
+  same steps run in Python, with the same result, about 15 times slower. The method is described in
+  [`ola/combinations.py`](../ola/combinations.py).
+* The inputs are saved in `load.plan` (only to show them again next time; the measurement uses `loads`).
 
-* **The supply's own readback**: `{"role": "supply", "call": "read_current"}` (the call is `read_current` by default for the supply).
-  Simple, but only as good as the supply's meter.
-* **A shunt read by a datalogger**: `{"call": "measure_dc_voltage", "args": {"channels": "102"}, "scale": 10}`. `scale` is 1 / the shunt in
-  ohms: a 0.1 ohm shunt is `10`, so the voltage in volts becomes the current in amps.
+## Learning a converter that is not regulated
 
-### The output current: assumed or measured
+When the output voltage depends on the load, the plan made with the voltage you expect (the conversion ratio times the input) gives
+currents that are not the ones you asked for. With **Learn the converter first** checked, at the start of the measurement:
 
-* **Without `iout_reading`** the output current is **assumed** to be the one the resistors give, `Vout / R`, so the efficiency is as good as
-  the resistors: with their tolerances it is a **range**, `efficiency_min_pct` to `efficiency_max_pct`. This needs only the voltmeter.
-* **With `iout_reading`**, a shunt in the output line read by a datalogger (`{"call": "measure_dc_voltage", "args": {"channels": "104"},
-  "scale": 20}` for a 0.05 ohm shunt), the output power is **measured**, `Pout = Vout * Iout`, and the efficiency has no range from the
-  tolerances (the three efficiencies are the same). The resistors are then a **check**: `r_measured_ohm` is `Vout / Iout`, and
-  `r_in_tolerance` says whether it is inside the range the tolerances allow (with half a percent for the readings). A power resistor that
-  has drifted, as they do with the currents they carry, is said in the log: *"10R at 9 V: the readings give 10.8 ohm, outside 9.9 to
-  10.1 ohm"*. `pout_source` says which of the two was used (`assumed` or `measured`).
+1. a **quick sweep** (`learn_points` loads, default half of the points, the open output included) is made at the **reference
+   input voltage** (the parameter you name, `vin_param`; every other swept parameter stays at its first value, one reading per
+   point, and the results go to the table `learning`);
+2. a **second round** repeats it with loads planned using the voltage found so far, so that it reaches the larger currents too
+   when the output sags (`learn_rounds`, default 2);
+3. the output voltage as a function of the current is taken from these readings (straight lines between the points measured, the
+   open-circuit voltage below the smallest current, the last line continued beyond the largest);
+4. the loads are **planned again** with the voltage that belongs to each current (the rating of every resistor is checked at that
+   voltage) and **you are shown the plan** (also in the table `plan`): continue, or abort. The kit is read again when the
+   measurement starts.
+5. the measurement goes on with those loads.
 
-## How to measure
+This is an estimate: the points are equidistant only as far as the curve measured at the reference input voltage holds at the
+other input voltages, and beyond the largest current the quick sweep reached the curve is extrapolated. The currents of the
+measurement are always `vout / rload` as read. The inputs are in `load.plan`: `kit`, `kind` (`regulated` or `unregulated`), `vout_v`
+or `ratio`, `vin_v`, `i_min`, `i_max`, `points`, `margin_pct`, `learn`, `learn_points`, `learn_rounds`, `vin_param`.
 
-1. Wire the supply to the converter, the voltmeter (or the datalogger channel) to its output, and the current reading.
-2. **By hand**: the program asks for each load by its name and goes on when you say *continue* (*abort* stops with nothing left on).
-   **With a multiplexer**: wire each resistor between the output and ground through its relay (a datalogger module or a switch unit,
-   bound to the role `switch`).
-3. Start the run. The supply is switched on at the first input voltage and **off while the load changes** and at the end.
+## What happens at every load change
 
-## What you get
+1. The outputs that the program manages (the supply) are **switched off**.
+2. The load is connected: by hand (the operator is asked, with the schematic, and confirms) or by the relays (the previous
+   channels are opened, those of the new load closed); then `settle_s`.
+3. The parameters are set again and the outputs switched on; the measurement goes on.
 
-* **Table `points`**: a row for each load and input voltage: `load`, `r_nom_ohm`, `r_min_ohm`, `r_max_ohm`, `vin_set_v`, `vin_v`, `iin_a`,
-  `vout_v`, `iout_a`, `pout_source`, `pin_w`, `pout_w`, `pout_min_w`, `pout_max_w`, `efficiency_pct`, `efficiency_min_pct`,
-  `efficiency_max_pct`, `loading_pct` (the fullest resistor, in percent of its rating) and `loading_resistor`; with an `iout_reading`
-  also `r_measured_ohm` and `r_in_tolerance`; with `limits` also `verdict`.
-* **Table `summary`**: a row for each load with the mean, lowest and highest efficiency, the input voltage of the best one and the verdict.
-* **Curves** `eff_vs_vin_<load>` (efficiency against the input voltage, one for each load) and `eff_vs_r_<vin>V` (against the resistance of
-  the load, hidden at first).
-
-When there is no input power (a converter that does not start: below its minimum input voltage) the efficiency is empty and the log says so;
-with `min_efficiency_pct` such a point fails.
+On every reading the power in each resistor is computed from the output voltage; if one is above its rating the measurement
+stops with a message that names it. At the end, after an error or a stop, the outputs go off first and the relays open after.
 
 ## What the instruments must provide
 
-The supply: `set_voltage`, `output_on`, `output_off` and, for its own readback, `read_current`. The voltmeter: `measure_dc_voltage` (a multimeter
-or a datalogger channel). The multiplexer (only for `mux`): `close_channel` and `open_channels`, which both the datalogger and the switch unit
-categories of the library have. `ola/sim_bench.py` has `SimResistiveBench`, a simulated converter with resistors on relays, used by the tests.
+The calls of the efficiency (`set_voltage`, `output_on` / `output_off`, readings) (and, for the not yet supported `mux` mode, `close_channel` and
+`open_channels`).
 
 ## Not done yet
 
-Tried only with the simulated bench. The power in each resistor is the **nominal power** of its rating, with no derating for temperature or
-for the mounting. The relays are not read back (`query_channel_closed_state`) to check that they closed.
-
-The value of a resistor is its **nominal value and tolerance**, as written (or taken from a kit). A later step is to treat the resistors like
-the cables: each with its **own code**, measured, so that the real value is used. Power resistors drift a lot with the currents they carry,
-so this needs the value to be measured again from time to time; for now `iout_reading` shows a resistor that has drifted
-(`r_in_tolerance`), and the tolerance in the kit can be set to what the resistor is worth now.
+* The learning sweep measures at one input voltage (the reference one); a converter whose output depends strongly on the input
+  is not re-learned at every input voltage.
+* The runs with an open output write `rload = inf` (`Infinity` in the run file, `inf` in the CSV): other programs that read the
+  JSON Lines files must accept it. The plots of the program with `rload` as a group were not looked at.
+* Not tested on real hardware (see the test status list in the README).
+* The old `.rfe` files of the previous format (`vin_v`, `loads` at the top, `switching`...) are not read: rewrite them as above.
+  The `summary` table and the verdict of the previous module are gone; use the `derived` formulas and the golden sample.

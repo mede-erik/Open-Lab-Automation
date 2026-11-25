@@ -262,7 +262,7 @@ def cards(tmp_path):
     registry = AssetRegistry(tmp_path / "assets.json")
     registry.create("cable", "RG316 SMA-SMA", attributes={"length_m": 1.0})
     registry.create("cable", "RG58 N-N")
-    registry.create("antenna", "whip")
+    registry.create("attenuator", "10 dB pad")
     return registry
 
 
@@ -278,7 +278,7 @@ def asset_dialog(app, registry, tmp_path, cards):
     d.close()
 
 
-def test_the_registry_offers_the_cables_and_not_the_antennas(asset_dialog):
+def test_the_registry_offers_the_cables_and_not_the_attenuators(asset_dialog):
     box = asset_dialog.rows["cable.asset_id"].widget
     items = [box.itemText(i) for i in range(box.count())]
     assert items == ["", "CBL-0001 - RG316 SMA-SMA", "CBL-0002 - RG58 N-N"]  # the kind of the field

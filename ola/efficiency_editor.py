@@ -23,7 +23,7 @@ import copy
 import re
 from typing import Any, Collection, Dict, List, Optional, Sequence, Union
 
-from .efficiency_spec import CallChecker, Problem, parse_params, validate_params
+from .efficiency_spec import CallChecker, Problem, SpecError, parse_params, validate_params
 from .project import MeasurementFile
 from .sweep import SweepError, axis_values
 
@@ -112,7 +112,9 @@ class EfficiencyEditor:
         params: Optional[dict] = None,
         instruments: Optional[Collection[str]] = None,
         checker: Optional[CallChecker] = None,
+        type: str = "efficiency",
     ):
+        self.type = type  # "efficiency" (.eff) or "resistive_efficiency" (.rfe)
         self.params: dict = copy.deepcopy(params) if params else {"variables": []}
         self.params.setdefault("variables", [])
         self.instruments = None if instruments is None else sorted(instruments)
@@ -121,8 +123,9 @@ class EfficiencyEditor:
 
     # ----- loading and saving ------------------------------------------------------------------
     @staticmethod
-    def template(instruments: Sequence[str] = ()) -> dict:
-        """A starting point for a converter: input and output voltage and current, efficiency."""
+    def template(instruments: Sequence[str] = (), load: bool = False) -> dict:
+        """A starting point for a converter: input and output voltage and current, efficiency.
+        With ``load`` the output current is not set: the load is a set of resistors (``.rfe``)."""
         first = instruments[0] if instruments else ""
 
         def reading() -> dict:
@@ -131,6 +134,28 @@ class EfficiencyEditor:
         def setter() -> dict:
             return {"instrument": first, "call": ""}
 
+        if load:
+            return {
+                "variables": [
+                    {"name": "vin", "set": setter(), "sweep": {"values": [9, 12, 15]}},
+                    {
+                        "name": "rload",
+                        "load": {
+                            "loads": [{"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 10}],
+                            "switching": {"mode": "manual"},
+                            "vout": "vout@daq",
+                        },
+                    },
+                    {"name": "iin", "reads": reading()},
+                    {"name": "vout", "reads": reading()},
+                ],
+                "timing": {"settle_s": 5, "samples": 3, "interval_s": 2},
+                "derived": {
+                    "pin": "vin * iin@daq",
+                    "pout": "vout@daq * vout@daq / rload",
+                    "efficiency": "100 * pout / pin",
+                },
+            }
         return {
             "variables": [
                 {
@@ -154,16 +179,20 @@ class EfficiencyEditor:
     def from_file(cls, path: str, **kwargs: Any) -> "EfficiencyEditor":
         """Open a ``.eff`` file (a measurement file of type ``efficiency``)."""
         measurement = MeasurementFile.load(path)
-        if measurement.type != "efficiency":
+        if measurement.type not in ("efficiency", "resistive_efficiency"):
             raise EditorError(f"{path} is a '{measurement.type}' file, not an efficiency file")
-        return cls(measurement.params, **kwargs)
+        return cls(measurement.params, type=measurement.type, **kwargs)
 
     def to_measurement_file(self) -> MeasurementFile:
         """The measurement file to save: the params and the instruments they use as role binding."""
+        bindings = {"instruments": self.used_instruments()}
+        scopes = self.scope_instruments()
+        if scopes:  # the oscilloscopes of the waveforms have a role of their own
+            bindings["scope"] = scopes
         return MeasurementFile(
-            type="efficiency",
+            type=self.type,
             module_version="1.0.0",
-            role_bindings={"instruments": self.used_instruments()},
+            role_bindings=bindings,
             params=copy.deepcopy(self.params),
         )
 
@@ -171,8 +200,25 @@ class EfficiencyEditor:
         """Write the ``.eff`` file."""
         self.to_measurement_file().save(path)
 
+    def step_count(self) -> Optional[int]:
+        """How many points the sweep has (the steps of the measurement), or None while the
+        parameters are not valid."""
+        try:
+            return parse_params(
+                self.params, allow_load=self.type == "resistive_efficiency"
+            ).point_count()
+        except SpecError:
+            return None
+
+    def scope_instruments(self) -> List[str]:
+        """The oscilloscopes that take the waveforms (``scope_capture.instruments``)."""
+        capture = self.params.get("scope_capture")
+        names = capture.get("instruments") if isinstance(capture, dict) else None
+        return [n for n in names if isinstance(n, str) and n] if isinstance(names, list) else []
+
     def used_instruments(self) -> List[str]:
-        """The names of all the instruments referenced anywhere in the parameters, sorted."""
+        """The names of all the instruments referenced anywhere in the parameters, sorted (not the
+        oscilloscope of the waveforms: it is the role ``scope``)."""
         found: set = set()
 
         def walk(node: Any) -> None:
@@ -186,7 +232,7 @@ class EfficiencyEditor:
                 for value in node:
                     walk(value)
 
-        walk(self.params)
+        walk({k: v for k, v in self.params.items() if k != "scope_capture"})
         return sorted(found)
 
     # ----- generic access ----------------------------------------------------------------------
@@ -197,6 +243,8 @@ class EfficiencyEditor:
     def set(self, path: str, value: Any) -> None:
         """Set a field by path; ``None`` removes it."""
         set_path(self.params, path, value)
+        if self.params.get("scope_capture") == {}:  # both boxes emptied: no waveforms, no block
+            del self.params["scope_capture"]
         self._problems = None
 
     # ----- parameters --------------------------------------------------------------------------
@@ -221,6 +269,18 @@ class EfficiencyEditor:
     def add_parameter(self, name: Optional[str] = None) -> int:
         """Append an empty parameter; returns its position."""
         self.variables.append({"name": self._unique_name(name or "param")})
+        self._problems = None
+        return len(self.variables) - 1
+
+    def add_load(self, name: Optional[str] = None) -> int:
+        """Append a parameter that is a resistive load (``.rfe``) with one starting resistor;
+        returns its position. A converter with two outputs has one for each."""
+        load = {
+            "loads": [{"name": "10R", "r_ohm": 10, "tol_pct": 1, "power_w": 10}],
+            "switching": {"mode": "manual"},
+            "vout": "vout",
+        }
+        self.variables.append({"name": self._unique_name(name or "rload"), "load": load})
         self._problems = None
         return len(self.variables) - 1
 
@@ -349,6 +409,8 @@ class EfficiencyEditor:
         """``none`` (not set / nothing), ``fixed``, ``list``, ``points``, ``step`` or ``log``."""
         self._check(index)
         var = self.variables[index]
+        if "load" in var:
+            return "list"  # the loads are its values
         if "value" in var:
             return "fixed"
         sweep = var.get("sweep")
@@ -534,7 +596,9 @@ class EfficiencyEditor:
     def problems(self) -> List[Problem]:
         """The problems of the parameters now (cached until the next change)."""
         if self._problems is None:
-            self._problems = validate_params(self.params, self.instruments, self.checker)
+            self._problems = validate_params(
+                self.params, self.instruments, self.checker, self.type == "resistive_efficiency"
+            )
         return self._problems
 
     def problems_at(self, prefix: str) -> List[Problem]:

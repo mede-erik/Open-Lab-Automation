@@ -35,6 +35,13 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: >-
+          Build the packages without waiting for the tests (a manual run never publishes).
+          For trying a change of the packaging when the runner of the tests is busy.
+        type: boolean
+        default: false
 
 concurrency:
   group: package-${{ github.ref }}
@@ -53,8 +60,9 @@ jobs:
   tests:
     name: Tests
     needs: [meta]
-    # A nightly of a commit that is no longer the newest of main is not built (see meta)
-    if: needs.meta.outputs.current != 'false'
+    # A nightly of a commit that is no longer the newest of main is not built (see meta); a manual
+    # run can skip the tests (input skip_tests). Pushes and tags always run them.
+    if: needs.meta.outputs.current != 'false' && !inputs.skip_tests
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -121,6 +129,11 @@ jobs:
   windows:
     name: Windows (zip, installer)
     needs: [tests, meta]
+    # The tests passed, or they were skipped on purpose (a manual run with skip_tests). An outdated
+    # nightly never gets here: the tests are skipped and so is this, because "current" is false.
+    if: >-
+      ${{ !cancelled() && needs.meta.result == 'success' && needs.meta.outputs.current != 'false'
+      && (needs.tests.result == 'success' || (needs.tests.result == 'skipped' && inputs.skip_tests)) }}
     runs-on: ${{ fromJSON(vars.PACKAGE_RUNS_ON_WINDOWS || '"windows-latest"') }}
     timeout-minutes: 60
     env:
@@ -174,21 +187,63 @@ jobs:
       - name: Installer
         run: python scripts/build_package.py installer --version "$VERSION"
 
-      - name: Test the installer (silent install, self-test of the installed program, uninstall)
+      - name: Test the installer (install, update, repair, uninstall)
         shell: pwsh
         run: |
           $setup = Get-ChildItem dist-release\*-setup.exe | Select-Object -First 1
-          Start-Process -FilePath $setup.FullName -Wait -ArgumentList `
-            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR=C:\ola-test', "/LOG=$env:RUNNER_TEMP\setup.log"
-          if (-not (Test-Path C:\ola-test\OpenLabAutomation.exe)) {
-            Get-Content "$env:RUNNER_TEMP\setup.log" -ErrorAction SilentlyContinue
-            throw "the installer did not install the program"
+          $dir = 'C:\ola-test'
+          function Install([string]$name, [string[]]$extra) {
+            $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", "/LOG=$env:RUNNER_TEMP\$name.log") + $extra
+            Start-Process -FilePath $setup.FullName -Wait -ArgumentList $arguments
+            return Get-Content "$env:RUNNER_TEMP\$name.log" -Raw
           }
-          $env:QT_QPA_PLATFORM = 'offscreen'
-          & C:\ola-test\ola-selftest.exe --expect-native
-          if ($LASTEXITCODE -ne 0) { throw "self-test of the installed program failed" }
-          Start-Process -FilePath C:\ola-test\unins000.exe -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
-          if (Test-Path C:\ola-test\OpenLabAutomation.exe) { throw "the uninstaller left the program" }
+          # The uninstaller is found where Windows says (its name is not always the same), and the
+          # folder must keep exactly one of them
+          function UninstallerPath {
+            $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{6B0B8A3E-5C2D-4E8E-9D5B-0F6A3C41B7A2}_is1'
+            if (-not (Test-Path -LiteralPath $key)) { throw "no uninstall entry in the registry" }
+            return (Get-ItemProperty -LiteralPath $key).UninstallString.Trim('"')
+          }
+          function CheckUninstaller([string]$step) {
+            $found = @(Get-ChildItem $dir -Filter 'unins*.exe' | ForEach-Object { $_.Name })
+            Write-Host "after ${step}: $($found -join ', ') (registry: $(UninstallerPath))"
+            if ($found.Count -ne 1) { throw "after ${step}: expected one uninstaller, found $($found.Count)" }
+            if (-not (Test-Path -LiteralPath (UninstallerPath))) { throw "after ${step}: the uninstaller of the registry is missing" }
+          }
+          function Selftest {
+            $env:QT_QPA_PLATFORM = 'offscreen'
+            & "$dir\ola-selftest.exe" --expect-native
+            if ($LASTEXITCODE -ne 0) { throw "self-test of the installed program failed" }
+          }
+
+          # First installation: no question, the old version is not touched (there is none)
+          $log = Install 'first' @()
+          if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { Write-Host $log; throw "the installer did not install the program" }
+          if ($log -match 'Previous version removed') { throw "a first installation ran an uninstaller" }
+          Selftest
+          CheckUninstaller 'the first installation'
+
+          # Update: the old uninstaller runs first, then the files are installed. A file that is not
+          # part of the program is not ours to delete: it stays.
+          Set-Content "$dir\other.txt" 'not a program file'
+          $log = Install 'update' @('/MODE=UPDATE')
+          if ($log -notmatch 'Previous version removed') { Write-Host $log; throw "update did not remove the previous version first" }
+          if (-not (Test-Path "$dir\OpenLabAutomation.exe")) { throw "update left no program" }
+          if (-not (Test-Path "$dir\other.txt")) { throw "update deleted a file that is not part of the program" }
+          Selftest
+          CheckUninstaller 'the update'
+
+          # Repair: no uninstaller, the files are installed again, the missing one comes back
+          Remove-Item "$dir\ola-selftest.exe"
+          $log = Install 'repair' @('/MODE=REPAIR')
+          if ($log -match 'Previous version removed') { throw "repair ran the uninstaller" }
+          if (-not (Test-Path "$dir\ola-selftest.exe")) { throw "repair did not restore the missing file" }
+          if (-not (Test-Path "$dir\other.txt")) { throw "repair deleted a file that is not part of the program" }
+          Selftest
+          CheckUninstaller 'the repair'
+
+          Start-Process -FilePath (UninstallerPath) -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES'
+          if (Test-Path "$dir\OpenLabAutomation.exe") { throw "the uninstaller left the program" }
 
       - uses: actions/upload-artifact@v7
         with:
@@ -200,6 +255,11 @@ jobs:
   linux:
     name: Linux (tar.gz, deb, rpm)
     needs: [tests, meta]
+    # The tests passed, or they were skipped on purpose (a manual run with skip_tests). An outdated
+    # nightly never gets here: the tests are skipped and so is this, because "current" is false.
+    if: >-
+      ${{ !cancelled() && needs.meta.result == 'success' && needs.meta.outputs.current != 'false'
+      && (needs.tests.result == 'success' || (needs.tests.result == 'skipped' && inputs.skip_tests)) }}
     # The oldest runner image: the bundle needs a glibc at least as new as the one it was built on
     runs-on: ${{ fromJSON(vars.PACKAGE_RUNS_ON_LINUX || '"ubuntu-22.04"') }}
     timeout-minutes: 60
@@ -312,6 +372,11 @@ jobs:
     # The PKGBUILD is checked (built and installed in an Arch container), not published.
     name: Arch Linux (PKGBUILD check)
     needs: [tests, meta]
+    # The tests passed, or they were skipped on purpose (a manual run with skip_tests). An outdated
+    # nightly never gets here: the tests are skipped and so is this, because "current" is false.
+    if: >-
+      ${{ !cancelled() && needs.meta.result == 'success' && needs.meta.outputs.current != 'false'
+      && (needs.tests.result == 'success' || (needs.tests.result == 'skipped' && inputs.skip_tests)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

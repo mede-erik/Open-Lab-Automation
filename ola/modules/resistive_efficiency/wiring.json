@@ -2,17 +2,16 @@
   "nodes": [
     {
       "id": "psu",
-      "role": "supply",
       "at": [
         0,
         0
       ],
       "title": {
-        "en": "Power supply",
-        "it": "Alimentatore",
-        "fr": "Alimentation",
-        "es": "Fuente",
-        "de": "Netzteil"
+        "en": "Input supply",
+        "it": "Alimentatore d'ingresso",
+        "fr": "Alimentation d'entrée",
+        "es": "Fuente de entrada",
+        "de": "Eingangsnetzteil"
       },
       "ports": [
         {
@@ -35,7 +34,13 @@
         1,
         0
       ],
-      "title": "{device.label|Converter under test}",
+      "title": {
+        "en": "Converter under test",
+        "it": "Convertitore in prova",
+        "fr": "Convertisseur testé",
+        "es": "Convertidor en prueba",
+        "de": "Wandler im Test"
+      },
       "ports": [
         {
           "id": "in",
@@ -63,17 +68,16 @@
     },
     {
       "id": "load",
-      "kind": "device",
       "at": [
         2,
         0
       ],
       "title": {
-        "en": "Resistive load",
-        "it": "Carico resistivo",
-        "fr": "Charge résistive",
-        "es": "Carga resistiva",
-        "de": "Ohmsche Last"
+        "en": "Electronic load",
+        "it": "Carico elettronico",
+        "fr": "Charge électronique",
+        "es": "Carga electrónica",
+        "de": "Elektronische Last"
       },
       "ports": [
         {
@@ -86,75 +90,6 @@
             "es": "Entrada",
             "de": "Eingang"
           }
-        },
-        {
-          "id": "relays",
-          "side": "bottom",
-          "label": {
-            "en": "Relays",
-            "it": "Relè",
-            "fr": "Relais",
-            "es": "Relés",
-            "de": "Relais"
-          },
-          "when": "switching.mode=mux"
-        }
-      ]
-    },
-    {
-      "id": "meter",
-      "role": "meter",
-      "at": [
-        1,
-        1
-      ],
-      "title": {
-        "en": "Voltmeter / datalogger",
-        "it": "Voltmetro / datalogger",
-        "fr": "Voltmètre / enregistreur",
-        "es": "Voltímetro / registrador",
-        "de": "Voltmeter / Datenlogger"
-      },
-      "ports": [
-        {
-          "id": "in",
-          "side": "top",
-          "label": {
-            "en": "Measure",
-            "it": "Misura",
-            "fr": "Mesure",
-            "es": "Medida",
-            "de": "Messung"
-          }
-        }
-      ]
-    },
-    {
-      "id": "mux",
-      "role": "switch",
-      "at": [
-        2,
-        1
-      ],
-      "when": "switching.mode=mux",
-      "title": {
-        "en": "Multiplexer / switch box",
-        "it": "Multiplexer / switch box",
-        "fr": "Multiplexeur / boîtier de commutation",
-        "es": "Multiplexor / caja de conmutación",
-        "de": "Multiplexer / Schaltbox"
-      },
-      "ports": [
-        {
-          "id": "out",
-          "side": "top",
-          "label": {
-            "en": "Relays",
-            "it": "Relè",
-            "fr": "Relais",
-            "es": "Relés",
-            "de": "Relais"
-          }
         }
       ]
     }
@@ -164,113 +99,124 @@
       "from": "psu.out",
       "to": "dut.in",
       "label": {
-        "en": "input",
-        "it": "ingresso",
-        "fr": "entrée",
-        "es": "entrada",
-        "de": "Eingang"
+        "en": "input (through a shunt)",
+        "it": "ingresso (con shunt)",
+        "fr": "entrée (avec shunt)",
+        "es": "entrada (con shunt)",
+        "de": "Eingang (mit Shunt)"
       }
     },
     {
       "from": "dut.out",
       "to": "load.in",
       "label": {
-        "en": "load",
-        "it": "carico",
-        "fr": "charge",
-        "es": "carga",
-        "de": "Last"
-      }
-    },
-    {
-      "from": "dut.out",
-      "to": "meter.in",
-      "label": {
-        "en": "output voltage",
-        "it": "tensione di uscita",
-        "fr": "tension de sortie",
-        "es": "tensión de salida",
-        "de": "Ausgangsspannung"
-      },
-      "style": "dashed"
-    },
-    {
-      "from": "mux.out",
-      "to": "load.relays",
-      "when": "switching.mode=mux",
-      "label": {
-        "en": "relays",
-        "it": "relè",
-        "fr": "relais",
-        "es": "relés",
-        "de": "Relais"
-      },
-      "style": "dashed"
-    }
-  ],
-  "steps": [
-    {
-      "en": "Connect the output of the supply to the input of the converter ({device.label|converter under test}), plus to plus, minus to minus.",
-      "it": "Collega l'uscita dell'alimentatore all'ingresso del convertitore ({device.label|convertitore in prova}), più con più, meno con meno.",
-      "fr": "Connectez la sortie de l'alimentation à l'entrée du convertisseur ({device.label|convertisseur testé}), plus sur plus, moins sur moins.",
-      "es": "Conecte la salida de la fuente a la entrada del convertidor ({device.label|convertidor en prueba}), más con más, menos con menos.",
-      "de": "Den Ausgang des Netzteils mit dem Eingang des Wandlers ({device.label|Prüfling}) verbinden, Plus an Plus, Minus an Minus."
-    },
-    {
-      "en": "Connect the voltmeter (or the datalogger channel) to the output of the converter, where the load is connected.",
-      "it": "Collega il voltmetro (o il canale del datalogger) all'uscita del convertitore, dove è collegato il carico.",
-      "fr": "Connectez le voltmètre (ou la voie de l'enregistreur) à la sortie du convertisseur, là où la charge est connectée.",
-      "es": "Conecte el voltímetro (o el canal del registrador) a la salida del convertidor, donde está conectada la carga.",
-      "de": "Das Voltmeter (oder den Datenloggerkanal) an den Ausgang des Wandlers anschließen, dort wo die Last hängt."
-    },
-    {
-      "when": "switching.mode!=mux",
-      "text": {
-        "en": "Connect each load by hand when the program asks for it (the supply is off then): the question gives the resistors, with their values, and a schematic of how to connect them.",
-        "it": "Collega ogni carico a mano quando il programma lo chiede (l'alimentatore è spento): la domanda indica le resistenze, con i valori, e uno schema di come collegarle.",
-        "fr": "Connectez chaque charge à la main quand le programme le demande (l'alimentation est éteinte) : la question donne les résistances, avec leurs valeurs, et un schéma de connexion.",
-        "es": "Conecte cada carga a mano cuando el programa lo pida (la fuente está apagada): la pregunta da las resistencias, con sus valores, y un esquema de cómo conectarlas.",
-        "de": "Jede Last von Hand anschließen, wenn das Programm danach fragt (das Netzteil ist dann aus): die Frage nennt die Widerstände mit ihren Werten und ein Schaltbild zum Anschließen."
-      }
-    },
-    {
-      "when": "switching.mode=mux",
-      "text": {
-        "en": "Wire each resistor between the output of the converter and ground through its relay of the multiplexer; the relays of a load are closed together, the ones of the load before are opened first.",
-        "it": "Collega ogni resistenza tra l'uscita del convertitore e la massa attraverso il suo relè del multiplexer; i relè di un carico si chiudono insieme, quelli del carico precedente si aprono prima.",
-        "fr": "Câblez chaque résistance entre la sortie du convertisseur et la masse par son relais du multiplexeur ; les relais d'une charge se ferment ensemble, ceux de la charge précédente s'ouvrent d'abord.",
-        "es": "Cablee cada resistencia entre la salida del convertidor y masa a través de su relé del multiplexor; los relés de una carga se cierran juntos, los de la carga anterior se abren antes.",
-        "de": "Jeden Widerstand über sein Relais des Multiplexers zwischen Ausgang des Wandlers und Masse schalten; die Relais einer Last schließen gemeinsam, die der vorigen Last öffnen vorher."
-      }
-    },
-    {
-      "when": "iin_reading.role=meter",
-      "text": {
-        "en": "Put the current shunt in the input line and connect the datalogger channel across it.",
-        "it": "Metti lo shunt di corrente nella linea d'ingresso e collega il canale del datalogger ai suoi capi.",
-        "fr": "Placez le shunt de courant dans la ligne d'entrée et connectez la voie de l'enregistreur à ses bornes.",
-        "es": "Ponga el shunt de corriente en la línea de entrada y conecte el canal del registrador entre sus extremos.",
-        "de": "Den Stromshunt in die Eingangsleitung legen und den Datenloggerkanal daran anschließen."
-      }
-    },
-    {
-      "when": "iout_reading",
-      "text": {
-        "en": "Put the output shunt in the line between the converter and the load and connect the datalogger channel across it.",
-        "it": "Metti lo shunt d'uscita nella linea tra il convertitore e il carico e collega il canale del datalogger ai suoi capi.",
-        "fr": "Placez le shunt de sortie dans la ligne entre le convertisseur et la charge et connectez la voie de l'enregistreur à ses bornes.",
-        "es": "Ponga el shunt de salida en la línea entre el convertidor y la carga y conecte el canal del registrador entre sus extremos.",
-        "de": "Den Ausgangsshunt in die Leitung zwischen Wandler und Last legen und den Datenloggerkanal daran anschließen."
+        "en": "output",
+        "it": "uscita",
+        "fr": "sortie",
+        "es": "salida",
+        "de": "Ausgang"
       }
     }
   ],
   "notes": [
     {
-      "en": "The supply is switched on by the measurement and switched off at the end, and while the load is changed. The power in each resistor is checked against its rating: a resistor above it stops the measurement.",
-      "it": "L'alimentatore viene acceso dalla misura e spento alla fine e mentre si cambia il carico. La potenza in ogni resistenza è confrontata con il suo valore nominale: una resistenza oltre il limite ferma la misura.",
-      "fr": "L'alimentation est allumée par la mesure et éteinte à la fin et pendant le changement de charge. La puissance dans chaque résistance est comparée à sa valeur nominale : une résistance au-dessus arrête la mesure.",
-      "es": "La fuente la enciende la medición y se apaga al final y mientras se cambia la carga. La potencia en cada resistencia se compara con su valor nominal: una resistencia por encima detiene la medición.",
-      "de": "Das Netzteil wird von der Messung eingeschaltet und am Ende sowie beim Lastwechsel ausgeschaltet. Die Leistung in jedem Widerstand wird mit seiner Nennleistung verglichen: ein Widerstand darüber stoppt die Messung."
+      "en": "A typical set-up. The instruments and channels are those named in the file: the data logger measures the input voltage, the input current (across a shunt) and the output voltage, and an auxiliary supply can power the converter's control. Connect them as the file says before starting.",
+      "it": "Un collegamento tipico. Strumenti e canali sono quelli indicati nel file: il datalogger misura la tensione d'ingresso, la corrente d'ingresso (ai capi di uno shunt) e la tensione d'uscita; un alimentatore ausiliario può alimentare il controllo del convertitore. Collega tutto come dice il file prima di avviare.",
+      "fr": "Un montage typique. Les instruments et les voies sont ceux indiqués dans le fichier : le enregistreur mesure la tension d'entrée, le courant d'entrée (aux bornes d'un shunt) et la tension de sortie, et une alimentation auxiliaire peut alimenter la commande du convertisseur. Branchez tout comme le dit le fichier avant de démarrer.",
+      "es": "Un montaje típico. Los instrumentos y canales son los del archivo: el registrador mide la tensión de entrada, la corriente de entrada (en un shunt) y la tensión de salida, y una fuente auxiliar puede alimentar el control del convertidor. Conecte todo como dice el archivo antes de empezar.",
+      "de": "Ein typischer Aufbau. Geräte und Kanäle sind die in der Datei genannten: der Datenlogger misst Eingangsspannung, Eingangsstrom (über einen Shunt) und Ausgangsspannung, ein Hilfsnetzteil kann die Steuerung des Wandlers versorgen. Vor dem Start alles wie in der Datei anschließen."
+    }
+  ],
+  "steps": [
+    {
+      "text": {
+        "en": "The names between « » are the parameters of the file. Connect each instrument where its parameter is applied or measured on the converter.",
+        "it": "I nomi tra « » sono i parametri del file. Collega ogni strumento dove il suo parametro viene applicato o misurato sul convertitore.",
+        "fr": "Les noms entre « » sont les paramètres du fichier. Connectez chaque instrument là où son paramètre est appliqué ou mesuré sur le convertisseur.",
+        "es": "Los nombres entre « » son los parámetros del archivo. Conecte cada instrumento donde su parámetro se aplica o se mide en el convertidor.",
+        "de": "Die Namen in « » sind die Parameter der Datei. Jedes Gerät dort anschließen, wo sein Parameter am Wandler angelegt oder gemessen wird."
+      }
+    },
+    {
+      "text": {
+        "en": "Connect channel {v.set.args.channel_number} of {v.set.instrument} to «{v.name}» of the converter: it sets «{v.name}» ({v.set.call}).",
+        "it": "Collega il canale {v.set.args.channel_number} di {v.set.instrument} a «{v.name}» del convertitore: imposta «{v.name}» ({v.set.call}).",
+        "fr": "Connectez la voie {v.set.args.channel_number} de {v.set.instrument} à «{v.name}» du convertisseur : elle règle «{v.name}» ({v.set.call}).",
+        "es": "Conecte el canal {v.set.args.channel_number} de {v.set.instrument} a «{v.name}» del convertidor: ajusta «{v.name}» ({v.set.call}).",
+        "de": "Kanal {v.set.args.channel_number} von {v.set.instrument} mit «{v.name}» des Wandlers verbinden: er stellt «{v.name}» ein ({v.set.call})."
+      },
+      "when": "v.set.args.channel_number",
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect {v.set.instrument} to «{v.name}» of the converter: it sets «{v.name}» ({v.set.call}).",
+        "it": "Collega {v.set.instrument} a «{v.name}» del convertitore: imposta «{v.name}» ({v.set.call}).",
+        "fr": "Connectez {v.set.instrument} à «{v.name}» du convertisseur : il règle «{v.name}» ({v.set.call}).",
+        "es": "Conecte {v.set.instrument} a «{v.name}» del convertidor: ajusta «{v.name}» ({v.set.call}).",
+        "de": "{v.set.instrument} mit «{v.name}» des Wandlers verbinden: es stellt «{v.name}» ein ({v.set.call})."
+      },
+      "when": [
+        "v.set.instrument",
+        "!v.set.args.channel_number"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect channel {r.args.channels} of {r.instrument} to «{v.name}» of the converter (the reading is multiplied by {r.scale}).",
+        "it": "Collega il canale {r.args.channels} di {r.instrument} a «{v.name}» del convertitore (la lettura viene moltiplicata per {r.scale}).",
+        "fr": "Connectez la voie {r.args.channels} de {r.instrument} à «{v.name}» du convertisseur (la lecture est multipliée par {r.scale}).",
+        "es": "Conecte el canal {r.args.channels} de {r.instrument} a «{v.name}» del convertidor (la lectura se multiplica por {r.scale}).",
+        "de": "Kanal {r.args.channels} von {r.instrument} mit «{v.name}» des Wandlers verbinden (der Messwert wird mit {r.scale} multipliziert)."
+      },
+      "when": [
+        "r.args.channels",
+        "r.scale"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ],
+        [
+          "v.reads",
+          "r"
+        ]
+      ]
+    },
+    {
+      "text": {
+        "en": "Connect channel {r.args.channels} of {r.instrument} to «{v.name}» of the converter.",
+        "it": "Collega il canale {r.args.channels} di {r.instrument} a «{v.name}» del convertitore.",
+        "fr": "Connectez la voie {r.args.channels} de {r.instrument} à «{v.name}» du convertisseur.",
+        "es": "Conecte el canal {r.args.channels} de {r.instrument} a «{v.name}» del convertidor.",
+        "de": "Kanal {r.args.channels} von {r.instrument} mit «{v.name}» des Wandlers verbinden."
+      },
+      "when": [
+        "r.args.channels",
+        "!r.scale"
+      ],
+      "foreach": [
+        [
+          "variables",
+          "v"
+        ],
+        [
+          "v.reads",
+          "r"
+        ]
+      ]
     }
   ]
 }

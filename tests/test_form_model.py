@@ -228,21 +228,37 @@ def test_the_text_of_the_role_problem_can_be_translated(registry):
 
 # ---- a code from the registry -----------------------------------------------------------------
 def test_the_asset_field_of_the_forms_asks_for_its_kind_and_the_name_it_fills(registry):
+    """A component of the registry: a cable, an amplifier, an attenuator, a cable under test."""
     wanted = {
         "cable": ("cable.asset_id", "cable", "cable.label"),
-        "return_loss": ("device.asset_id", None, "device.label"),
-        "antenna": ("device.asset_id", "antenna", "device.label"),
         "amplifier": ("device.asset_id", "amplifier", "device.label"),
-        "filter": ("filter.asset_id", "filter", "filter.label"),
         "attenuator": ("attenuator.asset_id", "attenuator", "attenuator.label"),
-        "ripple": ("device.asset_id", None, "device.label"),
-        "regulation": ("device.asset_id", None, "device.label"),
-        "bode": ("device.asset_id", None, "device.label"),
         "tdr": ("device.asset_id", "cable", "device.label"),
     }
     for module, (path, kind, label) in wanted.items():
         field = next(f for f in load_form_spec(registry.get(module)).fields() if f.kind == "asset")
         assert (field.path, field.asset_kind, field.label_path) == (path, kind, label), module
+
+
+def test_the_device_under_test_of_the_forms_comes_from_the_dut_archive(registry):
+    """The DUT is a ``dut`` field and a ``dut_version`` field, not a card of the components."""
+    wanted = {
+        "return_loss": ("device", None),
+        "antenna": ("device", "antenna"),
+        "filter": ("filter", "filter"),
+        "ripple": ("device", None),
+        "regulation": ("device", None),
+        "bode": ("device", None),
+    }
+    for module, (group, category) in wanted.items():
+        fields = load_form_spec(registry.get(module)).fields()
+        dut = next(f for f in fields if f.kind == "dut")
+        version = next(f for f in fields if f.kind == "dut_version")
+        assert (dut.path, dut.asset_kind, dut.label_path) == (
+            f"{group}.dut_id", category, f"{group}.label",
+        ), module  # fmt: skip
+        assert (version.path, version.dut_path) == (f"{group}.version", f"{group}.dut_id"), module
+        assert not [f for f in fields if f.kind == "asset" and f.path == f"{group}.asset_id"]
 
 
 def test_an_unknown_code_is_a_warning_not_an_error(registry, tmp_path):

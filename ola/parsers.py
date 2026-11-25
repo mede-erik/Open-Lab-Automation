@@ -107,6 +107,74 @@ def siglent_waveform(
     }
 
 
+# GW Instek GDS-1000B: ``:ACQuire<X>:MEMory?`` gives the settings as text, then the samples as
+# 16-bit signed big-endian codes, 25 codes per vertical division (the "AD factor" of the manual).
+GWINSTEK_AD_FACTOR = 25.0
+
+
+def _gwinstek_settings(text: Any, call: str) -> Dict[str, str]:
+    """``name,value;name,value;...`` of the header of a GDS-1000B memory answer."""
+    items: Dict[str, str] = {}
+    for part in str(text).replace("\n", "").replace("\r", "").split(";"):
+        name, sep, value = part.partition(",")
+        if sep:
+            items[name.strip()] = value.strip()
+    return items
+
+
+def _gwinstek_number(items: Dict[str, str], name: str, call: str) -> float:
+    try:
+        return float(items[name])
+    except (KeyError, ValueError):
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the acquisition settings have no valid '{name}' "
+            f"({items.get(name)!r})",
+            call=call,
+        ) from None
+
+
+def gwinstek_waveform(settings: Any, data: Any, call: str = "read_waveform"):
+    """GW Instek GDS-1000B waveform (``:ACQuire<X>:MEMory?``: settings text + block of samples).
+
+    ``settings`` is the text before the block (``Memory Length,10000;Trigger Address,4999;...;
+    Vertical Scale,5.000e+00;Sampling Period,5.000e-07;...``), ``data`` the bytes of the block:
+    16-bit signed codes, most significant byte first. The manual gives
+    ``voltage = code / 25 * vertical_scale``; the time is counted from the trigger point,
+    ``time = (index - trigger_address) * sampling_period``. Returns the dict of
+    ``siglent_waveform``.
+    """
+    items = _gwinstek_settings(settings, call)
+    scale = _gwinstek_number(items, "Vertical Scale", call)
+    interval = _gwinstek_number(items, "Sampling Period", call)
+    trigger_address = _gwinstek_number(items, "Trigger Address", call)
+    timebase = _gwinstek_number(items, "Horizontal Scale", call)
+    position = _gwinstek_number(items, "Horizontal Position", call)
+    data = bytes(data)
+    n = len(data) // 2
+    if interval <= 0 or n == 0:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': invalid acquisition (sampling period {interval}, {n} points)",
+            call=call,
+        )
+    codes = array("h")
+    codes.frombytes(data[: n * 2])
+    if sys.byteorder == "little":
+        codes.byteswap()
+    k = scale / GWINSTEK_AD_FACTOR
+    voltage = array("d", (code * k for code in codes))
+    time = array("d", ((i - trigger_address) * interval for i in range(n)))
+    return {
+        "time": time,
+        "voltage": voltage,
+        "points": n,
+        "sample_interval": interval,
+        "vertical_gain": scale,
+        "vertical_offset": 0.0,
+        "trigger_delay": position,
+        "timebase": timebase,
+    }
+
+
 def _numbers(text: Any, call: str, what: str) -> List[float]:
     """Comma-separated numbers of an ASCII answer."""
     try:
@@ -198,11 +266,38 @@ def hp6030_readback_current(answer: Any, call: str = "read_current") -> float:
     return _hp6030_readback(answer, "A", call)
 
 
+def spectrum_trace_ascii(answer: Any, call: str = "read_trace") -> List[float]:
+    """The points of a spectrum analyzer trace read in the ASCII format.
+
+    The Rigol analyzers (DSA800, RSA3000) put a definite length block header (``#9000009014``) in
+    front of the numbers, the Siglent ones do not; the numbers are separated by commas (and a
+    space) and may end with a comma. Returns the list of floats; ``ResponseNotRecognisedError`` for
+    an empty answer or a point that is not a number.
+    """
+    text = str(answer).strip()
+    if text.startswith("#"):
+        digits = int(text[1]) if len(text) > 1 and text[1].isdigit() else 0
+        text = text[2 + digits :]
+    parts = [x.strip() for x in text.replace("\n", ",").split(",") if x.strip()]
+    if not parts:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': the trace answer has no points", call=call
+        )
+    try:
+        return [float(x) for x in parts]
+    except ValueError:
+        raise ResponseNotRecognisedError(
+            f"call '{call}': a point of the trace is not a number: {text[:40]!r}", call=call
+        ) from None
+
+
 PARSERS: Dict[str, Callable[..., Any]] = {
     "siglent_waveform": siglent_waveform,
+    "gwinstek_waveform": gwinstek_waveform,
     "vna_sparameters": vna_sparameters,
     "hp6030_readback_voltage": hp6030_readback_voltage,
     "hp6030_readback_current": hp6030_readback_current,
+    "spectrum_trace_ascii": spectrum_trace_ascii,
 }
 
 

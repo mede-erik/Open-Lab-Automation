@@ -65,6 +65,19 @@ class StepFailedError(CallError):
         )
 
 
+class InstrumentNotConnectedError(CallError):
+    """INST-006: the instrument cannot be reached, so the command is not sent. ``code`` is
+    replaced by the reason when it is known (VISA-002: the address does not answer, VISA-005:
+    VISA is not installed, INST-005: the instrument has no address)."""
+
+    code = "INST-006"
+
+    def __init__(self, message, call=None, code=None, cause=None):
+        if code is not None:
+            self.code = code
+        super().__init__(message, call=call, cause=cause)
+
+
 class ResponseNotRecognisedError(CallError):
     """CALL-005: the answer could not be interpreted."""
 

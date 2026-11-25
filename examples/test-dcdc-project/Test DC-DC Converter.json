@@ -4,8 +4,11 @@
   "last_opened": "2026-04-16T19:06:57.256119",
   "project_name": "Test DC-DC Converter",
   "inst_file": "test_instruments.inst",
-  "was_files": [
-    "osc1.was"
+  "scope_settings": [
+    {
+      "file": "osc1.was",
+      "enabled": true
+    }
   ],
   "format_version": 2,
   "measurements": [

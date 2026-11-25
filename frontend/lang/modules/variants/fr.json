@@ -1,0 +1,12 @@
+{
+  "var_name": "Nom",
+  "var_value": "Valeur",
+  "var_add": "Ajouter une ligne",
+  "var_remove": "Supprimer",
+  "var_suggest": "Noms déjà utilisés...",
+  "var_no_name": "La ligne {row} a une valeur mais pas de nom.",
+  "var_twice": "Le nom '{name}' est dans deux lignes.",
+  "var_title": "Variante de cette exécution",
+  "var_question": "Qu'est-ce qui diffère dans {dut}{version} depuis la dernière exécution ? Chaque ligne est un composant ou un réglage (par exemple R100 = 100 ohm, fan = on). La variante n'est conservée qu'avec les résultats de cette exécution.",
+  "var_start": "Démarrer"
+}

@@ -775,7 +775,8 @@ class GpibAdapterDialog(QDialog):
 
     def save_linux_script(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, self._t("gpb_lx_save"), "ola-gpib-setup.sh", "Shell (*.sh)"
+            self, self._t("gpb_lx_save"), "ola-gpib-setup.sh",
+            f"{self._t('file_filter_shell')} (*.sh)",
         )
         if not path:
             return
@@ -861,7 +862,7 @@ class GpibAdapterDialog(QDialog):
     def _error(self, exc: Exception, key: str):
         text = self._t(key, error=str(exc))
         self._set_status(text)
-        handle_error(exc, text)
+        handle_error(exc, text)  # a GPIB-xxx of the adapter, else SYS-007
 
     def closeEvent(self, event):
         self._autosave()

@@ -25,7 +25,7 @@ Error codes used:
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, 
     QGroupBox, QTableWidget, QCheckBox, QLineEdit, 
-    QMessageBox, QScrollArea, QWidget, QDialogButtonBox
+    QScrollArea, QWidget, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDoubleValidator
@@ -34,6 +34,7 @@ from frontend.core.Translator import Translator
 from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
 from frontend.core.errorhandler import ErrorCode, DataloggerError, get_error_handler
 from frontend.ui.channel_settings import SettingsCells, model_options
+from frontend.core.errorhandler import show_problem
 
 
 class DataloggerSlotConfigDialog(QDialog):
@@ -86,18 +87,19 @@ class DataloggerSlotConfigDialog(QDialog):
             )
             
             if not self.compatible_modules:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_compatible_modules_warning')
+                    self.translator.t('no_compatible_modules_warning'),
+                    code="DL-003",
                 )
         
         except DataloggerError as e:
-            self.error_handler.handle_error(e, "Failed to initialize datalogger configuration")
+            self.error_handler.handle_error(e, self.translator.t("err_dl_init_failed"), code="DL-008")
             self.num_slots = 0
             self.compatible_modules = []
         except Exception as e:
-            self.error_handler.handle_error(e, "Unexpected error during initialization")
+            self.error_handler.handle_error(e, self.translator.t("err_dl_init_failed"), code="DL-008")
             self.num_slots = 0
             self.compatible_modules = []
         
@@ -272,7 +274,8 @@ class DataloggerSlotConfigDialog(QDialog):
             info_label.setVisible(True)
         
         except DataloggerError as e:
-            self.error_handler.handle_error(e, f"Error loading module {module_id} information", show_dialog=False)
+            self.error_handler.handle_error(
+                e, f"Error loading module {module_id} information", show_dialog=False, code="DL-004")
             info_label.setText(f"⚠️ {self.translator.t('module_not_found')}: {module_id}")
             info_label.setVisible(True)
     
@@ -422,10 +425,12 @@ class DataloggerSlotConfigDialog(QDialog):
             fit_table_to_rows(table, fixed_columns=(0, 2, 4, 5, 6, 7, 8), min_column_width=80)
         
         except DataloggerError as e:
-            self.error_handler.handle_error(e, f"Error configuring channels for module {module_id}")
+            self.error_handler.handle_error(
+                e, self.translator.t("err_dl_channels_failed").format(module=module_id), code="DL-002")
             table.setRowCount(0)
         except Exception as e:
-            self.error_handler.handle_error(e, "Unexpected error during channel configuration")
+            self.error_handler.handle_error(
+                e, self.translator.t("err_dl_channels_failed").format(module=module_id), code="DL-002")
             table.setRowCount(0)
     
     def _on_channel_enabled_changed(self, slot_idx, row, state):
@@ -433,14 +438,14 @@ class DataloggerSlotConfigDialog(QDialog):
         try:
             self.slots[slot_idx]['channels'][row]['enabled'] = bool(state)
         except (IndexError, KeyError) as e:
-            self.error_handler.handle_error(e, f"Error updating channel enable state for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
+            self.error_handler.handle_error(e, f"Error updating channel enable state for slot {slot_idx+1}, channel {row+1}", show_dialog=False, code="DL-008")
     
     def _on_channel_name_changed(self, slot_idx, row, val):
         """Handle channel name change."""
         try:
             self.slots[slot_idx]['channels'][row]['name'] = val
         except (IndexError, KeyError) as e:
-            self.error_handler.handle_error(e, f"Error updating channel name for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
+            self.error_handler.handle_error(e, f"Error updating channel name for slot {slot_idx+1}, channel {row+1}", show_dialog=False, code="DL-008")
     
     def _on_channel_meas_type_changed(self, slot_idx, row, val):
         """Handle measurement type change."""
@@ -450,7 +455,7 @@ class DataloggerSlotConfigDialog(QDialog):
             if cells is not None:  # the settings depend on the function: they start again
                 cells.fill_function(val)
         except (IndexError, KeyError) as e:
-            self.error_handler.handle_error(e, f"Error updating measurement type for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
+            self.error_handler.handle_error(e, f"Error updating measurement type for slot {slot_idx+1}, channel {row+1}", show_dialog=False, code="DL-008")
     
     def _on_channel_attenuation_changed(self, slot_idx, row, val):
         """Handle attenuation value change."""
@@ -458,7 +463,7 @@ class DataloggerSlotConfigDialog(QDialog):
             val_clean = str(val).replace(',', '.')
             self.slots[slot_idx]['channels'][row]['attenuation'] = float(val_clean) if val_clean else 1.0
         except (ValueError, IndexError, KeyError) as e:
-            self.error_handler.handle_error(e, f"Error updating attenuation for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
+            self.error_handler.handle_error(e, f"Error updating attenuation for slot {slot_idx+1}, channel {row+1}", show_dialog=False, code="DL-008")
             try:
                 self.slots[slot_idx]['channels'][row]['attenuation'] = 1.0
             except (IndexError, KeyError):
@@ -469,7 +474,7 @@ class DataloggerSlotConfigDialog(QDialog):
         try:
             self.slots[slot_idx]['channels'][row]['unit'] = val
         except (IndexError, KeyError) as e:
-            self.error_handler.handle_error(e, f"Error updating unit for slot {slot_idx+1}, channel {row+1}", show_dialog=False)
+            self.error_handler.handle_error(e, f"Error updating unit for slot {slot_idx+1}, channel {row+1}", show_dialog=False, code="DL-008")
     
     def accept(self):
         """Validate and save configuration before closing."""
@@ -477,10 +482,11 @@ class DataloggerSlotConfigDialog(QDialog):
             # Validate that at least one slot has a module
             has_module = any(slot.get('module_id') for slot in self.slots)
             if not has_module:
-                QMessageBox.warning(
+                show_problem(
                     self,
                     self.translator.t('warning'),
-                    self.translator.t('no_modules_configured_warning')
+                    self.translator.t('no_modules_configured_warning'),
+                    code="DL-001",
                 )
                 return
             
@@ -507,4 +513,4 @@ class DataloggerSlotConfigDialog(QDialog):
             super().accept()
         
         except Exception as e:
-            self.error_handler.handle_error(e, "Error saving datalogger configuration")
+            self.error_handler.handle_error(e, self.translator.t("err_dl_save_failed"), code="DL-008")

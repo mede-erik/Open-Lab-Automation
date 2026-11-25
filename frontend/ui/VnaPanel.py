@@ -12,6 +12,7 @@ Layout and signal wiring only: the controls offered, the checks and the sweep ar
 same way. A sweep runs in a worker thread so the window never freezes. No SCPI is written here.
 """
 
+import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -33,6 +34,9 @@ from PyQt6.QtWidgets import (
 from frontend.ui.trace_plot import TracePlot
 from ola import vna_controls as vc
 from ola.run_view import format_si
+from frontend.core.errorhandler import show_problem
+
+log = logging.getLogger(__name__)
 
 
 class _SweepWorker(QThread):
@@ -41,15 +45,31 @@ class _SweepWorker(QThread):
     done = pyqtSignal(object)
     failed = pyqtSignal(str)
 
-    def __init__(self, connect, sweep, sparameters, configure, parent=None):
+    def __init__(
+        self, connect, sweep, sparameters, configure, restore=None, calibration_sweep=None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.connect, self.sweep = connect, sweep
-        self.sparameters, self.configure = sparameters, configure
+        self.sparameters, self.configure, self.restore = sparameters, configure, restore
+        self.calibration_sweep = calibration_sweep
+        self.hint: Optional[dict] = None  # the sweep of a saved calibration that does not fit
 
     def run(self):
         try:
             handle = self.connect()
-            self.done.emit(vc.run_one_sweep(handle, self.sweep, self.sparameters, self.configure))
+            if self.restore is not None:
+                try:  # the saved calibration, if there is one for this sweep; never stops the sweep
+                    self.restore(handle, self.sweep)
+                except Exception as exc:
+                    log.warning("the saved calibration was not restored: %s", exc)
+            result = vc.run_one_sweep(handle, self.sweep, self.sparameters, self.configure)
+            if "not_calibrated" in result[2] and self.calibration_sweep is not None:
+                try:  # a saved calibration for another sweep: the panel tells which
+                    self.hint = self.calibration_sweep(handle, self.sweep)
+                except Exception as exc:
+                    log.warning("the sweep of the saved calibration is not known: %s", exc)
+            self.done.emit(result)
         except Exception as exc:  # the error says what went wrong (CALL-xxx, TRN-xxx, connection)
             self.failed.emit(str(exc))
 
@@ -65,9 +85,13 @@ class VnaPanel(QGroupBox):
         t: Callable[[str], str],
         asynchronous: bool = True,
         parent=None,
+        restore: Optional[Callable[[Any, dict], Any]] = None,
+        calibration_sweep: Optional[Callable[[Any, dict], Optional[dict]]] = None,
     ):
         super().__init__(title, parent)
         self.controls, self.connect, self.t = controls, connect, t
+        self.restore = restore  # (handle, sweep): puts back the saved calibration before a sweep
+        self.calibration_sweep = calibration_sweep  # (handle, sweep): sweep of a saved one
         self.asynchronous = asynchronous  # False in the tests: the sweep runs in the caller
         self.worker: Optional[_SweepWorker] = None
         self.freq: List[float] = []
@@ -150,6 +174,11 @@ class VnaPanel(QGroupBox):
         self.markers.setWordWrap(True)
         layout.addWidget(self.markers)
         layout.addWidget(self.status)
+        self.use_calibration_button = QPushButton(t("vna_use_calibration_sweep"))
+        self.use_calibration_button.setVisible(False)
+        self.use_calibration_button.clicked.connect(self._use_calibration_sweep)
+        layout.addWidget(self.use_calibration_button)
+        self._calibration_hint: Optional[dict] = None
 
     # ----- the sweep ------------------------------------------------------------------------
     def _settings(self):
@@ -189,7 +218,9 @@ class VnaPanel(QGroupBox):
         configure = sweep != self._sent_sweep
         self.sweep_button.setEnabled(False)
         self.status.setText(self.t("vna_running"))
-        worker = _SweepWorker(self.connect, sweep, selected, configure, self)
+        worker = _SweepWorker(
+            self.connect, sweep, selected, configure, self.restore, self.calibration_sweep, self
+        )
         worker.done.connect(lambda result, s=sweep: self._done(result, s))
         worker.failed.connect(self._failed)
         self.worker = worker
@@ -199,12 +230,33 @@ class VnaPanel(QGroupBox):
             worker.run()
         return True
 
+    def _use_calibration_sweep(self):
+        """Fill the sweep of the form with the one of the saved calibration."""
+        hint = self._calibration_hint
+        if not hint:
+            return
+        self.start.setText(format_si(float(hint["start"]), "").replace(" ", ""))
+        self.stop.setText(format_si(float(hint["stop"]), "").replace(" ", ""))
+        self.points.setValue(int(hint["points"]))
+        self.use_calibration_button.setVisible(False)
+
     def _done(self, result, sweep):
         self.freq, self.data, notes = result
         self._sent_sweep = sweep
         self.sweep_button.setEnabled(True)
         self.export_button.setEnabled(bool(self.freq))
         texts = [self.t("vna_not_calibrated") if n == "not_calibrated" else n for n in notes]
+        hint = getattr(self.worker, "hint", None) if "not_calibrated" in notes else None
+        if hint:
+            texts.append(
+                self.t("vna_calibration_sweep").format(
+                    start=format_si(float(hint["start"]), "Hz"),
+                    stop=format_si(float(hint["stop"]), "Hz"),
+                    points=int(hint["points"]),
+                )
+            )
+        self._calibration_hint = hint
+        self.use_calibration_button.setVisible(bool(hint))
         self.status.setText("\n".join(texts))
         self._redraw()
         if self.continuous.isChecked():
@@ -224,6 +276,7 @@ class VnaPanel(QGroupBox):
         self.sweep_button.setEnabled(True)
         self._sent_sweep = None  # set the sweep again next time
         self.status.setText(self.t("vna_err_call").format(error=text))
+        show_problem(self, self.t("rc_command_failed"), text)  # the text has the code if it has one
         self.continuous.setChecked(False)
 
     def _continuous_toggled(self, on: bool):

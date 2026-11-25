@@ -5,6 +5,23 @@ Open Lab Automation is an open-source suite for automated electrical measurement
 > [!IMPORTANT]  
 > This software is under active development. Features and stability may change, and some parts may be incomplete or experimental. Most instrument models in the library are marked **experimental**: they are written from the manuals and have not been tried on a real instrument (see [Supported instruments](#supported-instruments)).
 
+## Contents
+
+- [Main Features](#main-features)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Getting Started](#getting-started)
+  - [Installation](#installation) · [Trying an instrument from the terminal](#trying-an-instrument-from-the-terminal) · [Running the tests](#running-the-tests) · [Supported instruments](#supported-instruments) · [Quick Start](#quick-start) · [Example Projects](#example-projects)
+- [Engine (`ola/` and `native/`)](#engine-ola-and-native)
+- [File List and Description](#file-list-and-description)
+- [Troubleshooting](#troubleshooting)
+- [Software test status](#software-test-status)
+- [Future features](#future-features)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
 ## Main Features
 
 - **Instrument library and logical calls**
@@ -144,7 +161,7 @@ The library currently describes:
 |---|---|
 | Power supplies | OWON ODP, Keysight E36300, TDK-Lambda GEN, Rohde & Schwarz HMP, HP E3631A |
 | Electronic loads | Chroma 6330A, Keysight EL4900, Siglent SDL1000X-E |
-| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, Digilent Analog Discovery 2 (driver) |
+| Oscilloscopes | Tektronix 5 Series MSO, Rigol DS1000Z, Siglent SDS HD, GW Instek GDS-1000B, Digilent Analog Discovery 2 (driver) |
 | Dataloggers | Agilent 34970A, Keysight 34972A, Keysight DAQ970A/DAQ973A |
 | Switch units | Agilent 3499A |
 | Function generators | Rigol DG1022 / DG1022A, Agilent 33120A, Digilent Analog Discovery 2 (driver) |
@@ -200,14 +217,19 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 | `ola/library.py`, `ola/call_planner.py`, `ola/parsers.py`, `ola/instrument_handle.py` | The instrument library and the translation of a *logical call* into what an instrument understands: `Library` loads `instruments_lib.json` and the call schemas; the planner turns a call, its arguments and a model into a validated plan of steps; `parsers` turn several raw answers into one logical value; `InstrumentHandle` is what a measurement uses (`handle.call("set_voltage", value=5)`). Guide: [`docs/instrument-calls.md`](docs/instrument-calls.md). |
 | `ola/manual_instrument.py` | Manual instruments (a bench supply or load without remote control): the handle asks the operator, through a prompt, to do each action by hand, and checks the values against the instrument's limits. |
 | `ola/channel_setup.py`, `ola/sim_datalogger.py`, `frontend/ui/channel_settings.py` | Per-channel datalogger settings (range, integration time, offset zero with shorted inputs, input impedance): the calls, the wrapped handle the measurements read through, the zero procedure and its editor cells; the simulated 34970A used by the tests. See [`docs/datalogger-channels.md`](docs/datalogger-channels.md). |
-| `ola/datalogger_setup.py`, `ola/multimeter_setup.py`, `ola/was_calls.py`, `ola/waveform.py`, `ola/pulse_power.py` | From project files and instruments to logical calls: the datalogger channels of an `.inst` file, the function and range of the channel of a multimeter (one input: the first enabled channel), the oscilloscope settings of a `.was` file, the transfer of a whole waveform memory, and the power of a current pulse on an electronic load. |
+| `ola/scope_capture.py`, `ola/wave_align.py`, `ola/wave_view.py` | **Waveforms during the efficiency measurements** (no Qt): `scope_capture` in the file (`instruments`, `every` and/or `when`, optional `max`, `channels`, `bits`, `wait_s`). At a step that is due (every *N*, or a quantity beyond a limit, up to `max`), after the readings, the oscilloscopes of the role `scope` take one capture for each scope settings file of the project that is switched on, **one after another in the order of the list**; a file can be for one oscilloscope only. Every oscilloscope is set and armed, the trigger is waited for (forced, and marked, if it does not arrive) and the whole memory of every channel is read; each capture is a binary file (`ola/wavefiles.py`) and the run file gets a row of the table `waves` that says why it was taken. A failure of an oscilloscope is a warning and the run goes on. `estimate` gives the size before the start (above about 1 GB the window asks). `wave_align` aligns two oscilloscopes **after the run** through a channel with the same name on both (cross-correlation refined to a fraction of a sample, a poor match refused), writes `alignment.json` and exports both on one time axis. `wave_view` (no Qt) is the logic of the viewer: the index of the captures of a run read from the headers only, a small cache, the min/max decimation that keeps a long record drawable, the shifts of the alignment. The viewer is the *Waveforms* tab of the run window (it fills while the run goes) and the *Waveforms...* button of the runs list of the project (`frontend/ui/WaveformView.py`, `frontend/ui/WavePlot.py`): steps and channels to choose, wheel zoom, drag, two cursors with dt and dV, the results of the step under the plot, CSV export. Guides: [`docs/efficiency.md`](docs/efficiency.md), [`docs/waveform-files.md`](docs/waveform-files.md). |
+| `ola/wavefiles.py` | **The waveforms of a run as binary files** (no Qt): one `.npz` per capture (the channels of one oscilloscope acquired together at one step, one acquisition), in a folder next to the run file (`<run>_waves/`); float32 samples, the time only if the sampling is irregular, a JSON `meta`. The run file keeps only an index (`index_entry`), the folder can be deleted without touching the results (`missing_files`, `delete_waves`), and `estimate_bytes` gives the size before a run. Guide: [`docs/waveform-files.md`](docs/waveform-files.md). |
+| `ola/legacy_project.py` | **Old projects** (no Qt): the efficiency files listed in `eff_files` of a project of the first format become measurements of the project. Sweeps and the two delays are carried over (the first sweep of the old file was the outer one, so the order is reversed; the delays become `settle_s` and `cooldown_s`); the old files did not say which instrument call sets a quantity, so each variable has its sweep and no `set`, and the report says that the call must be chosen in the editor. Each old file is copied to `<name>.bkp` before it is replaced; a missing or foreign file is reported and left alone. Called by `Project.upgrade_legacy`. |
+| `ola/was_editor.py` | **The editor of the `.was` files** (no Qt): `WasEditor` keeps the content, reads it (a broken file starts empty), gives the values of the form and takes them back (`reset` written only when false, only the enabled channels), reads and writes the JSON text and saves atomically; `parse_time` (`1ms`, `100us`, `0,5`), `parse_level`, `oscilloscopes` and `channels_of` read the `.inst` file. The window (`frontend/ui/WasFileDialog.py`) only draws the form. |
+| `ola/datalogger_setup.py`, `ola/multimeter_setup.py`, `ola/was_calls.py` (also `check_was` and the `reset` key), `ola/waveform.py`, `ola/pulse_power.py` | From project files and instruments to logical calls: the datalogger channels of an `.inst` file, the function and range of the channel of a multimeter (one input: the first enabled channel), the oscilloscope settings of a `.was` file, the transfer of a whole waveform memory, and the power of a current pulse on an electronic load. |
 | `ola/serial_config.py`, `ola/tester.py` | Serial (RS-232) settings applied to a VISA resource, and the helpers of the interactive instrument tester (`scripts/instrument_shell.py`): choose a model, connect, run logical calls, self-test a library entry. |
 | `ola/form_model.py`, `frontend/ui/FormEditorDialog.py` | An editor window for a measurement file with **no code of its own**: a module puts a `form.json` (sections and fields: text, number with SI prefixes, choice, tick boxes of several choices, list, JSON, instrument; some shown only for some values of another field) next to its `module.json`. Every problem the module reports (`check()`) is shown at its field; a required instrument that is not chosen is an error. Strings in five languages. Guide: [`docs/measurement-modules.md`](docs/measurement-modules.md#an-editor-with-no-code-formjson). |
 | `ola/modules/sparameters/` | **S-parameters** (`.spm`), a built-in measurement module: one sweep of a network analyzer and its S-parameters as complex curves. It uses only the logical calls `set_frequency_sweep`, `run_sweep` and `read_sparameters` of the library; role `vna` of category `network_analyzer`. Edited in its own window (`form.json`: sweep, the S-parameters as tick boxes, repetitions, calibration and golden sample), with every problem at its field. Not tried on a real VNA. Guide: [`docs/sparameters.md`](docs/sparameters.md). |
 | `ola/modules/tdr/`, `ola/tdr.py` | **Time domain (TDR)** (`.tdr`): where along a cable a fault is, from the reflection S11 of a VNA turned into the time domain (inverse transform with a window): every change of impedance is a peak at a **distance** (`c vf t / 2`), with its size, its sign (higher impedance: an open, a damaged spot; lower: a short) and the impedance there. Gives the **resolution** and the **range** of the sweep, the length error and the **velocity factor** that fits a cable of known length, the step response and the impedance profile of a line made of sections, and a pass / fail check on the reflections before the end. `ola/tdr.py` has no Qt. Guide: [`docs/tdr.md`](docs/tdr.md). |
 | `ola/modules/bode/`, `ola/sim_bode.py` | **Bode plot** (`.bod`): the gain and the phase of a circuit against frequency with a function generator and an oscilloscope (filters and amplifiers at low frequencies, the loop gain of a converter). At every frequency the scope shows both channels from the **same capture** and a **sine of the known frequency is fitted** to each (works even under the noise); the vertical scales adjust themselves. Gives the -3 dB bandwidth, the peaking and, for a loop gain, the crossover, the **phase margin** and the **gain margin**, with a pass / fail check. The generator is off while the circuit is set up and is switched off at the end also after an error. Needs a function-generator category that the library does not have yet (the calls are in the guide). Guide: [`docs/bode.md`](docs/bode.md). `sim_bode.py` is the simulated bench used by the tests. |
 | `ola/resistor_kits.py`, `frontend/ui/ResistorKitsDialog.py` | **Kits of resistors** (no Qt in the first): the power resistors of the bench kept once, with name, value, tolerance, power rating and relay, like the cables of the registry, and used in many measurements as `{"kit": "PWR", "ref": "R22"}`. The project writes the values into the header of the run when the measurement starts. The window (*Tools* > *Resistor kits...*) edits them and copies the reference. Guide: [`docs/resistor-kits.md`](docs/resistor-kits.md). |
-| `ola/modules/resistive_efficiency/`, `ola/resistors.py` | **Efficiency with a resistive load** (`.rfe`): the efficiency of a converter on **real resistors** that you write down, singly or in series / parallel groups, each with its tolerance and its power rating. For every load the program connects it (**by hand**, asking by name, or through the **relays of a multiplexer**: a datalogger module or a switch box), switches the supply off while the load changes, sweeps the input voltage and gives the efficiency **with the range the tolerances allow** (`efficiency_min_pct` / `efficiency_max_pct`). The power in each resistor is checked against its rating (before the run at `safety.max_vout_v`, and on every reading: a resistor above it stops the measurement), the input current comes from the supply or from a shunt, and a minimum efficiency gives a verdict on the lowest value. `ola/resistors.py` has no Qt. The manual mode shows the resistors with their values and a **schematic**, nested as written; with a shunt in the output line the output power is **measured** and a drifted resistor shows up. Guide: [`docs/resistive-efficiency.md`](docs/resistive-efficiency.md). `SimResistiveBench` in `sim_bench.py` is the simulated converter with relays used by the tests. |
+| `ola/combinations.py`, `native/src/combos.rs` | **Combinations of resistors for a range of output current** (no Qt): from a kit of resistors, an output voltage (fixed, or conversion ratio times the input voltage), a smallest and largest current and a number of points, it finds series / parallel networks (nested, every physical resistor used at most once, **all** the resistors of the kit available) whose current is as near as possible to equally spaced targets, without a resistor above a share of its rating (default 80 %), and picks among the near ones the path that **moves the fewest resistors** between one point and the next. The search goes by the number of resistors used, keeping a few ways per band of values (1 % wide), so it does not grow like `3^n`: 15 resistors take about 2 s in Rust, 20 about 8 s, and the Python version (same steps and same result, about 15 times slower; `OLA_COMBINATIONS=python`) is the fallback when the native module is not installed. A 0 A target becomes the first load, the **open output** (`{"open": true}` in `ola/resistors.py`: nothing connected). A converter that is not regulated can be **learned** first: a quick sweep at the reference input voltage (twice, the second with loads planned from the first) measures the output voltage at each current, the loads are planned again with it (the voltage can be different for each target) and the plan is shown before the measurement goes on. In the editor of the resistive efficiency: **Plan from a current range...**. Guide: [`docs/resistive-efficiency.md`](docs/resistive-efficiency.md). |
+| `ola/modules/resistive_efficiency/`, `ola/resistors.py` | **Efficiency with a resistive load** (`.rfe`): the efficiency measurement (same file format and same editor as `.eff`) whose load is a `load` parameter made of **real resistors**: single, or in series / parallel groups, each with its tolerance and power rating, typed in or taken from a **kit** (and the typed ones can be saved as a new kit). Each load is a point of the sweep (its value is the resistance, with `rload_min` / `rload_max` for the tolerances in the formulas); the program switches the outputs off while the load changes and connects it **by hand** (with a schematic; a **switch matrix** that wires the resistors in series or parallel by itself is planned for a future version and is shown in the editor as not yet usable); the power in each resistor is checked before the run (`max_vout_v`) and on every reading. `ola/resistors.py` has no Qt. Guide: [`docs/resistive-efficiency.md`](docs/resistive-efficiency.md). `SimResistiveBench` in `sim_bench.py` is the simulated converter with relays used by the tests. |
 | `ola/modules/regulation/`, `ola/sim_bench.py` | **Line and load regulation** (`.reg`) of a converter: the output against the input voltage (line regulation in % and mV/V) and against the load current (load regulation in % and the **output resistance** in milliohms). A supply feeds the input, an electronic load draws the current and a **multimeter or a datalogger channel** reads the output (and, if asked, the real input at the converter, which shows the drop in the cables). Safe: the load is at 0 A before the supply is on, a test above the limits is refused before anything is switched on, and load and supply are switched off at the end also after an error. A regulation out of limits is a result. Guide: [`docs/regulation.md`](docs/regulation.md). `sim_bench.py` is the simulated converter, supply, load and meter used by the tests. |
 | `ola/modules/ripple/` | **Ripple and noise** (`.rpl`) of a supply output with an oscilloscope: peak-to-peak and rms of the AC part (AC coupling and 20 MHz limit by default), the frequency of the ripple and its harmonics from the spectrum, the noise left once the ripple is taken away, the worst of several captures, a pass / fail check, and optionally the ripple **against load current** with an electronic load (switched off at the end, also after an error). Warns when the signal clips the screen, the converter resolution limits the result or the record is too short. Guide: [`docs/ripple.md`](docs/ripple.md). |
 | `ola/modules/attenuator/` | **Attenuator** (`.att`): how much an attenuator attenuates against frequency with a VNA - mean, lowest and highest attenuation, flatness, slope, deviation from the nominal value, the return loss of both ports, the attenuation at chosen frequencies, and a pass / fail check against the nominal value with a tolerance or a mask. For fixed and step attenuators (one setting per run). A value out of tolerance is a result, not an error. Guide: [`docs/attenuator.md`](docs/attenuator.md). |
@@ -216,7 +238,7 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 | `ola/modules/filter/` | **Filter** (`.flt`): the response of a low-pass, high-pass, band-pass or band-stop filter with a VNA - insertion loss, cut-off or band edges at -3 dB below the peak, bandwidth, centre and Q, notch depth, passband ripple, gain at chosen frequencies, group delay, return loss, and a pass / fail **mask** on the gain. An edge outside the sweep is reported, not invented. Guide: [`docs/filter.md`](docs/filter.md). |
 | `ola/vna_common.py`, `ola/modules/return_loss/` | What the VNA measurements share (sweep and common parameter checks, the question about calibration and connection, setting the sweep, reading and averaging S-parameters, normalising the data) and **Return loss / VSWR** (`.rtl`): S11 against frequency - return loss, VSWR, impedance, the best and worst match, the bands where the VSWR stays under a limit (the bandwidth of an antenna), pass / fail on the return loss. Guides: [`docs/return-loss.md`](docs/return-loss.md) and, for the library, [`docs/vna-calls.md`](docs/vna-calls.md) (the calls of the network analyzer category). |
 | `ola/modules/cable/`, `ola/sim_vna.py` | **Cable characterization** (`.cbl`): the loss of an RF cable against frequency with a VNA (calibrated beforehand by the user) - insertion loss in dB and per metre, loss at chosen frequencies, group delay and velocity factor, return loss, and a pass / fail check against a limit; transmission (S21) or reflection (S11 with an open or short). Its editor comes from its `form.json` and warns when the sweep is too coarse for the cable. `SimVna` is a simulated VNA with a cable to try it without hardware. Guide: [`docs/cable.md`](docs/cable.md). |
-| `ola/assets.py`, `ola/labels.py`, `frontend/ui/label_paint.py`, `frontend/ui/AssetsDialog.py`, `frontend/ui/AssetEditDialog.py`, `frontend/ui/LabelDialog.py` | The **registry of cables and devices** and their **labels**. Every physical object measured (cable, antenna, filter, amplifier, attenuator, adapter...) has a code (`CBL-0042`, never reused) and a card, in one JSON file shared by all projects; the runs that used it are found by the code they saved. A label shows the code, a **QR code** (`OLA:CBL-0042`, a normal QR, not a Micro QR) and a few lines of text, drawn in millimetres: a single label, a **flag** for a thin cable (the same text either side of a fold) or a sheet of labels on a normal printer (skipping the labels already used); written as SVG, PDF at the real size, or PNG. Lines that do not fit are reported, not hidden. Needs `segno`. Windows: *Tools > Cables and devices* (cards, scan a code, history with *Compare*, labels); the measurement editors pick the code from the registry and every run keeps the card of that day. Guide: [`docs/assets.md`](docs/assets.md). |
+| `ola/assets.py`, `ola/duts.py`, `ola/variants.py`, `frontend/ui/VariantTable.py`, `ola/labels.py`, `frontend/ui/label_paint.py`, `frontend/ui/AssetsDialog.py`, `frontend/ui/DutsDialog.py`, `frontend/ui/DutEditDialog.py`, `frontend/ui/DutVersionsDialog.py`, `frontend/ui/AssetEditDialog.py`, `frontend/ui/LabelDialog.py` | The **registry of cables and devices** and their **labels**, and the **archive of the devices under test** (`ola/duts.py`: antenna, filter, converter, generic; code `DUT-0001`, a name, versions in free text; the migration of the antenna and filter cards; window *Tools > DUT*, the DUT in the measurements, see [`docs/duts.md`](docs/duts.md)). Every physical object measured (cable, antenna, filter, amplifier, attenuator, adapter...) has a code (`CBL-0042`, never reused) and a card, in one JSON file shared by all projects; the runs that used it are found by the code they saved. A label shows the code, a **QR code** (`OLA:CBL-0042`, a normal QR, not a Micro QR) and a few lines of text, drawn in millimetres: a single label, a **flag** for a thin cable (the same text either side of a fold) or a sheet of labels on a normal printer (skipping the labels already used); written as SVG, PDF at the real size, or PNG. Lines that do not fit are reported, not hidden. Needs `segno`. Windows: *Tools > Cables and devices* (cards, scan a code, history with *Compare*, labels); the measurement editors pick the code from the registry and every run keeps the card of that day. Guide: [`docs/assets.md`](docs/assets.md). |
 | `ola/golden.py`, `scripts/golden_check.py` | **Check against a golden sample** (no Qt): a run of a unit known to be good is kept in the `golden/` folder of the project, and a new run is checked against it. Each curve may differ from the golden one by a tolerance (a number, a line of the frequency, or asymmetric: more loss is the failure, less is not) and each figure of the summary by an absolute and / or relative tolerance; a run that covers too little of the golden sweep fails. The answer is `PASS` / `FAIL` with a sentence for each reason, and the script gives it as an exit code. The same in the **Golden sample** tab of the comparison window, and as a step of every measurement but the time log (`golden` in their file: `golden_verdict` in the result; the measurements that give a table of rows, ripple, regulation, efficiency, S-parameters, pair the rows by a column). The tolerances can be worked out from a few good units (`derive_tolerances`, *Suggest from the ticked runs*). Guide: [`docs/golden.md`](docs/golden.md). |
 | `ola/trend.py`, `scripts/cable_trend.py` | **How a cable ages** (no Qt): the loss of a cable (the worst, or at a frequency of interest) against the date of the runs that used its code, a least-squares line with its uncertainty (a change counts only if the slope is more than twice that), and a verdict before the cable is out of use: `FAIL` past the limit or too fast, `WARNING` with the date the line reaches the limit, `NOT ENOUGH DATA` with fewer than three measurements. Drawn in **Trend...** of the history of a cable (`frontend/ui/TrendDialog.py`). Guide: [`docs/trend.md`](docs/trend.md). |
 | `ola/compare.py`, `frontend/ui/CompareDialog.py` | The **Compare results** tool (*Tools* menu, and *Compare...* in the project window): pick two or more saved runs and see them together - the curves they have in common overlaid, in dB / loss / phase / on the Smith chart, or the **difference** from a reference run with its largest value, mean and RMS; the summary figures side by side with the change from the reference; and, for runs with many points, any column against another. Export to CSV and PNG. Guide: [`docs/compare.md`](docs/compare.md). |
@@ -251,7 +273,7 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 
 **Why a new transport.** The former C backend (removed) needed about 44 ms per SCPI query on loopback (Nagle + delayed ACK: no `TCP_NODELAY`, command and terminator sent separately). The new transport needs about 35 µs (Rust) or 55 µs (pure-Python fallback); see `benchmarks/bench_transport.py`. On real instruments a query costs 1-50 ms, so the instrument dominates; the engine's job is to add nothing on top.
 
-**Project format (v2).** `<project>.json` has `"format_version": 2` and a `measurements` list (`id`, `type`, `name`, `file`). Each measurement lives in its own file whose extension is defined by its module (`.tlg` for the built-in time log). The old `eff_files` / `was_files` project format is not read.
+**Project format (v2).** `<project>.json` has `"format_version": 2` and a `measurements` list (`id`, `type`, `name`, `file`). Each measurement lives in its own file whose extension is defined by its module (`.tlg` for the built-in time log). The instruments (`inst_file`) and the settings of the oscilloscopes (`scope_settings`, a `.was` file) are project definition files, not measurements; `scope_settings` is an ordered list of `.was` files, each one an acquisition that can be switched off (the project may have none), and the remote control asks which of the files that are on to apply. A project file of the old format (no `format_version`) is updated only after the program asks: the original is first copied byte for byte to `<name>.json.bkp` (`.bkp.1`, ... if that exists, a backup is never overwritten), then the file gains the format number and its `eff_files` become measurements (each old file is copied to `<name>.bkp` first; the old files only said which quantities to sweep, so the instrument call of each one is to be chosen in the editor, and the program lists it). Answering No leaves everything untouched and the project is not opened. The `was_files` key of the early projects is read and no longer written.
 
 **Writing a measurement module.** A folder with a `module.json` (id, name, version, `api_version`, unique `extension`, `entry`, `roles`, `params_schema`) and a Python file with a `Measurement` subclass. Instruments are only reached through `ctx.instrument(role).call(name, **args)`. See `ola/modules/time_log/` for a complete example. The same module is the **time log** (`.tlg`) measurement, a value read at a fixed interval: [`docs/time-log.md`](docs/time-log.md). Modules are searched in `ola/modules/` (built in), `~/.open_lab_automation/modules/` and `<project>/modules/`.
 
@@ -285,6 +307,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `TESTING.md` — How to test an instrument of the library and report the result
 - `frontend/ui/` — Dialog boxes and UI components (one file per window)
   - `RemoteControlTab.py` — Remote control panel
+  - `GpibAdapterDialog.py`, `GpibDevicePickerDialog.py` — GPIB adapter profiles and the instrument picker on the GPIB bus (guide: [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `InstrumentConfigDialog.py` — Instrument configuration editor (library and manual instruments)
   - `WasFileDialog.py` — Oscilloscope settings editor (channels, timebase, trigger)
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
@@ -307,6 +330,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `LoadInstruments.py` — Instrument library interface used by the GUI
   - `errorhandler.py` — Centralized error handling with standardized error codes ([RESOURCE-XXX] format)
   - `validator.py` — Input validation functions
+  - `gpib_settings.py` — Saved GPIB adapter settings (see [`docs/gpib-adapters.md`](docs/gpib-adapters.md))
   - `tools.py` — Reusable utility functions
   - `Translator.py` — Multi-language translation system
 
@@ -319,6 +343,46 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
 - `Instruments_LIB/docs/` — Instrument manuals and documentation
 - `examples/` — Example projects and configuration files
 
+## Troubleshooting
+
+### USBTMC instrument on Linux is not found
+
+Symptoms: the instrument is plugged in and `lsusb` lists it, but VISA (NI-VISA or pyvisa-py) lists no
+`USB0::...::INSTR` resource, the automatic search of the instrument window finds nothing, and
+`pyusb` fails on the string descriptors with `The device has no langid (permission issue ...)`.
+
+Cause: the kernel `usbtmc` driver takes the instrument, and its device node in `/dev/bus/usb/` is owned
+by `root:root` with mode `0664`. The user cannot open it, so the VISA backends cannot read the
+instrument's identity and do not list it. The instrument itself is fine: `/dev/usbtmc0` answers `*IDN?`.
+
+Check that the kernel driver holds it, and that the device node is the problem:
+
+```bash
+lsusb                              # find the vendor:product ids of the instrument
+ls -l /dev/usbtmc*                 # the kernel driver created a node
+ls -l /dev/bus/usb/<bus>/<dev>     # root:root 0664 = the VISA backend cannot open it
+```
+
+Fix: a udev rule that gives the device to a group the user belongs to (here `plugdev`). Replace
+`<vendor-id>` and `<product-id>` with the ids from `lsusb`, without the `0x` prefix; do not add the serial
+number, so the rule works for every unit of the model:
+
+```bash
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="<vendor-id>", ATTR{idProduct}=="<product-id>", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-usbtmc-instrument.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=usb
+```
+
+Then unplug and plug the instrument again. Check that `id -nG` lists `plugdev`, and that VISA now lists
+the instrument as `USB0::0x<VENDOR>::0x<PRODUCT>::<serial>::INSTR`.
+
+Notes:
+
+- The rule is for the instrument model. A different model needs its own ids.
+- A VISA resource is usually `USB0::`, so the instrument window must be set to that resource, not to the
+  `/dev/usbtmc0` node, which the VISA backends do not use.
+- If the instrument is also reached over LAN, the LAN address is not used by the USB connection: a
+  "no route to host" error on the LAN address does not mean the USB connection is broken.
 
 ## Software test status
 
@@ -339,6 +403,13 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 
 - [ ] Power supply and electronic load control
 - [ ] Oscilloscope settings from a `.was` file
+- [ ] Waveforms during an efficiency measurement (the scope settings files that are on, one after another; binary files next to the run; trigger forced when it does not arrive)
+  - [ ] two oscilloscopes at once, each file for its oscilloscope
+  - [ ] capture when a quantity crosses a limit
+  - [ ] alignment of two oscilloscopes after the run through a shared signal
+- [ ] GW Instek GDS-1000B oscilloscopes (no instrument tested)
+  - [ ] settings of channels, timebase and trigger
+  - [ ] waveform: `read_waveform`, `query_waveform_preamble` and `query_waveform_data` (settings text and samples in one message)
 - [ ] Datalogger from an `.inst` file
   - [ ] scan list and channel functions
   - [ ] per-channel range, integration time and input impedance
@@ -346,10 +417,12 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
     - [ ] RTD as PT100 and PT1000 (nominal resistance)
   - [ ] guided zero with shorted inputs (before a measurement starts)
 - [ ] RF signal generator panel (AM, FM, PM and pulse modulation)
+- [ ] Spectrum analyzer: the instrument can be added from the library and its logical calls run (trace, markers); there is no panel for it yet
 
 ### Measurements
 
 - [ ] Efficiency sweep (power supply and electronic load)
+  - [ ] converter under test written in the file (`device`, optional; devices under test get their own database later)
 - [ ] Line and load regulation (multimeter, datalogger)
 - [ ] Ripple and noise
 - [ ] RF with a VNA
@@ -366,10 +439,13 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
   - [ ] multichannel load: the channel selected before each reading
   - [ ] editor of the sources, with the calls of the library
   - [ ] datalogger channels ticked from the instrument file (with attenuation)
-- [ ] Resistive-load efficiency
-  - [ ] manual selection of the resistors
-  - [ ] switch box or datalogger multiplexer
-  - [ ] output shunt reading and the safety check on every reading
+- [ ] Resistive-load efficiency (same file and editor as the efficiency)
+  - [ ] manual connection of each load, with the schematic
+  - [ ] the safety check of the power in the resistors on every reading
+  - [ ] resistors from a kit, and typed-in resistors saved as a new kit
+  - [ ] loads planned from a kit for a range of output current (fixed or ratio-based output voltage)
+  - [ ] the 0 A point: output left open (by hand and by relays)
+  - [ ] learning of a converter that is not regulated (quick sweep, plan again, confirm)
 - [ ] Golden sample comparison and cable trend
 - [ ] Wiring diagrams shown before each run
 - [ ] Results saved in `runs/` (JSON Lines) and exported to CSV (and Touchstone for RF)
@@ -378,6 +454,15 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 
 - [ ] Project files `.json`, `.inst`, `.eff`, `.was`, `.cbl`, `.flt`: create, edit and reopen
 - [ ] Cable and device registry with labels
+- [ ] DUT archive (window *Tools > DUT*)
+  - [ ] create, edit, retire and delete a DUT; versions in free text
+  - [ ] labels of the DUTs (code, QR, name, version, key figures)
+  - [ ] migration of the antenna and filter cards from the components, at the start of the program (on a real `assets.json`)
+  - [ ] a DUT and its version in the form of a measurement (return loss, antenna, filter, Bode, regulation, ripple, resistive efficiency), the card in the run header
+  - [ ] history of a DUT and the latest measurement on its label
+  - [ ] variant of a run (a table of name and value: a part changed, a fan on or off): kept with the results, shown in the comparison and in the history
+  - [ ] the variant asked at every start of an efficiency, regulation or ripple run with a DUT (the last one proposed, for that run only)
+  - [ ] efficiency run with a DUT, its version and a variant (editor boxes, card in the run header)
 
 ### Tools
 
@@ -404,6 +489,8 @@ and the software reaches a beta state. The detailed plan (in Italian) is in [`PL
   (and Touchstone for RF traces).
 - **Measurement templates**: ready-made measurement files to choose from *New measurement* (line and load
   regulation, I-V curve...) for the measurements that are a variation of an existing module.
+- **DUT archive**: the devices under test (antennas, filters, converters, generic), each with a code, a name
+  and versions, kept apart from the cables, attenuators and adapters of the registry. Designed in `PLAN.md` (section 12).
 - **More measurement modules**: load transient, battery discharge. See the table in `PLAN.md`.
 - **Instruments without SCPI**: the LiteVNA67 (text commands on a serial port) and the Analog Discovery 2/3
   (driver system).

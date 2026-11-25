@@ -55,5 +55,9 @@
   "prj_export_failed": "Échec de l'exportation : {error}",
   "prj_confirm_close": "{n} mesure(s) en cours. Les arrêter et fermer ?",
   "prj_bench": "Mesurer les temps (benchmark)",
-  "prj_bench_tip": "Mesure chaque appel aux instruments et chaque phase de la prochaine mesure et affiche un rapport dans l'onglet Benchmark. Le délai ajouté est faible (environ 30 microsecondes par appel)."
+  "prj_bench_tip": "Mesure chaque appel aux instruments et chaque phase de la prochaine mesure et affiche un rapport dans l'onglet Benchmark. Le délai ajouté est faible (environ 30 microsecondes par appel).",
+  "prj_cal_no_library": "la bibliothèque d'instruments n'est pas disponible",
+  "prj_cal_no_inst": "le projet n'a pas de fichier d'instruments (.inst)",
+  "prj_waves_confirm": "Les formes d'onde de cette exécution prendront environ {size} de disque ({waveforms} formes d'onde en {captures} acquisitions, à 1 million de points chacune). Démarrer ?",
+  "prj_waves": "Formes d'onde..."
 }

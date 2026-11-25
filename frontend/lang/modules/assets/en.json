@@ -69,6 +69,7 @@
   "ast_h_date": "Date",
   "ast_h_measurement": "Measurement",
   "ast_h_state": "Result",
+  "ast_h_variant": "Variant",
   "ast_h_file": "Run file",
   "ast_state_finished": "finished",
   "ast_state_stopped": "stopped",
@@ -81,6 +82,7 @@
   "lbl_lines": "Lines",
   "lbl_field_id": "Code (always)",
   "lbl_field_name": "Name",
+  "lbl_field_version": "Version",
   "lbl_field_description": "What it is",
   "lbl_field_specs": "Key figures",
   "lbl_field_connectors": "Connectors",
@@ -115,5 +117,6 @@
   "ast_t_limit_line": "limit",
   "ast_t_days": "days since {date}",
   "ast_t_failed": "Could not save: {error}",
-  "ast_t_saved": "Saved: {path}"
+  "ast_t_saved": "Saved: {path}",
+  "ast_unreadable": "damaged or not readable"
 }

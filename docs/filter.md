@@ -42,6 +42,7 @@ cut-off: widen the sweep"* and that figure is left out; it is not made up.
 |---|---|
 | `filter.type` | `lowpass`, `highpass`, `bandpass` or `bandstop` |
 | `filter.label` | identifies the filter; it is saved in the run |
+| `filter.dut_id`, `filter.version` | optional: the filter as a [DUT](duts.md) of the archive (`DUT-0001`) and its version (free text); the card of that day is saved in the header of the run |
 | `sweep` | `start_hz`, `stop_hz`, `points`, `scale` (`linear` or `log`); optional `if_bandwidth_hz`, `power_dbm` |
 | `edge_db` | how far below the peak the edges are (3 by default) |
 | `passband` | optional `from_hz` / `to_hz`: where the ripple is measured and the reference level is taken |

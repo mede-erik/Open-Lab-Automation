@@ -1,0 +1,12 @@
+{
+  "var_name": "Name",
+  "var_value": "Wert",
+  "var_add": "Zeile hinzufügen",
+  "var_remove": "Entfernen",
+  "var_suggest": "Früher benutzte Namen...",
+  "var_no_name": "Zeile {row} hat einen Wert, aber keinen Namen.",
+  "var_twice": "Der Name '{name}' steht in zwei Zeilen.",
+  "var_title": "Variante dieses Laufs",
+  "var_question": "Was ist in {dut}{version} seit dem letzten Lauf anders? Jede Zeile ist ein Bauteil oder eine Einstellung (zum Beispiel R100 = 100 ohm, fan = on). Die Variante wird nur mit den Ergebnissen dieses Laufs gespeichert.",
+  "var_start": "Starten"
+}

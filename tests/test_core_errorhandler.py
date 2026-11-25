@@ -48,9 +48,73 @@ def test_engine_exceptions_keep_their_code(handler):
     assert handler.received[0][1] == "bad value"
 
 
-def test_plain_exception_has_no_code(handler):
+def test_a_plain_exception_gets_the_code_given_or_sys_007(handler):
     handler.handle_error(RuntimeError("boom"), show_dialog=False)
-    assert handler.received == [("", "boom")]
+    handler.handle_error(RuntimeError("bad"), show_dialog=False, code="PROJ-005")
+    handler.handle_error(InvalidArgumentError("x", call="c"), show_dialog=False, code="PROJ-005")
+    assert handler.received == [("SYS-007", "boom"), ("PROJ-005", "bad"), ("CALL-003", "x")]
+
+
+# ---- every message box has a code ---------------------------------------------------------------
+def test_show_problem_adds_the_code_once_and_logs(monkeypatch, caplog):
+    shown = []
+    for kind in ("warning", "critical"):
+        monkeypatch.setattr(
+            eh.QMessageBox, kind,
+            staticmethod(lambda parent, title, text, k=kind: shown.append((k, title, text))),
+        )  # fmt: skip
+    caplog.set_level(logging.WARNING, logger="frontend.errors")
+    eh.show_problem(None, "T", "It failed", code=ErrorCode.MEAS_SAVE_FAILED)
+    eh.show_problem(None, "T", "Too much [TOOL-004]", code="TOOL-004", level="critical")
+    eh.show_problem(None, "T", "no answer", exception=StepFailedError("x", 0, OSError("t")))
+    eh.show_problem(None, "T", "boom", exception=RuntimeError("boom"))
+    assert shown[0] == ("warning", "T", "It failed\n\n[MEAS-002]")
+    assert shown[1] == ("critical", "T", "Too much [TOOL-004]")  # not twice
+    assert shown[2][2].endswith("[CALL-004]") and shown[3][2].endswith("[SYS-007]")
+    assert "[MEAS-002] It failed" in caplog.text
+
+
+def _frontend_calls():
+    import ast
+
+    for path in glob.glob(os.path.join(REPO, "frontend", "**", "*.py"), recursive=True):
+        tree = ast.parse(open(path, encoding="utf-8").read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                yield os.path.relpath(path, REPO), node
+
+
+def test_no_message_box_of_a_problem_goes_around_show_problem():
+    """A warning or error box must show a code: it goes through errorhandler.show_problem."""
+    import ast
+
+    direct = [
+        f"{path}:{node.lineno}"
+        for path, node in _frontend_calls()
+        if ast.unparse(node.func) in ("QMessageBox.warning", "QMessageBox.critical")
+        and not path.endswith(os.path.join("core", "errorhandler.py"))
+    ]
+    assert direct == []
+
+
+# a failure that comes from a thread as a text: its code is the one written in the text
+TEXT_ONLY = {os.path.join("frontend", "ui", "VnaPanel.py")}
+
+
+def test_every_show_problem_names_its_code_and_it_is_documented():
+    import ast
+
+    documented = set(_documented())
+    for path, node in _frontend_calls():
+        if ast.unparse(node.func) != "show_problem":
+            continue
+        keywords = {k.arg: k.value for k in node.keywords}
+        if path in TEXT_ONLY:
+            continue
+        assert "code" in keywords or "exception" in keywords, f"{path}:{node.lineno}"
+        code = keywords.get("code")
+        if isinstance(code, ast.Constant):
+            assert code.value in documented, f"{path}:{node.lineno}: {code.value}"
 
 
 @pytest.mark.parametrize(
@@ -162,3 +226,13 @@ def test_call_error_classes_have_documented_codes():
     for obj in vars(ce).values():
         if isinstance(obj, type) and issubclass(obj, CallError):
             assert obj.code in documented, obj.__name__
+
+
+def test_a_code_written_in_the_text_is_kept_when_nothing_else_gives_one(monkeypatch):
+    shown = []
+    monkeypatch.setattr(
+        eh.QMessageBox, "warning",
+        staticmethod(lambda parent, title, text: shown.append(text)),
+    )
+    eh.show_problem(None, "T", "no answer [CALL-004] from the bench")
+    assert shown == ["no answer [CALL-004] from the bench"]  # not SYS-007 on top

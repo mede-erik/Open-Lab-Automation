@@ -47,7 +47,7 @@ Project ─┬─ Instruments (.inst)             ← shared by all measurements
 > (`eff_files`/`was_files`) is rejected with a clear error; file names
 > must be simple names (no paths, `..` is rejected).
 
-The project JSON replaces the `eff_files`/`was_files` lists with:
+The project JSON replaces the `eff_files`/`was_files` lists with (`was_files` became `scope_settings` afterwards, issue #95):
 
 ```json
 {
@@ -885,6 +885,7 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   used; button *Propose from the ticked results* and `golden_check.py --derive`). Then the step also in Bode, TDR and in the measurements with
   a table of rows (ripple, regulation, efficiency, S-parameters): `rows` = rows matched by columns (`match`) and tolerance per
   column, verdict in the `golden_result` table (`summary_row=False` + `finish(ctx)`). Also `derive_tolerances` for `rows` (from Python).
+  **Redesigned (2026-11):** `.rfe` is now the efficiency engine with a `load` parameter (same file format and editor as `.eff`, kits resolved inside the load, `LoadPanel` in the editor); the description below is the previous design, of which the schematic, the relays and the power check remain. Still to do: the generator of resistor combinations for a range of output current.
   **Efficiency with a resistive load** (2026-11, `resistive_efficiency`, `.rfe`, `ola/resistors.py`, `ola/resistor_kits.py`): the efficiency of a
   converter on real resistors written down by the user (single, series / parallel, nested), each with tolerance, power rating and the relay
   of a multiplexer. The load is connected by hand (the question gives the values in words and a **schematic**, drawn by `ola.resistors.schematic`
@@ -927,7 +928,9 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   (`allow_user_code`), discovering it does not. Documented in `docs/measurement-modules.md`.
 - ❓ **Freeze `api_version` 1** (`Measurement` / `ctx` interface): to be done before promising compatibility to modules written by others.
 - ❓ **Languages**: each module carries its own optional `lang/` (proposal).
+- ❓ **DUT archive** (devices under test: antennas, filters, converters, generic): designed in §12, to be built in stages.
 - ❓ **Package signing**: postponed until the repository moves to the Open Lab Instruments organization; the publisher identity and the CI set-up depend on it (§11).
+- ❓ **Windows installer**: file associations and the other ideas are listed in §13; what is done is described there.
 
 
 ---
@@ -978,3 +981,142 @@ Whatever is chosen: use an RFC 3161 **timestamp** (the signature stays valid aft
 5. Add the signing steps (above) to the workflow and to `build_package.py`; create the GPG key for `SHA256SUMS`.
 6. Try on a pre-release tag (`vX.Y.Z-rc1`) and check the result on a clean Windows machine (signature details of the file, SmartScreen).
 7. Say how to verify the packages in `packaging/README.md`, and remove the "not signed" notes from `AGENTS.md`, `CLAUDE.md` and `packaging/README.md`.
+
+
+## 12. Devices under test (DUT archive)
+
+Decided with the user (2026-11-17). Two different things were mixed under one name, "cables and devices".
+
+**Components** (`ola/assets.py`, the window *Tools > Cables and devices*): cables, low-noise amplifiers, attenuators and
+adapters. They are **not instruments**: they are not in the `.inst` file and are not a role of a module. They sit in the signal
+path and **have an effect on the measurement**, so a measurement can name them and use them for a **correction or
+de-embedding** (`correction.*`, `ola/fixtures.py`). They have a code (`CBL-0042`), a card, a label and a history. They stay as
+they are. The same object can be a component in one measurement (the cable taken out by de-embedding) and the device under
+test in another (the cable measured by the `cable` module): the role depends on the use, so the cable module keeps its card.
+
+**DUT** (device under test): what is tested **in that measurement**. It is **optional**: an efficiency run, or any other
+measurement, can be made without naming one, and then nothing is remembered about it. A DUT is **not** part of the set-up of a
+measurement, so it does not belong in the registry of components.
+
+### The archive
+
+* **Categories**: antenna, filter, converter, generic.
+* **Code**: `DUT-0001`, the same four-digit form as the components, never used again; plus a **name** chosen by the user to
+  recognise it (`Pippo`), a description and the details of its category.
+* **Versions**: a DUT has versions (a board revision, a new design). The version is **free text** (`rev A`, `RFB`, `V01`): the
+  user writes it as it is used in the lab, with no numbering imposed. A measurement names the code and, if wanted, the version. The
+  header of a run keeps the card and the version of that day, as it does for a component, so the history of a DUT follows it.
+* **Window**: the list of the DUTs is in the window called **DUT** (menu *Tools*), apart from the window of the components.
+* **File**: one JSON file for all projects, like the registry of components: `~/.open_lab_automation/duts.json`, or the file
+  named by `OLA_DUTS_FILE`; written atomically, the previous one kept as `.bak`.
+* **Where it is named**: the `device` field of the modules that have one (`bode`, `regulation`, `ripple`, `resistive_efficiency`,
+  `return_loss`, `amplifier`, `antenna`) and `filter.asset_id` of `filter` move from the registry of components to the archive.
+  The `device` of an efficiency file is today a name typed by hand (`{"name": ...}`) and later accepts a DUT code.
+* **Migration**: the antenna and filter cards (and the generic `DUT` ones) of the registry of components pass to the archive the
+  first time it is opened, with their data; the registry file is saved first (`.bak`). The runs already made keep the card that
+  they saved in their header.
+
+### Same DUT, different set-up: the variant of a run (built, 2026-11-17)
+
+The same DUT, in the same version, is often measured more than once with a small change between the runs: a component changed in the
+bill of materials (`R100 = 100 ohm`), a fan switched on or off. These are **variants of a run**, not new versions. The idea:
+a few values written with the measurement (`{"R100": "100 ohm", "fan": "on"}`), saved in the header of the run and shown next to the
+results, so the runs of a DUT can be compared by variant. **Built**: they are `device.variant` (`filter.variant`) in the measurement
+file, written in the editors as `name = value` lines, kept in the header with the parameters, shown in the label of the comparison
+and in a *Variant* column of the history of a DUT ([`docs/duts.md`](docs/duts.md#the-variant-of-a-run)). **Still open**: asking for
+the variant at the start of a run (with the last values filled in) instead of editing the file, a list of the names already used so
+they are written the same way, and a comparison that groups the runs by variant.
+
+### Stages
+
+1. This plan, and the distinction between components and DUT in the documents.
+2. ✅ `ola/duts.py` (no Qt): the archive, the categories, the versions, the migration of the cards, with tests (2026-11-17,
+   [`docs/duts.md`](docs/duts.md)). Nothing calls the migration yet: the window of stage 3 will.
+3. The window of the archive and the fields of the modules that name a DUT, in two steps:
+   * ✅ **3a** the window *Tools > DUT* (`DutsDialog`, `DutEditDialog`, `DutVersionsDialog`): create, edit, retire, delete, versions,
+     scan of a code, labels with the version and the key figures of the category (2026-11-17, [`docs/duts.md`](docs/duts.md)). It
+     only adds: nothing is moved yet.
+   * ✅ **3b** (2026-11-17, [`docs/duts.md`](docs/duts.md)) the fields of the modules (`device`, `filter`) take a DUT code
+     (`dut_id`) and, if wanted, a version, in two form fields (`dut`, `dut_version`); the card, with its versions, goes in the header of
+     the run (`duts`), the comparison names the run after it, the DUT window has the history and the latest measurement on the label;
+     the migration runs at the start of the program (with a message) and antenna, filter and generic leave the registry of
+     components. A file made before the archive (`asset_id`) keeps working and the editor offers it as a `dut_id`. All together, so
+     that the antennas did not disappear from the components before the modules could name them in the archive.
+   * Not moved: `amplifier` and `tdr` (their `device` is a component, an amplifier or a cable, that the module characterises), as
+     `cable` and `attenuator`. The `device` of `bode`, `regulation`, `ripple`, `resistive_efficiency`, `return_loss`, `antenna` and
+     the `filter` of `filter` are the DUT.
+4. ✅ Variants of a run, and the efficiency file taking a DUT (`device.dut_id`, `version`) beside the name typed by hand
+   (2026-11-17, [`docs/duts.md`](docs/duts.md)).
+5. Labels for DUTs, reusing the label system of the components (see below).
+
+### Labels for DUTs
+
+Decided: the DUTs get labels, **with the code of the label system of the components** (`ola/labels.py`, `LabelDialog`, QR
+`OLA:DUT-0001`, PDF and sheets), not a second one. What exists, checked on `main` (2026-11-17): the labels of the components are
+built, tested and documented ([`docs/assets.md`](docs/assets.md)); the layout reads a card (code, name, description, serial,
+owner, notes, date, the details of its kind, the last measurement), so a DUT card with the same fields needs no new layout.
+To do for the DUTs: a **version** line, a **category** line (what a DUT of each category shows, the way `specs_text` does for the
+components), the last measurement of a DUT taken from its runs (by code and version), and the button *Label...* in the DUT window.
+**Still to define**: which lines a DUT label shows by default, and the sizes. Editable label templates, and reading the QR code with
+a camera (a USB scanner types the code and works), are not done for the components either: they come with the report templates.
+
+---
+
+## 13. Windows installer
+
+`packaging/windows/installer.iss` (Inno Setup). The decisions, and what is left for later.
+
+**Done**
+
+- **Languages**: the installer has the languages of `frontend/lang` (en, it, fr, es, de); it asks only when the
+  language of Windows is not one of them. A test fails when a locale file is added and the installer lacks the language.
+- **Requirements**: Windows 10 1809 or later, 64 bit. Setup itself checks the free disk space and shows what it needs.
+- **Existing installation**: if the program is already installed (same user or all-users mode), Setup asks
+  *Update* or *Repair* before anything else; a first installation goes ahead without a question.
+  - *Update*: the old uninstaller runs first and removes the files of the old version, then the new ones are
+    installed. Nothing of the old version is left behind.
+  - *Repair*: the files of this version are installed again over the existing ones; the missing ones come back and
+    nothing is removed.
+  - Projects, measurements and settings are not in the installation folder: neither choice touches them.
+  - A silent run chooses with `/MODE=UPDATE` or `/MODE=REPAIR`; without it, *Repair* if the installed version is the
+    same, *Update* otherwise. The CI tests the three cases (first installation, update, repair) and the uninstaller.
+
+**Not done, on purpose**
+
+- ❓ **File associations** (`.eff`, `.cbl`, `.flt`, `.was`, `.inst`, double-click opens the program): not now. The
+  program does not open a single file as a project (a project is a folder with its files), so an association would
+  have nothing to open. Do it together with *open a project from the command line / a double click*, if that is ever added.
+- ❓ **Release notes page** in the installer: not wanted for now; maybe when the release rhythm is regular.
+- ❓ **Components** (for example "examples" or "program only"): not planned.
+- ❓ **Installer language as the language of the program**: the installer does not set the language of the program
+  (the program has its own setting).
+- ❓ **Signing** of the installer and of the program: see §11.
+- ❓ **Installations in the other mode** (one per user and one for all users on the same computer) are two separate
+  installations, as Inno Setup keeps them: *Update* and *Repair* act on the one of the mode chosen at the start.
+
+
+## 14. Oscilloscope settings (`.was`) and waveforms inside measurements
+
+Decided with the user (2026-11-19). The project file `.was` **configures the oscilloscope as the user wants it**: time base,
+volts per division of each channel, trigger, and the rest of what a scope has (`ola/was_calls.py` turns it into logical calls).
+It is **not a measurement**: it has no run and no results. It is a **definition file of the project, like the instrument file
+`.inst`**: it may or may not be there. The project names it with a key (`scope_settings`, as `inst_file` names the `.inst`).
+
+**In the alpha**
+1. The *Remote control* tab uses it to set the oscilloscope(s) of the project, as it does today. The project format v2 work
+   (issue #95: remove `was_files`, move the editor and the application of `.was` into `ola/`) is this: `was_files` becomes the
+   `scope_settings` key, and a project without one is valid. **Done** (2026-11): `Project.scope_settings` (an ordered list of `.was` files, each with an `enabled` flag, any of them can be off: decided 2026-11-23 so that several acquisitions can run one after another), `ola.was_calls.check_was` and the `reset` key of the `.was` file (default true), the remote control reads the project through `project_source`, not through the parents of the widget. The format version stays 2; a project with `was_files` is read and the key is not written again. Still to do in the format v2 work: the question and the `.bkp` copy when an old project is opened (#106); #107 is this list with its switches.
+2. **A waveform acquired inside a measurement.** (**Done** for the two efficiency measurements, 2026-11: `scope_capture`, `ola/scope_capture.py`; the captures are binary files, `ola/wavefiles.py`; all the scope settings files that are on are made one after another; several oscilloscopes: issue #113.) A measurement can name the scope settings file and say **when** to acquire: at
+   every step, or every *N* steps. At that point the oscilloscope is set as the file says and a waveform is acquired and saved
+   with the results of that step. It is for the measurements on **converters**: the two efficiency measurements (`efficiency` and
+   `resistive_efficiency`) and the load transient (step load, row 5 of the table in section 6). Not for the measurements made with
+   a VNA (S-parameters, return loss, antenna, filter, attenuator, cable, TDR, amplifier): they have no use for it.
+
+**After the alpha:** several scope settings files in a project, to set the oscilloscope in different ways (a file per set-up),
+chosen from the Remote control tab and, by name, from a measurement. Until then the project has one.
+
+Open, for the waveform in a measurement: which oscilloscope takes part (a role of the measurement, not "every oscilloscope of the
+project"); how the waveform is stored in the run (a trace per step, as the VNA traces are, with the CSV export) and how much space it
+takes; how the acquisition fits in the time of a step (settling, a single shot or a stop, the trigger waiting for an event that may
+not come); what the measurement does if the oscilloscope fails (the run goes on, with a warning); and whether the load regulation
+and the ripple measurements, which already read a scope, take the same parameter.

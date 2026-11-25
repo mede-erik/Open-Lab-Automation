@@ -69,6 +69,7 @@
   "ast_h_date": "Data",
   "ast_h_measurement": "Misura",
   "ast_h_state": "Esito",
+  "ast_h_variant": "Variante",
   "ast_h_file": "File dell'esecuzione",
   "ast_state_finished": "terminata",
   "ast_state_stopped": "fermata",
@@ -81,6 +82,7 @@
   "lbl_lines": "Righe",
   "lbl_field_id": "Codice (sempre)",
   "lbl_field_name": "Nome",
+  "lbl_field_version": "Versione",
   "lbl_field_description": "Che cos'è",
   "lbl_field_specs": "Dati principali",
   "lbl_field_connectors": "Connettori",
@@ -115,5 +117,6 @@
   "ast_t_limit_line": "limite",
   "ast_t_days": "giorni dal {date}",
   "ast_t_failed": "Impossibile salvare: {error}",
-  "ast_t_saved": "Salvato: {path}"
+  "ast_t_saved": "Salvato: {path}",
+  "ast_unreadable": "danneggiato o non leggibile"
 }

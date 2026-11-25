@@ -73,6 +73,7 @@ from ola.run_view import (
 )
 from ola.runner import Runner
 from ola.runs import export_points_csv, export_touchstone, export_trace_csv
+from frontend.core.errorhandler import show_problem
 
 POLL_MS = 100
 TIMEOUT_CLOSE_S = 15  # how long closing the window waits for the run to stop
@@ -88,6 +89,15 @@ def number(value: Any, column: str = "") -> str:
         return format_si(float(value), "Hz")
     return f"{value:.6g}"
 
+
+
+def failure_text(error) -> str:
+    """The message of a failed run with its code (ERROR_CODES.md): the code of the error when it
+    has one (CALL-xxx, TRN-xxx...), else MEAS-006."""
+    message = str(error.get("message", "")) if error else ""
+    code = (error or {}).get("code") or "MEAS-006"
+    code = str(code).strip("[]")
+    return message if f"[{code}]" in message else f"[{code}] {message}"
 
 class QuestionDialog(QDialog):
     """Pop-up with a question of the measurement and one button per choice.
@@ -283,6 +293,8 @@ class RunWindow(QWidget):
         self._pending_view = None  # a view the measurement asks to open with ("smith")
         self._tab_chosen = False  # the user picked a tab: do not switch tabs by ourselves
         self._bench_view = None  # the Benchmark tab, added when the report arrives
+        self._waves_seen = 0
+        self._wave_view = None  # the Waveforms tab, added when the first capture is written
         self.setWindowTitle(f"{self._t('run_title')} - {title}" if title else self._t("run_title"))
         self.resize(1000, 700)
         self._build_ui()
@@ -404,8 +416,13 @@ class RunWindow(QWidget):
         try:
             self.runner.start()
         except MeasurementError as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_cannot_start", errors=str(exc))
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_cannot_start", errors=str(exc)),
+                code="MEAS-003",
+                exception=exc,
+                level="critical",
             )
         self._tick()
 
@@ -430,8 +447,13 @@ class RunWindow(QWidget):
         try:
             n = export_points_csv(self.run_file, path)
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.banner.setText(self._t("run_export_done", n=n, path=path))
@@ -443,6 +465,8 @@ class RunWindow(QWidget):
             self.model.apply(event)
         if self.model.bench is not None and self._bench_view is None:
             self._show_bench(self.model.bench)
+        if self.run_file and self.model.tables.get("waves"):
+            self._update_waves()
         if events:
             self._update_table()
             self._update_log()
@@ -457,6 +481,21 @@ class RunWindow(QWidget):
         self._handle_questions()
         if self.model.finished and not events and self._dialog is None:
             self._timer.stop()  # nothing more can happen; the window stays as a record
+
+    def _update_waves(self) -> None:
+        """The Waveforms tab (``frontend/ui/WaveformView.py``): added at the first capture and
+        refreshed when more arrive."""
+        count = len(self.model.tables["waves"])
+        if self._wave_view is None:
+            from frontend.ui.WaveformView import WaveformView
+
+            self._wave_view = WaveformView(
+                self.run_file, self.tr_.base, lambda: self.model.points, self
+            )
+            self.tabs.insertTab(3, self._wave_view, self._t("run_tab_waves"))
+        elif count != self._waves_seen:
+            self._wave_view.refresh()
+        self._waves_seen = count
 
     def _show_bench(self, report: Dict[str, Any]) -> None:
         """Add the Benchmark tab with the text of the timing report (see ``ola.bench``)."""
@@ -504,7 +543,7 @@ class RunWindow(QWidget):
         if state == "failed" and m.error:
             self.banner.setText(
                 f"<span style='color:{text_color('error', self)}'>"
-                f"{self._t('run_failed_banner', message=m.error.get('message', ''))}</span>"
+                f"{self._t('run_failed_banner', message=failure_text(m.error))}</span>"
             )
         elif state == "stopped":
             self.banner.setText(self._t("run_stopped_banner", n=len(m.points)))
@@ -721,8 +760,13 @@ class RunWindow(QWidget):
         try:
             action()
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("run_title"), self._t("run_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("run_title"),
+                self._t("run_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         self.banner.setText(self._t("run_traces_export_done", path=path))

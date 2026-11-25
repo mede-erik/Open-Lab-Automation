@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -30,6 +29,7 @@ from frontend.core.Translator import Translator
 from frontend.ui.layout_utils import fit_table_to_rows, resize_to_screen
 from ola import role_mapping
 from ola.project_rename import RenameError
+from frontend.core.errorhandler import show_problem
 
 COLUMNS = ("roles_col_missing", "roles_col_used_by", "roles_col_category", "roles_col_instead")
 
@@ -115,8 +115,12 @@ class RolesDialog(QDialog):
             try:
                 role_mapping.map_instrument(self.session, old, new)
             except RenameError as exc:
-                QMessageBox.warning(
-                    self, self.t("roles_title"), self.t("roles_failed").format(error=exc)
+                show_problem(
+                    self,
+                    self.t("roles_title"),
+                    self.t("roles_failed").format(error=exc),
+                    code="MEAS-008",
+                    exception=exc,
                 )
                 return
         self.accept()

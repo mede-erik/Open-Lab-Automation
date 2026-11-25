@@ -57,7 +57,7 @@ def registry(tmp_path):
         "cable", "RG316 SMA-SMA", "1 m test lead", {"length_m": 1.0, "connectors": "SMA-SMA"}
     )
     reg.create("cable", "RG58 N-N", "2 m cable", {"length_m": 2.0})
-    reg.create("antenna", "868 MHz whip")
+    reg.create("amplifier", "868 MHz whip")
     return reg
 
 
@@ -171,11 +171,11 @@ def test_a_new_cable_is_saved_with_its_code_and_details(app, registry):
 def test_choosing_another_kind_changes_the_suggested_details(app, registry):
     d = AssetEditDialog(registry)
     assert list(d.attr_edits) == ["cable_type", "connectors", "length_m"]
-    d.kind_box.setCurrentIndex(d.kind_box.findData("antenna"))
-    assert list(d.attr_edits) == ["frequency_range", "connector", "gain_dbi"]
-    d.name_edit.setText("whip 2")
+    d.kind_box.setCurrentIndex(d.kind_box.findData("amplifier"))
+    assert list(d.attr_edits) == ["nominal_gain_db", "supply", "connectors"]
+    d.name_edit.setText("LNA 2")
     d.save()
-    assert d.saved.id == "ANT-0002" and d.saved.kind == "antenna"
+    assert d.saved.id == "AMP-0002" and d.saved.kind == "amplifier"
 
 
 def test_the_name_is_required_and_a_bad_line_is_reported(app, registry):
@@ -217,19 +217,19 @@ def test_the_list_shows_the_cards_and_how_many_times_each_was_measured(dialog):
     assert dialog.table.rowCount() == 3
     cells = [[dialog.table.item(r, c).text() for c in range(7)] for r in range(3)]
     assert cells[0][:3] == ["CBL-0001", "Cable", "RG316 SMA-SMA"] and cells[0][5] == "2"
-    assert cells[1][0] == "CBL-0002" and cells[1][5] == "0" and cells[2][1] == "Antenna"
+    assert cells[1][0] == "CBL-0002" and cells[1][5] == "0" and cells[2][1] == "Amplifier"
     assert cells[0][6] == "in use" and str(dialog.registry.path) in dialog.file_label.text()
 
 
 def test_the_list_can_be_filtered_by_kind_and_retired_cards_hidden(dialog):
-    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("antenna"))
-    assert [a.id for a in dialog._shown] == ["ANT-0001"]
+    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("amplifier"))
+    assert [a.id for a in dialog._shown] == ["AMP-0001"]
     dialog.kind_box.setCurrentIndex(0)
     select(dialog, "CBL-0002")
     dialog.toggle_retired()
     assert dialog.registry.get("CBL-0002").retired and dialog.table.item(1, 6).text() == "retired"
     dialog.retired_box.setChecked(False)
-    assert [a.id for a in dialog._shown] == ["CBL-0001", "ANT-0001"]
+    assert [a.id for a in dialog._shown] == ["CBL-0001", "AMP-0001"]
     dialog.retired_box.setChecked(True)
     select(dialog, "CBL-0002")
     assert dialog.buttons["ast_retire"].text() == "Bring back"
@@ -263,7 +263,7 @@ def test_a_scanned_code_selects_its_card(dialog):
     dialog.scan_edit.setText("CBL-0099")
     dialog.scan()
     assert "No cable or device with the code CBL-0099" in dialog.message.text()
-    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("antenna"))  # hides the cables
+    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("amplifier"))  # hides the cables
     dialog.scan_edit.setText("CBL-0001")
     dialog.scan()  # the filter is cleared so that the card can be shown
     assert [a.id for a in dialog.selected()] == ["CBL-0001"] and dialog.message.text() == ""
@@ -271,17 +271,17 @@ def test_a_scanned_code_selects_its_card(dialog):
 
 def test_new_and_edit_add_and_change_cards(dialog, monkeypatch):
     def fake_exec(self):  # fills the card and saves it, as the user would
-        self.name_edit.setText("New filter")
+        self.name_edit.setText("New adapter")
         self.save()
         return QDialog.DialogCode.Accepted
 
     monkeypatch.setattr(AssetEditDialog, "exec", fake_exec)
-    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("filter"))
+    dialog.kind_box.setCurrentIndex(dialog.kind_box.findData("adapter"))
     dialog.new_asset()
-    assert dialog.registry.get("FLT-0001").name == "New filter"
-    assert [a.id for a in dialog.selected()] == ["FLT-0001"]  # the new card is selected
+    assert dialog.registry.get("ADP-0001").name == "New adapter"
+    assert [a.id for a in dialog.selected()] == ["ADP-0001"]  # the new card is selected
     dialog.table.itemDoubleClicked.emit(dialog.table.item(0, 0))  # a double click edits
-    assert dialog.registry.get("FLT-0001") is not None
+    assert dialog.registry.get("ADP-0001") is not None
 
 
 def test_delete_asks_and_warns_when_measurements_used_it(dialog, monkeypatch):
@@ -302,9 +302,9 @@ def test_delete_asks_and_warns_when_measurements_used_it(dialog, monkeypatch):
     monkeypatch.setattr(
         QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
     )
-    select(dialog, "ANT-0001")
+    select(dialog, "AMP-0001")
     dialog.delete_selected()
-    assert dialog.registry.get("ANT-0001") is not None  # declined
+    assert dialog.registry.get("AMP-0001") is not None  # declined
 
 
 def test_the_history_lists_the_runs_and_opens_the_comparison(dialog):
@@ -390,7 +390,7 @@ def test_choosing_a_format_sets_its_lines_and_they_can_be_changed(dialog):
 
 
 def test_a_sheet_puts_all_the_labels_on_a_page_and_skips_the_used_places(dialog):
-    tool = labels(dialog, "CBL-0001", "CBL-0002", "ANT-0001")
+    tool = labels(dialog, "CBL-0001", "CBL-0002", "AMP-0001")
     tool.format_box.setCurrentIndex(tool.format_box.findData("sheet:" + "A4 3x8 (70x37)"))
     assert len(tool.pages) == 1 and (tool.pages[0].width, tool.pages[0].height) == (210, 297)
     assert tool.skip_box.isEnabled()

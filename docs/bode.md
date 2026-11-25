@@ -50,7 +50,7 @@ all of it (180 for a loop measured with an inverting injection).
 
 | Field | Meaning |
 |---|---|
-| `device.label`, `device.asset_id` | the circuit, and its code in the registry ([`assets.md`](assets.md)) |
+| `device.label`, `device.dut_id`, `device.version` | the circuit, and its code and version in the DUT archive ([`duts.md`](duts.md)); all optional |
 | `sweep` | `start_hz`, `stop_hz`, `points`, `scale` (`log` or `linear`). A few points per decade (10 to 20) are enough for a smooth circuit; more near a resonance |
 | `source.channel`, `source.amplitude_vpp`, `source.offset_v` | the generator: its output, the peak-to-peak amplitude (the same at every frequency) and a DC offset. Small enough not to saturate the circuit, large enough to read |
 | `scope.input_channel`, `scope.output_channel` | the scope channels on the input and on the output of the circuit (different) |

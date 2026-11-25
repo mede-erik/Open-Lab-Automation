@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ola import load_controls as lc
+from frontend.core.errorhandler import show_problem
 
 INPUT_STYLE = """
     QPushButton { padding: 6px; font-weight: bold; background-color: #d32f2f; color: white; }
@@ -135,6 +136,7 @@ class ElectronicLoadPanel(QGroupBox):
                 self.run(call, **args)
         except Exception as exc:  # the call error says what went wrong (CALL-xxx, TRN-xxx)
             self.status.setText(self.t("el_err_call").format(error=exc))
+            show_problem(self, self.t("rc_command_failed"), str(exc), exception=exc)
             return False
         return True
 
@@ -181,6 +183,7 @@ class ElectronicLoadPanel(QGroupBox):
                 values.append(f"{float(self.run(call)):.6g} {unit}")
         except Exception as exc:
             self.status.setText(self.t("el_err_call").format(error=exc))
+            show_problem(self, self.t("rc_command_failed"), str(exc), exception=exc)
             return False
         self.readings_label.setText("   ".join(values))
         return True

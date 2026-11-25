@@ -65,3 +65,25 @@ class CatalogTranslator:
             return text.format(**values) if values else text
         except (KeyError, IndexError, ValueError):
             return text
+
+
+class ChainedTranslator:
+    """Asks several translators in turn: the first that knows the key answers. A window that is
+    a variant of another one (the DUT archive of the registry of components) keeps its own strings
+    in its own catalog and falls back on the strings of the first for the rest."""
+
+    def __init__(self, *translators: Any):
+        self.translators = translators
+
+    @property
+    def lang(self) -> str:
+        """The language of the first translator."""
+        return getattr(self.translators[0], "lang", FALLBACK_LANG) if self.translators else ""
+
+    def t(self, key: str, **values: Any) -> str:
+        """The text of the first translator that has the key, else the key."""
+        for translator in self.translators:
+            text = translator.t(key, **values)
+            if text != key:
+                return text
+        return key

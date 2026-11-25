@@ -37,9 +37,9 @@ QUIET_MODULES = (
 )
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
 # the lines of a label: the first is always kept, the last goes first when there is no room
-FIELDS = ("id", "name", "description", "specs", "connectors", "length", "date",
+FIELDS = ("id", "name", "version", "description", "specs", "connectors", "length", "date",
           "last_measurement", "owner", "serial", "notes")  # fmt: skip
-DEFAULT_FIELDS = ("id", "name", "description", "specs", "length", "date")
+DEFAULT_FIELDS = ("id", "name", "version", "description", "specs", "length", "date")
 
 
 @dataclass(frozen=True)
@@ -230,6 +230,20 @@ def specs_text(asset: Asset) -> str:
             parts.append(f"{num('max_power_w'):g} W")
     elif asset.kind == "amplifier" and num("nominal_gain_db") is not None:
         parts.append(f"{num('nominal_gain_db'):g} dB gain")
+    elif asset.kind == "antenna":  # a device under test (``ola.duts``)
+        parts += [str(a[k]) for k in ("frequency_range",) if a.get(k)]
+        if num("gain_dbi") is not None:
+            parts.append(f"{num('gain_dbi'):g} dBi")
+    elif asset.kind == "filter":
+        parts += [str(a[k]) for k in ("filter_type",) if a.get(k)]
+        if num("frequency") is not None:
+            parts.append(format_si(num("frequency"), "Hz"))
+    elif asset.kind == "converter":
+        parts += [str(a[k]) for k in ("topology",) if a.get(k)]
+        if num("input_voltage") is not None and num("output_voltage") is not None:
+            parts.append(f"{num('input_voltage'):g} V to {num('output_voltage'):g} V")
+        if num("max_power_w") is not None:
+            parts.append(f"{num('max_power_w'):g} W")
     return ", ".join(parts)
 
 
@@ -241,6 +255,9 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
         return asset.name
     if key == "description":
         return asset.description
+    if key == "version":  # a device under test: the version in use now
+        current = [v["label"] for v in getattr(asset, "versions", []) if not v.get("retired")]
+        return current[-1] if current else ""
     if key == "specs":
         return specs_text(asset)
     if key == "connectors":

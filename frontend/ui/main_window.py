@@ -39,9 +39,12 @@ from frontend.ui.HexDecConverterDialog import HexDecConverterDialog
 from frontend.ui.GpibAdapterDialog import GpibAdapterDialog
 from frontend.ui.CompareDialog import CompareDialog
 from frontend.ui.AssetsDialog import AssetsDialog
+from frontend.ui.DutsDialog import DutsDialog
 from ola.assets import AssetError, AssetRegistry
+from ola.duts import DutRegistry
+from ola.duts import default_path as default_duts_path
 from ola.measurement import MeasurementError
-from ola.project import Project
+from ola.project import LEGACY_KEYS, Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
@@ -49,6 +52,7 @@ from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler
 from frontend.core.tools import read_json, save_json
+from frontend.core.errorhandler import settings_translator, show_problem
 class MainWindow(QMainWindow):
     def reload_remote_tab_instruments(self):
         """
@@ -95,7 +99,8 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"App info loaded: {self.appinfo.get('app_name')} v{self.appinfo.get('version')}")
         except Exception as e:
             self.logger.error(f"Failed to load appinfo.json: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Failed to load application info")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_appinfo_failed"), code="CFG-006")
             self.appinfo = {"app_name": "Lab Automation", "version": "1.0"}
             
         self.setWindowTitle(self.appinfo.get('app_name', 'Lab Automation'))
@@ -111,7 +116,8 @@ class MainWindow(QMainWindow):
             self.logger.debug(f"LoadInstruments initialized successfully with library: {lib_path}")
         except Exception as e:
             self.logger.error(f"Error initializing LoadInstruments: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Error initializing LoadInstruments")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_library_failed"), code="LIB-001")
             self.load_instruments = None
             
         self.tabs = QTabWidget()
@@ -122,15 +128,18 @@ class MainWindow(QMainWindow):
             self.logger.warning("LoadInstruments is None, creating RemoteControlTab with empty instruments")
         
         self.remote_tab = RemoteControlTab(self.load_instruments)
+        self.remote_tab.project_source = self.open_project_source
         self.tabs.addTab(self.remote_tab, self.translator.t('remote_control'))
         
         # Tab "Measurements": the projects of format 2 (measurements, editors, run window).
         # The instruments are reached through the library and the project's .inst file
         # (frontend/ui/connector_setup.py); `not_connected` is the fallback if that is not possible.
         self.assets = self._open_assets()  # the registry of cables and devices (or None)
+        self.duts = self._open_duts()  # the archive of the devices under test (or None)
         self.project_tab = ProjectWindow(
             translator=self.translator,
             assets=self.assets,
+            duts=self.duts,
             connect=not_connected,
             connector_factory=lambda session: make_connector(
                 session, default_library_path(), self.translator, self
@@ -194,7 +203,9 @@ class MainWindow(QMainWindow):
                 self.logger.info(f"Successfully loaded last project: {project_data.get('project_name')}")
             except Exception as e:
                 self.logger.error(f"Failed to load last project: {last_project_path} - {e}", exc_info=True)
-                self.error_handler.handle_error(e, f"Failed to load last project: {last_project_path}")
+                self.error_handler.handle_error(
+                    e, settings_translator().t("err_last_project_failed").format(path=last_project_path),
+                    code="PROJ-005")
 
                 self.logger.set_project_directory(self.current_project_dir)
         self.project_files_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -263,6 +274,11 @@ class MainWindow(QMainWindow):
         assets_action = QAction(CatalogTranslator("assets", self.translator).t("ast_menu"), self)
         assets_action.triggered.connect(self.open_assets_tool)
         tools_menu.addAction(assets_action)
+
+        # DUT: the devices under test (antennas, filters, converters...), with codes and versions
+        duts_action = QAction(CatalogTranslator("duts", self.translator).t("dut_menu"), self)
+        duts_action.triggered.connect(self.open_duts_tool)
+        tools_menu.addAction(duts_action)
         
         # Kits of resistors (the power resistors of the bench, used in many measurements)
         resistors_action = QAction(
@@ -349,7 +365,7 @@ class MainWindow(QMainWindow):
                 "last_opened": now,
                 "project_name": project_name.strip(),
                 "inst_file": inst_file,
-                "was_files": []
+                "scope_settings": None
             }
             
             # Save project file
@@ -386,7 +402,8 @@ class MainWindow(QMainWindow):
                 
         except Exception as e:
             self.logger.error(f"Failed to create new project: {e}", exc_info=True)
-            self.error_handler.handle_error(e, "Failed to create new project")
+            self.error_handler.handle_error(
+                e, settings_translator().t("err_new_project_failed"), code="PROJ-004")
 
 
 
@@ -498,11 +515,46 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(self.tabs.indexOf(self.project_tab), self.project_tab.tr_.t('prj_tab'))
         self.logger.debug("UI translations updated.")
 
+    def confirm_project_upgrade(self, path) -> bool:
+        """Ask before an old project file is changed: the file is copied to a ``.bkp`` next to it
+        first. True to go on. Tests replace this method to give the answer."""
+        backup = Project.backup_path(path)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle(self.translator.t("project_upgrade_title"))
+        box.setText(
+            self.translator.t("project_upgrade_question")
+            .replace("{name}", os.path.basename(str(path)))
+            .replace("{backup}", backup.name)
+        )
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.Yes)
+        return box.exec() == QMessageBox.StandardButton.Yes
+
+    def show_upgrade_report(self, report) -> None:
+        """Say what became of the efficiency files of an old project (one line each, with what
+        is still to do). Tests replace this method."""
+        lines = []
+        for item in report:
+            head = self.translator.t(
+                "project_upgrade_converted" if item.converted else "project_upgrade_kept"
+            ).replace("{file}", item.file)
+            lines.append(head + "".join(f"\n    - {note}" for note in item.notes))
+        QMessageBox.information(
+            self, self.translator.t("project_upgrade_title"), "\n".join(lines)
+        )
+
     def _open_project_path(self, path):
         """Open a project file in both views: the Project menu and file list (this window) and the
-        Measurements tab. A project of the first format is upgraded in place first (it keeps every
-        key and gains an empty list of measurements). Returns the data of the project."""
-        Project.upgrade_legacy(path)
+        Measurements tab. A project of the first format is upgraded in place after the user agrees (a copy is kept in
+        ``.bkp``; it keeps every key and gains an empty list of measurements). Returns the data of the project."""
+        if Project.needs_upgrade(path):
+            if not self.confirm_project_upgrade(path):
+                raise MeasurementError(self.translator.t("project_upgrade_declined"))
+            report = []
+            Project.upgrade_legacy(path, report=report)  # copies the file to ``.bkp`` first
+            if report:
+                self.show_upgrade_report(report)
         self._loaded_inst_path = None
         data = read_json(path)
         self.current_project_dir = os.path.dirname(path)
@@ -514,9 +566,10 @@ class MainWindow(QMainWindow):
     # Placeholder methods - these need to be implemented based on the full original code
     def open_project(self):
         """Open an existing project: select .json file and load its data."""
-        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        from PyQt6.QtWidgets import QFileDialog
         self.logger.debug("Opening project...")
-        file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '', 'Project Files (*.json)')
+        file_path, _ = QFileDialog.getOpenFileName(self, self.translator.t('open_project'), '',
+            f"{self.translator.t('file_filter_project')} (*.json)")
         if file_path:
             try:
                 self._open_project_path(file_path)
@@ -526,8 +579,26 @@ class MainWindow(QMainWindow):
                 self.logger.info(f"Project opened: {file_path}")
             except Exception as e:
                 self.logger.error(f"Failed to open project: {file_path} - {e}", exc_info=True)
-                QMessageBox.warning(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}")
+                show_problem(self, self.translator.t('open_project'), f"{self.translator.t('project_open_failed')}: {e}", code="PROJ-005", exception=e)
         
+    def open_project_source(self):
+        """What the remote control needs to know about the open project (see
+        ``RemoteControlTab.project_source``): its folder, instruments file and active scope
+        settings, or None if no project is open."""
+        session = self.project_tab.session
+        if not self.current_project_dir or not self.current_project_data or session is None:
+            return None
+        return {
+            "dir": self.current_project_dir,
+            "project_file": str(session.project.path),  # where the saved calibrations are listed
+            "inst_file": self.current_project_data.get('inst_file'),
+            # the files that are on, in order, each with the oscilloscope it is for ('' = every one)
+            "scope_settings": [
+                {"file": f, "scope": session.project.scope_target(f)}
+                for f in session.project.active_scope_files()
+            ],
+        }
+
     def refresh_project_files(self):
         """Refresh the list of project files displayed in the UI."""
         self.project_files_list.clear()
@@ -540,11 +611,25 @@ class MainWindow(QMainWindow):
         session = self.project_tab.session
         if session is not None:  # the measurements of the project (every type)
             files += [m.file for m in session.project.measurements]
-        for f in self.current_project_data.get('was_files', []):
-            if f not in files:  # oscilloscope settings: plain files of the project
-                files.append(f)
+        project = session.project if session is not None else None
+        disabled = set()
+        if project is not None:  # the settings of the oscilloscopes: project definition files
+            for entry in project.scope_settings:
+                if entry['file'] not in files:
+                    files.append(entry['file'])
+                if not entry['enabled']:
+                    disabled.add(entry['file'])
         for f in files:
             item = QListWidgetItem(f)
+            if f in disabled:  # kept in the project, but not the one that is applied
+                font = item.font()
+                font.setItalic(True)
+                item.setFont(font)
+                item.setToolTip(self.translator.t('scope_file_disabled'))
+            target = project.scope_target(f) if project is not None else ''
+            if target:  # a file for one oscilloscope: the tooltip says which
+                tip = self.translator.t('scope_file_for').format(scope=target)
+                item.setToolTip((item.toolTip() + ' ' if item.toolTip() else '') + tip)
             self.project_files_list.addItem(item)
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
@@ -563,7 +648,7 @@ class MainWindow(QMainWindow):
         """Add a new file to the project: a measurement of any type, or oscilloscope settings."""
         from PyQt6.QtWidgets import QDialog
         if not self.current_project_dir or not self.current_project_data:
-            QMessageBox.information(self, self.translator.t('add_file'), self.translator.t('no_project_open'))
+            show_problem(self, self.translator.t('add_file'), self.translator.t('no_project_open'), code="PROJ-009")
             return
         session = self.project_tab.session
         types = session.module_types() if session is not None else []
@@ -580,19 +665,18 @@ class MainWindow(QMainWindow):
                     file_name += '.was'
                 file_path = os.path.join(self.current_project_dir, file_name)
                 if os.path.exists(file_path):
-                    QMessageBox.warning(self, self.translator.t('add_file'), self.translator.t('file_exists').format(name=file_name))
+                    show_problem(self, self.translator.t('add_file'), self.translator.t('file_exists').format(name=file_name), code="FILE-005")
                     return
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write('')
-                if file_name not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(file_name)
+                session.project.add_scope_file(file_name)
                 self.save_project_json()
                 self.refresh_project_files()
             else:  # a measurement of the chosen type (the tab redraws and refreshes the list)
                 ref = session.create(kind, file_name)
                 self.project_tab.show_measurement(ref.id)
         except MeasurementError as e:
-            QMessageBox.warning(self, self.translator.t('add_file'), str(e))
+            show_problem(self, self.translator.t('add_file'), str(e), code="MEAS-009", exception=e)
 
     def add_existing_file(self):
         """Add an existing file (a measurement of any type, or oscilloscope settings) to the project."""
@@ -610,22 +694,21 @@ class MainWindow(QMainWindow):
         dest_path = os.path.join(self.current_project_dir, fname)
         ext = os.path.splitext(fname)[1].lower()
         if ext not in extensions and ext != '.was':
-            QMessageBox.warning(self, self.translator.t('add_existing_file'), self.translator.t('unsupported_file_type'))
+            show_problem(self, self.translator.t('add_existing_file'), self.translator.t('unsupported_file_type'), code="FILE-004")
             return
         try:
             if os.path.abspath(file_path) != os.path.abspath(dest_path) and not os.path.exists(dest_path):
                 import shutil
                 shutil.copy2(file_path, dest_path)
             if ext == '.was':
-                if fname not in self.current_project_data.setdefault('was_files', []):
-                    self.current_project_data['was_files'].append(fname)
+                session.project.add_scope_file(fname)
                 self.save_project_json()
                 self.refresh_project_files()
             else:
                 ref = session.adopt(fname)
                 self.project_tab.show_measurement(ref.id)
         except MeasurementError as e:
-            QMessageBox.warning(self, self.translator.t('add_existing_file'), str(e))
+            show_problem(self, self.translator.t('add_existing_file'), str(e), code="MEAS-010", exception=e)
 
     def save_project_json(self):
         """
@@ -648,9 +731,15 @@ class MainWindow(QMainWindow):
             if not isinstance(on_disk, dict):
                 on_disk = {}
             self.current_project_data['last_opened'] = datetime.now().isoformat()
-            for key in ('last_opened', 'inst_file', 'was_files'):
+            for key in ('last_opened', 'inst_file'):
                 if key in self.current_project_data:
                     on_disk[key] = self.current_project_data[key]
+            if session is not None:  # the settings of the oscilloscopes come from the project
+                project = session.project
+                on_disk['scope_settings'] = [dict(e) for e in project.scope_settings]
+                for old_key in LEGACY_KEYS:  # keys of the early projects: no longer written
+                    on_disk.pop(old_key, None)
+                self.current_project_data['scope_settings'] = on_disk['scope_settings']
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(on_disk, f, indent=2, ensure_ascii=False)
             if session is not None:
@@ -658,10 +747,13 @@ class MainWindow(QMainWindow):
             self.logger.info(f"Project JSON saved: {path}")
         except Exception as e:
             self.logger.error(f"Error saving project JSON: {e}")
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                f"{self.translator.t('mw_project_save_failed')}\n{e}"
+                f"{self.translator.t('mw_project_save_failed')}\n{e}",
+                code="PROJ-004",
+                exception=e,
+                level="critical",
             )
 
     def delete_file(self, item):
@@ -701,10 +793,11 @@ class MainWindow(QMainWindow):
         removed = False
         
         # oscilloscope settings (.was)
-        if file_name in self.current_project_data.get('was_files', []):
-            self.current_project_data['was_files'].remove(file_name)
+        session = self.project_tab.session
+        if session is not None and file_name in session.project.scope_file_names():
+            session.project.remove_scope_file(file_name)
             removed = True
-            self.logger.info(f"Removed '{file_name}' from was_files")
+            self.logger.info(f"Removed '{file_name}' from the scope settings of the project")
         
         # Controlla se è il file .inst
         elif file_name == self.current_project_data.get('inst_file'):
@@ -732,10 +825,12 @@ class MainWindow(QMainWindow):
                         self.logger.warning(f"File not found on disk: {file_path}")
                 except Exception as e:
                     self.logger.error(f"Error deleting file from disk: {e}")
-                    QMessageBox.warning(
+                    show_problem(
                         self,
                         self.translator.t('error'),
-                        f"{self.translator.t('mw_file_not_deleted')}\n{e}"
+                        f"{self.translator.t('mw_file_not_deleted')}\n{e}",
+                        code="FILE-002",
+                        exception=e,
                     )
             else:
                 QMessageBox.information(
@@ -748,10 +843,11 @@ class MainWindow(QMainWindow):
             self.refresh_project_files()
         else:
             self.logger.warning(f"File '{file_name}' not found in project data")
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                self.translator.t('mw_file_not_in_project').format(file=file_name)
+                self.translator.t('mw_file_not_in_project').format(file=file_name),
+                code="PROJ-007",
             )
         
     def open_settings(self):
@@ -777,7 +873,7 @@ class MainWindow(QMainWindow):
             dlg.exec()
         elif fname.endswith('.inst'):
             if self.load_instruments is None:
-                QMessageBox.warning(self, self.translator.t('instrument_library'), self.translator.t('mw_library_not_loaded'))
+                show_problem(self, self.translator.t('instrument_library'), self.translator.t('mw_library_not_loaded'), code="LIB-001")
                 return
             dlg = InstrumentConfigDialog(file_path, self.load_instruments, self)
             dlg.exec()
@@ -805,9 +901,10 @@ class MainWindow(QMainWindow):
     def open_assets_tool(self):
         """Open the window of the cables and devices (cards, labels, history)."""
         if self.assets is None:
-            error = f"{default_assets_path()} (damaged or not readable)"
-            text = CatalogTranslator("assets", self.translator).t("ast_open_failed", error=error)
-            QMessageBox.warning(self, "Open Lab Automation", text)
+            assets_tr = CatalogTranslator("assets", self.translator)
+            error = f"{default_assets_path()} ({assets_tr.t('ast_unreadable')})"
+            text = assets_tr.t("ast_open_failed", error=error)
+            show_problem(self, "Open Lab Automation", text, code="AST-003")
             return
 
         def run_dirs():  # the runs folder of the project that is open now
@@ -816,6 +913,41 @@ class MainWindow(QMainWindow):
 
         self._assets_tool = AssetsDialog(self.assets, self.translator, run_dirs, self)
         self._assets_tool.show()
+
+    def _open_duts(self):
+        """The archive of the devices under test, or None if its file is damaged. The antennas,
+        filters and generic devices that are still cards of the registry of components move to it
+        (``DutRegistry.migrate_from``: keeping their identity and, as an old code, the code on the
+        label already stuck on them)."""
+        try:
+            duts = DutRegistry()
+            moved = duts.migrate_from(self.assets) if self.assets is not None else []
+        except (AssetError, OSError) as exc:
+            self.logger.error(f"DUT archive not available: {exc}")
+            return None
+        if moved:
+            self.logger.info(f"{len(moved)} antenna, filter or generic card(s) moved to the DUTs")
+            text = CatalogTranslator("duts", self.translator).t("dut_migrated", n=len(moved))
+            QMessageBox.information(self, "Open Lab Automation", text)
+        return duts
+
+    def open_duts_tool(self):
+        """Open the DUT window (the archive of the devices under test: cards, versions, labels)."""
+        if self.duts is None:
+            error = (
+                f"{default_duts_path()} "
+                f"({CatalogTranslator('assets', self.translator).t('ast_unreadable')})"
+            )
+            text = CatalogTranslator("duts", self.translator).t("dut_open_failed", error=error)
+            show_problem(self, "Open Lab Automation", text, code="AST-003")
+            return
+
+        def run_dirs():  # the runs folder of the project that is open now
+            session = getattr(self.project_tab, "session", None)
+            return [session.run_dir] if session is not None else []
+
+        self._duts_tool = DutsDialog(self.duts, self.translator, run_dirs, self)
+        self._duts_tool.show()
 
     def open_resistor_kits_tool(self):
         """Open the window of the kits of resistors."""
@@ -827,8 +959,12 @@ class MainWindow(QMainWindow):
             registry = KitRegistry()
         except KitError as exc:
             self.logger.error(f"Kits of resistors not available: {exc}")
-            QMessageBox.warning(
-                self, "Open Lab Automation", tr.t("res_open_failed", error=f"{default_path()}: {exc}")
+            show_problem(
+                self,
+                "Open Lab Automation",
+                tr.t("res_open_failed", error=f"{default_path()}: {exc}"),
+                code="CFG-006",
+                exception=exc,
             )
             return
         self._resistors_tool = ResistorKitsDialog(registry, self.translator, self)
@@ -868,10 +1004,11 @@ class MainWindow(QMainWindow):
         """Open the electronic load pulse generator tool."""
         # Check if project is open
         if not self.current_project_dir:
-            QMessageBox.warning(
+            show_problem(
                 self,
                 self.translator.t('warning'),
-                self.translator.t('no_project_open')
+                self.translator.t('no_project_open'),
+                code="PROJ-009",
             )
             return
         
@@ -885,10 +1022,13 @@ class MainWindow(QMainWindow):
             dlg.exec()
         except Exception as e:
             self.logger.error(f"Error opening pulse generator: {e}")
-            QMessageBox.critical(
+            show_problem(
                 self,
                 self.translator.t('error'),
-                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}"
+                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}",
+                code="TOOL-005",
+                exception=e,
+                level="critical",
             )
     
     def show_file_context_menu(self, pos):
@@ -899,13 +1039,71 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         copy_action = menu.addAction(self.translator.t('copy_file_name'))
         # paste_action = menu.addAction(self.translator.t('paste_file'))  # Implementa se serve
+        scope = self._scope_entry(item.text())
+        toggle_action = up_action = down_action = target_action = None
+        if scope is not None:  # the settings of the oscilloscopes: on or off, their order, their scope
+            toggle_action = menu.addAction(
+                self.translator.t('scope_file_disable' if scope['enabled'] else 'scope_file_enable'))
+            up_action = menu.addAction(self.translator.t('scope_file_up'))
+            down_action = menu.addAction(self.translator.t('scope_file_down'))
+            target_action = menu.addAction(self.translator.t('scope_file_target'))
         delete_action = menu.addAction(self.translator.t('delete_file'))
         action = menu.exec(self.project_files_list.mapToGlobal(pos))
+        if action is None:
+            return
         if action == copy_action:
             from PyQt6.QtWidgets import QApplication
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
+        elif action == target_action:
+            self.choose_scope_target(item.text())
+        elif action in (toggle_action, up_action, down_action):
+            self.change_scope_file(item.text(), 'toggle' if action == toggle_action
+                                   else ('up' if action == up_action else 'down'))
+
+    def choose_scope_target(self, file_name):
+        """Ask which oscilloscope a scope settings file is for (or every one)."""
+        session = self.project_tab.session
+        if session is None or self._scope_entry(file_name) is None:
+            return
+        everyone = self.translator.t('scope_target_all')
+        choices = [everyone] + list(session.instruments)
+        current = session.project.scope_target(file_name)
+        index = choices.index(current) if current in choices else 0
+        choice, ok = QInputDialog.getItem(
+            self, self.translator.t('scope_file_target'), file_name, choices, index, False)
+        if ok:
+            self.set_scope_target(file_name, '' if choice == everyone else choice)
+
+    def set_scope_target(self, file_name, scope):
+        """The oscilloscope a scope settings file is for (``''``: every oscilloscope)."""
+        if self._scope_entry(file_name) is None:
+            return
+        self.project_tab.session.project.set_scope_target(file_name, scope)
+        self.save_project_json()
+        self.refresh_project_files()
+
+    def _scope_entry(self, file_name):
+        """The entry of a scope settings file of the open project, or None."""
+        session = self.project_tab.session
+        if session is None:
+            return None
+        return next((e for e in session.project.scope_settings if e['file'] == file_name), None)
+
+    def change_scope_file(self, file_name, what):
+        """Switch a scope settings file on or off (``toggle``) or move it in the order
+        (``up``, ``down``); the file itself is never touched."""
+        entry = self._scope_entry(file_name)
+        if entry is None:
+            return
+        project = self.project_tab.session.project
+        if what == 'toggle':
+            project.set_scope_enabled(file_name, not entry['enabled'])
+        else:
+            project.move_scope_file(file_name, -1 if what == 'up' else 1)
+        self.save_project_json()
+        self.refresh_project_files()
 
 
 class AddFileDialog(QDialog):

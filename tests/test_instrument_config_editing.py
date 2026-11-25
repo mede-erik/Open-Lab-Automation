@@ -668,7 +668,7 @@ def test_the_scan_says_when_pyvisa_is_missing(app, tmp_path, library, monkeypatc
     monkeypatch.setattr(module, "PYVISA_AVAILABLE", False)
     dialog, _ = make(tmp_path, library, [PSU])
     dialog.open_network_scan_dialog()
-    assert isolated == [("information", "Scan not available")]
+    assert isolated == [("warning", "Scan not available")]  # a problem: with its code (VISA-005)
 
 
 def test_a_scan_that_fails_is_reported(app, tmp_path, library, monkeypatch, isolated):

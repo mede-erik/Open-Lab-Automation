@@ -55,5 +55,9 @@
   "prj_export_failed": "Could not export: {error}",
   "prj_confirm_close": "{n} measurement(s) are running. Stop them and close?",
   "prj_bench": "Measure timing (benchmark)",
-  "prj_bench_tip": "Times every instrument call and every phase of the next run and shows a report in a Benchmark tab. The extra delay is small (about 30 microseconds per call)."
+  "prj_bench_tip": "Times every instrument call and every phase of the next run and shows a report in a Benchmark tab. The extra delay is small (about 30 microseconds per call).",
+  "prj_cal_no_library": "the instrument library is not available",
+  "prj_cal_no_inst": "the project has no instrument file (.inst)",
+  "prj_waves_confirm": "The waveforms of this run will take about {size} of disk ({waveforms} waveforms in {captures} captures, at 1 million points each). Start?",
+  "prj_waves": "Waveforms..."
 }

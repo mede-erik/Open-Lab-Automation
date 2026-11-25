@@ -66,7 +66,10 @@ from ola.measurement import MeasurementError
 from ola.project import MeasurementFile, MeasurementRef, Project
 from ola.project_session import ProjectSession
 from ola.registry import ModuleRegistry, default_registry
+from ola.scope_capture import WARN_BYTES
 from ola.runs import export_points_csv
+from ola.wavefiles import wave_folder
+from frontend.core.errorhandler import show_problem
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +207,7 @@ class ProjectWindow(QMainWindow):
         parent: Optional[QWidget] = None,
         wiring_before_run: bool = False,
         on_wiring_preference: Optional[Callable[[bool], None]] = None,
+        duts: Optional[Any] = None,
     ):
         super().__init__(parent)
         self.tr_ = CatalogTranslator("project", translator)
@@ -219,6 +223,7 @@ class ProjectWindow(QMainWindow):
         self.translator, self.connect = translator, connect
         self.connector_factory, self.connector = connector_factory, None
         self.assets = assets  # the registry of cables and devices (ola.assets), or None
+        self.duts = duts  # the archive of the devices under test (ola.duts), or None
         self.registry = registry or default_registry()
         self.session: Optional[ProjectSession] = None
         self.run_windows: list = []
@@ -305,6 +310,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.waves_btn = QPushButton(self._t("prj_waves"))
+        self.waves_btn.clicked.connect(self.show_waves)
+        row.addWidget(self.waves_btn)
         self.compare_btn = QPushButton(self._t("prj_compare"))
         self.compare_btn.clicked.connect(self.compare_runs)
         row.addWidget(self.compare_btn)
@@ -336,7 +344,7 @@ class ProjectWindow(QMainWindow):
         """Show this project (``connect`` is kept)."""
         self._close_connector()
         self.session = ProjectSession(
-            project, self.registry, connect=self.connect, assets=self.assets
+            project, self.registry, connect=self.connect, assets=self.assets, duts=self.duts
         )
         if self.connector_factory is not None:  # built for this project, closed when it changes
             self.connector = self.connector_factory(self.session)
@@ -369,8 +377,11 @@ class ProjectWindow(QMainWindow):
             return
         project = Project.new(name.strip(), folder)
         if project.path.exists():
-            QMessageBox.warning(
-                self, self._t("prj_title"), self._t("prj_exists", path=str(project.path))
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_exists", path=str(project.path)),
+                code="PROJ-008",
             )
             return
         project.save()
@@ -378,7 +389,8 @@ class ProjectWindow(QMainWindow):
 
     def open_project(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, self._t("prj_open_project"), "", "Project (*.json)"
+            self, self._t("prj_open_project"), "",
+            f"{self._t('file_filter_project')} (*.json)",
         )
         if path:
             self.open_path(path)
@@ -389,7 +401,7 @@ class ProjectWindow(QMainWindow):
         try:
             project = Project.load(path)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_open_failed", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_open_failed", error=exc), code="PROJ-005", exception=exc, level="critical")
             return False
         self.set_project(project)
         return True
@@ -401,7 +413,7 @@ class ProjectWindow(QMainWindow):
             self,
             self._t("prj_choose_inst"),
             str(self.session.project.directory),
-            "Instruments (*.inst)",
+            f"{self._t('file_filter_instruments')} (*.inst)",
         )
         if not path:
             return
@@ -410,7 +422,7 @@ class ProjectWindow(QMainWindow):
                 raise MeasurementError(self._t("prj_inst_outside"))
             self.session.set_instrument_file(Path(path).name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="PROJ-010", exception=exc)
             return
         self._refresh()
 
@@ -508,6 +520,8 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_rename"].setEnabled(ref is not None)
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
+        run = self._selected_run()
+        self.waves_btn.setEnabled(run is not None and wave_folder(run).is_dir())
         self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
     # ================================================================ actions
@@ -521,7 +535,7 @@ class ProjectWindow(QMainWindow):
         try:
             ref = self.session.create(type_id, name)
         except MeasurementError as exc:
-            QMessageBox.warning(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-009", exception=exc)
             return
         self._refresh()
         self._select(ref.id)
@@ -564,7 +578,7 @@ class ProjectWindow(QMainWindow):
         if ref is None:
             return
         try:
-            if ref.type == "efficiency":
+            if ref.type in ("efficiency", "resistive_efficiency"):
                 from frontend.ui.EfficiencyEditorDialog import EfficiencyEditorDialog
 
                 dialog: QDialog = EfficiencyEditorDialog(
@@ -572,6 +586,7 @@ class ProjectWindow(QMainWindow):
                     self.translator,
                     self.session.instruments,
                     parent=self,
+                    duts=self.duts,
                 )
             elif ref.type == "time_log":
                 from frontend.ui.TimeLogEditorDialog import TimeLogEditorDialog
@@ -596,11 +611,12 @@ class ProjectWindow(QMainWindow):
                     role_instruments=self.session.instruments_by_role(self.registry.get(ref.type)),
                     assets=self.assets,
                     parent=self,
+                    duts=self.duts,
                 )
             else:
                 dialog = JsonParamsDialog(self.session, ref, self.tr_, self)
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), str(exc))
+            show_problem(self, self._t("prj_title"), str(exc), code="MEAS-001", exception=exc, level="critical")
             return
         dialog.exec()
         self._refresh()
@@ -614,7 +630,7 @@ class ProjectWindow(QMainWindow):
         try:
             diagram = self.session.wiring(ref, self.wir_.lang)
         except (WiringError, MeasurementError) as exc:
-            QMessageBox.warning(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc))
+            show_problem(self, self._t("prj_title"), self.wir_.t("wir_error", error=exc), code="MEAS-005", exception=exc)
             return None
         if diagram is None:
             return None
@@ -642,18 +658,22 @@ class ProjectWindow(QMainWindow):
         project = self.session.project
         try:
             if library is None:
-                raise ConnectionProblem("the instrument library is not available")
+                raise ConnectionProblem(self._t("prj_cal_no_library"))
             if not project.inst_file:
-                raise ConnectionProblem("the project has no instrument file (.inst)")
+                raise ConnectionProblem(self._t("prj_cal_no_inst"))
             entries = read_inst_entries(project.directory / project.inst_file)
         except ConnectionProblem as exc:
-            QMessageBox.warning(
-                self, self.cal_.t("cal_title"), self.cal_.t("cal_no_connection", error=exc)
+            show_problem(
+                self,
+                self.cal_.t("cal_title"),
+                self.cal_.t("cal_no_connection", error=exc),
+                code="VISA-001",
+                exception=exc,
             )
             return
         analyzers = flow.network_analyzers(library, entries)
         if not analyzers:
-            QMessageBox.information(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"))
+            show_problem(self, self.cal_.t("cal_title"), self.cal_.t("cal_no_vna"), code="INST-005")
             return
         from frontend.ui.CalibrationDialog import CalibrationDialog
 
@@ -728,6 +748,24 @@ class ProjectWindow(QMainWindow):
                 self.on_wiring_preference(keep)
         return accepted
 
+    def _confirm_waves(self, ref: MeasurementRef) -> bool:
+        """Before a run that takes waveforms: if they will take more than about a gigabyte of
+        disk, say how much and ask to start. False if the user cancels."""
+        estimate = self.session.wave_estimate(ref)
+        if estimate is None or estimate["bytes"] <= WARN_BYTES:
+            return True
+        answer = QMessageBox.question(
+            self,
+            self._t("prj_title"),
+            self._t(
+                "prj_waves_confirm",
+                size=f"{estimate['bytes'] / 1e9:.1f} GB",
+                waveforms=estimate["waveforms"],
+                captures=estimate["captures"],
+            ),
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
     def run_measurement(self) -> None:
         """Start the selected measurement in a run window."""
         ref = self._selected()
@@ -735,17 +773,29 @@ class ProjectWindow(QMainWindow):
             return
         if not self._confirm_wiring(ref):
             return
+        if not self._confirm_waves(ref):
+            return
         proceed, accepted = self._check_compatibility(ref)
         if not proceed:
             return
+        variant = None
+        question = self.session.variant_question(ref)
+        if question is not None:  # a DUT is named: what is different in it since the last run?
+            from frontend.ui.VariantTable import VariantDialog
+
+            asking = VariantDialog(question, self.translator, self)
+            if not asking.exec():
+                return
+            variant = asking.variant()
         try:
             runner, run_file = self.session.build_runner(
                 ref,
                 accepted_differences=accepted,
                 bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
+                variant=variant,
             )
         except MeasurementError as exc:
-            QMessageBox.critical(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc))
+            show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
             return
         from frontend.ui.RunWindow import RunWindow
 
@@ -811,6 +861,16 @@ class ProjectWindow(QMainWindow):
                 self.runs_table.selectRow(row)
         self._update_buttons()
 
+    def show_waves(self) -> None:
+        """Open the waveforms of the selected run (the binary files next to the run file)."""
+        path = self._selected_run()
+        if path is None:
+            return
+        from frontend.ui.WaveformView import WaveformDialog
+
+        self._waves_dialog = WaveformDialog(str(path), self.translator, self)
+        self._waves_dialog.show()
+
     def compare_runs(self) -> None:
         """Open the comparison tool with the runs of the selected measurement."""
         from frontend.ui.CompareDialog import CompareDialog
@@ -832,8 +892,13 @@ class ProjectWindow(QMainWindow):
         try:
             n = export_points_csv(path, target)
         except Exception as exc:
-            QMessageBox.critical(
-                self, self._t("prj_title"), self._t("prj_export_failed", error=exc)
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_export_failed", error=exc),
+                code="MEAS-004",
+                exception=exc,
+                level="critical",
             )
             return
         QMessageBox.information(

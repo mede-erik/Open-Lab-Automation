@@ -139,6 +139,10 @@ class Instrument:
         # query and read: collect the answer
         if step.returns == "binary":
             return self.transport.read_block(step.timeout_ms)
+        if step.until is not None:
+            return self.transport.read_until(step.until.encode("utf-8"), step.timeout_ms).decode(
+                "utf-8", errors="replace"
+            )
         line = self.transport.read_line(step.timeout_ms)
         if step.returns == "string":
             return line
