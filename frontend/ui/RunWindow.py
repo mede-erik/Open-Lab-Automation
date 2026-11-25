@@ -116,11 +116,8 @@ class QuestionDialog(QDialog):
         self.setModal(True)
         layout = QVBoxLayout(self)
         data = question.get("data") or {}
-        if kind == QUESTION_CALIBRATION:
-            # the question is translated here (the engine's sentence is English)
-            text = QLabel(t("run_q_calibration_question"))
-        else:
-            text = QLabel(question.get("text", ""))
+        # the question is translated here (the engine's sentence is English, for the log)
+        text = QLabel(self._main_text(question, kind, data, t))
         text.setWordWrap(True)
         text.setMinimumWidth(460)
         layout.addWidget(text)
@@ -160,6 +157,42 @@ class QuestionDialog(QDialog):
         # the window is as tall as its text: the wrapped sentences need the layout to know their
         # height first, or they were cut
         layout.activate()
+
+    @staticmethod
+    def _main_text(question: Dict[str, Any], kind: str, data: Dict[str, Any], t) -> str:
+        """The first sentence of the question, in the language of the application: the
+        translation key the measurement gives (with its arguments), the plan of the loads from its
+        table, or the calibration question; the engine's English text only when there is none."""
+        if kind == QUESTION_CALIBRATION:
+            return t("run_q_calibration_question")
+        if data.get("kind") == "plan":
+            return QuestionDialog._plan_text(data, t)
+        key = data.get("text_key")
+        if key:
+            text = t(key, **(data.get("text_args") or {}))
+            if text != key:  # a key that is not translated shows the English text instead
+                return text
+        return question.get("text", "")
+
+    @staticmethod
+    def _plan_text(data: Dict[str, Any], t) -> str:
+        """The loads planned again for the converter's voltages, one line per point."""
+        lines = [t("run_q_plan_head")]
+        for row in data.get("rows") or []:
+            if row.get("combination") == "open":
+                lines.append(t("run_q_plan_open", volts=f"{row.get('vout_v', 0.0):.3g}"))
+            else:
+                lines.append(t(
+                    "run_q_plan_row",
+                    target=f"{row['target_a']:.3g}",
+                    combination=row["combination"],
+                    ohm=f"{row['r_ohm']:.4g}",
+                    current=f"{row['current_a']:.3g}",
+                    volts=f"{row['vout_v']:.3g}",
+                    changes=row.get("changes", 0),
+                ))
+        lines.append(t("run_q_plan_continue"))
+        return "\n".join(lines)
 
     @staticmethod
     def _connect_sentence(data: Dict[str, Any], t) -> str:
@@ -211,7 +244,7 @@ class QuestionDialog(QDialog):
             return t(
                 "run_q_load_details",
                 load=data.get("load", "?"),
-                description=str(data.get("description", "")),
+                description=str(data.get("formula") or data.get("description", "")),
             )
         if kind == QUESTION_OUTPUTS_ON:
             names = ", ".join(

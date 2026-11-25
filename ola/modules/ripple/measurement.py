@@ -365,7 +365,9 @@ class RippleNoise(Measurement):
         )
         text += "The load is switched on by the measurement. " if with_load else ""
         text += "The supply must be on and stable. Then continue."
-        if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
+        key = "run_q_ripple_setup_load" if with_load else "run_q_ripple_setup"
+        if ctx.ask(text, ["continue", "abort"], default="abort",
+                   data={"text_key": key}) == "abort":
             from ola.measurement import Stopped
 
             raise Stopped()

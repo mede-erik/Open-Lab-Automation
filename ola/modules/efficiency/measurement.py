@@ -65,7 +65,7 @@ from ola.combinations import PlanError, loads_from_plan, plan_loads, targets_for
 from ola.efficiency_spec import SpecError, parse_params, validate_params
 from ola.golden import finish, recording
 from ola.labels import render_svg
-from ola.resistors import Open, describe, schematic
+from ola.resistors import Open, describe, formula as load_formula, schematic
 from ola.scope_capture import ScopeCapture
 from ola.measurement import Measurement, MeasurementContext, MeasurementError, Stopped
 from ola.sweep import iter_points
@@ -428,6 +428,13 @@ class Efficiency(Measurement):
                     "r_ohm": None if is_open else load.resistance()[0],
                     "description": words,
                     "svg": render_svg(schematic(load)),
+                    "formula": load_formula(load),
+                    "text_key": "run_q_load_open" if is_open else "run_q_load_connect",
+                    "text_args": {
+                        "parameter": var.name,
+                        "load": load.name,
+                        "formula": load_formula(load),
+                    },
                 }
                 if ctx.ask(text, ["continue", "abort"], default="abort", data=data) == "abort":
                     raise Stopped()
@@ -487,7 +494,9 @@ class Efficiency(Measurement):
                     "off": v.output.off.call,
                 }
                 for v in already
-            ]
+            ],
+            "text_key": "run_q_outputs_on_end",
+            "text_args": {"names": names},
         }
         if ctx.ask(text, ["continue", "abort"], default="abort", data=data) == "abort":
             raise Stopped()
@@ -601,6 +610,18 @@ class Efficiency(Measurement):
                 continue
             relative = error / abs(set_value) if set_value else None
             how = f"{relative * 100:.1f}%" if relative is not None else f"{error:g} (set value 0)"
+            # the question is translated from these (the text above is for the log)
+            args = {
+                "variable": var.name, "reading": v.read, "read": f"{read_value:g}",
+                "set": f"{set_value:g}", "tol_abs": f"{v.tol_abs:g}",
+                "tol_rel": f"{v.tol_rel * 100:g}",
+            }
+            if relative is not None:
+                args["pct"] = f"{relative * 100:.1f}"
+                text_key = "run_q_verify_pct"
+            else:
+                args["error"] = f"{error:g}"
+                text_key = "run_q_verify_zero"
             text = (
                 f"'{var.name}' read by {v.read} ({read_value:g}) differs from the set value "
                 f"({set_value:g}) by {how}; allowed: {v.tol_abs:g} + {v.tol_rel * 100:g}%"
@@ -609,6 +630,7 @@ class Efficiency(Measurement):
                 "variable": var.name, "reading": v.read, "set_value": set_value,
                 "read_value": read_value, "error_abs": error, "error_rel": relative,
                 "tol_abs": v.tol_abs, "tol_rel": v.tol_rel, "point": index, "sample": k,
+                "text_key": text_key, "text_args": args,
             }  # fmt: skip
             if v.on_fail == "stop":
                 raise MeasurementError(text)
