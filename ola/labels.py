@@ -405,6 +405,87 @@ def fit_text(
     return size, cut.rstrip() + "…"
 
 
+# ----- checking a layout ---------------------------------------------------------------------
+LAYOUT_TOLERANCE_MM = 0.15  # overlaps smaller than this are not reported (rounding, line width)
+ASCENT, DESCENT = 0.8, 0.2  # the box of a text, from its baseline, in fractions of the size
+
+
+def text_box(item: Text, measure: Optional[Measure] = None) -> Tuple[float, float, float, float]:
+    """``(x0, y0, x1, y1)`` in mm of the space a ``Text`` takes on the label: its width (measured,
+    or estimated on the long side) from the anchor, its height from above the capitals to below
+    the descenders, turned by its rotation round ``(x, y)``."""
+    width = (measure or text_width)(item.text, item.size, item.bold)
+    start = {"start": 0.0, "middle": -width / 2, "end": -width}.get(item.anchor, 0.0)
+    corners = [
+        (start, -ASCENT * item.size), (start + width, -ASCENT * item.size),
+        (start, DESCENT * item.size), (start + width, DESCENT * item.size),
+    ]  # fmt: skip
+    cos, sin = {0: (1, 0), 90: (0, 1), 180: (-1, 0), 270: (0, -1)}[item.rotation % 360]
+    points = [(item.x + lx * cos - ly * sin, item.y + lx * sin + ly * cos) for lx, ly in corners]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _overlap(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> bool:
+    """True if two boxes share more than the tolerance in both directions."""
+    dx = min(a[2], b[2]) - max(a[0], b[0])
+    dy = min(a[3], b[3]) - max(a[1], b[1])
+    return dx > LAYOUT_TOLERANCE_MM and dy > LAYOUT_TOLERANCE_MM
+
+
+def _crosses(box: Tuple[float, float, float, float], x1: float, y1: float, x2: float, y2: float):
+    """True if the (horizontal or vertical) segment passes through the inside of ``box``."""
+    t = LAYOUT_TOLERANCE_MM
+    if abs(y1 - y2) < 1e-6:  # horizontal
+        return (
+            box[1] + t < y1 < box[3] - t and min(x1, x2) < box[2] - t and max(x1, x2) > box[0] + t
+        )
+    if abs(x1 - x2) < 1e-6:  # vertical
+        return (
+            box[0] + t < x1 < box[2] - t and min(y1, y2) < box[3] - t and max(y1, y2) > box[1] + t
+        )
+    return False
+
+
+def layout_problems(drawing: Drawing, measure: Optional[Measure] = None) -> List[str]:
+    """What is wrong with the arrangement of a drawing: a text over another text or over the QR
+    code, a text outside the label, a text crossed by a line (a fold mark, a rule) or by the edge of
+    a frame. One sentence each, without repeats. A label made by the automatic layout should have
+    none; for a manual one they say what to move."""
+    found: List[str] = []
+    texts = [i for i in drawing.items if isinstance(i, Text)]
+    boxes = [text_box(t, measure) for t in texts]
+    qrs = [i for i in drawing.items if isinstance(i, QR)]
+    eps = 0.05
+    for n, (t, b) in enumerate(zip(texts, boxes)):
+        if b[0] < -eps or b[1] < -eps or b[2] > drawing.width + eps or b[3] > drawing.height + eps:
+            found.append(f"'{t.text}' is outside the label")
+        for u, c in zip(texts[n + 1 :], boxes[n + 1 :]):
+            if _overlap(b, c):
+                found.append(f"'{t.text}' overlaps '{u.text}'")
+        for q in qrs:
+            if _overlap(b, (q.x, q.y, q.x + q.size, q.y + q.size)):
+                found.append(f"'{t.text}' overlaps the QR code")
+        for it in drawing.items:
+            if isinstance(it, Line) and _crosses(b, it.x1, it.y1, it.x2, it.y2):
+                found.append(f"'{t.text}' is crossed by a line")
+            elif isinstance(it, Box):
+                right, bottom = it.x + it.w, it.y + it.h
+                edges = [(it.x, it.y, right, it.y), (it.x, bottom, right, bottom),
+                         (it.x, it.y, it.x, bottom), (right, it.y, right, bottom)]  # fmt: skip
+                if any(_crosses(b, *edge) for edge in edges):
+                    found.append(f"'{t.text}' is crossed by the edge of a frame")
+    return list(dict.fromkeys(found))
+
+
+def add_layout_warnings(drawing: Drawing, measure: Optional[Measure] = None) -> Drawing:
+    """Put ``layout_problems`` in ``drawing.warnings`` (once each) and return the drawing."""
+    for problem in layout_problems(drawing, measure):
+        if problem not in drawing.warnings:
+            drawing.warnings.append(problem)
+    return drawing
+
+
 # ----- one label -----------------------------------------------------------------------------
 def build_drawing(
     spec: LabelSpec, asset: Asset, last_measurement: str = "", measure: Optional[Measure] = None
@@ -420,7 +501,7 @@ def build_drawing(
         _flag(drawing, spec, asset, last_measurement, measure)
     else:
         _panel(drawing, spec, asset, last_measurement, 0.0, spec.width_mm, spec.qr, measure)
-    return drawing
+    return add_layout_warnings(drawing, measure)
 
 
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")

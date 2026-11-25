@@ -336,3 +336,42 @@ def test_sheet_labels_keep_the_chosen_lines_and_report_problems_by_code():
         d.startswith("CBL-0042:") for d in page.dropped
     )  # lines were dropped on a small label
     assert isinstance(page, Drawing)
+
+
+# ---- the layout is checked: no text over another, over the QR code or crossed by a line -----
+def test_texts_that_overlap_or_leave_the_label_are_found():
+    from ola.labels import Drawing, Line, Box, layout_problems, text_box
+
+    d = Drawing(50, 25)
+    d.items = [Text(2, 6, 4, "CAB-0042", True), Text(5, 8, 4, "NAME"), Text(48, 20, 4, "far right")]
+    found = layout_problems(d)
+    assert "'CAB-0042' overlaps 'NAME'" in found and "'far right' is outside the label" in found
+    d.items = [Text(2, 6, 4, "CAB-0042", True), Text(2, 12, 4, "NAME")]  # one below the other
+    assert layout_problems(d) == []
+    d.items.append(Line(10, 0, 10, 25, dashed=True))  # a fold mark through the first text
+    assert any("crossed by a line" in p for p in layout_problems(d))
+    d.items = [
+        Text(2, 6, 4, "CAB-0042", True),
+        Box(5, 1, 30, 10),
+    ]  # the edge of a frame in the text
+    assert any("edge of a frame" in p for p in layout_problems(d))
+    d.items = [Text(2, 6, 4, "CAB-0042", True), Box(0.5, 0.5, 48, 24)]  # a frame round it is fine
+    assert layout_problems(d) == []
+    qr = QR(1, 1, 0.5, [[True] * 21 for _ in range(21)])  # 10.5 mm square
+    d.items = [qr, Text(5, 8, 4, "CODE")]
+    assert layout_problems(d) == ["'CODE' overlaps the QR code"]
+    # a text on its side takes a tall narrow box and is checked as such
+    box = text_box(Text(10, 2, 4, "ABC", rotation=90))
+    assert box[2] - box[0] < 6 and box[3] - box[1] > 5
+    d.items = [Text(10, 2, 4, "ABCDEFGH", rotation=90), Text(11, 6, 3, "x")]
+    assert any("overlaps" in p for p in layout_problems(d))
+
+
+def test_the_warnings_of_a_drawing_include_the_layout_problems_once():
+    from ola.labels import Drawing, add_layout_warnings
+
+    d = Drawing(30, 10)
+    d.items = [Text(1, 5, 4, "ABCD"), Text(2, 6, 4, "EFGH")]
+    add_layout_warnings(d)
+    add_layout_warnings(d)
+    assert d.warnings == ["'ABCD' overlaps 'EFGH'"]

@@ -110,6 +110,16 @@ The layout works down to small labels (the size can be as small as 10 x 8 mm; a 
 * **Text that would be hard to read** (under about 2.2 mm, 6 pt) is flagged, with the reason: use a bigger label or fewer lines.
 * **A tall narrow label** (taller than 1.6 times its width) suggests writing the label turned by 90 degrees.
 
+### The layout is checked
+
+Every label is checked after it is laid out (`ola.labels.layout_problems`) and what is wrong is listed under the preview: a **text
+over another text**, a **text over the QR code**, a **text outside the label**, a **text crossed by a line** (a rule, a fold mark) or
+by the **edge of a frame**. The automatic layout must never have any of these: a test lays out every kind at twelve sizes, with and
+without the QR code, as a single label, a flag and a cable flag, with three cable diameters and the four rotations (also with the real
+font of the system), and fails on the first overlap. In a manual design, where you place things, the list says what to move. Turned
+texts are checked with their turned boxes. Texts are measured (the real font in the window, an estimate that errs on the long side
+elsewhere) with a tolerance of 0.15 mm.
+
 ### Writing in both directions (rotation)
 
 * **Automatic design**: *Write the label turned by* 0 / 90 / 180 / 270 degrees (clockwise). The label is laid out on a label turned

@@ -618,7 +618,7 @@ class LabelDesignDialog(QDialog):
             design.elements = []
         setup = design_setup(self.setup())
         if kind == "box":
-            m = setup.margin_mm
+            m = setup.margin_mm / 2  # the frame lies outside the area the texts use
             design.elements.append(
                 Element("box", x=m, y=m, w=max(setup.width_mm - 2 * m, 1),
                         h=max(setup.height_mm - 2 * m, 1), stroke=0.3)

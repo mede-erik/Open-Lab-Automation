@@ -5,6 +5,7 @@
 """The label of each kind: ready-made designs, one size, manual positions, the file."""
 
 import json
+import re
 
 import pytest
 
@@ -19,6 +20,7 @@ from ola.label_design import (
     build_kind_drawing,
     default_design,
     design_problems,
+    design_setup,
     sample_asset,
     setup_problems,
 )
@@ -211,7 +213,7 @@ def test_boxes_and_lines_are_drawn_with_their_width_and_dash():
         [
             Element("box", x=1, y=1, w=48, h=23, stroke=0.5),
             Element("line", x=2, y=12, w=46, h=0, stroke=0.2, dashed=True),
-            Element("line", x=25, y=2, w=0, h=20),
+            Element("line", x=47, y=14, w=0, h=8),
             Element("text", "{id}", 3, 3, 40, 5, True),
         ],
     )
@@ -220,7 +222,7 @@ def test_boxes_and_lines_are_drawn_with_their_width_and_dash():
     rule, vertical = [i for i in drawing.items if isinstance(i, Line)]
     assert (box.x, box.w, box.stroke) == (1, 48, 0.5) and not box.dashed
     assert (rule.x2, rule.y2, rule.dashed, rule.stroke) == (48, 12, True, 0.2)
-    assert (vertical.x1, vertical.x2, vertical.y2) == (25, 25, 22)
+    assert (vertical.x1, vertical.x2, vertical.y2) == (47, 47, 22)
     svg = render_svg(drawing)
     assert 'stroke-width="0.5"' in svg and "stroke-dasharray" in svg and "<line" in svg
     assert not drawing.warnings
@@ -492,3 +494,95 @@ def test_the_advice_says_what_fits_and_what_to_change():
     assert (
         advise(LabelSetup(width_mm=2), default_design("cable"), card) == []
     )  # a wrong size: no advice
+
+
+# ---- no overlapping text, whatever the size, kind, layout or rotation ------------------------
+PROBLEMS = ("overlaps", "is outside", "is crossed")
+SIZES = [(50, 25), (40, 20), (62, 29), (70, 37), (30, 15), (20, 10), (25, 8), (56, 30),
+         (100, 29), (12, 40), (40, 12), (80, 20)]  # fmt: skip
+
+
+def layout_warnings(drawing):
+    return [w for w in drawing.warnings if any(p in w for p in PROBLEMS)]
+
+
+def test_an_automatic_label_never_has_overlapping_text_at_any_size():
+    """The regression sweep: every kind, size, layout, QR on/off, cable diameter and rotation."""
+    checked = 0
+    for kind in KINDS:
+        card = sample_asset(kind)
+        for width, height in SIZES:
+            for layout in ("single", "flag", "cable_flag"):
+                for qr in (True, False):
+                    for diameter in (1.0, 4.0, 8.0) if layout == "cable_flag" else (4.0,):
+                        for rotate in (0, 90, 180, 270):
+                            setup = LabelSetup(width_mm=width, height_mm=height, layout=layout,
+                                               qr=qr, cable_diameter_mm=diameter)  # fmt: skip
+                            if setup_problems(setup):
+                                continue
+                            design = default_design(kind)
+                            design.rotate = rotate
+                            drawing = build_kind_drawing(setup, design, card)
+                            checked += 1
+                            assert not layout_warnings(drawing), (kind, width, height, layout, qr,
+                                                                  diameter, rotate,
+                                                                  drawing.warnings)  # fmt: skip
+    assert checked > 1500
+
+
+def test_converting_to_manual_never_puts_elements_over_each_other_or_outside():
+    checked = 0
+    for kind in KINDS:
+        card = sample_asset(kind)
+        lines = default_design(kind).lines
+        for width, height in SIZES:
+            for layout in ("single", "cable_flag"):
+                for qr in (True, False):
+                    setup = LabelSetup(width_mm=width, height_mm=height, layout=layout, qr=qr,
+                                       cable_diameter_mm=4)  # fmt: skip
+                    if setup_problems(setup):
+                        continue
+                    for sample in (card, None):  # with a sample card, and with nominal sizes
+                        elements = auto_elements(design_setup(setup), lines, sample)
+                        drawing = build_kind_drawing(
+                            setup, KindDesign(tuple(lines), elements), card
+                        )
+                        checked += 1
+                        where = (kind, width, height, layout, qr, sample is None)
+                        assert not layout_warnings(drawing), (where, drawing.warnings)
+    assert checked > 300
+
+
+def test_the_manual_elements_follow_the_same_qr_rule_as_the_automatic_label():
+    card = sample_asset("cable")
+    setup = cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=4)
+    elements = auto_elements(design_setup(setup), default_design("cable").lines, card)
+    assert not any(e.type == "qr" for e in elements)  # it does not fit: no QR element either
+    wide = auto_elements(
+        design_setup(cable_setup(width_mm=110)), default_design("cable").lines, card
+    )
+    assert wide[0].type == "qr"
+
+
+def test_the_svg_of_a_manual_label_has_only_valid_text_anchors():
+    from ola.labels import render_svg
+
+    design = KindDesign(("{id}",), [
+        Element("text", "{id}", x=2, y=2, w=30, size=5, align="left"),
+        Element("text", "{name}", x=2, y=10, w=30, size=3, align="middle"),
+        Element("text", "{name}", x=2, y=16, w=30, size=3, align="end"),
+    ])  # fmt: skip
+    svg = render_svg(build_kind_drawing(LabelSetup(qr=False), design, sample_asset("cable")))
+    anchors = set(re.findall(r'text-anchor="(\w+)"', svg))
+    assert anchors <= {"start", "middle", "end"} and "left" not in svg
+
+
+def test_a_manual_label_with_texts_over_each_other_says_so():
+    design = KindDesign(("{id}",), [
+        Element("text", "{id}", x=2, y=2, w=40, size=6, bold=True),
+        Element("text", "{name}", x=4, y=4, w=40, size=4),
+        Element("text", "{id}", x=40, y=2, w=30, size=4),
+    ])  # fmt: skip
+    drawing = build_kind_drawing(LabelSetup(qr=False), design, sample_asset("cable"))
+    problems = layout_warnings(drawing)
+    assert any("overlaps" in p for p in problems) and any("outside" in p for p in problems)

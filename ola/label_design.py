@@ -55,8 +55,10 @@ from .labels import (
     build_drawing,
     fill_line,
     fit_text,
+    add_layout_warnings,
     qr_matrix,
     qr_min_side,
+    qr_side,
     rotate_drawing,
     unknown_placeholders,
 )
@@ -379,46 +381,63 @@ def auto_elements(
     measure: Optional[Measure] = None,
 ) -> List[Element]:
     """The automatic layout of ``lines`` on a label of this size as elements: the QR code on the
-    left, the lines stacked at the right. With ``asset`` (a sample card) the elements are what the
-    automatic layout really drew for it, sizes after shrinking included, so the manual label starts
-    out the same; a line the card has nothing for, or that did not fit, is put below the others
-    at the usual size. Without a card the nominal sizes are used. A starting point to move around.
-    """
+    left (if it fits), the lines stacked at the right. With ``asset`` (a sample card) the elements
+    are what the automatic layout really drew for it, sizes after shrinking included, so the manual
+    label starts out the same; a line the card has nothing for, or that did not fit, is left out,
+    as the automatic label left it out. Without a card the nominal sizes are used and only the
+    lines that fit the height are kept. A starting point to move around."""
     m, h, w = setup.margin_mm, setup.height_mm, setup.width_mm
     elements: List[Element] = []
-    text_left, text_width = m, w - 2 * m
-    side = 0.0
-    if setup.qr:
-        side = min(h - 2 * m, w * 0.42)
-        elements.append(Element("qr", x=m, y=(h - side) / 2, size=round(side, 2)))
-        text_left = m + side + m
-        text_width = w - m - text_left
     id_size = min(h * 0.3, 7.0)
     other = max(MIN_FONT_MM, min(h * 0.17, 3.2))
-    drawn: List[Text] = []
-    dropped: List[str] = []
-    if asset is not None:
-        spec = LabelSpec(
-            "design", w, h, "single", qr=setup.qr, margin_mm=m, lines=tuple(lines)
-        )  # fmt: skip
-        picture = build_drawing(spec, asset, "", measure)
-        drawn = [i for i in picture.items if isinstance(i, Text)]
-        dropped = list(picture.dropped)
-    queue = list(drawn)
-    y = m
+    if asset is None:
+        text_left, text_width = m, w - 2 * m
+        # the QR code follows the same rule as the automatic label, with the code of a typical card
+        side = (
+            qr_side(Asset("CBL-0001", "cable", "-"), w, h, m, setup.qr_auto) if setup.qr else None
+        )
+        if side is not None:
+            elements.append(Element("qr", x=m, y=(h - side) / 2, size=round(side, 2)))
+            text_left, text_width = m + side + m, w - m - (m + side + m)
+        y = m
+        for line in lines:
+            is_id = line.strip() == "{id}"
+            size = id_size if is_id else other
+            if y + size > h - m + 1e-9 and elements:
+                continue  # no room: the automatic layout would not print it either
+            elements.append(
+                Element("text", line, round(text_left, 2), round(y, 2),
+                        round(max(text_width, 1), 2), round(size, 2), is_id)
+            )  # fmt: skip
+            y += size * 1.2
+        return elements
+    spec = LabelSpec(
+        "design", w, h, "single", qr=setup.qr, margin_mm=m, lines=tuple(lines),
+        qr_auto=setup.qr_auto,
+    )  # fmt: skip
+    picture = build_drawing(spec, asset, "", measure)
+    text_left = m
+    for item in picture.items:
+        if isinstance(item, QR):
+            quiet = item.module * QUIET_MODULES
+            side = item.size + 2 * quiet
+            elements.append(
+                Element("qr", x=round(item.x - quiet, 2), y=round(item.y - quiet, 2),
+                        size=round(side, 2))
+            )  # fmt: skip
+            text_left = item.x - quiet + side + m
+    text_width = max(w - m - text_left, 1.0)
+    queue = [i for i in picture.items if isinstance(i, Text)]
     for line in lines:
         is_id = line.strip() == "{id}"
         key = "id" if is_id else line
-        if asset is not None and fill_line(line, asset, "") and key not in dropped and queue:
-            item = queue.pop(0)
-            size, top = item.size, item.y - item.size
-        else:
-            size, top = (id_size if is_id else other), y
+        if not fill_line(line, asset, "") or key in picture.dropped or not queue:
+            continue
+        item = queue.pop(0)
         elements.append(
-            Element("text", line, round(text_left, 2), round(top, 2), round(max(text_width, 1), 2),
-                    round(size, 2), is_id)
+            Element("text", line, round(text_left, 2), round(item.y - item.size, 2),
+                    round(text_width, 2), round(item.size, 2), is_id)
         )  # fmt: skip
-        y = max(y, top + size * 1.2)
     return elements
 
 
@@ -479,7 +498,7 @@ def _cable_flag(
     d.warnings += face.warnings
     d.dropped += face.dropped
     d.notes += face.notes
-    return d
+    return add_layout_warnings(d, measure)
 
 
 def _manual(
@@ -550,8 +569,9 @@ def _manual(
             px, py = element.x + size, element.y + element.w - along
         else:
             turn, px, py = 0, element.x + along, element.y + size
-        d.items.append(Text(px, py, size, shown, element.bold, element.align, turn))
-    return d
+        anchor = {"left": "start", "middle": "middle"}.get(element.align, "end")
+        d.items.append(Text(px, py, size, shown, element.bold, anchor, turn))
+    return add_layout_warnings(d, measure)
 
 
 # ----- guidance ------------------------------------------------------------------------------

@@ -287,3 +287,47 @@ def test_the_label_window_shows_what_the_layout_decided(qtbot, store):
     window = LabelDialog([sample_asset("cable")], None, templates=store)
     qtbot.addWidget(window)
     assert "left out" in window.message.text()
+
+
+def test_with_the_real_font_no_label_has_overlapping_text(qapp):
+    """The same regression sweep with the real font of the system (what the preview and the PDF
+    use), not the estimate: the widths differ from font to font."""
+    from frontend.ui.label_paint import text_measure
+    from ola.label_design import (
+        LabelSetup,
+        build_kind_drawing,
+        default_design,
+        setup_problems,
+    )
+
+    sizes = [(50, 25), (62, 29), (30, 15), (20, 10), (56, 30), (100, 29), (12, 40)]
+    checked = 0
+    for kind in KINDS:
+        card = sample_asset(kind)
+        for width, height in sizes:
+            for layout in ("single", "cable_flag"):
+                for rotate in (0, 90):
+                    setup = LabelSetup(width_mm=width, height_mm=height, layout=layout,
+                                       cable_diameter_mm=4)  # fmt: skip
+                    if setup_problems(setup):
+                        continue
+                    design = default_design(kind)
+                    design.rotate = rotate
+                    drawing = build_kind_drawing(setup, design, card, "", text_measure)
+                    checked += 1
+                    bad = [w for w in drawing.warnings if "overlaps" in w or "outside" in w]
+                    assert not bad, (kind, width, height, layout, rotate, bad)
+    assert checked > 100
+
+
+def test_the_tool_warns_when_two_texts_overlap_or_leave_the_label(tool):
+    tool.manual_radio.setChecked(True)
+    assert "overlaps" not in tool.message.text() and "outside" not in tool.message.text()
+    tool.element_list.setCurrentRow(2)  # the name
+    tool.x_box.setValue(tool.draft().elements[1].x)  # over the code
+    tool.y_box.setValue(tool.draft().elements[1].y + 1)
+    assert "overlaps" in tool.message.text()
+    tool.x_box.setValue(48)  # off the right edge
+    assert "outside the label" in tool.message.text()
+    tool.rotation_box.setCurrentIndex(tool.rotation_box.findData(90))
+    assert tool.message.text()  # still checked when the text is on its side
