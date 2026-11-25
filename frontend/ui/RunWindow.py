@@ -22,11 +22,12 @@ Strings: ``frontend/lang/modules/run/<lang>.json``. Try it: ``python -m frontend
 """
 
 import html
+import re
 import sys
 import time
 from typing import Any, Dict, Optional
 
-from PyQt6.QtCore import QByteArray, Qt, QTimer
+from PyQt6.QtCore import QByteArray, QSize, Qt, QTimer
 from PyQt6.QtGui import QFontDatabase, QImage, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
@@ -53,6 +54,7 @@ from PyQt6.QtWidgets import (
 )
 
 from frontend.ui.efficiency_widgets import text_color
+from frontend.ui.layout_utils import clamp_to_screen
 from frontend.ui.module_translator import CatalogTranslator
 from frontend.ui.plot_widget import LinePlot
 from frontend.ui.trace_plot import SmithChart, TracePlot
@@ -66,8 +68,10 @@ from ola.run_view import (
     QUESTION_ZERO,
     VIEW_SMITH,
     RunModel,
+    axis_key,
     format_si,
     question_kind,
+    smith_compatible,
     trace_views,
     trace_xy,
 )
@@ -89,6 +93,52 @@ def number(value: Any, column: str = "") -> str:
         return format_si(float(value), "Hz")
     return f"{value:.6g}"
 
+
+
+UNITS = {
+    "hz": "Hz", "db": "dB", "dbm": "dBm", "ns": "ns", "m": "m", "v": "V", "a": "A", "w": "W",
+    "ohm": "\u03a9", "pct": "%", "deg": "\u00b0", "mv": "mV", "ms": "ms", "s": "s", "rad": "rad",
+    "mohm": "m\u03a9", "khz": "kHz", "mhz": "MHz", "ghz": "GHz",
+}  # fmt: skip
+
+
+ACRONYMS = {"vswr": "VSWR", "vout": "Vout", "pout": "Pout"}  # same in every language
+
+
+def column_title(name: str, t) -> str:
+    """The title of a results column. ``t`` is the translation function of the run catalog.
+
+    A column with its own text (``run_col_<name>``) uses it; any other is built from its words
+    (``run_word_<word>``) and its unit: ``max_loss_at_hz`` is "Max loss at (Hz)". A word without
+    a translation is shown as it is, capitalised."""
+    key = f"run_col_{name}"
+    text = t(key)
+    if text != key:
+        return text
+    words = name.split("_")
+    unit = ""
+    if len(words) >= 3 and words[-2] == "per" and words[-1] in UNITS and words[-3] in UNITS:
+        unit = f"{UNITS[words[-3]]}/{UNITS[words[-1]]}"
+        words = words[:-3]
+    elif len(words) > 1 and words[-1] in UNITS:
+        unit = UNITS[words[-1]]
+        words = words[:-1]
+    parts = []
+    for word in words:
+        wkey = f"run_word_{word}"
+        translated = t(wkey)
+        if translated == wkey:
+            frequency = re.fullmatch(r"(\d+)([kmg]?hz)", word)
+            if frequency:  # a frequency in the name (loss_433mhz_db): "433 MHz"
+                translated = f"{frequency.group(1)} {UNITS.get(frequency.group(2), word)}"
+            elif word in ACRONYMS or any(c.isdigit() for c in word):
+                translated = ACRONYMS.get(word, word.upper())
+            else:
+                translated = word
+        parts.append(translated)
+    title = " ".join(parts)
+    title = title[:1].upper() + title[1:]
+    return f"{title} ({unit})" if unit else title
 
 
 def failure_text(error) -> str:
@@ -588,7 +638,9 @@ class RunWindow(QWidget):
         if m.columns != self._table_columns:  # a new column appeared: draw the header again
             self._table_columns = list(m.columns)
             self.table.setColumnCount(len(m.columns) + 1)
-            self.table.setHorizontalHeaderLabels(["#", *m.columns])
+            self.table.setHorizontalHeaderLabels(
+                ["#", *(column_title(c, self._t) for c in m.columns)]
+            )
             self.table.horizontalHeader().setSectionResizeMode(
                 QHeaderView.ResizeMode.ResizeToContents
             )
@@ -609,6 +661,27 @@ class RunWindow(QWidget):
         self._rows_shown = len(m.points)
         if at_end:
             self.table.scrollToBottom()
+        QTimer.singleShot(0, self._widen_for_table)  # after the table has laid out its columns
+
+    def _widen_for_table(self) -> None:
+        """Make the window as wide as the results table needs (never wider than the screen), so
+        that the columns are not cut and there is no sideways scrolling when the screen allows.
+        The width comes from the columns, not from the scroll bar: the table may be hidden behind
+        another tab, and a hidden table has no up-to-date scroll bar."""
+        header = self.table.horizontalHeader()
+        needed = (
+            sum(header.sectionSize(c) for c in range(self.table.columnCount()))
+            + self.table.verticalHeader().width()
+            + 2 * self.table.frameWidth()
+            + 4  # slack for rounding
+        )
+        room = self.tabs.width() - 16  # the frame and margins of the tab page
+        if needed <= room:
+            return
+        size = clamp_to_screen(self, QSize(self.width() + needed - room, self.height()))
+        if size.width() > self.width():
+            self.resize(size)
+            QTimer.singleShot(0, self._widen_for_table)  # the tabs have their new width then
 
     def _update_log(self) -> None:
         colors = {"error": "error", "warning": "warning"}
@@ -718,12 +791,16 @@ class RunWindow(QWidget):
                 self.view_box.addItem(self._t(f"run_view_{view}"), view)
             position = self.view_box.findData(keep)
             self.view_box.setCurrentIndex(max(position, 0))
+        self._gate_smith(shown)
         if self._pending_view:  # the first time: the view the measurement wants
             position = self.view_box.findData(self._pending_view)
             if position >= 0:
                 self.view_box.setCurrentIndex(position)
             self._pending_view = None
         view = self.view_box.currentData() or views[0]
+        if view == VIEW_SMITH and not smith_compatible(shown):
+            self.view_box.setCurrentIndex(0)  # data the chart cannot show: back to a plain view
+            view = self.view_box.currentData() or views[0]
         has_export = bool(self.run_file) and bool(self.model.traces)
         self.csv_btn.setEnabled(has_export and self.trace_list.currentRow() >= 0)
         self.touchstone_btn.setEnabled(has_export and self._touchstone_names() != {})
@@ -735,16 +812,24 @@ class RunWindow(QWidget):
             return
         self.trace_stack.setCurrentWidget(self.trace_plot)
         curves, limits, meta = [], [], {}
+        curve_axes, limit_axes, axis_labels = [], [], {}
         for t in shown:
             x, y = trace_xy(t, view if t["kind"] == "complex" else "value")
             curves.append((t["name"], x, y))
             meta = meta or t.get("meta", {})
+            key = axis_key(t, view)  # curves of the same kind share a y scale
+            curve_axes.append(key)
+            if t["kind"] == "complex":
+                axis_labels.setdefault(key, self._t(f"run_view_{view}"))
+            else:
+                axis_labels.setdefault(key, t.get("meta", {}).get("ylabel") or t["name"])
             wanted = t.get("meta", {}).get("limits") or {}
             if wanted.get("view") == view:
                 for edge in ("min", "max"):
                     if wanted.get(edge):
                         xs, ys = zip(*wanted[edge])
                         limits.append((self._t("run_traces_limit"), list(xs), list(ys)))
+                        limit_axes.append(key)
         ylabel = meta.get("ylabel") if view == "value" else self._t(f"run_view_{view}")
         self.trace_plot.set_curves(
             curves,
@@ -753,7 +838,21 @@ class RunWindow(QWidget):
             limits,
             log_x=self.log_x_box.isChecked(),
             x_unit=meta.get("x_unit", ""),
+            curve_axes=curve_axes,
+            limit_axes=limit_axes,
+            axis_labels=axis_labels,
         )
+
+    def _gate_smith(self, shown: list) -> None:
+        """The Smith chart can be chosen only if every shown trace is complex: otherwise its entry
+        is greyed out, with the reason as a tip."""
+        index = self.view_box.findData(VIEW_SMITH)
+        if index < 0:
+            return
+        item = self.view_box.model().item(index)
+        ok = smith_compatible(shown)
+        item.setEnabled(ok)
+        item.setToolTip("" if ok else self._t("run_view_smith_unavailable"))
 
     def _touchstone_names(self) -> dict:
         """The S-parameter traces of the run (complex traces called S11, S21, S12, S22)."""

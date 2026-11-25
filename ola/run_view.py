@@ -288,6 +288,25 @@ def trace_views(kind: str) -> List[str]:
     return [VIEW_VALUE] if kind != "complex" else list(COMPLEX_VIEWS)
 
 
+def smith_compatible(traces: Sequence[Mapping[str, Any]]) -> bool:
+    """True if the Smith chart can show these traces: there is at least one and all are complex
+    (reflection coefficients). A real trace (a loss in dB, a delay) has no place on it."""
+    return bool(traces) and all(t.get("kind", "real") == "complex" for t in traces)
+
+
+def axis_key(trace: Mapping[str, Any], view: str) -> str:
+    """Which y scale a trace belongs to, so that curves of the same kind share an axis and the
+    others get their own. A complex trace is shown in ``view``, so its scale is the view; a real
+    one takes the unit written in its ``ylabel`` (``"Loss (dB/m)"`` gives ``dB/m``), or the label
+    itself, or its name."""
+    if trace.get("kind", "real") == "complex":
+        return f"view:{view}"
+    label = str((trace.get("meta") or {}).get("ylabel") or "")
+    if label.endswith(")") and "(" in label:
+        return label[label.rindex("(") + 1 : -1].strip() or label
+    return label or str(trace.get("name", ""))
+
+
 def trace_xy(trace: Mapping[str, Any], view: str) -> Tuple[List[float], List[float]]:
     """The ``(x, y)`` numbers of a trace in a view. For ``smith`` they are the real and imaginary
     parts of every point (x is the real part, y the imaginary part)."""
