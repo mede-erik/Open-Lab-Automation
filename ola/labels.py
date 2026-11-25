@@ -38,6 +38,8 @@ QUIET_MODULES = (
 )
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
 MIN_TEXT_MM = 10.0  # the text beside a QR code needs at least this width, or the QR code goes
+MIN_TEXT_HEIGHT_MM = 7.0  # the text under a QR code needs at least this height, or the QR code goes
+PORTRAIT_RATIO = 1.25  # a box taller than this times its width puts the QR code above the text
 # the lines of a label: the first is always kept, the last goes first when there is no room
 FIELDS = ("id", "name", "version", "description", "specs", "connectors", "length", "date",
           "last_measurement", "owner", "serial", "notes")  # fmt: skip
@@ -596,21 +598,23 @@ def _panel(
     """The content of one label (or one side of a flag) in the box from ``x0`` of ``width`` mm."""
     m, h = spec.margin_mm, spec.height_mm
     left = x0 + m
-    text_left, text_width_ = left, width - 2 * m
+    text_left, text_width_, top = left, width - 2 * m, m
     if qr:
-        side = qr_side(asset, width, h, m, spec.qr_auto)
-        if side is None:
+        plan = qr_plan(asset, width, h, m, spec.qr_auto)
+        if plan is None:
             note = "the QR code was left out: it does not fit this label"
             if note not in d.notes:
                 d.notes.append(note)
+        elif plan[0] == "above":
+            text_left, text_width_, top = _place_qr_above(d, asset, x0, width, m, plan[1])
         else:
-            text_left, text_width_ = _place_qr(d, asset, x0, width, h, m, side)
+            text_left, text_width_ = _place_qr(d, asset, x0, width, h, m, plan[1])
     lines = _lines(spec, asset, last)
     if not lines:
         return
     id_size = min(h * 0.3, 7.0)
     size_other = max(MIN_FONT_MM, min(h * 0.17, 3.2))
-    available = h - 2 * m
+    available = h - top - m
     placed: List[Tuple[str, str, float, bool]] = []  # key, text, size, bold
     for key, text in lines:
         if key == "id":
@@ -625,7 +629,7 @@ def _panel(
     while sum(p[2] * 1.2 for p in placed) > available and len(placed) > 1:
         gone = placed.pop()  # the last one in FIELDS order
         d.dropped.append(gone[0])
-    y = m
+    y = top
     for key, text, size, bold in placed:
         y += size
         d.items.append(Text(text_left, y, size, text, bold))
@@ -652,6 +656,52 @@ def qr_side(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optio
     if side > h - 2 * m + 1e-9 or width - 3 * m - side < MIN_TEXT_MM:
         return None
     return side
+
+
+def qr_side_above(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optional[float]:
+    """The side of the square for a QR code **above** the text, in a ``width`` x ``h`` mm box: as
+    wide as the box allows, no more than 45 % of its height. With ``auto``: a bigger one if the
+    modules would be too small and the text keeps ``MIN_TEXT_HEIGHT_MM`` under it; ``None`` if it
+    cannot fit."""
+    side = min(width - 2 * m, h * 0.45)
+    if not auto:
+        return side
+    needed = qr_min_side(asset)
+    side = max(side, needed)
+    if side > width - 2 * m + 1e-9 or h - 3 * m - side < MIN_TEXT_HEIGHT_MM:
+        return None
+    return side
+
+
+def qr_plan(
+    asset: Asset, width: float, h: float, m: float, auto: bool
+) -> Optional[Tuple[str, float]]:
+    """Where the QR code goes in a box ``width`` x ``h`` mm: ``("beside", side)`` (a wide box: the
+    code at the left, the text at its right), ``("above", side)`` (a tall box, taller than
+    ``PORTRAIT_RATIO`` times its width: the code on top, the text under it) or ``None`` (with
+    ``auto``, it fits neither way: the QR code is left out). With ``auto`` the other way is tried if
+    the first does not fit."""
+    ways = ["above", "beside"] if h > PORTRAIT_RATIO * width else ["beside", "above"]
+    for way in ways if auto else ways[:1]:
+        side = (qr_side_above if way == "above" else qr_side)(asset, width, h, m, auto)
+        if side is not None:
+            return way, side
+    return None
+
+
+def _place_qr_above(d: Drawing, asset: Asset, x0: float, width: float, m: float, side: float):
+    """Put the QR code, ``side`` mm square, at the top, in the middle of the box; returns the left
+    and the width of the text under it and where that text starts."""
+    matrix = qr_matrix(qr_text(asset.id))
+    module = side / (len(matrix) + 2 * QUIET_MODULES)
+    quiet = module * QUIET_MODULES
+    d.items.append(QR(x0 + (width - side) / 2 + quiet, m + quiet, module, matrix))
+    if module < MIN_MODULE_MM:
+        d.warnings.append(
+            f"the QR code is too small ({module:.2f} mm per module, at least {MIN_MODULE_MM} mm): "
+            "use a bigger label or leave the QR code out"
+        )
+    return x0 + m, width - 2 * m, m + side + m
 
 
 def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: float, side: float):

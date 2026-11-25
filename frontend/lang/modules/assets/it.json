@@ -201,7 +201,7 @@
   "ldg_rot_180": "180° (capovolto)",
   "ldg_rot_270": "270° (si legge dal basso in alto)",
   "ldg_adv_qr_fits": "Il QR ci sta ({side} mm).",
-  "ldg_adv_qr_left_out": "Il QR non ci sta e viene tolto (lo spazio per il disegno è largo {face} mm). Per averlo servono almeno {min_width} mm di larghezza e {min_height} mm di altezza; il codice resta sulla scheda, qui si stampa solo il testo.",
+  "ldg_adv_qr_left_out": "Il QR non ci sta e viene tolto (lo spazio per il disegno è largo {face} mm). Per averlo il disegno deve essere almeno {min_width} x {min_height} mm con il codice accanto al testo, oppure {min_width_above} x {min_height_above} mm con il codice sopra; il codice resta sulla scheda, qui si stampa solo il testo.",
   "ldg_adv_lines_dropped": "Non c'è spazio per: {names}. Vengono tolte, dall'ultima; un'etichetta più grande o un elenco più corto le fa entrare.",
   "ldg_adv_only_code": "Su questa etichetta ci sta solo il codice.",
   "ldg_adv_text_small": "Il testo più piccolo è alto {size} mm (circa {pt} pt): difficile da leggere. Usa un'etichetta più grande o meno righe.",
@@ -209,5 +209,10 @@
   "lbl_dpi": "Risoluzione delle immagini",
   "lbl_dpi_help": "La risoluzione della tua stampante: 203 dpi per la maggior parte delle termiche, 300 dpi per una Brother QL, 600 per lavori fini. Il PNG conserva la dimensione reale in millimetri.",
   "lbl_save_each": "Salva ogni etichetta come file...",
-  "lbl_save_each_help": "Un file per etichetta, con il suo codice come nome, in una cartella: per i programmi che prendono un'immagine per etichetta (Inkscape, brother_ql, ptouch-print)."
+  "lbl_save_each_help": "Un file per etichetta, con il suo codice come nome, in una cartella: per i programmi che prendono un'immagine per etichetta (Inkscape, brother_ql, ptouch-print).",
+  "ldg_stock": "Etichette in commercio",
+  "ldg_stock_custom": "(dimensione tua)",
+  "ldg_stock_help": "Dimensioni di etichette in commercio, con la risoluzione delle stampanti che le usano. La larghezza è il lato attraverso il nastro, l'altezza quello lungo il nastro. Si può scrivere qualsiasi dimensione.",
+  "lbl_turn": "Ruota l'uscita per la stampante",
+  "lbl_turn_help": "Per una striscia disegnata lungo la sua lunghezza (una bandierina per cavo) su un'etichetta che la stampante alimenta nell'altro verso: anteprima, PDF, immagini e SVG vengono ruotati, così un disegno da 80 x 50 mm esce come 50 x 80 mm."
 }

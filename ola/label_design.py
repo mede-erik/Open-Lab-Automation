@@ -49,6 +49,7 @@ from .labels import (
     Drawing,
     LabelSpec,
     Line,
+    MIN_TEXT_HEIGHT_MM,
     MIN_TEXT_MM,
     Measure,
     Text,
@@ -58,7 +59,7 @@ from .labels import (
     add_layout_warnings,
     qr_matrix,
     qr_min_side,
-    qr_side,
+    qr_plan,
     rotate_drawing,
     unknown_placeholders,
 )
@@ -91,6 +92,21 @@ DEFAULT_LINES: Dict[str, Tuple[str, ...]] = {
 }
 
 
+# Rolls and sheets of labels people buy, to start from: (width, height, the dpi of the printers that
+# use them). The width is the side across the tape (X), the height the side along it (Y). The
+# labels of a printer can be bigger or smaller than these: any size can be typed.
+STOCKS: Dict[str, Tuple[float, float, int]] = {
+    "50 x 80 mm (CLabel, 203 dpi)": (50.0, 80.0, 203),
+    "50 x 40 mm (CLabel, 203 dpi)": (50.0, 40.0, 203),
+    "50 x 25 mm": (50.0, 25.0, 300),
+    "40 x 30 mm": (40.0, 30.0, 203),
+    "62 x 29 mm (Brother QL)": (62.0, 29.0, 300),
+    "62 x 100 mm (Brother QL)": (62.0, 100.0, 300),
+    "29 x 90 mm (Brother QL)": (29.0, 90.0, 300),
+}
+DPI_RANGE = (72, 1200)
+
+
 class DesignError(ValueError):
     """A design or a setup is not valid; the message says what."""
 
@@ -111,6 +127,7 @@ class LabelSetup:
     qr_auto: bool = (
         True  # leave the QR code out when it would not fit, instead of printing it small
     )
+    dpi: int = 300  # the resolution of the printer: the images are written at it
 
     def to_dict(self) -> Dict[str, Any]:
         """As written in the file."""
@@ -118,7 +135,7 @@ class LabelSetup:
             "width_mm": self.width_mm, "height_mm": self.height_mm, "layout": self.layout,
             "margin_mm": self.margin_mm, "qr": self.qr, "border": self.border,
             "cable_diameter_mm": self.cable_diameter_mm, "overlap_mm": self.overlap_mm,
-            "wrap_side": self.wrap_side, "qr_auto": self.qr_auto,
+            "wrap_side": self.wrap_side, "qr_auto": self.qr_auto, "dpi": self.dpi,
         }  # fmt: skip
 
     @staticmethod
@@ -131,6 +148,7 @@ class LabelSetup:
                 bool(raw.get("qr", True)), bool(raw.get("border", False)),
                 float(raw.get("cable_diameter_mm", 4.0)), float(raw.get("overlap_mm", 3.0)),
                 str(raw.get("wrap_side", "left")), bool(raw.get("qr_auto", True)),
+                int(raw.get("dpi", 300)),
             )  # fmt: skip
         except (AttributeError, TypeError, ValueError) as exc:
             raise DesignError(f"the label size is not valid: {exc}") from exc
@@ -296,6 +314,10 @@ def setup_problems(setup: LabelSetup) -> List[str]:
             found.append(f"the {label} must be between {low:g} and {high:g} mm")
     if setup.layout not in LAYOUTS:
         found.append(f"the layout must be one of: {', '.join(LAYOUTS)}")
+    if not DPI_RANGE[0] <= setup.dpi <= DPI_RANGE[1]:
+        found.append(
+            f"the printer resolution must be between {DPI_RANGE[0]} and {DPI_RANGE[1]} dpi"
+        )
     if setup.layout == "cable_flag":
         for label, value, (low, high) in (
             ("cable diameter", setup.cable_diameter_mm, CABLE_RANGE),
@@ -391,15 +413,19 @@ def auto_elements(
     id_size = min(h * 0.3, 7.0)
     other = max(MIN_FONT_MM, min(h * 0.17, 3.2))
     if asset is None:
-        text_left, text_width = m, w - 2 * m
+        text_left, text_width, y = m, w - 2 * m, m
         # the QR code follows the same rule as the automatic label, with the code of a typical card
-        side = (
-            qr_side(Asset("CBL-0001", "cable", "-"), w, h, m, setup.qr_auto) if setup.qr else None
+        plan = (
+            qr_plan(Asset("CBL-0001", "cable", "-"), w, h, m, setup.qr_auto) if setup.qr else None
         )
-        if side is not None:
+        if plan is not None and plan[0] == "above":
+            side = plan[1]
+            elements.append(Element("qr", x=round((w - side) / 2, 2), y=m, size=round(side, 2)))
+            y = m + side + m
+        elif plan is not None:
+            side = plan[1]
             elements.append(Element("qr", x=m, y=(h - side) / 2, size=round(side, 2)))
             text_left, text_width = m + side + m, w - m - (m + side + m)
-        y = m
         for line in lines:
             is_id = line.strip() == "{id}"
             size = id_size if is_id else other
@@ -416,18 +442,16 @@ def auto_elements(
         qr_auto=setup.qr_auto,
     )  # fmt: skip
     picture = build_drawing(spec, asset, "", measure)
-    text_left = m
     for item in picture.items:
         if isinstance(item, QR):
             quiet = item.module * QUIET_MODULES
-            side = item.size + 2 * quiet
             elements.append(
                 Element("qr", x=round(item.x - quiet, 2), y=round(item.y - quiet, 2),
-                        size=round(side, 2))
+                        size=round(item.size + 2 * quiet, 2))
             )  # fmt: skip
-            text_left = item.x - quiet + side + m
-    text_width = max(w - m - text_left, 1.0)
     queue = [i for i in picture.items if isinstance(i, Text)]
+    text_left = queue[0].x if queue else m  # all the lines start at the same place
+    text_width = max(w - m - text_left, 1.0)
     for line in lines:
         is_id = line.strip() == "{id}"
         key = "id" if is_id else line
@@ -608,15 +632,19 @@ def advise(
         else:
             need = qr_min_side(asset)
             m = setup.margin_mm
-            face_width = 3 * m + need + MIN_TEXT_MM
+            # the smallest design that has it: the code beside the text, or above it
+            beside = (3 * m + need + MIN_TEXT_MM, 2 * m + need)
+            above = (2 * m + need, 3 * m + need + MIN_TEXT_HEIGHT_MM)
             params: Dict[str, Any] = {
                 "face": round(face.width_mm, 1),
-                "min_width": round(face_width, 1),
-                "min_height": round(2 * m + need, 1),
+                "min_width": round(beside[0], 1),
+                "min_height": round(beside[1], 1),
+                "min_width_above": round(above[0], 1),
+                "min_height_above": round(above[1], 1),
             }
             if setup.layout == "cable_flag":
                 params["min_strip"] = round(
-                    cable_flag_geometry(setup).wrap_mm + 2 * face_width + FLAG_GAP_MM, 1
+                    cable_flag_geometry(setup).wrap_mm + 2 * beside[0] + FLAG_GAP_MM, 1
                 )
             found.append(Advice("qr_left_out", params))
     if not design.manual and drawing.dropped:
@@ -665,7 +693,7 @@ def sample_asset(kind: str) -> Asset:
 
 
 __all__ = [
-    "ALIGNS", "Advice", "CableFlag", "DEFAULT_LINES", "DesignError", "Element", "KINDS",
+    "ALIGNS", "Advice", "CableFlag", "DEFAULT_LINES", "STOCKS", "DesignError", "Element", "KINDS",
     "KindDesign", "LabelSetup", "ROTATIONS", "WRAP_SIDES", "advise", "auto_elements",
     "build_kind_drawing", "cable_flag_geometry", "cable_flag_min_width", "default_design",
     "design_problems", "design_setup", "sample_asset", "setup_problems",

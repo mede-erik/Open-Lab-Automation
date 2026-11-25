@@ -201,7 +201,7 @@
   "ldg_rot_180": "180° (à l'envers)",
   "ldg_rot_270": "270° (se lit de bas en haut)",
   "ldg_adv_qr_fits": "Le QR code tient ({side} mm).",
-  "ldg_adv_qr_left_out": "Le QR code ne tient pas et est omis (l'espace du dessin fait {face} mm de large). Pour l'avoir il faut au moins {min_width} mm de large et {min_height} mm de haut ; le code reste sur la fiche, seul le texte est imprimé.",
+  "ldg_adv_qr_left_out": "Le QR code ne tient pas et est omis (l'espace du dessin fait {face} mm de large). Pour l'avoir le dessin doit faire au moins {min_width} x {min_height} mm avec le code à côté du texte, ou {min_width_above} x {min_height_above} mm avec le code au-dessus ; le code reste sur la fiche, seul le texte est imprimé.",
   "ldg_adv_lines_dropped": "Pas de place pour : {names}. Elles sont omises, à partir de la dernière ; une étiquette plus grande ou une liste plus courte leur donne de la place.",
   "ldg_adv_only_code": "Seul le code tient sur cette étiquette.",
   "ldg_adv_text_small": "Le plus petit texte fait {size} mm de haut (environ {pt} pt) : difficile à lire. Utilisez une étiquette plus grande ou moins de lignes.",
@@ -209,5 +209,10 @@
   "lbl_dpi": "Résolution des images",
   "lbl_dpi_help": "La résolution de votre imprimante : 203 dpi pour la plupart des thermiques, 300 dpi pour une Brother QL, 600 pour un travail fin. Le PNG garde sa taille réelle en millimètres.",
   "lbl_save_each": "Enregistrer chaque étiquette en fichier...",
-  "lbl_save_each_help": "Un fichier par étiquette, nommé d'après son code, dans un dossier : pour les programmes qui prennent une image par étiquette (Inkscape, brother_ql, ptouch-print)."
+  "lbl_save_each_help": "Un fichier par étiquette, nommé d'après son code, dans un dossier : pour les programmes qui prennent une image par étiquette (Inkscape, brother_ql, ptouch-print).",
+  "ldg_stock": "Étiquettes du commerce",
+  "ldg_stock_custom": "(taille personnalisée)",
+  "ldg_stock_help": "Tailles d'étiquettes du commerce, avec la résolution des imprimantes qui les utilisent. La largeur est le côté en travers du ruban, la hauteur le côté le long. Toute taille peut être saisie.",
+  "lbl_turn": "Tourner la sortie pour l'imprimante",
+  "lbl_turn_help": "Pour une bande dessinée dans sa longueur (un drapeau pour câble) sur une étiquette que l'imprimante alimente dans l'autre sens : l'aperçu, le PDF, les images et le SVG sont tournés, un dessin de 80 x 50 mm sort donc en 50 x 80 mm."
 }

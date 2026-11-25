@@ -437,7 +437,7 @@ def test_an_automatic_design_can_be_written_along_a_tall_label():
 
 # ---- small labels and guidance --------------------------------------------------------------
 def test_the_qr_code_is_left_out_when_it_does_not_fit_and_the_note_says_so():
-    narrow = cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=4)  # a face of about 20 mm
+    narrow = cable_setup(width_mm=60, height_mm=12, cable_diameter_mm=4)  # a face of 22 x 12 mm
     drawing = build_kind_drawing(narrow, default_design("cable"), sample_asset("cable"))
     assert not any(isinstance(i, QR) for i in drawing.items)
     assert shown(drawing).count("CAB-0042") == 2 and any("left out" in n for n in drawing.notes)
@@ -447,18 +447,19 @@ def test_the_qr_code_is_left_out_when_it_does_not_fit_and_the_note_says_so():
     assert any(isinstance(i, QR) for i in wide.items) and not wide.notes
     # a thinner cable leaves more room: the same strip gets the QR code
     thin = build_kind_drawing(
-        cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=0.5, overlap_mm=0),
+        cable_setup(width_mm=60, height_mm=12, cable_diameter_mm=0.5, overlap_mm=0),
         default_design("cable"),
         sample_asset("cable"),
     )
     assert any(isinstance(i, QR) for i in thin.items)
     # forced: printed anyway and flagged
     forced = build_kind_drawing(
-        cable_setup(width_mm=50, height_mm=30, qr_auto=False),
+        LabelSetup(width_mm=14, height_mm=14, qr_auto=False),
         default_design("cable"),
         sample_asset("cable"),
     )
-    assert any(isinstance(i, QR) for i in forced.items) and forced.warnings
+    assert any(isinstance(i, QR) for i in forced.items)
+    assert any("too small" in w for w in forced.warnings)
 
 
 def test_a_small_label_keeps_the_code_and_drops_the_rest():
@@ -479,11 +480,14 @@ def test_the_advice_says_what_fits_and_what_to_change():
         return [a.key for a in advise(s, d or default_design("cable"), card)]
 
     assert keys(LabelSetup()) == ["qr_fits"]
-    narrow = advise(cable_setup(width_mm=56, height_mm=30), default_design("cable"), card)
+    narrow = advise(cable_setup(width_mm=60, height_mm=12), default_design("cable"), card)
     left_out = next(a for a in narrow if a.key == "qr_left_out")
     assert (
-        left_out.params["min_strip"] > 56 and left_out.params["min_width"] > left_out.params["face"]
+        left_out.params["min_strip"] > 60 and left_out.params["min_width"] > left_out.params["face"]
     )
+    assert (
+        left_out.params["min_width_above"] < left_out.params["min_width"]
+    )  # above: narrower, taller
     tall = LabelSetup(width_mm=12, height_mm=40, qr=False)
     assert "try_rotate" in keys(tall)
     rotated = default_design("cable")
@@ -498,8 +502,10 @@ def test_the_advice_says_what_fits_and_what_to_change():
 
 # ---- no overlapping text, whatever the size, kind, layout or rotation ------------------------
 PROBLEMS = ("overlaps", "is outside", "is crossed")
-SIZES = [(50, 25), (40, 20), (62, 29), (70, 37), (30, 15), (20, 10), (25, 8), (56, 30),
-         (100, 29), (12, 40), (40, 12), (80, 20)]  # fmt: skip
+SIZES = [
+    (50, 25), (40, 20), (62, 29), (70, 37), (30, 15), (20, 10), (25, 8), (56, 30), (100, 29),
+    (12, 40), (40, 12), (80, 20), (50, 80), (80, 50), (50, 40), (40, 50),
+]  # fmt: skip
 
 
 def layout_warnings(drawing):
@@ -555,7 +561,7 @@ def test_converting_to_manual_never_puts_elements_over_each_other_or_outside():
 
 def test_the_manual_elements_follow_the_same_qr_rule_as_the_automatic_label():
     card = sample_asset("cable")
-    setup = cable_setup(width_mm=56, height_mm=30, cable_diameter_mm=4)
+    setup = cable_setup(width_mm=60, height_mm=12, cable_diameter_mm=4)
     elements = auto_elements(design_setup(setup), default_design("cable").lines, card)
     assert not any(e.type == "qr" for e in elements)  # it does not fit: no QR element either
     wide = auto_elements(
@@ -586,3 +592,33 @@ def test_a_manual_label_with_texts_over_each_other_says_so():
     drawing = build_kind_drawing(LabelSetup(qr=False), design, sample_asset("cable"))
     problems = layout_warnings(drawing)
     assert any("overlaps" in p for p in problems) and any("outside" in p for p in problems)
+
+
+# ---- the label stocks and the printer ---------------------------------------------------------
+def test_the_label_stocks_are_ready_to_use_and_the_printer_dpi_is_kept(tmp_path):
+    from ola.label_design import STOCKS
+
+    assert STOCKS["50 x 80 mm (CLabel, 203 dpi)"] == (50.0, 80.0, 203)
+    assert STOCKS["50 x 40 mm (CLabel, 203 dpi)"] == (50.0, 40.0, 203)
+    for name, (width, height, dpi) in STOCKS.items():
+        setup = LabelSetup(width_mm=width, height_mm=height, dpi=dpi)
+        assert setup_problems(setup) == [], name
+        for kind in KINDS:  # every kind lays out on every stock without a problem
+            drawing = build_kind_drawing(setup, default_design(kind), sample_asset(kind))
+            assert not layout_warnings(drawing), (name, kind, drawing.warnings)
+    store = TemplateStore(tmp_path / "t.json")
+    store.set_setup(LabelSetup(width_mm=50, height_mm=80, dpi=203))
+    assert TemplateStore(store.path).setup.dpi == 203
+    assert any("resolution" in p for p in setup_problems(LabelSetup(dpi=10)))
+
+
+def test_a_cable_flag_drawn_along_x_can_be_turned_for_a_printer_that_feeds_along_y():
+    from ola.labels import rotate_drawing
+
+    setup = LabelSetup(width_mm=80, height_mm=50, layout="cable_flag", cable_diameter_mm=4)
+    drawing = build_kind_drawing(setup, default_design("cable"), sample_asset("cable"))
+    turned = rotate_drawing(drawing, 90)
+    assert (turned.width, turned.height) == (50, 80)  # the label as the printer takes it
+    assert [t.text for t in texts(turned)] == [t.text for t in texts(drawing)]
+    assert all(t.rotation == 90 for t in texts(turned))
+    assert not layout_warnings(turned)

@@ -190,10 +190,21 @@ class LabelDialog(QDialog):
         self.dpi_box = QComboBox()
         for dpi in DPI_CHOICES:
             self.dpi_box.addItem(f"{dpi} dpi", dpi)
-        self.dpi_box.setCurrentIndex(self.dpi_box.findData(300))
+        saved = self.templates.setup.dpi if self.templates is not None else 300
+        index = self.dpi_box.findData(saved)
+        self.dpi_box.setCurrentIndex(index if index >= 0 else self.dpi_box.findData(300))
         self.dpi_box.setToolTip(self._t("lbl_dpi_help"))
         dpi_row.addWidget(self.dpi_box)
         side.addLayout(dpi_row)
+        turn_row = QHBoxLayout()
+        turn_row.addWidget(QLabel(self._t("lbl_turn")), 1)
+        self.turn_box = QComboBox()
+        for degrees in (0, 90, 180, 270):
+            self.turn_box.addItem(f"{degrees}\u00b0", degrees)
+        self.turn_box.setToolTip(self._t("lbl_turn_help"))
+        self.turn_box.currentIndexChanged.connect(self._redraw)
+        turn_row.addWidget(self.turn_box)
+        side.addLayout(turn_row)
         each_row = QHBoxLayout()
         self.each_btn = QPushButton(self._t("lbl_save_each"))
         self.each_btn.setToolTip(self._t("lbl_save_each_help"))
@@ -352,6 +363,13 @@ class LabelDialog(QDialog):
                 )
         except RuntimeError as exc:  # the QR code needs segno
             self.pages, self.error = [], str(exc)
+        turn = int(self.turn_box.currentData() or 0)
+        self.turn_box.setEnabled(kind != SHEET)  # a sheet is printed as it is
+        if turn and kind != SHEET:
+            # the label as the printer takes it: a strip drawn along X but fed along Y is turned
+            from ola.labels import rotate_drawing
+
+            self.pages = [rotate_drawing(p, turn) for p in self.pages]
         keep = self.page_box.currentIndex()
         self.page_box.blockSignals(True)
         self.page_box.clear()

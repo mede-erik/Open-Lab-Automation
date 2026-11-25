@@ -201,7 +201,7 @@
   "ldg_rot_180": "180° (kopfüber)",
   "ldg_rot_270": "270° (von unten nach oben)",
   "ldg_adv_qr_fits": "Der QR-Code passt ({side} mm).",
-  "ldg_adv_qr_left_out": "Der QR-Code passt nicht und wird weggelassen (der Platz für das Design ist {face} mm breit). Dafür sind mindestens {min_width} mm Breite und {min_height} mm Höhe nötig; der Code bleibt auf der Karte, nur der Text wird gedruckt.",
+  "ldg_adv_qr_left_out": "Der QR-Code passt nicht und wird weggelassen (der Platz für das Design ist {face} mm breit). Dafür muss das Design mindestens {min_width} x {min_height} mm haben, mit dem Code neben dem Text, oder {min_width_above} x {min_height_above} mm mit dem Code darüber; der Code bleibt auf der Karte, nur der Text wird gedruckt.",
   "ldg_adv_lines_dropped": "Kein Platz für: {names}. Sie werden von der letzten an weggelassen; ein größeres Etikett oder eine kürzere Liste schafft Platz.",
   "ldg_adv_only_code": "Auf diesem Etikett passt nur der Code.",
   "ldg_adv_text_small": "Der kleinste Text ist {size} mm hoch (etwa {pt} pt): schwer lesbar. Größeres Etikett oder weniger Zeilen verwenden.",
@@ -209,5 +209,10 @@
   "lbl_dpi": "Bildauflösung",
   "lbl_dpi_help": "Die Auflösung Ihres Druckers: 203 dpi für die meisten Thermodrucker, 300 dpi für einen Brother QL, 600 für feine Arbeiten. Das PNG behält seine reale Größe in Millimetern.",
   "lbl_save_each": "Jedes Etikett als Datei speichern...",
-  "lbl_save_each_help": "Eine Datei pro Etikett, mit seinem Code als Namen, in einem Ordner: für Programme, die ein Bild pro Etikett erwarten (Inkscape, brother_ql, ptouch-print)."
+  "lbl_save_each_help": "Eine Datei pro Etikett, mit seinem Code als Namen, in einem Ordner: für Programme, die ein Bild pro Etikett erwarten (Inkscape, brother_ql, ptouch-print).",
+  "ldg_stock": "Etikettenrolle",
+  "ldg_stock_custom": "(eigene Größe)",
+  "ldg_stock_help": "Größen handelsüblicher Etiketten mit der Auflösung der Drucker, die sie verwenden. Die Breite ist die Seite quer zum Band, die Höhe die Seite entlang. Jede Größe kann eingegeben werden.",
+  "lbl_turn": "Ausgabe für den Drucker drehen",
+  "lbl_turn_help": "Für einen der Länge nach gezeichneten Streifen (eine Kabelfahne) auf einem Etikett, das der Drucker in die andere Richtung einzieht: Vorschau, PDF, Bilder und SVG werden gedreht, ein Entwurf von 80 x 50 mm kommt also als 50 x 80 mm heraus."
 }

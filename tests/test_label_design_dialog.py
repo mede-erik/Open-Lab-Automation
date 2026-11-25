@@ -241,8 +241,8 @@ def test_a_text_can_be_rotated_in_the_tool_and_the_whole_design_too(tool, store)
 
 def test_the_tool_guides_a_small_label(tool):
     assert "QR code fits" in tool.advice.text()
-    tool.width_box.setValue(56)
-    tool.height_box.setValue(30)
+    tool.width_box.setValue(60)
+    tool.height_box.setValue(12)
     tool.layout_box.setCurrentIndex(tool.layout_box.findData("cable_flag"))
     tool.diameter_box.setValue(4)
     text = tool.advice.text()
@@ -331,3 +331,36 @@ def test_the_tool_warns_when_two_texts_overlap_or_leave_the_label(tool):
     assert "outside the label" in tool.message.text()
     tool.rotation_box.setCurrentIndex(tool.rotation_box.findData(90))
     assert tool.message.text()  # still checked when the text is on its side
+
+
+def test_the_tool_picks_a_label_stock_and_keeps_the_printer_dpi(tool, store):
+    assert tool.stock_box.currentData() == "" or tool.stock_box.currentText()
+    index = tool.stock_box.findData("50 x 80 mm (CLabel, 203 dpi)")
+    tool.stock_box.setCurrentIndex(index)
+    tool._stock_chosen(index)
+    assert (tool.width_box.value(), tool.height_box.value()) == (50.0, 80.0)
+    assert tool.dpi_box.currentData() == 203
+    assert tool.preview.drawing.height == 80
+    tool.height_box.setValue(75)  # a size that is no stock: back to "your own"
+    assert tool.stock_box.currentData() == ""
+    tool.height_box.setValue(80)
+    assert tool.stock_box.currentData() == "50 x 80 mm (CLabel, 203 dpi)"
+    assert tool.save() is True
+    assert (store.setup.width_mm, store.setup.height_mm, store.setup.dpi) == (50.0, 80.0, 203)
+
+
+def test_the_label_window_uses_the_saved_dpi_and_can_turn_the_output(qtbot, store):
+    from ola.label_design import LabelSetup
+
+    store.set_setup(LabelSetup(width_mm=80, height_mm=50, layout="cable_flag", dpi=203))
+    window = LabelDialog([sample_asset("cable")], None, templates=store)
+    qtbot.addWidget(window)
+    assert window.dpi() == 203
+    page = window.current()
+    assert (page.width, page.height) == (80, 50)
+    window.turn_box.setCurrentIndex(window.turn_box.findData(90))
+    page = window.current()
+    assert (page.width, page.height) == (50, 80)  # what the printer takes
+    assert all(getattr(i, "rotation", 90) == 90 for i in page.items if hasattr(i, "text"))
+    window.format_box.setCurrentIndex(window.format_box.findData("sheet:A4 3x8 (70x37)"))
+    assert not window.turn_box.isEnabled()  # a sheet is printed as it is

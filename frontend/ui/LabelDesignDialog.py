@@ -59,6 +59,7 @@ from ola.label_design import (
     KindDesign,
     LabelSetup,
     ROTATIONS,
+    STOCKS,
     advise,
     auto_elements,
     cable_flag_geometry,
@@ -178,6 +179,15 @@ class LabelDesignDialog(QDialog):
         form = QFormLayout(size_group)
         self.width_box, self.height_box = _spin(10, 300), _spin(8, 200)
         self.margin_box = _spin(0, 10, 0.5)
+        self.stock_box = QComboBox()
+        self.stock_box.addItem(self._t("ldg_stock_custom"), "")
+        for name in STOCKS:
+            self.stock_box.addItem(name, name)
+        self.stock_box.setToolTip(self._t("ldg_stock_help"))
+        self.stock_box.activated.connect(self._stock_chosen)
+        self.dpi_box = QComboBox()
+        for dpi in (203, 300, 600):
+            self.dpi_box.addItem(f"{dpi} dpi", dpi)
         self.layout_box = QComboBox()
         self.layout_box.addItem(self._t("lbl_tpl_layout_single"), "single")
         self.layout_box.addItem(self._t("lbl_tpl_layout_flag"), "flag")
@@ -193,8 +203,10 @@ class LabelDesignDialog(QDialog):
         self.border_box = QCheckBox(self._t("lbl_border"))
         self.qr_auto_box = QCheckBox(self._t("ldg_qr_auto"))
         self.qr_auto_box.setToolTip(self._t("ldg_qr_auto_help"))
+        form.addRow(self._t("ldg_stock"), self.stock_box)
         form.addRow(self._t("lbl_tpl_width"), self.width_box)
         form.addRow(self._t("lbl_tpl_height"), self.height_box)
+        form.addRow(self._t("lbl_dpi"), self.dpi_box)
         form.addRow(self._t("lbl_tpl_layout"), self.layout_box)
         self.cable_rows = [
             (QLabel(self._t("ldg_cable_diameter")), self.diameter_box),
@@ -218,6 +230,7 @@ class LabelDesignDialog(QDialog):
         ):
             widget.valueChanged.connect(self._setup_changed)
         self.side_box.currentIndexChanged.connect(self._setup_changed)
+        self.dpi_box.currentIndexChanged.connect(self._setup_changed)
         self.layout_box.currentIndexChanged.connect(self._setup_changed)
         self.qr_box.toggled.connect(self._setup_changed)
         self.border_box.toggled.connect(self._setup_changed)
@@ -403,7 +416,7 @@ class LabelDesignDialog(QDialog):
             self.width_box.value(), self.height_box.value(), self.layout_box.currentData(),
             self.margin_box.value(), self.qr_box.isChecked(), self.border_box.isChecked(),
             self.diameter_box.value(), self.overlap_box.value(), self.side_box.currentData(),
-            self.qr_auto_box.isChecked(),
+            self.qr_auto_box.isChecked(), int(self.dpi_box.currentData() or 300),
         )  # fmt: skip
 
     def draft(self) -> KindDesign:
@@ -427,6 +440,8 @@ class LabelDesignDialog(QDialog):
         self.qr_box.setChecked(setup.qr)
         self.border_box.setChecked(setup.border)
         self.qr_auto_box.setChecked(setup.qr_auto)
+        self.dpi_box.setCurrentIndex(max(self.dpi_box.findData(setup.dpi), 0))
+        self._show_stock(setup)
         self.diameter_box.setValue(setup.cable_diameter_mm)
         self.overlap_box.setValue(setup.overlap_mm)
         self.side_box.setCurrentIndex(max(self.side_box.findData(setup.wrap_side), 0))
@@ -473,8 +488,31 @@ class LabelDesignDialog(QDialog):
     # ================================================================ events
     def _setup_changed(self, *_args: Any) -> None:
         if not self._loading:
+            self._show_stock(self.setup())
             self._update_state()
             self._redraw()
+
+    def _stock_chosen(self, index: int) -> None:
+        """A label stock was picked: its size and the dpi of its printers go in the form."""
+        name = self.stock_box.itemData(index)
+        if not name:
+            return
+        width, height, dpi = STOCKS[name]
+        self._loading = True
+        self.width_box.setValue(width)
+        self.height_box.setValue(height)
+        self.dpi_box.setCurrentIndex(max(self.dpi_box.findData(dpi), 0))
+        self._loading = False
+        self._update_state()
+        self._redraw()
+
+    def _show_stock(self, setup: LabelSetup) -> None:
+        """Select the stock that has the size of the form, or *custom*."""
+        match = next(
+            (n for n, (w, h, _d) in STOCKS.items() if (w, h) == (setup.width_mm, setup.height_mm)),
+            "",
+        )
+        self.stock_box.setCurrentIndex(max(self.stock_box.findData(match), 0))
 
     def _kind_changed(self, index: int) -> None:
         self.kind = self.kind_box.itemData(index)

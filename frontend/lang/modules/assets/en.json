@@ -201,7 +201,7 @@
   "ldg_rot_180": "180° (upside down)",
   "ldg_rot_270": "270° (reads bottom to top)",
   "ldg_adv_qr_fits": "The QR code fits ({side} mm).",
-  "ldg_adv_qr_left_out": "The QR code does not fit and is left out (the space for the design is {face} mm wide). To have it the design needs at least {min_width} mm in width and {min_height} mm in height; the code is always on the card, only the text is printed.",
+  "ldg_adv_qr_left_out": "The QR code does not fit and is left out (the space for the design is {face} mm wide). To have it the design needs at least {min_width} x {min_height} mm with the code beside the text, or {min_width_above} x {min_height_above} mm with the code above it; the code stays on the card, only the text is printed.",
   "ldg_adv_lines_dropped": "Not enough room for: {names}. They are left out, from the last one; a bigger label or a smaller list gives them room.",
   "ldg_adv_only_code": "Only the code fits on this label.",
   "ldg_adv_text_small": "The smallest text is {size} mm high (about {pt} pt): hard to read. Use a bigger label or fewer lines.",
@@ -209,5 +209,10 @@
   "lbl_dpi": "Image resolution",
   "lbl_dpi_help": "The resolution of your printer: 203 dpi for most thermal printers, 300 dpi for a Brother QL, 600 for fine work. The PNG keeps its real size in millimetres.",
   "lbl_save_each": "Save every label as a file...",
-  "lbl_save_each_help": "One file per label, named with its code, in a folder: for programs that take one image per label (Inkscape, brother_ql, ptouch-print)."
+  "lbl_save_each_help": "One file per label, named with its code, in a folder: for programs that take one image per label (Inkscape, brother_ql, ptouch-print).",
+  "ldg_stock": "Label stock",
+  "ldg_stock_custom": "(your own size)",
+  "ldg_stock_help": "Sizes of labels people buy, with the resolution of the printers that use them. Width is the side across the tape, height the side along it. Any size can be typed.",
+  "lbl_turn": "Turn the output for the printer",
+  "lbl_turn_help": "For a strip drawn along its length (a cable flag) on a label that the printer feeds the other way: the preview, the PDF, the images and the SVG are turned, so a design of 80 x 50 mm comes out as 50 x 80 mm."
 }

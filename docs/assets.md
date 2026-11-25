@@ -120,6 +120,19 @@ font of the system), and fails on the first overlap. In a manual design, where y
 texts are checked with their turned boxes. Texts are measured (the real font in the window, an estimate that errs on the long side
 elsewhere) with a tolerance of 0.15 mm.
 
+### Label stocks, the printer and the orientation
+
+* **Label stock** in *Label design...* fills the size from the labels people buy (50 x 80 and 50 x 40 mm for the CLabel at 203 dpi, 50 x 25,
+  40 x 30, the Brother QL rolls...); any other size can be typed. The **width** is the side **across the tape** (X) and the **height**
+  the side **along it** (Y): a label of 50 x 80 mm is 50 wide and 80 long.
+* **Printer resolution** (203, 300 or 600 dpi) is kept with the size: the label window writes its images at it.
+* **A tall label** (taller than 1.25 times its width) puts the **QR code on top, centred, and the text under it**, with the whole
+  width for the text; a wide one keeps the code at the left. If the code fits neither way it is left out. A cable flag whose faces are
+  tall (an 80 mm strip across a 50 mm tape) therefore gets the code above the text on each face.
+* **Turn the output for the printer** (label window: 0 / 90 / 180 / 270 degrees) turns the preview, the PDF, the images and the SVG: a cable
+  flag is designed along its length (80 x 50 mm) and printed as 50 x 80 mm, which is how a printer that feeds the label along its
+  long side takes it. Use 90 or 270 to choose which way the text reads. Sheets are printed as they are.
+
 ### Writing in both directions (rotation)
 
 * **Automatic design**: *Write the label turned by* 0 / 90 / 180 / 270 degrees (clockwise). The label is laid out on a label turned
