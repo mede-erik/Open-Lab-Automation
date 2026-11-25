@@ -40,6 +40,11 @@ class TracePlot(QWidget):
         self.curves: List[Curve] = []
         self.limits: List[Curve] = []
         self.xlabel = self.ylabel = ""
+        # Which y axis each curve (and limit) belongs to: curves with the same key share a scale.
+        # One key for everything: a single axis. ``axis_labels`` gives the title of each axis.
+        self.curve_axes: List[str] = []
+        self.limit_axes: List[str] = []
+        self.axis_labels = {}
         self.x_unit = ""  # unit of x for the tick labels ("Hz": 1 MHz, 2 GHz...)
         self.log_x = False
         self.empty_text = ""  # shown while there is no data (the panel gives it, translated)
@@ -56,9 +61,19 @@ class TracePlot(QWidget):
         limits: Sequence[Curve] = (),
         log_x: bool = False,
         x_unit: str = "",
+        curve_axes: Sequence[str] = (),
+        limit_axes: Sequence[str] = (),
+        axis_labels=None,
     ) -> None:
-        """Replace what is drawn. ``log_x`` is ignored if x has values that are not positive."""
+        """Replace what is drawn. ``log_x`` is ignored if x has values that are not positive.
+
+        ``curve_axes`` (one key per curve) and ``limit_axes`` put curves of different kinds on
+        their own y scales (the first on the left, the others on the right); ``axis_labels`` maps
+        a key to the title of its axis. Without them every curve shares one axis."""
         self.curves, self.limits = list(curves), list(limits)
+        self.curve_axes = list(curve_axes)
+        self.limit_axes = list(limit_axes)
+        self.axis_labels = dict(axis_labels or {})
         self.xlabel, self.ylabel, self.x_unit = xlabel, ylabel, x_unit
         self.log_x = log_x and all(x > 0 for c in self.curves for x in c[1])
         self.update()
@@ -71,6 +86,29 @@ class TracePlot(QWidget):
         if not xs or not ys:
             return None
         return min(xs), max(xs), min(ys), max(ys)
+
+    def y_axes(self) -> List[Tuple[str, str, List[int], float, float]]:
+        """The y scales: ``(key, title, indexes of its curves, ymin, ymax)``, first the left one.
+
+        Curves without a key, or all curves if no keys were given, share one scale."""
+        keys = [
+            self.curve_axes[i] if i < len(self.curve_axes) else "" for i in range(len(self.curves))
+        ]
+        order: List[str] = []
+        for key in keys:
+            if key not in order:
+                order.append(key)
+        axes = []
+        for key in order:
+            members = [i for i, k in enumerate(keys) if k == key]
+            values = [y for i in members for y in self.curves[i][2] if math.isfinite(y)]
+            for j, limit in enumerate(self.limits):
+                if (self.limit_axes[j] if j < len(self.limit_axes) else order[0]) == key:
+                    values += [y for y in limit[2] if math.isfinite(y)]
+            if values:
+                title = self.axis_labels.get(key, self.ylabel if len(order) == 1 else key)
+                axes.append((key, title, members, min(values), max(values)))
+        return axes
 
     def readout(self, x: float) -> List[str]:
         """Lines of text with the value of every curve at the point nearest to ``x``."""
@@ -123,12 +161,21 @@ class TracePlot(QWidget):
         else:
             xticks = nice_ticks(xmin, xmax, 7)
             x0, x1 = min(xticks + [xmin]), max(xticks + [xmax])
-        yticks = nice_ticks(ymin, ymax, 6)
-        y0, y1 = min(yticks + [ymin]), max(yticks + [ymax])
-        left = max(metrics.horizontalAdvance(tick_label(t, "")) for t in yticks) + 46
+        axes = self.y_axes()
+        scales = []  # per axis: (title, color, ticks, y0, y1, label width)
+        for key, title, members, lo, hi in axes:
+            ticks = nice_ticks(lo, hi, 6)
+            width = max(metrics.horizontalAdvance(tick_label(t, "")) for t in ticks)
+            color = QColor(LINE_COLORS[members[0] % len(LINE_COLORS)]) if len(axes) > 1 else text
+            scales.append((title, color, ticks, min(ticks + [lo]), max(ticks + [hi]), width))
+        left = scales[0][5] + 46
+        extra = [s[5] + 44 for s in scales[1:]]  # the axes on the right: label width + room
         bottom = 46 + (metrics.height() if self.xlabel else 0)
         plot = QRectF(
-            left, 14, max(self.width() - left - 16, 10), max(self.height() - 14 - bottom, 10)
+            left,
+            14,
+            max(self.width() - left - 16 - sum(extra), 10),
+            max(self.height() - 14 - bottom, 10),
         )
         self._plot = plot
 
@@ -136,8 +183,10 @@ class TracePlot(QWidget):
             value = math.log10(x) if self.log_x else x
             return plot.left() + (value - x0) / ((x1 - x0) or 1) * plot.width()
 
-        def py(y: float) -> float:
-            return plot.bottom() - (y - y0) / ((y1 - y0) or 1) * plot.height()
+        def make_py(y0: float, y1: float):
+            return lambda y: plot.bottom() - (y - y0) / ((y1 - y0) or 1) * plot.height()
+
+        pys = [make_py(sc[3], sc[4]) for sc in scales]
 
         for t in xticks:
             if not (self.log_x and t <= 0):
@@ -150,18 +199,43 @@ class TracePlot(QWidget):
                     plot.bottom() + metrics.height() + 2,
                 )
                 painter.drawText(where, label)
-        for t in yticks:
-            painter.setPen(QPen(grid))
-            painter.drawLine(QPointF(plot.left(), py(t)), QPointF(plot.right(), py(t)))
-            painter.setPen(text)
-            label = tick_label(t, "")
-            painter.drawText(
-                QPointF(
-                    plot.left() - metrics.horizontalAdvance(label) - 6,
-                    py(t) + metrics.ascent() / 2 - 1,
-                ),
-                label,
-            )
+        offset = 0.0
+        for n, (title, color, ticks, _y0, _y1, width) in enumerate(scales):
+            py = pys[n]
+            for t in ticks:
+                if n == 0:  # the grid follows the first scale only
+                    painter.setPen(QPen(grid))
+                    painter.drawLine(QPointF(plot.left(), py(t)), QPointF(plot.right(), py(t)))
+                painter.setPen(color)
+                label = tick_label(t, "")
+                if n == 0:
+                    x_text = plot.left() - metrics.horizontalAdvance(label) - 6
+                else:
+                    x_text = plot.right() + offset + 6
+                    painter.drawLine(
+                        QPointF(plot.right() + offset, py(t)),
+                        QPointF(plot.right() + offset + 4, py(t)),
+                    )
+                painter.drawText(QPointF(x_text, py(t) + metrics.ascent() / 2 - 1), label)
+            if n > 0:
+                painter.setPen(QPen(color, 1))
+                painter.drawLine(
+                    QPointF(plot.right() + offset, plot.top()),
+                    QPointF(plot.right() + offset, plot.bottom()),
+                )
+            title_x = 12 if n == 0 else plot.right() + offset + width + 28
+            if title:
+                painter.save()
+                painter.setPen(color)
+                painter.translate(title_x, plot.center().y())
+                painter.rotate(-90)
+                box = QRectF(
+                    -plot.height() / 2, -metrics.height(), plot.height(), metrics.height() + 2
+                )
+                painter.drawText(box, Qt.AlignmentFlag.AlignCenter, title)
+                painter.restore()
+            if n > 0:
+                offset += width + 44
         painter.setPen(QPen(text, 1))
         painter.drawRect(plot)
         if self.xlabel:
@@ -169,22 +243,19 @@ class TracePlot(QWidget):
                 plot.left(), self.height() - metrics.height() - 4, plot.width(), metrics.height()
             )
             painter.drawText(box, Qt.AlignmentFlag.AlignCenter, self.xlabel)
-        if self.ylabel:
-            painter.save()
-            painter.translate(12, plot.center().y())
-            painter.rotate(-90)
-            box = QRectF(-plot.height() / 2, -metrics.height(), plot.height(), metrics.height() + 2)
-            painter.drawText(box, Qt.AlignmentFlag.AlignCenter, self.ylabel)
-            painter.restore()
-
         painter.setClipRect(plot.adjusted(-4, -4, 4, 4))
-        for _label, xs, ys in self.limits:  # the limits, dashed
+        keys = [a[0] for a in axes]
+        for j, (_label, xs, ys) in enumerate(self.limits):  # the limits, dashed
             pen = QPen(QColor(LIMIT_COLOR), 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
+            key = self.limit_axes[j] if j < len(self.limit_axes) else keys[0]
+            py = pys[keys.index(key)] if key in keys else pys[0]
             points = QPolygonF([QPointF(px(x), py(y)) for x, y in zip(xs, ys)])
             painter.drawPolyline(points)
         for n, (_label, xs, ys) in enumerate(self.curves):
             color = QColor(LINE_COLORS[n % len(LINE_COLORS)])
+            key = self.curve_axes[n] if n < len(self.curve_axes) else ""
+            py = pys[keys.index(key)] if key in keys else pys[0]
             points = QPolygonF([QPointF(px(x), py(y)) for x, y in zip(xs, ys) if math.isfinite(y)])
             painter.setPen(QPen(color, 2))
             painter.drawPolyline(points)

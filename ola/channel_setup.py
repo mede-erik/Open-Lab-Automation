@@ -532,7 +532,8 @@ class ConfiguredHandle:
             "(a short), then continue.",
             ["continue", "skip_zero", "abort"],
             default="abort",
-            data={**data, "step": "short"},
+            data={**data, "step": "short", "text_key": "run_q_zero_main_short",
+                  "text_args": {"label": s.label}},
         )
         if answer == "abort":
             raise Stopped()
@@ -553,7 +554,11 @@ class ConfiguredHandle:
             "then continue.",
             ["continue", "abort"],
             default="abort",
-            data={**data, "step": "reconnect", "offset": offset},
+            data={**data, "step": "reconnect", "offset": offset,
+                  "text_key": ("run_q_zero_main_back_offset" if offset is not None
+                               else "run_q_zero_main_back"),
+                  "text_args": {"label": s.label,
+                                "offset": f"{offset:+.6g}" if offset is not None else ""}},
         )
         if answer == "abort":
             raise Stopped()

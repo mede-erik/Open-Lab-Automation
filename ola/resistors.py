@@ -297,6 +297,27 @@ def describe(load: Load) -> str:
     return f"{text} = {nominal:.4g} ohm{spread}"
 
 
+def _formula(node: Node, top: bool) -> str:
+    if isinstance(node, Open):
+        return "open"
+    if isinstance(node, Resistor):
+        facts = _facts(node)
+        return f"{_value(node.r_ohm)} \u03a9" + (f" ({facts})" if facts else "")
+    joiner = " + " if node.kind == "series" else " || "
+    text = joiner.join(_formula(child, False) for child in node.children)
+    return text if top else f"({text})"
+
+
+def formula(load: Load) -> str:
+    """The load as a formula in symbols, the same in every language (``+`` is series, ``||``
+    parallel): ``10 \u03a9 (\u00b11 %, 5 W) + (22 \u03a9 || 47 \u03a9) = 16.5 \u03a9``."""
+    text = _formula(load.root, True)
+    if isinstance(load.root, Open):
+        return text
+    nominal, _low, _high = load.resistance()
+    return f"{text} = {nominal:.4g} \u03a9"
+
+
 # ----- the schematic ----------------------------------------------------------------------------
 BOX_W, BOX_H, LEAD, GAP, ROW_GAP, RAIL, MARGIN = 17.0, 10.0, 3.0, 5.0, 3.5, 4.0, 4.0
 

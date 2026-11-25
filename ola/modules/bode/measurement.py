@@ -393,7 +393,13 @@ class Bode(Measurement):
                 f"is set ({p['source'].get('amplitude_vpp', 0.1):g} Vpp) and stays on at the end: "
                 "switch it off by hand. Continue, or abort (nothing is set)."
             )
-            if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
+            scope_args = {
+                "input": p["scope"].get("input_channel", 1),
+                "output": p["scope"].get("output_channel", 2),
+                "amp": f"{p['source'].get('amplitude_vpp', 0.1):g}",
+            }
+            if ctx.ask(text, ["continue", "abort"], default="abort",
+                       data={"text_key": "run_q_bode_nosw", "text_args": scope_args}) == "abort":
                 raise Stopped()
             return
         text = (
@@ -403,7 +409,13 @@ class Bode(Measurement):
             f"measurement ({p['source'].get('amplitude_vpp', 0.1):g} Vpp) and switched off at the "
             "end. Then continue."
         )
-        if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
+        scope_args = {
+            "input": p["scope"].get("input_channel", 1),
+            "output": p["scope"].get("output_channel", 2),
+            "amp": f"{p['source'].get('amplitude_vpp', 0.1):g}",
+        }
+        if ctx.ask(text, ["continue", "abort"], default="abort",
+                   data={"text_key": "run_q_bode_setup", "text_args": scope_args}) == "abort":
             raise Stopped()
 
     @staticmethod

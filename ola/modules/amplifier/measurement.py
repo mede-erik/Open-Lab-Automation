@@ -307,7 +307,17 @@ class AmplifierResponse(Measurement):
                 "to set it: leave the compression out, or use a VNA that can set its power"
             )
         if p.get("confirm_setup", True):
-            ask_setup(ctx, self._connect_text(), p["sweep"], mode="transmission")
+            max_dbm = p.get("max_input_dbm")
+            ask_setup(
+                ctx,
+                self._connect_text(),
+                p["sweep"],
+                connect_key=(
+                    "run_connect_amplifier_max" if max_dbm is not None else "run_connect_amplifier"
+                ),
+                connect_args={"max": f"{max_dbm:g}"} if max_dbm is not None else {},
+                mode="transmission",
+            )
         freq, traces = acquire(
             ctx, handle, p["sweep"], ["S21", "S11", "S12", "S22"], int(p.get("averages", 1))
         )

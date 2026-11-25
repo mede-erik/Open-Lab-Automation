@@ -148,6 +148,7 @@ class Tdr(Measurement):
                 "Connect the line under test to port 1 of the VNA, with its far end open, shorted "
                 "or on the device.",
                 p["sweep"],
+                connect_key="run_connect_line",
                 mode="reflection",
             )
         freq, traces = acquire(ctx, handle, p["sweep"], ["S11"], int(p.get("averages", 1)))

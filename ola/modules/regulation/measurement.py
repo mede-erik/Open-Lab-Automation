@@ -408,7 +408,9 @@ class Regulation(Measurement):
             ". The supply and the load are switched on by the measurement, the load at 0 A first, "
             "and switched off at the end. Then continue."
         )
-        if ctx.ask(text, ["continue", "abort"], default="abort") == "abort":
+        key = "run_q_reg_setup_load" if with_load else "run_q_reg_setup"
+        if ctx.ask(text, ["continue", "abort"], default="abort",
+                   data={"text_key": key}) == "abort":
             raise Stopped()
 
     def _reading(self, ctx, spec, supply, meter) -> float:

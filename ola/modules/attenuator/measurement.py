@@ -171,6 +171,7 @@ class AttenuatorSweep(Measurement):
                 ctx,
                 "Connect the attenuator under test between port 1 and port 2 of the VNA.",
                 p["sweep"],
+                connect_key="run_connect_attenuator",
                 mode="transmission",
             )
         wanted = ["S21"] + (["S11", "S22"] if p.get("also_return_loss", True) else [])
