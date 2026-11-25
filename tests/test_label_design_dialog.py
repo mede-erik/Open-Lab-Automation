@@ -364,3 +364,41 @@ def test_the_label_window_uses_the_saved_dpi_and_can_turn_the_output(qtbot, stor
     assert all(getattr(i, "rotation", 90) == 90 for i in page.items if hasattr(i, "text"))
     window.format_box.setCurrentIndex(window.format_box.findData("sheet:A4 3x8 (70x37)"))
     assert not window.turn_box.isEnabled()  # a sheet is printed as it is
+
+
+def test_without_segno_the_tool_does_not_crash_and_says_how_to_get_it(tool, monkeypatch):
+    """Regression: a computer without ``segno`` crashed the tool when a design was made manual
+    (the layout needed the size of the QR code to plan the label)."""
+    from ola import label_design, labels
+
+    def missing(text, error="q"):
+        raise RuntimeError("the QR code needs the 'segno' package: pip install segno")
+
+    monkeypatch.setattr(labels, "qr_matrix", missing)
+    monkeypatch.setattr(label_design, "qr_matrix", missing)
+    assert labels.qr_min_side(sample_asset("cable")) > 0  # the layout can still be planned
+    tool.manual_radio.setChecked(True)  # used to raise RuntimeError here
+    assert tool.draft().elements and tool.element_list.count() > 0
+    assert "pip install segno" in tool.message.text()
+    tool.start_from_automatic()
+    tool.add_element("text")
+    tool.kind_box.setCurrentIndex(tool.kind_box.findData("attenuator"))
+    tool.width_box.setValue(60)
+    assert tool.preview.drawing is None and "segno" in tool.message.text()
+    tool.qr_box.setChecked(False)  # without the QR code there is nothing to miss
+    assert tool.preview.drawing is not None
+
+
+def test_without_segno_the_label_window_does_not_crash(qtbot, store, monkeypatch):
+    from ola import label_design, labels
+
+    def missing(text, error="q"):
+        raise RuntimeError("the QR code needs the 'segno' package: pip install segno")
+
+    monkeypatch.setattr(labels, "qr_matrix", missing)
+    monkeypatch.setattr(label_design, "qr_matrix", missing)
+    window = LabelDialog([sample_asset("cable")], None, templates=store)
+    qtbot.addWidget(window)
+    assert window.pages == [] and "pip install segno" in window.message.text()
+    window.qr_box.setChecked(False)
+    assert len(window.pages) == 1

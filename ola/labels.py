@@ -639,7 +639,11 @@ def _panel(
 def qr_min_side(asset: Asset) -> float:
     """The smallest square (quiet zone included) in which the QR code of a card prints with modules
     of ``MIN_MODULE_MM``."""
-    return MIN_MODULE_MM * (len(qr_matrix(qr_text(asset.id))) + 2 * QUIET_MODULES)
+    try:
+        count = len(qr_matrix(qr_text(asset.id)))
+    except RuntimeError:  # no ``segno``: the layout can still be planned (the smallest QR code)
+        count = 21
+    return MIN_MODULE_MM * (count + 2 * QUIET_MODULES)
 
 
 def qr_side(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optional[float]:

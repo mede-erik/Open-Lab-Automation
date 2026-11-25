@@ -412,7 +412,17 @@ def auto_elements(
     elements: List[Element] = []
     id_size = min(h * 0.3, 7.0)
     other = max(MIN_FONT_MM, min(h * 0.17, 3.2))
-    if asset is None:
+    picture = None
+    if asset is not None:
+        spec = LabelSpec(
+            "design", w, h, "single", qr=setup.qr, margin_mm=m, lines=tuple(lines),
+            qr_auto=setup.qr_auto,
+        )  # fmt: skip
+        try:
+            picture = build_drawing(spec, asset, "", measure)
+        except RuntimeError:  # no ``segno`` to draw the QR code: use the nominal sizes
+            picture = None
+    if picture is None:
         text_left, text_width, y = m, w - 2 * m, m
         # the QR code follows the same rule as the automatic label, with the code of a typical card
         plan = (
@@ -437,11 +447,6 @@ def auto_elements(
             )  # fmt: skip
             y += size * 1.2
         return elements
-    spec = LabelSpec(
-        "design", w, h, "single", qr=setup.qr, margin_mm=m, lines=tuple(lines),
-        qr_auto=setup.qr_auto,
-    )  # fmt: skip
-    picture = build_drawing(spec, asset, "", measure)
     for item in picture.items:
         if isinstance(item, QR):
             quiet = item.module * QUIET_MODULES
