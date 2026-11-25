@@ -405,6 +405,36 @@ def _same_sweep(saved: Optional[Dict[str, float]], asked: Optional[Dict[str, flo
         return False
 
 
+def sweep_problem(handle, sweep: Optional[Dict[str, float]]) -> Optional[str]:
+    """Why the software calibration applied to this connection cannot be used for the sweep of a
+    measurement (``start_hz`` / ``stop_hz`` / ``points``), or None.
+
+    A software calibration (the LiteVNA) is only valid for the sweep it was made for, and the driver
+    refuses to read with another one. Saying so before the measurement starts, with the two sweeps,
+    is better than a failure at the first reading. An instrument that keeps its own calibration (no
+    ``calibration_import``) is not checked: it handles another sweep itself."""
+    applied = getattr(handle, "calibration", None)
+    if not applied or not sweep or "points" not in sweep:
+        return None
+    if not handle.supports("calibration_import"):
+        return None
+    saved = applied.get("sweep")
+    if not saved or _same_sweep(saved, sweep):
+        return None
+    from .run_view import format_si
+
+    def text(start, stop, points):
+        low, high = format_si(float(start), "Hz"), format_si(float(stop), "Hz")
+        return f"{low} - {high}, {int(points)} points"
+
+    return (
+        f"The VNA is calibrated for {text(saved['start'], saved['stop'], saved['points'])}, but "
+        f"the measurement sweeps {text(sweep['start_hz'], sweep['stop_hz'], sweep['points'])}: a "
+        "software calibration is only valid for the sweep it was made for. Calibrate again for "
+        "this sweep, or set the sweep of the measurement to the calibrated one."
+    )
+
+
 def find_record(project_path, serial_number: Optional[str], instrument: str = ""):
     """The newest calibration of the project made **for this apparatus**: ``(record, path)`` or
     None. A calibration belongs to one apparatus, found by its serial number: without a serial

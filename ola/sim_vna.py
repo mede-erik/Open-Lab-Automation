@@ -97,6 +97,7 @@ class SimVna:
         self.attenuator_db, self.attenuator_slope = attenuator_db, attenuator_slope_db_per_ghz
         self.fixture1_m, self.fixture2_m = fixture1_m, fixture2_m
         self.library_calls, self.calibrated = library_calls, calibrated
+        self.uncorrected: List[str] = []  # asked parameters the simulated calibration misses
         self.library_extras, self.library_sweep_type = library_extras, library_sweep_type
         self.library_linear_only = library_linear_only
         self.fault_at_m, self.fault_gamma = fault_at_m, complex(fault_gamma)
@@ -250,7 +251,12 @@ class SimVna:
                     "real": [v[0] for v in values],
                     "imaginary": [v[1] for v in values],
                 }
-            return {"frequency": freq, "parameters": parameters, "calibrated": self.calibrated}
+            return {
+                "frequency": freq,
+                "parameters": parameters,
+                "calibrated": self.calibrated,
+                "uncorrected": [n for n in self.uncorrected if n in parameters],
+            }
         return None
 
     def _set_sweep(

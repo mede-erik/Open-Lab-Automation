@@ -349,6 +349,15 @@ def _library_sweep(
 ) -> Tuple[List[float], Dict[str, List[complex]], bool]:
     """Run one sweep with the library's calls and read the asked S-parameters:
     ``(frequencies, {parameter: values}, calibrated)``."""
+    freq, values, calibrated, _ = _library_read(handle, parameters, nominal)
+    return freq, values, calibrated
+
+
+def _library_read(
+    handle: Any, parameters: Sequence[str], nominal: Sequence[float]
+) -> Tuple[List[float], Dict[str, List[complex]], bool, List[str]]:
+    """``_library_sweep`` and, as a fourth value, the asked parameters that the calibration applied
+    to the instrument does not correct (empty if it says nothing: ``uncorrected`` is optional)."""
     handle.call("run_sweep")
     result = handle.call(LIBRARY_READ, sparameters=list(parameters))
     if not isinstance(result, Mapping) or not isinstance(result.get("parameters"), Mapping):
@@ -370,7 +379,8 @@ def _library_sweep(
                 f"at {len(freq)} frequencies"
             )
         values[name] = [complex(a, b) for a, b in zip(real, imag)]
-    return freq, values, bool(result.get("calibrated", True))
+    uncorrected = [str(n) for n in (result.get("uncorrected") or []) if n in values]
+    return freq, values, bool(result.get("calibrated", True)), uncorrected
 
 
 def acquire(
@@ -402,13 +412,21 @@ def acquire(
     for sweep_no in range(1, averages + 1):
         ctx.checkpoint()
         if library:
-            freq, got, calibrated = _library_sweep(handle, parameters, nominal)
-            if not calibrated and sweep_no == 1 and notes:
-                ctx.log(
-                    "the VNA says its data are not calibrated: calibrate it (or apply its "
-                    "calibration) before this measurement",
-                    "warning",
-                )
+            freq, got, calibrated, uncorrected = _library_read(handle, parameters, nominal)
+            if sweep_no == 1 and notes:
+                if not calibrated:
+                    ctx.log(
+                        "the VNA says its data are not calibrated: calibrate it (or apply its "
+                        "calibration) before this measurement",
+                        "warning",
+                    )
+                elif uncorrected:
+                    ctx.log(
+                        f"{', '.join(uncorrected)} not corrected: the calibration applied to the "
+                        "VNA does not cover it (a one-port calibration corrects S11 only, S21 "
+                        "needs a thru calibration)",
+                        "warning",
+                    )
             reads = list(got.items())
         else:
             reads = []
