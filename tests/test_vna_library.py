@@ -36,11 +36,22 @@ def commands(library, model, call, args):
     return [s["text"] for s in plan_call(library, model, call, args).steps]
 
 
-def test_all_models_are_experimental(library):
+# The VNA models tested on the real instrument: the instrument library may record them as no longer
+# experimental (the rule is in Instruments_LIB/TESTING.md). Every other VNA model must stay
+# experimental. Add a model here when the library says it was tested; the pinned version of the
+# library and its newest commit (the CI job "Against Instruments_LIB main") both pass.
+TESTED_ON_HARDWARE = {"VNA_Zenko_LiteVNA67"}
+
+
+def test_all_models_are_experimental_unless_tested_on_hardware(library):
     ids = [m["id"] for s in library.categories["network_analyzers_series"] for m in s["models"]]
     assert len(ids) == 3 + 19 + 16 + 14
     for model_id in ids:
-        assert library.find_model(model_id).model["experimental"] is True
+        flag = library.find_model(model_id).model["experimental"]
+        if model_id in TESTED_ON_HARDWARE:
+            assert isinstance(flag, bool), model_id  # either way: the library records it
+        else:
+            assert flag is True, f"{model_id} is not experimental: was it tested on hardware?"
 
 
 def test_siglent_commands(library):
