@@ -87,11 +87,38 @@ card with the design of its kind at that size (QR and border can be switched off
   side of its square), bold and alignment (left, centre, right). Click an element in the preview and drag it, or type the numbers.
   *Start from the automatic layout* turns the lines into elements exactly as they were drawn. A text outside the label, a QR code
   whose modules would print below 0.3 mm and a text that was cut are listed under the preview. A flag is always automatic.
+* **Boxes and lines**: *Add box* draws a **frame** (corner x, y, width, height, line width, optionally dashed) round texts or round
+  the whole label; *Add line* a **rule** from x, y to x + width, y + height (height 0: horizontal; width 0: vertical), also
+  dashed, for a separator or a fold mark. Click them in the preview and drag, like the texts; thin ones are easy to pick.
 * In every text you may use the places of the cards (see below) and the **attributes of each kind** with their unit:
   `{nominal_db}` (`10 dB`), `{max_frequency}` (`6 GHz`), `{length_m}`, `{connectors}`, `{topology}`, `{input_voltage}` ... plus
   `{kind}` and `{manufacturer}`. A text whose places are all empty is not printed.
 * The size and the designs you changed are in the same file as the templates; a kind you did not change is not in it.
   *Back to the ready-made design* forgets your changes to a kind.
+
+## The label for a cable (flag)
+
+For a cable choose the layout **Flag for a cable (from its diameter)** in *Label design...*: you give the **size of the label** (the
+strip you print on: width is the length of the strip, height the tape width) and the **diameter of the cable**; the program splits the
+strip so that you can put it on the cable as a flag.
+
+```
+|<-- round the cable -->|<--- face --->|<--- face --->|
+|   (blank, adhesive)   |  the design   |  the design  |
+                        ┆ dashed: base  ┆ dashed: fold
+```
+
+* **Round the cable**: the circumference, `pi x diameter`, plus the **overlap** (3 mm by default) so that the strip sticks to
+  itself. This part is left blank.
+* **The flag**: what is left is cut in two equal **faces** with a 1 mm fold between them; the **same design** is printed on both,
+  so it can be read from either side. Two **dashed lines** are drawn full height: one where the wrap ends and the flag begins
+  (the base) and one at the **fold**. Wrap the blank part round the cable, then fold the flag at the dashed line with the adhesive
+  sides together.
+* **End that goes round the cable**: left (default) or right of the strip.
+* The window says how long each part is and the **shortest label** for that cable with faces of 12 mm. A strip too short for the
+  cable (faces under 5 mm) is refused and says how long it must be; a text that does not fit its face is cut and listed.
+* The design of the kind is drawn as a label of the size of **one face**: with manual positions, x and y are measured from the left
+  top corner of a face. The QR code is optional (a face is narrow: with it the text has little room).
 
 ## Your own label templates
 

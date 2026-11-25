@@ -153,3 +153,64 @@ def test_the_label_window_draws_each_card_with_the_design_of_its_kind(qtbot, sto
     window.qr_box.setChecked(False)  # for this printing only
     assert not any(isinstance(i, QR) for i in window.pages[0].items)
     assert store.setup.qr is True
+
+
+def test_boxes_and_lines_are_added_edited_and_drawn(tool, store):
+    from ola.labels import Box, Line
+
+    tool.manual_radio.setChecked(True)
+    tool.add_element("box")
+    box = tool.draft().elements[-1]
+    assert box.type == "box" and tool.element_form.isEnabled()
+    assert tool.h_box.isEnabled() and tool.stroke_box.isEnabled() and not tool.text_edit.isEnabled()
+    tool.stroke_box.setValue(0.6)
+    tool.dashed_box.setChecked(True)
+    tool.h_box.setValue(20)
+    assert (box.stroke, box.dashed, box.h) == (0.6, True, 20)
+    tool.add_element("line")
+    line = tool.draft().elements[-1]
+    assert (
+        line.type == "line"
+        and line.h == 0
+        and tool.element_list.item(tool.current_index()).text().endswith("Line")
+    )
+    shapes = [i for i in tool.preview.drawing.items if isinstance(i, (Box, Line))]
+    assert any(isinstance(i, Box) and i.stroke == 0.6 and i.dashed for i in shapes)
+    assert tool.save() is True
+    assert [e.type for e in TemplateStore(store.path).design("cable").elements][-2:] == [
+        "box",
+        "line",
+    ]
+
+
+def test_the_cable_flag_asks_for_the_diameter_and_says_how_it_is_split(tool):
+    assert not tool.diameter_box.isVisibleTo(tool)
+    tool.width_box.setValue(110)
+    tool.layout_box.setCurrentIndex(tool.layout_box.findData("cable_flag"))
+    assert tool.diameter_box.isVisibleTo(tool) and tool.cable_info.isVisibleTo(tool)
+    tool.diameter_box.setValue(5)
+    text = tool.cable_info.text()
+    assert "15.7" not in text and "18.7" in text  # round the cable: pi x 5 + 3 overlap
+    drawing = tool.preview.drawing
+    assert (
+        drawing.width == 110
+        and sum(1 for i in drawing.items if hasattr(i, "dashed") and i.dashed) == 2
+    )
+    tool.diameter_box.setValue(40)  # too thick for this strip
+    assert "at least" in tool.message.text() and tool.preview.drawing is None
+    assert tool.save() is False  # nothing is saved
+
+
+def test_on_a_cable_flag_the_elements_are_relative_to_a_face(tool, store):
+    from ola.label_design import cable_flag_geometry
+
+    tool.width_box.setValue(110)
+    tool.layout_box.setCurrentIndex(tool.layout_box.findData("cable_flag"))
+    tool.manual_radio.setChecked(True)
+    face = cable_flag_geometry(tool.setup()).faces[0][0]
+    assert tool.preview.editable and tool.preview.offset_x == pytest.approx(face)
+    elements = tool.draft().elements
+    assert elements[1].x < tool.setup().width_mm - face  # relative: small numbers
+    tool._moved(1, 10.0, 4.0)
+    assert (elements[1].x, elements[1].y) == (10.0, 4.0)
+    assert tool.save() is True and store.setup.layout == "cable_flag"

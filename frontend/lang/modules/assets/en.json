@@ -177,5 +177,19 @@
   "ldg_kind_antenna": "Antenna (DUT)",
   "ldg_kind_filter": "Filter (DUT)",
   "ldg_kind_converter": "Converter (DUT)",
-  "ldg_kind_generic": "Generic DUT"
+  "ldg_kind_generic": "Generic DUT",
+  "ldg_layout_cable": "Flag for a cable (from its diameter)",
+  "ldg_cable_diameter": "Cable diameter",
+  "ldg_cable_overlap": "Overlap round the cable",
+  "ldg_cable_side": "End that goes round the cable",
+  "ldg_side_left": "Left",
+  "ldg_side_right": "Right",
+  "ldg_cable_info": "Round the cable: {wrap} mm (blank). Each face of the flag: {face} mm. The two dashed lines: where the wrap ends and the fold. Fold with the adhesive sides together. Shortest label for this cable with faces of 12 mm: {minimum} mm.",
+  "ldg_add_box": "Add box",
+  "ldg_add_line": "Add line",
+  "ldg_el_type_box": "Box",
+  "ldg_el_type_line": "Line",
+  "ldg_el_height": "Height (a line: how far down)",
+  "ldg_el_stroke": "Line width",
+  "ldg_dashed": "Dashed"
 }

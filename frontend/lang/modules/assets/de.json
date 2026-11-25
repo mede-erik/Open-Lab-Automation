@@ -177,5 +177,19 @@
   "ldg_kind_antenna": "Antenne (DUT)",
   "ldg_kind_filter": "Filter (DUT)",
   "ldg_kind_converter": "Wandler (DUT)",
-  "ldg_kind_generic": "Allgemeines DUT"
+  "ldg_kind_generic": "Allgemeines DUT",
+  "ldg_layout_cable": "Fahne für ein Kabel (nach Durchmesser)",
+  "ldg_cable_diameter": "Kabeldurchmesser",
+  "ldg_cable_overlap": "Überlappung um das Kabel",
+  "ldg_cable_side": "Ende, das um das Kabel geht",
+  "ldg_side_left": "Links",
+  "ldg_side_right": "Rechts",
+  "ldg_cable_info": "Um das Kabel: {wrap} mm (leer). Jede Seite der Fahne: {face} mm. Die zwei gestrichelten Linien: Ende der Wicklung und Falz. Mit den Klebeseiten zusammenfalten. Kürzestes Etikett für dieses Kabel mit 12-mm-Seiten: {minimum} mm.",
+  "ldg_add_box": "Rahmen hinzufügen",
+  "ldg_add_line": "Linie hinzufügen",
+  "ldg_el_type_box": "Rahmen",
+  "ldg_el_type_line": "Linie",
+  "ldg_el_height": "Höhe (bei einer Linie: wie weit nach unten)",
+  "ldg_el_stroke": "Linienstärke",
+  "ldg_dashed": "Gestrichelt"
 }

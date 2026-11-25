@@ -177,5 +177,19 @@
   "ldg_kind_antenna": "Antena (DUT)",
   "ldg_kind_filter": "Filtro (DUT)",
   "ldg_kind_converter": "Convertidor (DUT)",
-  "ldg_kind_generic": "DUT genérico"
+  "ldg_kind_generic": "DUT genérico",
+  "ldg_layout_cable": "Bandera para cable (según su diámetro)",
+  "ldg_cable_diameter": "Diámetro del cable",
+  "ldg_cable_overlap": "Solapamiento alrededor del cable",
+  "ldg_cable_side": "Extremo que rodea el cable",
+  "ldg_side_left": "Izquierda",
+  "ldg_side_right": "Derecha",
+  "ldg_cable_info": "Alrededor del cable: {wrap} mm (en blanco). Cada cara de la bandera: {face} mm. Las dos líneas de trazos: dónde acaba la vuelta y el pliegue. Doble con los lados adhesivos juntos. Etiqueta más corta para este cable con caras de 12 mm: {minimum} mm.",
+  "ldg_add_box": "Añadir recuadro",
+  "ldg_add_line": "Añadir línea",
+  "ldg_el_type_box": "Recuadro",
+  "ldg_el_type_line": "Línea",
+  "ldg_el_height": "Alto (una línea: cuánto baja)",
+  "ldg_el_stroke": "Grosor de la línea",
+  "ldg_dashed": "De trazos"
 }

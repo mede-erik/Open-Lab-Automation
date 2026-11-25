@@ -143,6 +143,7 @@ class Line:
     x2: float
     y2: float
     dashed: bool = False
+    stroke: float = 0.0  # line width in mm; 0 = the default (0.15)
 
 
 @dataclass
@@ -153,6 +154,8 @@ class Box:
     y: float
     w: float
     h: float
+    stroke: float = 0.0  # line width in mm; 0 = the default (0.2)
+    dashed: bool = False
 
 
 @dataclass
@@ -590,15 +593,16 @@ def render_svg(drawing: Drawing) -> str:
                 f"{weight}{anchor}>{escape(it.text)}</text>"
             )
         elif isinstance(it, Box):
+            dash = ' stroke-dasharray="1 1"' if it.dashed else ""
             out.append(
                 f'<rect x="{it.x:g}" y="{it.y:g}" width="{it.w:g}" height="{it.h:g}" '
-                'fill="none" stroke="black" stroke-width="0.2"/>'
+                f'fill="none" stroke="black" stroke-width="{it.stroke or 0.2:g}"{dash}/>'
             )
         elif isinstance(it, Line):
             dash = ' stroke-dasharray="1 1"' if it.dashed else ""
             out.append(
                 f'<line x1="{it.x1:g}" y1="{it.y1:g}" x2="{it.x2:g}" y2="{it.y2:g}" '
-                f'stroke="black" stroke-width="0.15"{dash}/>'
+                f'stroke="black" stroke-width="{it.stroke or 0.15:g}"{dash}/>'
             )
         elif isinstance(it, QR):
             out.append(f'<path d="{_qr_path(it)}" fill="black" shape-rendering="crispEdges"/>')

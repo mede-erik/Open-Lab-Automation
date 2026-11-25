@@ -59,6 +59,9 @@ from ola.label_design import (
     KindDesign,
     LabelSetup,
     auto_elements,
+    cable_flag_geometry,
+    cable_flag_min_width,
+    design_setup,
     build_kind_drawing,
     default_design,
     design_problems,
@@ -80,6 +83,9 @@ class DesignPreview(LabelPreview):
         self.elements: List[Element] = []
         self.current = -1
         self.editable = False
+        self.offset_x = (
+            0.0  # where the label the elements are relative to starts (a cable flag face)
+        )
         self._grab: Optional[tuple] = None  # (index, x offset, y offset) in mm
 
     def set_elements(self, elements: List[Element], current: int, editable: bool) -> None:
@@ -89,13 +95,14 @@ class DesignPreview(LabelPreview):
 
     def _mm(self, point: QPointF) -> tuple:
         scale, dx, dy = self.scale_dx_dy
-        return (point.x() - dx) / scale, (point.y() - dy) / scale
+        return (point.x() - dx) / scale - self.offset_x, (point.y() - dy) / scale
 
     def element_at(self, x: float, y: float) -> int:
         """The topmost element whose box holds the point (mm); -1 if none."""
         for index in range(len(self.elements) - 1, -1, -1):
             ex, ey, ew, eh = self.elements[index].box()
-            if ex <= x <= ex + ew and ey <= y <= ey + eh:
+            pad = 0.8  # a thin line or frame must still be easy to pick
+            if ex - pad <= x <= ex + ew + pad and ey - pad <= y <= ey + eh + pad:
                 return index
         return -1
 
@@ -109,7 +116,9 @@ class DesignPreview(LabelPreview):
             pen.setStyle(Qt.PenStyle.SolidLine if chosen else Qt.PenStyle.DotLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(QRectF(dx + x * scale, dy + y * scale, w * scale, h * scale))
+            painter.drawRect(
+                QRectF(dx + (self.offset_x + x) * scale, dy + y * scale, w * scale, h * scale)
+            )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt name)
         if not self.editable or event.button() != Qt.MouseButton.LeftButton:
@@ -170,17 +179,40 @@ class LabelDesignDialog(QDialog):
         self.layout_box = QComboBox()
         self.layout_box.addItem(self._t("lbl_tpl_layout_single"), "single")
         self.layout_box.addItem(self._t("lbl_tpl_layout_flag"), "flag")
+        self.layout_box.addItem(self._t("ldg_layout_cable"), "cable_flag")
+        self.diameter_box = _spin(0.5, 80, 0.5)
+        self.overlap_box = _spin(0, 30, 0.5)
+        self.side_box = QComboBox()
+        self.side_box.addItem(self._t("ldg_side_left"), "left")
+        self.side_box.addItem(self._t("ldg_side_right"), "right")
+        self.cable_info = QLabel()
+        self.cable_info.setWordWrap(True)
         self.qr_box = QCheckBox(self._t("lbl_qr"))
         self.border_box = QCheckBox(self._t("lbl_border"))
         form.addRow(self._t("lbl_tpl_width"), self.width_box)
         form.addRow(self._t("lbl_tpl_height"), self.height_box)
         form.addRow(self._t("lbl_tpl_layout"), self.layout_box)
+        self.cable_rows = [
+            (QLabel(self._t("ldg_cable_diameter")), self.diameter_box),
+            (QLabel(self._t("ldg_cable_overlap")), self.overlap_box),
+            (QLabel(self._t("ldg_cable_side")), self.side_box),
+        ]
+        for label, widget in self.cable_rows:
+            form.addRow(label, widget)
+        form.addRow(self.cable_info)
         form.addRow(self._t("lbl_tpl_margin"), self.margin_box)
         form.addRow(self.qr_box)
         form.addRow(self.border_box)
         left.addWidget(size_group)
-        for widget in (self.width_box, self.height_box, self.margin_box):
+        for widget in (
+            self.width_box,
+            self.height_box,
+            self.margin_box,
+            self.diameter_box,
+            self.overlap_box,
+        ):
             widget.valueChanged.connect(self._setup_changed)
+        self.side_box.currentIndexChanged.connect(self._setup_changed)
         self.layout_box.currentIndexChanged.connect(self._setup_changed)
         self.qr_box.toggled.connect(self._setup_changed)
         self.border_box.toggled.connect(self._setup_changed)
@@ -279,13 +311,18 @@ class LabelDesignDialog(QDialog):
         row = QHBoxLayout()
         self.add_text_btn = QPushButton(self._t("ldg_add_text"))
         self.add_qr_btn = QPushButton(self._t("ldg_add_qr"))
+        self.add_box_btn = QPushButton(self._t("ldg_add_box"))
+        self.add_line_btn = QPushButton(self._t("ldg_add_line"))
         self.remove_btn = QPushButton(self._t("ldg_remove"))
         self.add_text_btn.clicked.connect(lambda: self.add_element("text"))
         self.add_qr_btn.clicked.connect(lambda: self.add_element("qr"))
+        self.add_box_btn.clicked.connect(lambda: self.add_element("box"))
+        self.add_line_btn.clicked.connect(lambda: self.add_element("line"))
         self.remove_btn.clicked.connect(self.remove_element)
-        for button in (self.add_text_btn, self.add_qr_btn, self.remove_btn):
+        for button in (self.add_text_btn, self.add_qr_btn, self.add_box_btn, self.add_line_btn):
             row.addWidget(button)
         layout.addLayout(row)
+        layout.addWidget(self.remove_btn)
         self.from_auto_btn = QPushButton(self._t("ldg_from_auto"))
         self.from_auto_btn.clicked.connect(self.start_from_automatic)
         layout.addWidget(self.from_auto_btn)
@@ -305,14 +342,30 @@ class LabelDesignDialog(QDialog):
         form.addRow(self._t("ldg_pos_y"), self.y_box)
         self.w_label = QLabel(self._t("ldg_el_width"))
         form.addRow(self.w_label, self.w_box)
+        self.h_box = _spin(0, 300)
+        self.h_label = QLabel(self._t("ldg_el_height"))
+        form.addRow(self.h_label, self.h_box)
         form.addRow(self.size_label, self.size_box)
+        self.stroke_box = _spin(0.05, 5, 0.05)
+        self.stroke_label = QLabel(self._t("ldg_el_stroke"))
+        form.addRow(self.stroke_label, self.stroke_box)
+        self.dashed_box = QCheckBox(self._t("ldg_dashed"))
+        form.addRow(self.dashed_box)
         form.addRow(self.bold_box)
         self.align_label = QLabel(self._t("ldg_align"))
         form.addRow(self.align_label, self.align_box)
         form.addRow(self._insert_box(self.text_edit))
         layout.addWidget(self.element_form)
-        for widget in (self.x_box, self.y_box, self.w_box, self.size_box):
+        for widget in (
+            self.x_box,
+            self.y_box,
+            self.w_box,
+            self.size_box,
+            self.h_box,
+            self.stroke_box,
+        ):
             widget.valueChanged.connect(self._element_edited)
+        self.dashed_box.toggled.connect(self._element_edited)
         self.text_edit.textChanged.connect(self._element_edited)
         self.bold_box.toggled.connect(self._element_edited)
         self.align_box.currentIndexChanged.connect(self._element_edited)
@@ -325,6 +378,7 @@ class LabelDesignDialog(QDialog):
         return LabelSetup(
             self.width_box.value(), self.height_box.value(), self.layout_box.currentData(),
             self.margin_box.value(), self.qr_box.isChecked(), self.border_box.isChecked(),
+            self.diameter_box.value(), self.overlap_box.value(), self.side_box.currentData(),
         )  # fmt: skip
 
     def draft(self) -> KindDesign:
@@ -346,6 +400,9 @@ class LabelDesignDialog(QDialog):
         self.layout_box.setCurrentIndex(max(self.layout_box.findData(setup.layout), 0))
         self.qr_box.setChecked(setup.qr)
         self.border_box.setChecked(setup.border)
+        self.diameter_box.setValue(setup.cable_diameter_mm)
+        self.overlap_box.setValue(setup.overlap_mm)
+        self.side_box.setCurrentIndex(max(self.side_box.findData(setup.wrap_side), 0))
         self._loading = False
 
     def _load_kind(self) -> None:
@@ -364,10 +421,26 @@ class LabelDesignDialog(QDialog):
     def _update_state(self) -> None:
         changed = self.draft().to_dict() != default_design(self.kind).to_dict()
         self.state_label.setText(self._t("ldg_changed" if changed else "ldg_default"))
-        flag = self.setup().layout == "flag"
+        setup = self.setup()
+        flag = setup.layout == "flag"
         self.manual_radio.setEnabled(not flag)
         if flag and self.draft().manual:
             self.state_label.setText(self._t("ldg_flag_auto"))
+        cable = setup.layout == "cable_flag"
+        for label, widget in self.cable_rows:
+            label.setVisible(cable)
+            widget.setVisible(cable)
+        self.cable_info.setVisible(cable)
+        if cable:
+            geometry = cable_flag_geometry(setup)
+            self.cable_info.setText(
+                self._t(
+                    "ldg_cable_info",
+                    wrap=f"{geometry.wrap_mm:.1f}",
+                    face=f"{max(geometry.face_mm, 0):.1f}",
+                    minimum=f"{cable_flag_min_width(setup):.0f}",
+                )
+            )
 
     # ================================================================ events
     def _setup_changed(self, *_args: Any) -> None:
@@ -385,7 +458,7 @@ class LabelDesignDialog(QDialog):
         design = self.draft()
         if self.manual_radio.isChecked() and not design.manual:
             design.elements = auto_elements(
-                self.setup(), design.lines, sample_asset(self.kind), text_measure
+                design_setup(self.setup()), design.lines, sample_asset(self.kind), text_measure
             )
         elif self.auto_radio.isChecked():
             design.elements = None
@@ -404,7 +477,7 @@ class LabelDesignDialog(QDialog):
         """Turn the lines into elements as the automatic layout draws them."""
         design = self.draft()
         design.elements = auto_elements(
-            self.setup(), design.lines, sample_asset(self.kind), text_measure
+            design_setup(self.setup()), design.lines, sample_asset(self.kind), text_measure
         )
         self._load_kind()
 
@@ -413,7 +486,9 @@ class LabelDesignDialog(QDialog):
         self.element_list.blockSignals(True)
         self.element_list.clear()
         for n, element in enumerate(design.elements or [], 1):
-            what = self._t("ldg_el_type_qr") if element.type == "qr" else element.text
+            what = (
+                element.text if element.type == "text" else self._t(f"ldg_el_type_{element.type}")
+            )
             self.element_list.addItem(f"{n}. {what}")
         count = self.element_list.count()
         self.element_list.setCurrentRow(min(max(select, 0), count - 1) if count else -1)
@@ -448,17 +523,28 @@ class LabelDesignDialog(QDialog):
             return
         element = elements[index]
         text = element.type == "text"
+        shape = element.type in ("box", "line")
         self._loading = True
         self.text_edit.setText(element.text)
         self.x_box.setValue(element.x)
         self.y_box.setValue(element.y)
         self.w_box.setValue(element.w)
         self.size_box.setValue(element.size)
+        self.h_box.setValue(element.h)
+        self.stroke_box.setValue(element.stroke)
+        self.dashed_box.setChecked(element.dashed)
         self.bold_box.setChecked(element.bold)
         self.align_box.setCurrentIndex(max(self.align_box.findData(element.align), 0))
-        for widget in (self.text_edit, self.text_label, self.w_box, self.w_label, self.bold_box,
-                       self.align_box, self.align_label):  # fmt: skip
+        for widget in (self.text_edit, self.text_label, self.bold_box, self.align_box,
+                       self.align_label):  # fmt: skip
             widget.setEnabled(text)
+        for widget in (self.w_box, self.w_label):
+            widget.setEnabled(text or shape)
+        for widget in (self.h_box, self.h_label, self.stroke_box, self.stroke_label,
+                       self.dashed_box):  # fmt: skip
+            widget.setEnabled(shape)
+        for widget in (self.size_box, self.size_label):
+            widget.setEnabled(not shape)
         self.size_label.setText(self._t("ldg_el_size" if text else "ldg_el_side"))
         self._loading = False
 
@@ -471,6 +557,11 @@ class LabelDesignDialog(QDialog):
             return
         e = elements[index]
         e.x, e.y, e.size = self.x_box.value(), self.y_box.value(), self.size_box.value()
+        if e.type in ("box", "line"):
+            e.w, e.h = self.w_box.value(), self.h_box.value()
+            e.stroke, e.dashed = self.stroke_box.value(), self.dashed_box.isChecked()
+            item = self.element_list.item(index)
+            item.setText(f"{index + 1}. {self._t('ldg_el_type_' + e.type)}")
         if e.type == "text":
             e.text, e.w = self.text_edit.text(), self.w_box.value()
             e.bold, e.align = self.bold_box.isChecked(), self.align_box.currentData()
@@ -484,8 +575,20 @@ class LabelDesignDialog(QDialog):
         design = self.draft()
         if design.elements is None:
             design.elements = []
-        setup = self.setup()
-        if kind == "qr":
+        setup = design_setup(self.setup())
+        if kind == "box":
+            m = setup.margin_mm
+            design.elements.append(
+                Element("box", x=m, y=m, w=max(setup.width_mm - 2 * m, 1),
+                        h=max(setup.height_mm - 2 * m, 1), stroke=0.3)
+            )  # fmt: skip
+        elif kind == "line":
+            m = setup.margin_mm
+            design.elements.append(
+                Element("line", x=m, y=setup.height_mm / 2, w=max(setup.width_mm - 2 * m, 1), h=0,
+                        stroke=0.3)
+            )  # fmt: skip
+        elif kind == "qr":
             if any(e.type == "qr" for e in design.elements):
                 return
             side = round(min(setup.height_mm - 2 * setup.margin_mm, setup.width_mm * 0.42), 1)
@@ -514,7 +617,7 @@ class LabelDesignDialog(QDialog):
         if self._loading:
             return
         setup, design = self.setup(), self.draft()
-        wrong = setup_problems(setup) + design_problems(design, setup)
+        wrong = setup_problems(setup) + design_problems(design, design_setup(setup))
         card = sample_asset(self.kind)
         drawing = None
         if not setup_problems(setup):
@@ -524,6 +627,11 @@ class LabelDesignDialog(QDialog):
                 wrong.append(str(exc))
         self.preview.set_drawing(drawing)
         manual = design.manual and setup.layout != "flag"
+        self.preview.offset_x = (
+            cable_flag_geometry(setup).faces[0][0]
+            if setup.layout == "cable_flag" and not setup_problems(setup)
+            else 0.0
+        )
         self.preview.set_elements(design.elements or [], self.current_index(), manual)
         if drawing is not None:
             wrong += list(dict.fromkeys(drawing.warnings))

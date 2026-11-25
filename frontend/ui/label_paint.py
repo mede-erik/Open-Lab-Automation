@@ -68,11 +68,14 @@ def paint_drawing(painter: QPainter, drawing: Drawing, scale: float, dx: float =
                 x -= painter.fontMetrics().horizontalAdvance(item.text)
             painter.drawText(QPointF(x, item.y * scale), item.text)
         elif isinstance(item, Box):
-            painter.setPen(QPen(black, 0.2 * scale))
+            pen = QPen(black, (item.stroke or 0.2) * scale)
+            if item.dashed:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(QRectF(item.x * scale, item.y * scale, item.w * scale, item.h * scale))
         elif isinstance(item, Line):
-            pen = QPen(black, 0.15 * scale)
+            pen = QPen(black, (item.stroke or 0.15) * scale)
             if item.dashed:
                 pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)

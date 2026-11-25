@@ -765,6 +765,8 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   **Label design per kind** (2026-11-24, with the user): one label size, a ready-made design per kind (cable, attenuator, amplifier,
   adapter, antenna, filter, converter, generic), automatic (lines) or manual (elements with position and size in mm, drag in the preview);
   the lines of the devices under test are to be refined by the user in the tool.
+  Added (2026-11-25, user request): **boxes and lines** as elements of a manual design, and the layout **cable flag** (label size +
+  cable diameter -> blank wrap part of pi x diameter + overlap, two equal faces with the same design, dashed base and fold lines).
   Editable label templates are done (2026-11-24, `ola/label_templates.py`, `LabelTemplateDialog`): own formats with free lines and
   `{field}` places, not tied to the HTML report system. Still to do: the trend of a cable's loss
   over time, reading the QR with the camera.

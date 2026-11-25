@@ -177,5 +177,19 @@
   "ldg_kind_antenna": "Antenna in prova (DUT)",
   "ldg_kind_filter": "Filtro (DUT)",
   "ldg_kind_converter": "Convertitore (DUT)",
-  "ldg_kind_generic": "DUT generico"
+  "ldg_kind_generic": "DUT generico",
+  "ldg_layout_cable": "Bandierina per cavo (dal diametro)",
+  "ldg_cable_diameter": "Diametro del cavo",
+  "ldg_cable_overlap": "Sovrapposizione attorno al cavo",
+  "ldg_cable_side": "Estremità che gira attorno al cavo",
+  "ldg_side_left": "Sinistra",
+  "ldg_side_right": "Destra",
+  "ldg_cable_info": "Attorno al cavo: {wrap} mm (vuoto). Ogni faccia della bandierina: {face} mm. Le due linee tratteggiate: dove finisce l'avvolgimento e la piega. Piega con i lati adesivi uniti. Etichetta più corta per questo cavo con facce da 12 mm: {minimum} mm.",
+  "ldg_add_box": "Aggiungi riquadro",
+  "ldg_add_line": "Aggiungi linea",
+  "ldg_el_type_box": "Riquadro",
+  "ldg_el_type_line": "Linea",
+  "ldg_el_height": "Altezza (una linea: di quanto scende)",
+  "ldg_el_stroke": "Spessore della linea",
+  "ldg_dashed": "Tratteggiata"
 }
