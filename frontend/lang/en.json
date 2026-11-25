@@ -427,6 +427,8 @@
   "vna_export": "Export Touchstone…",
   "vna_running": "Sweeping…",
   "vna_not_calibrated": "The data are not calibrated: calibrate the analyzer (Measurements, calibration) for corrected results.",
+  "vna_calibration_sweep": "A calibration is saved for this analyzer for another sweep: {start} – {stop}, {points} points.",
+  "vna_use_calibration_sweep": "Use the calibration sweep",
   "vna_err_call": "Error: {error}",
   "vna_err_number": "Type a frequency (for example 2.4G, 100k or 1500000) or a number.",
   "vna_err_traces": "Choose at least one trace.",

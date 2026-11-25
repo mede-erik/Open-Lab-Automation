@@ -42,6 +42,19 @@ def apply_serial_settings(resource, cfg: Dict[str, Any]) -> None:
         raise ValueError(f"unknown serial setting value: {exc}") from exc
 
 
+def apply_terminators(connection, cfg: Dict[str, Any]) -> None:
+    """Set the terminators of the library's serial transport (``write_termination``,
+    ``read_termination``) on a connection; a missing key means ``"\\n"``.
+
+    A binary protocol (the LiteVNA) has none: the library gives an empty read terminator, and the
+    connection is left as it is, because ``set_terminators`` refuses an empty one and such an
+    instrument is read with ``read_exact``, never line by line."""
+    read = cfg.get("read_termination", "\n")
+    if not read:
+        return
+    connection.set_terminators(cfg.get("write_termination", "\n"), read)
+
+
 def serial_port_value(text: str) -> str:
     """The port part of a VISA serial address from what a person types.
 
