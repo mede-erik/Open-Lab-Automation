@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "id": "load",
+      "role": "load",
+      "at": [
+        1,
+        0
+      ],
+      "title": {
+        "en": "Electronic load",
+        "it": "Carico elettronico",
+        "fr": "Charge électronique",
+        "es": "Carga electrónica",
+        "de": "Elektronische Last"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "side": "left",
+          "label": {
+            "en": "Input",
+            "it": "Ingresso",
+            "fr": "Entrée",
+            "es": "Entrada",
+            "de": "Eingang"
+          }
+        }
+      ]
+    },
+    {
+      "id": "dut",
+      "kind": "device",
+      "at": [
+        0,
+        0
+      ],
+      "title": {
+        "en": "Circuit under test",
+        "it": "Circuito in prova",
+        "fr": "Circuit sous test",
+        "es": "Circuito bajo prueba",
+        "de": "Schaltung im Test"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "side": "right",
+          "label": {
+            "en": "Output",
+            "it": "Uscita",
+            "fr": "Sortie",
+            "es": "Salida",
+            "de": "Ausgang"
+          }
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "dut.out",
+      "to": "load.in",
+      "label": {
+        "en": "current pulse",
+        "it": "impulso di corrente",
+        "fr": "impulsion de courant",
+        "es": "pulso de corriente",
+        "de": "Stromimpuls"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "en": "Connect the output of the circuit under test to the input of the electronic load, plus to plus, minus to minus.",
+      "it": "Collega l'uscita del circuito in prova all'ingresso del carico elettronico, più con più, meno con meno.",
+      "fr": "Connectez la sortie du circuit sous test à l'entrée de la charge électronique, plus sur plus, moins sur moins.",
+      "es": "Conecte la salida del circuito bajo prueba a la entrada de la carga electrónica, más con más, menos con menos.",
+      "de": "Den Ausgang der Schaltung im Test mit dem Eingang der elektronischen Last verbinden, Plus an Plus, Minus an Minus."
+    }
+  ],
+  "notes": [
+    {
+      "en": "The load makes the pulse and switches itself off at the end, also after an error or a stop. Enter the working voltage if the load has a power limit.",
+      "it": "Il carico genera l'impulso e si spegne alla fine, anche dopo un errore o uno stop. Inserisci la tensione di lavoro se il carico ha un limite di potenza.",
+      "fr": "La charge génère l'impulsion et s'éteint à la fin, aussi après une erreur ou un arrêt. Saisissez la tension de travail si la charge a une limite de puissance.",
+      "es": "La carga genera el pulso y se apaga al final, también tras un error o una parada. Introduzca la tensión de trabajo si la carga tiene un límite de potencia.",
+      "de": "Die Last erzeugt den Impuls und schaltet sich am Ende aus, auch nach einem Fehler oder Stopp. Die Arbeitsspannung eingeben, wenn die Last eine Leistungsgrenze hat."
+    }
+  ]
+}

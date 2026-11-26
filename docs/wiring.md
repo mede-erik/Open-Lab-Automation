@@ -104,7 +104,7 @@ SVG.
 ## Which measurements have one
 
 The six RF measurements (cable, return loss, antenna, filter, amplifier, attenuator) with a VNA, ripple and noise with
-an oscilloscope (and the electronic load), the efficiency and regulation measurements and the time log.
+an oscilloscope (and the electronic load), the efficiency and regulation measurements, the pulse on an electronic load and the time log.
 
 * The **steps** of the efficiency measurement and the time log are written from the file: for every parameter that is
   set (*"Connect channel 1 of psu1 to «vin» of the converter: it sets «vin» (set_voltage)"*) and every reading that

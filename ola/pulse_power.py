@@ -9,7 +9,7 @@ The pulse switches between a high level (the amplitude) and a base level, with a
 The voltage is the one across the load (the circuit under test decides it). Rise and fall times
 are ignored, which is the safe side for the peak and a small error for the average.
 
-No Qt here: the pulse generator dialog uses these functions.
+No Qt here: the pulse measurement (``ola/pulse_load.py``) and its editor use these functions.
 """
 
 from __future__ import annotations
@@ -82,3 +82,36 @@ def max_duty(amplitude: float, base_level: float, voltage: float, max_power: flo
     if amplitude <= base_level:
         return 100.0
     return min(max((limit - base_level) / (amplitude - base_level), 0.0), 1.0) * 100.0
+
+
+def _floor(value: float, decimals: int) -> float:
+    """Round down to ``decimals``, so a corrected value stays within the limit."""
+    factor = 10**decimals
+    return int(value * factor) / factor
+
+
+def corrected_parameter(
+    param: str,
+    amplitude: float,
+    base_level: float,
+    width_us: float,
+    frequency_hz: float,
+    voltage: float,
+    max_power: float,
+):
+    """The value of ``param`` (``amplitude``, ``base_level``, ``width`` or ``frequency``) that
+    brings a pulse that exceeds the power limit back within it, rounded down to the decimals
+    the editor shows (3 for a current and a frequency, 1 for a width in microseconds). Any other
+    parameter (the voltage comes from the circuit) is replaced by the amplitude: lower the
+    current instead. Returns ``(parameter, value)``."""
+    duty = width_us * frequency_hz / 10000.0
+    if param not in ("amplitude", "base_level", "width", "frequency"):
+        param = "amplitude"
+    if param == "amplitude":
+        return param, _floor(max_amplitude(base_level, duty, voltage, max_power), 3)
+    if param == "base_level":
+        return param, _floor(max_base_level(amplitude, duty, voltage, max_power), 3)
+    new_duty = max_duty(amplitude, base_level, voltage, max_power)
+    if param == "width":
+        return param, max(_floor(new_duty * 10000.0 / frequency_hz, 1), 1.0)
+    return param, max(_floor(new_duty * 10000.0 / width_us, 3), 0.001)

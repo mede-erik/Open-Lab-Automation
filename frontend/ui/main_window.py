@@ -49,7 +49,6 @@ from ola.measurement import MeasurementError
 from ola.project import LEGACY_KEYS, Project
 from ola.assets import default_path as default_assets_path
 from frontend.ui.module_translator import CatalogTranslator
-from frontend.ui.PulseGeneratorDialog import PulseGeneratorDialog
 from frontend.core.LoadInstruments import LoadInstruments, get_library_path
 from frontend.core.logger import Logger
 from frontend.core.errorhandler import ErrorHandler
@@ -301,12 +300,7 @@ class MainWindow(QMainWindow):
         gpib_action = QAction(CatalogTranslator("gpib", self.translator).t("gpb_menu"), self)
         gpib_action.triggered.connect(self.open_gpib_adapter_tool)
         tools_menu.addAction(gpib_action)
-        
-        # Pulse Generator Tool
-        pulse_gen_action = QAction(self.translator.t('pulse_generator_tool'), self)
-        pulse_gen_action.triggered.connect(self.open_pulse_generator)
-        tools_menu.addAction(pulse_gen_action)
-        
+
         self.logger.debug("Menubar initialized.")
 
     def show_software_info(self):
@@ -1069,37 +1063,6 @@ class MainWindow(QMainWindow):
         self._gpib_tool = GpibAdapterDialog(translator=self.translator, parent=self)
         self._gpib_tool.show()
 
-    def open_pulse_generator(self):
-        """Open the electronic load pulse generator tool."""
-        # Check if project is open
-        if not self.current_project_dir:
-            show_problem(
-                self,
-                self.translator.t('warning'),
-                self.translator.t('no_project_open'),
-                code="PROJ-009",
-            )
-            return
-        
-        try:
-            dlg = PulseGeneratorDialog(
-                self.current_project_dir,
-                self.load_instruments,
-                self.translator,
-                self
-            )
-            dlg.exec()
-        except Exception as e:
-            self.logger.error(f"Error opening pulse generator: {e}")
-            show_problem(
-                self,
-                self.translator.t('error'),
-                f"{self.translator.t('mw_pulse_generator_failed')}\n{e}",
-                code="TOOL-005",
-                exception=e,
-                level="critical",
-            )
-    
     def show_file_context_menu(self, pos):
         """Show context menu for project files."""
         item = self.project_files_list.itemAt(pos)
