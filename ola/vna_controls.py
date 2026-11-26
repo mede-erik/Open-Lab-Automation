@@ -145,8 +145,10 @@ def restore_saved_calibration(
     come uncalibrated, with the usual note) and the connection forgets it, so that a saved
     calibration comes back when the sweep fits again.
 
-    An instrument that keeps its own calibration (no ``calibration_import``) is left as it is.
-    Returns what ``auto_restore`` returns: ``None`` when nothing was restored now."""
+    An instrument that keeps its own calibration (no ``calibration_import``) is left as it is. A
+    saved calibration is put back only for an apparatus calibrated in this run of the program that
+    was not switched off since (``ola.vna_power_state``). Returns what ``auto_restore`` returns:
+    ``None`` when nothing was restored now."""
     from .call_errors import CallError
     from .vna_calibration_flow import _same_sweep, auto_restore
 
@@ -162,7 +164,23 @@ def restore_saved_calibration(
             except CallError:
                 pass  # the instrument has no correction to switch off
         handle.set_calibration(None)
+    from .vna_power_state import POWER_STATE
+
+    if not POWER_STATE.allows_restore(handle):
+        return None  # made in an earlier run of the program, or the VNA was off since: forgotten
     return auto_restore(handle, project_file, sweep) if project_file else None
+
+
+def power_warning(handle: Any) -> Optional[str]:
+    """For the panel: why the calibration of a VNA is missing or lost (it was switched off since it
+    was calibrated, or it was not calibrated in this run of the program), or None. Asks the
+    instrument who it is (the presence probe of ``ola.vna_power_state``); never raises."""
+    from .vna_power_state import POWER_STATE
+
+    try:
+        return POWER_STATE.check(handle)
+    except Exception:
+        return None
 
 
 def calibration_for_another_sweep(

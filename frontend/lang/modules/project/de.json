@@ -63,5 +63,6 @@
   "prj_delete": "Löschen...",
   "prj_delete_confirm": "{file} löschen? Die Messdatei und ihre Wellenformdateien werden endgültig gelöscht.",
   "prj_delete_failed": "{file} konnte nicht gelöscht werden: {error}",
-  "prj_open_run_failed": "{file} konnte nicht geöffnet werden: {error}"
+  "prj_open_run_failed": "{file} konnte nicht geöffnet werden: {error}",
+  "prj_calibration_lost": "{name}: Die Kalibrierung dieses Analysators fehlt oder ist verloren. Eine Kalibrierung wird beim Schließen des Programms oder Ausschalten des Analysators vergessen, und das Programm hat sie in dieser Sitzung nicht gesehen.\n\nKalibrieren Sie ihn (VNA kalibrieren...) für eine korrigierte Messung. Die Messung startet trotzdem; ihre Daten sind als nicht kalibriert markiert."
 }

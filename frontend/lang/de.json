@@ -751,5 +751,6 @@
   "sidebar_run_open": "Diesen Lauf öffnen",
   "sidebar_run_delete": "Diesen Lauf löschen... (auch von der Festplatte)",
   "sidebar_runs_show": "Läufe anzeigen",
-  "sidebar_runs_hide": "Läufe ausblenden"
+  "sidebar_runs_hide": "Läufe ausblenden",
+  "vna_calibration_lost": "Dieser Analysator wurde seit der Kalibrierung ausgeschaltet oder in dieser Sitzung des Programms nicht kalibriert (eine Kalibrierung wird beim Schließen des Programms oder Ausschalten des Analysators vergessen): bitte erneut kalibrieren, um korrigierte Ergebnisse zu erhalten."
 }
