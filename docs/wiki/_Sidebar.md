@@ -7,6 +7,7 @@
 - [Measurements](Measurements)
 - [Tools](Tools)
 - [Supported instruments](Supported-Instruments)
+- [Troubleshooting](Troubleshooting)
 - [Glossary](Glossary)
 
 **Developers**
@@ -18,4 +19,5 @@
 - [Contributing](Contributing)
 
 **Project**
+- [Software test status](Software-Test-Status)
 - [Roadmap](Roadmap)

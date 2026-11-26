@@ -16,12 +16,20 @@ Contributions are welcome: issues, feature requests, pull requests.
 QT_QPA_PLATFORM=offscreen pytest
 python scripts/check_translations.py
 flake8 ola tests scripts
+python scripts/add_copyright_headers.py --check
 ```
 
 - Keep the change to what the issue or feature needs.
+- Base the pull request on `main`; do not stack it on the branch of another pull request.
 - A new user-visible string needs a key in all five language files.
+- A new source file needs the copyright header.
 - A new module or a changed behaviour needs its guide updated in `docs/`.
 - An error needs its code documented in `ERROR_CODES.md`.
+- A new feature goes unchecked into *Software test status* of the README.
+
+## Issue labels
+
+Issues are sorted with labels: `area: engine`, `area: gui`, `area: other` for the part of the software; `os: windows` and `os: linux` for a system-specific problem; `type: documentation` for a proposed change to the documentation; `internal-planning` for the maintainers' planning issues.
 
 ## Reporting a problem
 

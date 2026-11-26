@@ -7,6 +7,9 @@
 | Extension | Measurement |
 |---|---|
 | `.eff` | efficiency sweep |
+| `.rfe` | efficiency with a resistive load |
+| `.reg` | line and load regulation |
+| `.rpl` | ripple and noise |
 | `.tlg` | time log |
 | `.spm` | S-parameters |
 | `.rtl` | return loss / VSWR |
@@ -17,20 +20,17 @@
 | `.cbl` | cable characterization |
 | `.tdr` | time domain (fault location) |
 | `.bod` | Bode plot |
-| `.reg` | line and load regulation |
-| `.rpl` | ripple and noise |
 
-A project of the old format (`eff_files`) is converted when it is opened, after the program asks: the original is kept as `.bkp`, the efficiency files become measurements, and the instrument call of each swept quantity must be chosen in the editor (the old files did not have it). The settings of the oscilloscopes (`.was`) are named by the key
-`scope_settings` of the project, like the instruments file `.inst`: they are part of the project, not a measurement. It is an
-ordered list: every `.was` file is an acquisition (a long view, a rising edge, a falling edge...). Any file can be switched
-off (right click in the file list: it is then listed in italics) and the order can be changed; a measurement that acquires
-waveforms runs the files that are on one after another. The remote control asks which one to apply when several are on.
+The results of each run are written in the `runs/` folder of the project, as JSON Lines, while the measurement runs. The calibrations of a network analyzer are kept in `calibrations/`.
 
-## Instrument file (`.inst`)
+## Definition files
 
-The instrument file of a project lists its instruments: name, library model, VISA address (or *manual*), channels, limits, timeout and, when they differ from the library, serial settings. The editor checks every entry and shows a warning on the instrument that has a problem: a name used twice, a model that is not in the library, a limit above what the model can do, a sweep outside the model's range.
+| File | What it holds |
+|---|---|
+| `.inst` | the instruments of the project: name, library model, VISA address (or *manual*), channels, limits, timeout and, when they differ from the library, serial settings |
+| `.was` | the oscilloscope settings (channels, time base, trigger), applied by the *Remote control* tab |
 
-A file that cannot be read is never overwritten.
+The instrument file editor checks every entry and shows a warning on the instrument that has a problem: a name used twice, a model that is not in the library, a limit above what the model can do, a sweep outside the model's range. A file that cannot be read is never overwritten.
 
 ## Renaming and using someone else's project
 
@@ -46,6 +46,10 @@ Each run keeps, for every instrument, its name, model, **serial number** and fir
 
 A manual instrument has no remote control. When a value must be set, a pop-up asks the operator to do it by hand; *Cancel* stops the measurement. A manual instrument is always one channel.
 
+## Devices under test and the registry
+
+A **DUT** (the thing being tested: an antenna, a filter, a converter) is kept apart from the **components** in the signal path (cables, attenuators, adapters). Both have a code and a card; see [Tools](Tools) and the guides [`docs/duts.md`](https://github.com/mede-erik/Open-Lab-Automation/blob/main/docs/duts.md) and [`docs/assets.md`](https://github.com/mede-erik/Open-Lab-Automation/blob/main/docs/assets.md). A DUT is optional: a measurement can be made without naming one.
+
 ## Connection
 
 Connections stay open between runs. The address can be:
@@ -54,7 +58,6 @@ Connections stay open between runs. The address can be:
 - USB-TMC: `USB0::...::INSTR` through pyvisa
 - GPIB: `GPIB0::<address>::INSTR`, or a Prologix-compatible adapter (`PROLOGIX::<port>::<address>::INSTR`)
 - Serial (RS-232): `ASRL<port>::INSTR`, with the settings of the library
+- Analog Discovery: `DWF` (the first device) or `DWF::<serial number>`
 
-Errors at connection time carry a `TRN-` or `VISA-` code; see [Error codes](Error-Codes).
-
-Repository guide: [`docs/engine.md`](https://github.com/mede-erik/Open-Lab-Automation/blob/main/docs/engine.md#connecting-the-instruments).
+Errors at connection time carry a `TRN-` or `VISA-` code; see [Error codes](Error-Codes). Repository guide: [`docs/engine.md`](https://github.com/mede-erik/Open-Lab-Automation/blob/main/docs/engine.md#connecting-the-instruments).

@@ -21,3 +21,9 @@
 **VNA**: vector network analyzer, an instrument that measures S-parameters of RF devices.
 
 **Velocity factor**: the speed of a signal along a cable as a fraction of the speed of light. Needed to turn a time-domain peak into a distance.
+
+**DUT (device under test)**: what is tested in a measurement: an antenna, a filter, a converter. Kept in its own archive, apart from the components in the signal path.
+
+**Kit of resistors**: the power resistors of a bench, kept once with their value, tolerance and power rating, so a measurement can say "resistor R22 of the kit PWR" instead of repeating the values.
+
+**Scope settings (`.was`)**: the file that says how the oscilloscope is set (time base, volts per division, trigger). It is applied by the *Remote control* tab.

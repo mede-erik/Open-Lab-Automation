@@ -19,12 +19,16 @@ The full list, with the cause and the fix for each code, is in [`ERROR_CODES.md`
 | `GPIB` | GPIB adapters and their driver |
 | `INST` | instrument configuration (`.inst` file) |
 | `LIB` | instrument library |
-| `PROJ`, `PJDB` | project files, project database |
+| `PROJ` | project files |
+| `MEAS` | the *Measurements* tab: measurement files, their runs and results |
+| `AST` | the registry of cables and devices, DUTs and their labels |
 | `DATA` | data acquisition and storage |
 | `DL` | datalogger configuration |
 | `TOOL` | tools (pulse generator, power limits) |
 | `CFG` | application configuration |
 | `FILE`, `VALID`, `NET`, `UI`, `SYS` | files, input validation, network, interface, system |
+
+A timeout reaches you as `TRN-003`. `GPIB-005` is documented for reference but is not raised by the current code.
 
 ## Reporting a problem
 
@@ -32,5 +36,5 @@ When you open an issue, copy the code shown in the error message, for example `[
 
 ## For developers
 
-- Raise the exception type of the component with its code; do not invent new prefixes without adding a section to `ERROR_CODES.md`.
+- Raise the exception type of the component with its code; do not invent a new prefix without adding a section to `ERROR_CODES.md`.
 - `tests/test_core_errorhandler.py` fails if a code used in the source is not documented.
