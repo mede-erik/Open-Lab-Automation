@@ -848,7 +848,16 @@ class ProjectWindow(QMainWindow):
         paths = getattr(self, "_run_paths", [])
         return paths[row] if 0 <= row < len(paths) else None
 
+    def _check_finished_runs(self) -> None:
+        """When a run window has just finished, tell the sidebar: the measurement file gets its
+        arrow (and the new run is listed) at once, without waiting for the next check."""
+        done = {id(w) for w in self.run_windows if w.model.finished}
+        if done != getattr(self, "_finished_windows", set()):
+            self._finished_windows = done
+            self.project_changed.emit()
+
     def _refresh_runs(self) -> None:
+        self._check_finished_runs()
         ref = self._selected()
         paths = self.session.runs(ref) if (ref and self.session) else []
         summaries = [(p, self.session.describe_run(p)) for p in paths]

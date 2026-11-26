@@ -693,13 +693,19 @@ class MainWindow(QMainWindow):
         self.refresh_project_files()
 
     def _check_runs(self):
-        """Redraw the list if the runs of an open measurement changed (a run was made, ended or
-        deleted since); nothing is done while no measurement is open."""
-        if not self._expanded_runs or not self.current_project_dir:
+        """Redraw the list if the runs of a measurement of the project changed (a run was made,
+        ended or deleted since). The files with the runs shown are watched with the state of each
+        run; the others only for having runs or not, which is what their arrow depends on."""
+        session = self.project_tab.session
+        if session is None or not self.current_project_dir:
             return
-        signature = tuple(
-            (f, tuple(self.project_tab.run_files(f))) for f in sorted(self._expanded_runs)
-        )
+        signature = []
+        for ref in session.project.measurements:
+            if ref.file in self._expanded_runs:
+                signature.append((ref.file, tuple(self.project_tab.run_files(ref.file))))
+            else:
+                signature.append((ref.file, bool(session.runs(ref))))
+        signature = tuple(signature)
         if signature != self._runs_signature:
             self.refresh_project_files()
             self._runs_signature = signature
