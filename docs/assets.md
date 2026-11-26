@@ -79,9 +79,140 @@ program does not drive printers itself.
 The QR code needs the `segno` package (`pip install segno`, in `requirements.txt`); without it the window says so and
 a label without the QR code still works.
 
+## The label of each kind (Label design...)
+
+You print on one label size (a roll, a sheet of one format), so the size is set **once** for every kind and each kind has its
+own design. **Label design...** in the label window opens the tool; the first format of the label window, **By type**, draws each
+card with the design of its kind at that size (QR and border can be switched off for one printing).
+
+* **Size**: width, height, single label or flag, margin, QR code, border. The same for every kind.
+* **Kinds**: cable, attenuator, amplifier, adapter and the devices under test (antenna, filter, converter, generic). Each has a
+  **ready-made design** that works as it is: cable `{id}`, `{name}`, `{connectors}  {length}`, `{last_measurement}`; attenuator,
+  amplifier `{id}`, `{name}`, `{specs}`, `{connectors}`, `{last_measurement}`; adapter `{id}`, `{name}`, `{connectors}`,
+  `{last_measurement}`; the devices `{id}`, `{name}`, `{version}`, `{specs}`, `{last_measurement}`. A kind you do not touch keeps it.
+* **Automatic**: write the lines yourself (one per row, same rules as the templates below); the program stacks them and shrinks the
+  text to fit.
+* **Manual**: every text and the QR code is an **element with a position in mm** (x, y of its top left corner), the **width** the
+  text may take (it shrinks to fit, then is cut with an ellipsis and the window says so), the **letter height** (for the QR code, the
+  side of its square), bold and alignment (left, centre, right). Click an element in the preview and drag it, or type the numbers.
+  *Start from the automatic layout* turns the lines into elements exactly as they were drawn. A text outside the label, a QR code
+  whose modules would print below 0.3 mm and a text that was cut are listed under the preview. A flag is always automatic.
+* **Boxes and lines**: *Add box* draws a **frame** (corner x, y, width, height, line width, optionally dashed) round texts or round
+  the whole label; *Add line* a **rule** from x, y to x + width, y + height (height 0: horizontal; width 0: vertical), also
+  dashed, for a separator or a fold mark. Click them in the preview and drag, like the texts; thin ones are easy to pick.
+* In every text you may use the places of the cards (see below) and the **attributes of each kind** with their unit:
+  `{nominal_db}` (`10 dB`), `{max_frequency}` (`6 GHz`), `{length_m}`, `{connectors}`, `{topology}`, `{input_voltage}` ... plus
+  `{kind}` and `{manufacturer}`. A text whose places are all empty is not printed.
+* The size and the designs you changed are in the same file as the templates; a kind you did not change is not in it.
+  *Back to the ready-made design* forgets your changes to a kind.
+
+### Small labels, and what the tool tells you
+
+The layout works down to small labels (the size can be as small as 10 x 8 mm; a face of a cable flag as small as 5 mm). The tool
+**guides** you with notes under the preview, in your language:
+
+* **The QR code is left out when it does not fit.** By default (*Leave the QR code out when it does not fit*) a QR code whose modules
+  would print under 0.3 mm, or that would leave less than 10 mm for the text, is not printed and the text gets the room; the note says
+  how wide and high the design must be to have it (and, for a cable flag, how long the strip). A QR code that can fit is made as big as
+  it needs to be. Untick the box to print it anyway: a small one is then flagged as a warning. A thinner cable leaves a bigger face
+  and so the same strip gets its QR code back.
+* **Lines that do not fit** are named (they go from the last one, the code is always kept) and the note says when only the code is left.
+* **Text that would be hard to read** (under about 2.2 mm, 6 pt) is flagged, with the reason: use a bigger label or fewer lines.
+* **A tall narrow label** (taller than 1.6 times its width) suggests writing the label turned by 90 degrees.
+
+### The layout is checked
+
+Every label is checked after it is laid out (`ola.labels.layout_problems`) and what is wrong is listed under the preview: a **text
+over another text**, a **text over the QR code**, a **text outside the label**, a **text crossed by a line** (a rule, a fold mark) or
+by the **edge of a frame**. The automatic layout must never have any of these: a test lays out every kind at twelve sizes, with and
+without the QR code, as a single label, a flag and a cable flag, with three cable diameters and the four rotations (also with the real
+font of the system), and fails on the first overlap. In a manual design, where you place things, the list says what to move. Turned
+texts are checked with their turned boxes. Texts are measured (the real font in the window, an estimate that errs on the long side
+elsewhere) with a tolerance of 0.15 mm.
+
+### Label stocks, the printer and the orientation
+
+* **Label stock** in *Label design...* fills the size from the labels people buy (50 x 80 and 50 x 40 mm for the CLabel at 203 dpi, 50 x 25,
+  40 x 30, the Brother QL rolls...); any other size can be typed. The **width** is the side **across the tape** (X) and the **height**
+  the side **along it** (Y): a label of 50 x 80 mm is 50 wide and 80 long.
+* **Printer resolution** (203, 300 or 600 dpi) is kept with the size: the label window writes its images at it.
+* **A tall label** (taller than 1.25 times its width) puts the **QR code on top, centred, and the text under it**, with the whole
+  width for the text; a wide one keeps the code at the left. If the code fits neither way it is left out. A cable flag whose faces are
+  tall (an 80 mm strip across a 50 mm tape) therefore gets the code above the text on each face.
+* **Turn the output for the printer** (label window: 0 / 90 / 180 / 270 degrees) turns the preview, the PDF, the images and the SVG: a cable
+  flag is designed along its length (80 x 50 mm) and printed as 50 x 80 mm, which is how a printer that feeds the label along its
+  long side takes it. Use 90 or 270 to choose which way the text reads. Sheets are printed as they are.
+
+### Writing in both directions (rotation)
+
+* **Automatic design**: *Write the label turned by* 0 / 90 / 180 / 270 degrees (clockwise). The label is laid out on a label turned
+  the other way and then turned, so a 12 x 40 mm strip gets text that runs along its length, with the QR code turned too.
+* **Manual design**: each text has its own **rotation**: 0 (horizontal), 90 (reads from the top down), 180 (upside down), 270 (reads
+  from the bottom up). The position x, y is the top left corner of the box the text takes **after** turning (a text on its side has a
+  tall narrow box: its width is the length it may take, now vertical), so a rotated text is dragged and positioned like any other.
+  *Start from the automatic layout* resets the rotation of the design: turn the texts you want one by one.
+
+## Using the labels with other programs
+
+The program does not drive printers; it writes files that other programs print:
+
+* **PDF** at the real size, one page per label (or per sheet): print it at 100 % with the printer's own program or from the command
+  line with CUPS (`lp -o fit-to-page=false labels.pdf`), which is how Linux and macOS drive most label printers.
+* **SVG** in millimetres (1 unit = 1 mm, `width`/`height` in `mm`, plain `<text>`, `<rect>`, `<line>` and `<path>`): opens in
+  **Inkscape**, LibreOffice Draw and any SVG editor, where a label can be touched up; rotated texts are ordinary `rotate()` transforms.
+* **PNG** at the dpi of your printer (203, 300 or 600; the real size in millimetres is written in the file): the images the command-line
+  printing programs take, such as `brother_ql` for the Brother QL printers and `ptouch-print` for the P-touch ones.
+* **Save every label as a file** (SVG or PNG) writes one file per label in a folder, named with its code (`CBL-0042.png`), for
+  programs that take one image per label. Sheets are written one file per page.
+
+These are the file formats those programs read; the program has not been tried with them yet (see the test list in the README).
+The templates of gLabels or of a printer's own software are not written.
+
+## The label for a cable (flag)
+
+For a cable choose the layout **Flag for a cable (from its diameter)** in *Label design...*: you give the **size of the label** (the
+strip you print on: width is the length of the strip, height the tape width) and the **diameter of the cable**; the program splits the
+strip so that you can put it on the cable as a flag.
+
+```
+|<-- round the cable -->|<--- face --->|<--- face --->|
+|   (blank, adhesive)   |  the design   |  the design  |
+                        ┆ dashed: base  ┆ dashed: fold
+```
+
+* **Round the cable**: the circumference, `pi x diameter`, plus the **overlap** (3 mm by default) so that the strip sticks to
+  itself. This part is left blank.
+* **The flag**: what is left is cut in two equal **faces** with a 1 mm fold between them; the **same design** is printed on both,
+  so it can be read from either side. Two **dashed lines** are drawn full height: one where the wrap ends and the flag begins
+  (the base) and one at the **fold**. Wrap the blank part round the cable, then fold the flag at the dashed line with the adhesive
+  sides together.
+* **End that goes round the cable**: left (default) or right of the strip.
+* The window says how long each part is and the **shortest label** for that cable with faces of 12 mm. A strip too short for the
+  cable (faces under 5 mm) is refused and says how long it must be; a text that does not fit its face is cut and listed.
+* The design of the kind is drawn as a label of the size of **one face**: with manual positions, x and y are measured from the left
+  top corner of a face. The QR code is optional (a face is narrow: with it the text has little room).
+
+## Your own label templates
+
+**Templates...** in the label window opens the editor of your own formats, kept in one file shared by all projects
+(`~/.open_lab_automation/label_templates.json`, or the file named by `OLA_LABEL_TEMPLATES`). A template has a **name**, a
+**size** in mm (width 10-300, height 8-200), the layout (**single label** or **flag**), the margin, QR code and border on or
+off, and the **lines**: one text per row with the data of the card between braces.
+
+* The places are `{id}`, `{name}`, `{version}`, `{description}`, `{specs}`, `{connectors}`, `{length}`, `{date}`,
+  `{last_measurement}`, `{owner}`, `{serial}` and `{notes}`; the menu under the box inserts one. `Rev {version}`, `S/N {serial}`
+  and `{owner} - {date}` are lines. `{serial}` is the bare number (the built-in line adds `S/N`).
+* A line whose places are **all empty** is not printed (a card without a version has no `Rev` line); one empty place among
+  others leaves no gap. A name between braces that is not in the list is an error.
+* A line must show the code `{id}`: that line is the big bold one. The QR code always holds `OLA:<code>` and its content cannot be
+  edited, so a scan always gives the code back (at most 12 lines of 80 characters).
+* Lines that do not fit are left out **from the end** and listed under the preview, as for the built-in formats.
+* *New* copies the format selected in the label window (a built-in one or one of yours) as a starting point. A template that is
+  not valid is not saved and the window says why; a damaged file is reported and never overwritten. The templates are listed in
+  the format box (QR and border can still be changed there); the sheets keep the lines of the built-in format.
+
 ## Not done yet
 
-Editable label templates (they will share the template system of the HTML report planned for the beta) and reading a QR
-code with a camera (a USB scanner works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
+Reading a QR code with a camera (a USB scanner that types the code works). The trend of a cable's loss is in [trend.md](trend.md); an efficiency run
 names its converter under test as a name typed by hand (see [efficiency.md](efficiency.md)); the devices under
 test have their own archive, not this registry ([duts.md](duts.md)).

@@ -69,7 +69,8 @@ folder in the repository, change it in `ola.spec` too; if you add a new data fol
 
 `ola-selftest` (a console program in the bundle) checks what unit tests cannot: that the **frozen**
 program holds everything it reads at run time. It imports every module, loads the instrument
-library, the translations and the built-in measurement modules, and opens the main window
+library, the translations and the built-in measurement modules, makes a QR code (`segno`, which
+the labels need), and opens the main window
 offscreen. The CI runs it on the bundle, on the installed Windows program, and inside clean
 Ubuntu 22.04, Debian 12 and Fedora containers after installing the `.deb`/`.rpm`: that is what
 proves the lists of dependencies in `nfpm.yaml`. It also helps a user: if the program does not

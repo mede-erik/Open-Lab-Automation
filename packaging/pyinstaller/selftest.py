@@ -122,6 +122,16 @@ def check_transport(expect_native: bool) -> str:
     return transport.BACKEND
 
 
+def check_qr_code() -> str:
+    """The QR code of a label (``segno``) can be made: a bundle without it prints labels with no QR."""
+    from ola.labels import qr_matrix
+
+    matrix = qr_matrix("OLA:CBL-0042")
+    if len(matrix) < 21:
+        raise RuntimeError("the QR code is too small")
+    return f"{len(matrix)} x {len(matrix)} modules"
+
+
 def check_main_window() -> str:
     from PyQt6.QtWidgets import QApplication
 
@@ -146,6 +156,7 @@ def main(argv: list[str]) -> int:
     check("import frontend.*", lambda: import_all("frontend"))
     check("built-in measurement modules", check_modules)
     check("transport", lambda: check_transport(expect_native))
+    check("QR code (segno)", check_qr_code)
     check("main window", check_main_window)
     if _failures:
         print(f"\n{len(_failures)} check(s) FAILED: {', '.join(_failures)}")

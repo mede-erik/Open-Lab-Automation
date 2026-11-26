@@ -10,6 +10,11 @@ A thin layer over ``ola.labels`` (layout, QR code, SVG; tested without a screen)
 * the **format**: a single label (50 x 25 mm, 62 x 29 mm for a Brother QL tape, ...), a **flag**
   for a thin cable (the same text either side of a fold) or a **sheet of labels** for a normal
   printer, with how many of its places are already used;
+* the design of each **kind** of object (**By type**, the first format: one label size and, for
+  each kind, its lines or the positions of its texts), made in the *Label design...* tool
+  (``frontend/ui/LabelDesignDialog.py``, ``ola.label_design``);
+* your own **templates** (a size and free lines of text with the data of the card), made in the
+  *Templates...* window (``frontend/ui/LabelTemplateDialog.py``, ``ola.label_templates``);
 * the **lines**: the code (always), name, description, connectors, length, date, the latest
   measurement, owner, serial number, notes; and whether there is a QR code and a border.
 
@@ -42,6 +47,7 @@ from PyQt6.QtWidgets import (
 from frontend.ui.label_paint import paint_drawing, render_image, text_measure, write_pdf
 from frontend.ui.module_translator import CatalogTranslator
 from ola.assets import Asset
+from ola.label_templates import LabelTemplateError, TemplateStore
 from ola.labels import (
     FIELDS,
     PRESETS,
@@ -56,6 +62,9 @@ from frontend.core.errorhandler import show_problem
 
 SHEET = "sheet"
 SINGLE = "single"
+TEMPLATE = "tpl"
+DPI_CHOICES = (203, 300, 600)  # a 203 dpi thermal printer, a 300 dpi one (Brother QL), 600
+BY_KIND = "kind"  # each card with the design of its kind (ola.label_design)
 OPTIONAL_FIELDS = FIELDS[1:]  # the code ("id") is always there
 
 
@@ -65,11 +74,15 @@ class LabelPreview(QWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.drawing: Optional[Drawing] = None
+        self.scale_dx_dy = (1.0, 0.0, 0.0)
         self.setMinimumSize(360, 260)
 
     def set_drawing(self, drawing: Optional[Drawing]) -> None:
         self.drawing = drawing
         self.update()
+
+    def paint_over(self, painter: QPainter, scale: float, dx: float, dy: float) -> None:
+        """Hook for a subclass that draws on top of the label (the design tool's frames)."""
 
     def paintEvent(self, _event) -> None:  # noqa: N802 (Qt name)
         painter = QPainter(self)
@@ -80,7 +93,9 @@ class LabelPreview(QWidget):
             return
         scale = min((self.width() - 24) / d.width, (self.height() - 24) / d.height)
         dx, dy = (self.width() - d.width * scale) / 2, (self.height() - d.height * scale) / 2
+        self.scale_dx_dy = (scale, dx, dy)  # to turn a point of the widget into millimetres
         paint_drawing(painter, d, scale, dx, dy)
+        self.paint_over(painter, scale, dx, dy)
         painter.setPen(QPen(QColor("#888888"), 1))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(QRectF(dx, dy, d.width * scale, d.height * scale))
@@ -95,9 +110,11 @@ class LabelDialog(QDialog):
         translator: Any = None,
         last_line: Optional[Callable[[Asset], str]] = None,
         parent: Optional[QWidget] = None,
+        templates: Optional[TemplateStore] = None,
     ):
         """``last_line(asset)``: the text of the "latest measurement" line for a card (``""``
-        if it has none); without it that line is empty."""
+        if it has none); without it that line is empty. ``templates``: the label templates of the
+        user (default: their file; a damaged file is reported and there are none)."""
         super().__init__(parent)
         self.tr_ = CatalogTranslator("assets", translator)
         self._t = self.tr_.t
@@ -106,6 +123,11 @@ class LabelDialog(QDialog):
         self.pages: List[Drawing] = []
         self.error = ""
         self._loading = False
+        self.templates_error = ""
+        try:
+            self.templates = templates if templates is not None else TemplateStore()
+        except LabelTemplateError as exc:
+            self.templates, self.templates_error = None, str(exc)
         self.setWindowTitle(self._t("lbl_title", n=len(self.assets)))
         self.resize(900, 600)
         self._build_ui()
@@ -116,13 +138,18 @@ class LabelDialog(QDialog):
         root = QHBoxLayout(self)
         side = QVBoxLayout()
         self.format_box = QComboBox()
-        for name in PRESETS:
-            self.format_box.addItem(self._format_text(name, PRESETS[name]), f"{SINGLE}:{name}")
-        for name in SHEETS:
-            self.format_box.addItem(f"{self._t('lbl_sheet')}: {name}", f"{SHEET}:{name}")
+        self._fill_formats()
         self.format_box.currentIndexChanged.connect(self._format_changed)
         side.addWidget(QLabel(self._t("lbl_format")))
         side.addWidget(self.format_box)
+        self.design_btn = QPushButton(self._t("ldg_open"))
+        self.design_btn.setEnabled(self.templates is not None)
+        self.design_btn.clicked.connect(self.edit_design)
+        side.addWidget(self.design_btn)
+        self.templates_btn = QPushButton(self._t("lbl_tpl_edit"))
+        self.templates_btn.setEnabled(self.templates is not None and bool(self.assets))
+        self.templates_btn.clicked.connect(self.edit_templates)
+        side.addWidget(self.templates_btn)
         group = QGroupBox(self._t("lbl_lines"))
         grid = QGridLayout(group)
         grid.addWidget(QCheckBox(self._t("lbl_field_id")), 0, 0)
@@ -158,6 +185,36 @@ class LabelDialog(QDialog):
         self.svg_btn.clicked.connect(self.save_svg)
         for button in (self.pdf_btn, self.png_btn, self.svg_btn):
             side.addWidget(button)
+        dpi_row = QHBoxLayout()
+        dpi_row.addWidget(QLabel(self._t("lbl_dpi")), 1)
+        self.dpi_box = QComboBox()
+        for dpi in DPI_CHOICES:
+            self.dpi_box.addItem(f"{dpi} dpi", dpi)
+        saved = self.templates.setup.dpi if self.templates is not None else 300
+        index = self.dpi_box.findData(saved)
+        self.dpi_box.setCurrentIndex(index if index >= 0 else self.dpi_box.findData(300))
+        self.dpi_box.setToolTip(self._t("lbl_dpi_help"))
+        dpi_row.addWidget(self.dpi_box)
+        side.addLayout(dpi_row)
+        turn_row = QHBoxLayout()
+        turn_row.addWidget(QLabel(self._t("lbl_turn")), 1)
+        self.turn_box = QComboBox()
+        for degrees in (0, 90, 180, 270):
+            self.turn_box.addItem(f"{degrees}\u00b0", degrees)
+        self.turn_box.setToolTip(self._t("lbl_turn_help"))
+        self.turn_box.currentIndexChanged.connect(self._redraw)
+        turn_row.addWidget(self.turn_box)
+        side.addLayout(turn_row)
+        each_row = QHBoxLayout()
+        self.each_btn = QPushButton(self._t("lbl_save_each"))
+        self.each_btn.setToolTip(self._t("lbl_save_each_help"))
+        self.each_btn.clicked.connect(self.save_each)
+        self.each_format = QComboBox()
+        for fmt in ("svg", "png"):
+            self.each_format.addItem(fmt.upper(), fmt)
+        each_row.addWidget(self.each_btn, 1)
+        each_row.addWidget(self.each_format)
+        side.addLayout(each_row)
         root.addLayout(side)
 
         view = QVBoxLayout()
@@ -176,6 +233,56 @@ class LabelDialog(QDialog):
         view.addWidget(self.message)
         root.addLayout(view, 1)
 
+    def _fill_formats(self, select: str = "") -> None:
+        """The formats: the built-in ones, the templates of the user, the sheets."""
+        self.format_box.blockSignals(True)
+        self.format_box.clear()
+        if self.templates is not None:
+            setup = self.templates.setup
+            self.format_box.addItem(
+                f"{self._t('ldg_by_kind')}  ({setup.width_mm:g} x {setup.height_mm:g} mm)",
+                f"{BY_KIND}:",
+            )
+        for name in PRESETS:
+            self.format_box.addItem(self._format_text(name, PRESETS[name]), f"{SINGLE}:{name}")
+        for template in self.templates.templates if self.templates else []:
+            spec = template.to_spec()
+            self.format_box.addItem(
+                f"{self._t('lbl_template')}: {self._format_text(template.name, spec)}",
+                f"{TEMPLATE}:{template.name}",
+            )
+        for name in SHEETS:
+            self.format_box.addItem(f"{self._t('lbl_sheet')}: {name}", f"{SHEET}:{name}")
+        index = self.format_box.findData(select) if select else -1
+        self.format_box.setCurrentIndex(max(index, 0))
+        self.format_box.blockSignals(False)
+
+    def edit_design(self) -> None:
+        """Open the label design tool; the labels are drawn again when it closes."""
+        from frontend.ui.LabelDesignDialog import LabelDesignDialog
+
+        chosen = self.format_box.currentData()
+        LabelDesignDialog(self.templates, self.tr_.base, self).exec()
+        self._fill_formats(chosen)
+        self._format_changed()
+
+    def edit_templates(self) -> None:
+        """Open the editor of the templates; the formats are listed again when it closes."""
+        from frontend.ui.LabelTemplateDialog import LabelTemplateDialog
+
+        kind, name = self._kind_and_name()
+        chosen = self.format_box.currentData()
+        dialog = LabelTemplateDialog(
+            self.templates,
+            self.assets[0],
+            self.tr_.base,
+            name if kind in (SINGLE, TEMPLATE) else "",
+            self,
+        )
+        dialog.exec()
+        self._fill_formats(chosen)
+        self._format_changed()
+
     @staticmethod
     def _format_text(name: str, spec: LabelSpec) -> str:
         return f"{name}  ({spec.width_mm:g} x {spec.height_mm:g} mm)"
@@ -189,22 +296,36 @@ class LabelDialog(QDialog):
     def _base_spec(self) -> LabelSpec:
         """The format chosen, with the lines, QR and border as ticked."""
         kind, name = self._kind_and_name()
-        base = PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+        base = self._format_spec(kind, name)
+        if kind == TEMPLATE:  # the lines are the template's; the QR and the border can be changed
+            from dataclasses import replace as _replace
+
+            return _replace(base, qr=self.qr_box.isChecked(), border=self.border_box.isChecked())
         fields = ["id"] + [k for k in OPTIONAL_FIELDS if self.field_boxes[k].isChecked()]
         spec = base.with_fields(fields, qr=self.qr_box.isChecked())
         from dataclasses import replace
 
         return replace(spec, border=self.border_box.isChecked())
 
+    def _format_spec(self, kind: str, name: str) -> LabelSpec:
+        """The format of a built-in preset or of a template (a sheet uses the 50x25 lines)."""
+        if kind == TEMPLATE and self.templates and self.templates.get(name):
+            return self.templates.get(name).to_spec()
+        return PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+
     def _format_changed(self) -> None:
         """A format was chosen: its lines, QR and border become the ticks (which can be changed)."""
         kind, name = self._kind_and_name()
-        spec = PRESETS[name] if kind == SINGLE else PRESETS["50x25"]
+        by_kind = kind == BY_KIND
+        spec = self._format_spec(kind, name)
         self._loading = True
         for key, box in self.field_boxes.items():
             box.setChecked(key in spec.fields)
-        self.qr_box.setChecked(spec.qr)
-        self.border_box.setChecked(spec.border)
+            box.setEnabled(kind not in (TEMPLATE, BY_KIND))  # those have their own lines
+        setup = self.templates.setup if by_kind else None
+        self.qr_box.setChecked(setup.qr if setup else spec.qr)
+        self.border_box.setChecked(setup.border if setup else spec.border)
+        self.qr_box.setEnabled(True)  # for this printing only; the design keeps its own
         self._loading = False
         sheet = kind == SHEET
         self.skip_box.setEnabled(sheet)
@@ -216,10 +337,22 @@ class LabelDialog(QDialog):
         if self._loading:
             return
         kind, name = self._kind_and_name()
-        spec = self._base_spec()
         self.error = ""
+        spec = None if kind == BY_KIND else self._base_spec()
         try:
-            if kind == SINGLE:
+            if kind == BY_KIND:
+                from dataclasses import replace as _replace
+
+                setup = _replace(
+                    self.templates.setup,
+                    qr=self.qr_box.isChecked(),
+                    border=self.border_box.isChecked(),
+                )
+                self.pages = [
+                    self.templates.drawing(a, self.last_line(a), text_measure, setup)
+                    for a in self.assets
+                ]
+            elif kind in (SINGLE, TEMPLATE):
                 self.pages = [
                     build_drawing(spec, a, self.last_line(a), text_measure) for a in self.assets
                 ]
@@ -230,11 +363,19 @@ class LabelDialog(QDialog):
                 )
         except RuntimeError as exc:  # the QR code needs segno
             self.pages, self.error = [], str(exc)
+        turn = int(self.turn_box.currentData() or 0)
+        self.turn_box.setEnabled(kind != SHEET)  # a sheet is printed as it is
+        if turn and kind != SHEET:
+            # the label as the printer takes it: a strip drawn along X but fed along Y is turned
+            from ola.labels import rotate_drawing
+
+            self.pages = [rotate_drawing(p, turn) for p in self.pages]
         keep = self.page_box.currentIndex()
         self.page_box.blockSignals(True)
         self.page_box.clear()
         for n in range(len(self.pages)):
-            label = self.assets[n].id if kind == SINGLE and n < len(self.assets) else str(n + 1)
+            single = kind in (SINGLE, TEMPLATE, BY_KIND)
+            label = self.assets[n].id if single and n < len(self.assets) else str(n + 1)
             self.page_box.addItem(label, n)
         self.page_box.setCurrentIndex(min(max(keep, 0), len(self.pages) - 1) if self.pages else -1)
         self.page_box.blockSignals(False)
@@ -254,9 +395,10 @@ class LabelDialog(QDialog):
             for fields in sorted({d for d in page.dropped}):
                 lines.append(self._t("lbl_dropped", fields=fields.replace(":", " - ")))
             lines += sorted({w for w in page.warnings})
+            lines += sorted({n for n in page.notes})  # what the layout decided by itself
         self.message.setText("<br>".join(dict.fromkeys(lines)))
         enabled = bool(self.pages)
-        for button in (self.pdf_btn, self.png_btn, self.svg_btn):
+        for button in (self.pdf_btn, self.png_btn, self.svg_btn, self.each_btn):
             button.setEnabled(enabled)
 
     def current(self) -> Optional[Drawing]:
@@ -273,14 +415,14 @@ class LabelDialog(QDialog):
         """Every label, at its real size."""
         path = self._ask("lbl_save_pdf", "labels.pdf", "PDF (*.pdf)")
         if path:
-            self._do(lambda: write_pdf(path, self.pages), path)
+            self._do(lambda: write_pdf(path, self.pages, self.dpi()), path)
 
     def save_png(self) -> None:
-        """The label on show, at 300 dpi."""
+        """The label on show, at the chosen dpi."""
         drawing = self.current()
         path = self._ask("lbl_save_png", "label.png", "PNG (*.png)") if drawing else ""
         if path:
-            self._do(lambda: render_image(drawing, 300).save(path) or True, path)
+            self._do(lambda: render_image(drawing, self.dpi()).save(path) or True, path)
 
     def save_svg(self) -> None:
         """The label on show as SVG (millimetres)."""
@@ -289,10 +431,57 @@ class LabelDialog(QDialog):
         if path:
             self._do(lambda: open(path, "w", encoding="utf-8").write(render_svg(drawing)), path)
 
+    def dpi(self) -> int:
+        """The resolution chosen for the images (the printer's own: 203, 300, 600)."""
+        return int(self.dpi_box.currentData() or 300)
+
+    def file_names(self, fmt: str) -> List[str]:
+        """The file name of each page for ``save_each``: the code of the card for one label per
+        card, ``page-1`` ... for a sheet."""
+        kind, _name = self._kind_and_name()
+        names = []
+        for n in range(len(self.pages)):
+            single = kind != SHEET and n < len(self.assets)
+            stem = self.assets[n].id if single else f"page-{n + 1}"
+            names.append(f"{stem}.{fmt}")
+        return names
+
+    def write_each(self, folder: str, fmt: str = "svg") -> List[str]:
+        """Write every label as a file of its own in ``folder`` (SVG in millimetres, or PNG at the
+        chosen dpi with the real size in the file) and return the paths. Label software that
+        takes one image per label (Inkscape, ``brother_ql``, ``ptouch-print``) reads these."""
+        import os
+
+        os.makedirs(folder, exist_ok=True)
+        paths = []
+        for drawing, name in zip(self.pages, self.file_names(fmt)):
+            path = os.path.join(folder, name)
+            if fmt == "svg":
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(render_svg(drawing))
+            elif not render_image(drawing, self.dpi()).save(path):
+                raise OSError(f"cannot write {path}")
+            paths.append(path)
+        return paths
+
+    def save_each(self) -> None:
+        """Ask for a folder and write every label in it as a separate file."""
+        folder = QFileDialog.getExistingDirectory(self, self._t("lbl_save_each"))
+        if folder:
+            fmt = self.each_format.currentData()
+            self._do(lambda: self.write_each(folder, fmt), folder)
+
     def _do(self, action: Callable[[], Any], path: str) -> None:
         try:
             action()
         except Exception as exc:
-            show_problem(self, self.windowTitle(), self._t("lbl_failed", error=exc), code="AST-002", exception=exc, level="critical")
+            show_problem(
+                self,
+                self.windowTitle(),
+                self._t("lbl_failed", error=exc),
+                code="AST-002",
+                exception=exc,
+                level="critical",
+            )
             return
         self.message.setText(self._t("lbl_saved", path=path))

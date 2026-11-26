@@ -762,7 +762,16 @@ in the JSON, a configuration dialog and (if needed) an extension of the `.inst` 
   direct printing (PDF at 100 %); general register (cable, antenna, filter, amplifier, adapter,
   other). Defect found from the screenshot and fixed: the estimate of the text width was too
   optimistic for capitals (now per character, checked in the tests against the real Qt width).
-  Still to do: editable label templates (with the HTML report system), the trend of a cable's loss
+  **Label design per kind** (2026-11-24, with the user): one label size, a ready-made design per kind (cable, attenuator, amplifier,
+  adapter, antenna, filter, converter, generic), automatic (lines) or manual (elements with position and size in mm, drag in the preview);
+  the lines of the devices under test are to be refined by the user in the tool.
+  Added (2026-11-25, user request): **boxes and lines** as elements of a manual design, and the layout **cable flag** (label size +
+  cable diameter -> blank wrap part of pi x diameter + overlap, two equal faces with the same design, dashed base and fold lines).
+  Added (2026-11-25, user request): the QR code **left out when it does not fit** + guidance under the preview (`advise`), small labels,
+  **rotation** of texts (per element) and of a whole automatic design, export for other programs (SVG in mm, PNG at the printer's dpi with
+  the real size, one file per label). gLabels templates are not written (a format that could not be tested here).
+  Editable label templates are done (2026-11-24, `ola/label_templates.py`, `LabelTemplateDialog`): own formats with free lines and
+  `{field}` places, not tied to the HTML report system. Still to do: the trend of a cable's loss
   over time, reading the QR with the camera.
   **Attenuator** (2026-11-04, user request): module `attenuator` (`.att`): attenuation (positive) of an attenuator
   as a function of frequency with the VNA, mean/minimum/maximum, flatness, slope, deviation from the nominal value,

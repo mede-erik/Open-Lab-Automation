@@ -103,6 +103,10 @@ hiddenimports += modules_of("frontend")
 hiddenimports += collect_submodules("pyvisa_py")
 hiddenimports += collect_submodules("serial.tools")
 hiddenimports += ["matplotlib.backends.backend_qtagg"]
+# segno draws the QR codes of the labels; it is imported inside a function (the layout works
+# without it and says how to install it), so name it here: a bundle without it would print labels
+# with no QR code. The self-test (check_qr_code) fails if it is missing.
+hiddenimports += ["segno"]
 # ola_native (Rust) is imported inside try/except: it is bundled when it is installed in the
 # build environment, otherwise the program falls back to the Python transport.
 

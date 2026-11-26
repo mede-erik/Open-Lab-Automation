@@ -61,18 +61,26 @@ def paint_drawing(painter: QPainter, drawing: Drawing, scale: float, dx: float =
         if isinstance(item, Text):
             painter.setFont(make_font(round(item.size * scale), item.bold))
             painter.setPen(black)
-            x = item.x * scale
+            shift = 0.0
             if item.anchor == "middle":
-                x -= painter.fontMetrics().horizontalAdvance(item.text) / 2
+                shift = -painter.fontMetrics().horizontalAdvance(item.text) / 2
             elif item.anchor == "end":
-                x -= painter.fontMetrics().horizontalAdvance(item.text)
-            painter.drawText(QPointF(x, item.y * scale), item.text)
+                shift = -painter.fontMetrics().horizontalAdvance(item.text)
+            painter.save()
+            painter.translate(item.x * scale, item.y * scale)  # a rotated text turns round (x, y)
+            if item.rotation:
+                painter.rotate(item.rotation)
+            painter.drawText(QPointF(shift, 0.0), item.text)
+            painter.restore()
         elif isinstance(item, Box):
-            painter.setPen(QPen(black, 0.2 * scale))
+            pen = QPen(black, (item.stroke or 0.2) * scale)
+            if item.dashed:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(QRectF(item.x * scale, item.y * scale, item.w * scale, item.h * scale))
         elif isinstance(item, Line):
-            pen = QPen(black, 0.15 * scale)
+            pen = QPen(black, (item.stroke or 0.15) * scale)
             if item.dashed:
                 pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)

@@ -24,6 +24,7 @@ a QR code whose modules would print smaller than ``MIN_MODULE_MM`` is flagged in
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
@@ -36,6 +37,9 @@ QUIET_MODULES = (
     2  # empty border around a QR code, in modules (the standard asks 4; labels are small)
 )
 MIN_FONT_MM = 1.8  # about 5 pt: below this a label cannot be read
+MIN_TEXT_MM = 10.0  # the text beside a QR code needs at least this width, or the QR code goes
+MIN_TEXT_HEIGHT_MM = 7.0  # the text under a QR code needs at least this height, or the QR code goes
+PORTRAIT_RATIO = 1.25  # a box taller than this times its width puts the QR code above the text
 # the lines of a label: the first is always kept, the last goes first when there is no room
 FIELDS = ("id", "name", "version", "description", "specs", "connectors", "length", "date",
           "last_measurement", "owner", "serial", "notes")  # fmt: skip
@@ -54,6 +58,11 @@ class LabelSpec:
     qr: bool = True
     border: bool = False
     margin_mm: float = 1.5
+    qr_auto: bool = (
+        False  # leave the QR code out when it would not fit (``note``), not print it small
+    )
+    # free lines (``"Rev {version}"``, see ``fill_line``); when there are any they replace fields
+    lines: Tuple[str, ...] = ()
 
     def with_fields(self, fields: Sequence[str], qr: Optional[bool] = None) -> "LabelSpec":
         """The same format with other lines (and QR on or off)."""
@@ -121,7 +130,9 @@ SHEETS: Dict[str, SheetSpec] = {
 # ----- what is drawn -------------------------------------------------------------------------
 @dataclass
 class Text:
-    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start``, ``middle`` or ``end``."""
+    """A text with its baseline at ``(x, y)`` mm; ``anchor`` is ``start``, ``middle`` or ``end``.
+    ``rotation`` (0, 90, 180 or 270 degrees, clockwise) turns the text round the point ``(x, y)``:
+    90 reads from the top down, 270 from the bottom up, 180 upside down."""
 
     x: float
     y: float
@@ -129,6 +140,7 @@ class Text:
     text: str
     bold: bool = False
     anchor: str = "start"
+    rotation: int = 0
 
 
 @dataclass
@@ -140,6 +152,7 @@ class Line:
     x2: float
     y2: float
     dashed: bool = False
+    stroke: float = 0.0  # line width in mm; 0 = the default (0.15)
 
 
 @dataclass
@@ -150,6 +163,8 @@ class Box:
     y: float
     w: float
     h: float
+    stroke: float = 0.0  # line width in mm; 0 = the default (0.2)
+    dashed: bool = False
 
 
 @dataclass
@@ -180,6 +195,9 @@ class Drawing:
     items: List[Item] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     dropped: List[str] = field(default_factory=list)  # the lines that did not fit, by field name
+    notes: List[str] = field(
+        default_factory=list
+    )  # what the layout decided by itself (QR left out)
 
     def translated(self, dx: float, dy: float) -> List[Item]:
         """The items moved by ``(dx, dy)`` (to place a label on a sheet)."""
@@ -196,6 +214,49 @@ class Drawing:
             else:
                 moved.append(replace(it, x=it.x + dx, y=it.y + dy))
         return moved
+
+
+def rotate_drawing(drawing: Drawing, degrees: int) -> Drawing:
+    """The drawing turned clockwise by 0, 90, 180 or 270 degrees (the size swaps for 90 and 270).
+    Texts keep their text and turn (``Text.rotation``), a QR code turns with its modules, boxes and
+    lines move. Warnings, dropped lines and notes are kept. ``ValueError`` for another angle."""
+    degrees = degrees % 360
+    if degrees not in (0, 90, 180, 270):
+        raise ValueError("a drawing turns by 0, 90, 180 or 270 degrees")
+    if degrees == 0:
+        return drawing
+    w, h = drawing.width, drawing.height
+
+    def point(x: float, y: float) -> Tuple[float, float]:
+        return {90: (h - y, x), 180: (w - x, h - y), 270: (y, w - x)}[degrees]
+
+    def rect(x: float, y: float, rw: float, rh: float) -> Tuple[float, float, float, float]:
+        (x1, y1), (x2, y2) = point(x, y), point(x + rw, y + rh)
+        return min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1)
+
+    new = Drawing(h if degrees != 180 else w, w if degrees != 180 else h)
+    new.warnings, new.dropped, new.notes = (
+        list(drawing.warnings), list(drawing.dropped), list(drawing.notes)
+    )  # fmt: skip
+    for it in drawing.items:
+        if isinstance(it, Text):
+            x, y = point(it.x, it.y)
+            new.items.append(replace(it, x=x, y=y, rotation=(it.rotation + degrees) % 360))
+        elif isinstance(it, Line):
+            (x1, y1), (x2, y2) = point(it.x1, it.y1), point(it.x2, it.y2)
+            new.items.append(replace(it, x1=x1, y1=y1, x2=x2, y2=y2))
+        elif isinstance(it, Box):
+            x, y, bw, bh = rect(it.x, it.y, it.w, it.h)
+            new.items.append(replace(it, x=x, y=y, w=bw, h=bh))
+        elif isinstance(it, QR):
+            x, y, _bw, _bh = rect(it.x, it.y, it.size, it.size)
+            matrix = it.matrix
+            for _ in range(degrees // 90):  # one quarter turn clockwise
+                matrix = [list(row) for row in zip(*matrix[::-1])]
+            new.items.append(replace(it, x=x, y=y, matrix=matrix))
+        else:
+            new.items.append(it)
+    return new
 
 
 # ----- the lines of text ---------------------------------------------------------------------
@@ -276,7 +337,11 @@ def field_text(key: str, asset: Asset, last_measurement: str = "") -> str:
         return f"S/N {asset.serial}" if asset.serial else ""
     if key == "notes":
         return asset.notes.replace("\n", " ").strip()
-    return ""
+    if key == "kind":
+        return asset.kind
+    if key == "manufacturer":
+        return asset.manufacturer
+    return attribute_text(asset, key)
 
 
 def char_width(ch: str) -> float:
@@ -342,6 +407,87 @@ def fit_text(
     return size, cut.rstrip() + "…"
 
 
+# ----- checking a layout ---------------------------------------------------------------------
+LAYOUT_TOLERANCE_MM = 0.15  # overlaps smaller than this are not reported (rounding, line width)
+ASCENT, DESCENT = 0.8, 0.2  # the box of a text, from its baseline, in fractions of the size
+
+
+def text_box(item: Text, measure: Optional[Measure] = None) -> Tuple[float, float, float, float]:
+    """``(x0, y0, x1, y1)`` in mm of the space a ``Text`` takes on the label: its width (measured,
+    or estimated on the long side) from the anchor, its height from above the capitals to below
+    the descenders, turned by its rotation round ``(x, y)``."""
+    width = (measure or text_width)(item.text, item.size, item.bold)
+    start = {"start": 0.0, "middle": -width / 2, "end": -width}.get(item.anchor, 0.0)
+    corners = [
+        (start, -ASCENT * item.size), (start + width, -ASCENT * item.size),
+        (start, DESCENT * item.size), (start + width, DESCENT * item.size),
+    ]  # fmt: skip
+    cos, sin = {0: (1, 0), 90: (0, 1), 180: (-1, 0), 270: (0, -1)}[item.rotation % 360]
+    points = [(item.x + lx * cos - ly * sin, item.y + lx * sin + ly * cos) for lx, ly in corners]
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _overlap(a: Tuple[float, float, float, float], b: Tuple[float, float, float, float]) -> bool:
+    """True if two boxes share more than the tolerance in both directions."""
+    dx = min(a[2], b[2]) - max(a[0], b[0])
+    dy = min(a[3], b[3]) - max(a[1], b[1])
+    return dx > LAYOUT_TOLERANCE_MM and dy > LAYOUT_TOLERANCE_MM
+
+
+def _crosses(box: Tuple[float, float, float, float], x1: float, y1: float, x2: float, y2: float):
+    """True if the (horizontal or vertical) segment passes through the inside of ``box``."""
+    t = LAYOUT_TOLERANCE_MM
+    if abs(y1 - y2) < 1e-6:  # horizontal
+        return (
+            box[1] + t < y1 < box[3] - t and min(x1, x2) < box[2] - t and max(x1, x2) > box[0] + t
+        )
+    if abs(x1 - x2) < 1e-6:  # vertical
+        return (
+            box[0] + t < x1 < box[2] - t and min(y1, y2) < box[3] - t and max(y1, y2) > box[1] + t
+        )
+    return False
+
+
+def layout_problems(drawing: Drawing, measure: Optional[Measure] = None) -> List[str]:
+    """What is wrong with the arrangement of a drawing: a text over another text or over the QR
+    code, a text outside the label, a text crossed by a line (a fold mark, a rule) or by the edge of
+    a frame. One sentence each, without repeats. A label made by the automatic layout should have
+    none; for a manual one they say what to move."""
+    found: List[str] = []
+    texts = [i for i in drawing.items if isinstance(i, Text)]
+    boxes = [text_box(t, measure) for t in texts]
+    qrs = [i for i in drawing.items if isinstance(i, QR)]
+    eps = 0.05
+    for n, (t, b) in enumerate(zip(texts, boxes)):
+        if b[0] < -eps or b[1] < -eps or b[2] > drawing.width + eps or b[3] > drawing.height + eps:
+            found.append(f"'{t.text}' is outside the label")
+        for u, c in zip(texts[n + 1 :], boxes[n + 1 :]):
+            if _overlap(b, c):
+                found.append(f"'{t.text}' overlaps '{u.text}'")
+        for q in qrs:
+            if _overlap(b, (q.x, q.y, q.x + q.size, q.y + q.size)):
+                found.append(f"'{t.text}' overlaps the QR code")
+        for it in drawing.items:
+            if isinstance(it, Line) and _crosses(b, it.x1, it.y1, it.x2, it.y2):
+                found.append(f"'{t.text}' is crossed by a line")
+            elif isinstance(it, Box):
+                right, bottom = it.x + it.w, it.y + it.h
+                edges = [(it.x, it.y, right, it.y), (it.x, bottom, right, bottom),
+                         (it.x, it.y, it.x, bottom), (right, it.y, right, bottom)]  # fmt: skip
+                if any(_crosses(b, *edge) for edge in edges):
+                    found.append(f"'{t.text}' is crossed by the edge of a frame")
+    return list(dict.fromkeys(found))
+
+
+def add_layout_warnings(drawing: Drawing, measure: Optional[Measure] = None) -> Drawing:
+    """Put ``layout_problems`` in ``drawing.warnings`` (once each) and return the drawing."""
+    for problem in layout_problems(drawing, measure):
+        if problem not in drawing.warnings:
+            drawing.warnings.append(problem)
+    return drawing
+
+
 # ----- one label -----------------------------------------------------------------------------
 def build_drawing(
     spec: LabelSpec, asset: Asset, last_measurement: str = "", measure: Optional[Measure] = None
@@ -357,10 +503,84 @@ def build_drawing(
         _flag(drawing, spec, asset, last_measurement, measure)
     else:
         _panel(drawing, spec, asset, last_measurement, 0.0, spec.width_mm, spec.qr, measure)
-    return drawing
+    return add_layout_warnings(drawing, measure)
+
+
+_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+EXTRA_FIELDS = ("kind", "manufacturer")  # more places for the lines of your own
+
+
+def attribute_units() -> Dict[str, str]:
+    """The attributes of the cards of every kind (cable, attenuator... and the devices under test)
+    with their unit: ``{"nominal_db": "dB", "connectors": "", ...}``. Each can be a place in a
+    line (``{nominal_db}`` gives ``10 dB``)."""
+    from .assets import KINDS
+    from .duts import CATEGORIES
+
+    units: Dict[str, str] = {}
+    for table in (KINDS, CATEGORIES):
+        for kind in table.values():
+            for name, unit in kind["attributes"]:
+                units.setdefault(name, unit)
+    return units
+
+
+def placeholder_names() -> List[str]:
+    """Every name a line of your own may have between braces: the lines of ``FIELDS``, ``kind``,
+    ``manufacturer`` and the attributes of the cards."""
+    names = list(FIELDS) + list(EXTRA_FIELDS)
+    return names + [n for n in attribute_units() if n not in names]
+
+
+def attribute_text(asset: Asset, name: str) -> str:
+    """One attribute of a card as text with its unit (``10 dB``, ``6 GHz``); '' if it has none."""
+    value = asset.attributes.get(name)
+    unit = attribute_units().get(name, "")
+    if isinstance(value, bool) or value in (None, ""):
+        return ""
+    if isinstance(value, (int, float)):
+        if not value:
+            return ""
+        return format_si(float(value), "Hz") if unit == "Hz" else f"{float(value):g} {unit}".strip()
+    return str(value)
+
+
+def placeholders(template: str) -> List[str]:
+    """The names between braces in a line template, in order."""
+    return _PLACEHOLDER.findall(template)
+
+
+def unknown_placeholders(template: str) -> List[str]:
+    """The names between braces that are not a place (``placeholder_names``)."""
+    known = placeholder_names()
+    return [name for name in placeholders(template) if name not in known]
+
+
+def fill_line(template: str, asset: Asset, last_measurement: str = "") -> str:
+    """The text of a free line: each ``{name}`` (a key of ``FIELDS``: ``{id}``, ``{name}``,
+    ``{version}``, ``{serial}``...) is replaced by what the card has. A line that has placeholders
+    and nothing for any of them is empty (it is not drawn); ``{serial}`` is the bare serial number
+    (the built-in line adds ``S/N``); a name that is not known stays as
+    typed. Spaces left over by an empty placeholder are squeezed."""
+    names = placeholders(template)
+    known = placeholder_names()
+    values = {n: field_text(n, asset, last_measurement) for n in names if n in known}
+    if "serial" in values:  # the fixed lines print "S/N x"; in a line of your own it is just x
+        values["serial"] = asset.serial
+    if names and not any(values.get(n) for n in names):
+        return ""
+    text = _PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), template)
+    return " ".join(text.split())
 
 
 def _lines(spec: LabelSpec, asset: Asset, last: str) -> List[Tuple[str, str]]:
+    if spec.lines:
+        out = []
+        for template in spec.lines:
+            text = fill_line(template, asset, last)
+            if text:
+                out.append(("id" if template.strip() == "{id}" else template, text))
+        return out
     keys = [k for k in FIELDS if k in spec.fields]
     return [(k, field_text(k, asset, last)) for k in keys if field_text(k, asset, last)]
 
@@ -378,19 +598,29 @@ def _panel(
     """The content of one label (or one side of a flag) in the box from ``x0`` of ``width`` mm."""
     m, h = spec.margin_mm, spec.height_mm
     left = x0 + m
-    text_left, text_width_ = left, width - 2 * m
+    text_left, text_width_, top = left, width - 2 * m, m
     if qr:
-        text_left, text_width_ = _place_qr(d, asset, x0, width, h, m)
+        plan = qr_plan(asset, width, h, m, spec.qr_auto)
+        if plan is None:
+            note = "the QR code was left out: it does not fit this label"
+            if note not in d.notes:
+                d.notes.append(note)
+        elif plan[0] == "above":
+            text_left, text_width_, top = _place_qr_above(d, asset, x0, width, m, plan[1])
+        else:
+            text_left, text_width_ = _place_qr(d, asset, x0, width, h, m, plan[1])
     lines = _lines(spec, asset, last)
     if not lines:
         return
     id_size = min(h * 0.3, 7.0)
     size_other = max(MIN_FONT_MM, min(h * 0.17, 3.2))
-    available = h - 2 * m
+    available = h - top - m
     placed: List[Tuple[str, str, float, bool]] = []  # key, text, size, bold
     for key, text in lines:
         if key == "id":
-            size, shown = fit_text(text, text_width_, id_size, 2.5, bold=True, measure=measure)
+            size, shown = fit_text(
+                text, text_width_, id_size, MIN_FONT_MM, bold=True, measure=measure
+            )
             placed.append((key, shown, size, True))
         else:
             size, shown = fit_text(text, text_width_, size_other, measure=measure)
@@ -399,18 +629,90 @@ def _panel(
     while sum(p[2] * 1.2 for p in placed) > available and len(placed) > 1:
         gone = placed.pop()  # the last one in FIELDS order
         d.dropped.append(gone[0])
-    y = m
+    y = top
     for key, text, size, bold in placed:
         y += size
         d.items.append(Text(text_left, y, size, text, bold))
         y += size * 0.2
 
 
-def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: float):
-    """Put the QR code at the left of the box; returns the left and the width left for the text."""
+def qr_min_side(asset: Asset) -> float:
+    """The smallest square (quiet zone included) in which the QR code of a card prints with modules
+    of ``MIN_MODULE_MM``."""
+    try:
+        count = len(qr_matrix(qr_text(asset.id)))
+    except RuntimeError:  # no ``segno``: the layout can still be planned (the smallest QR code)
+        count = 21
+    return MIN_MODULE_MM * (count + 2 * QUIET_MODULES)
+
+
+def qr_side(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optional[float]:
+    """The side of the square for the QR code in a box ``width`` x ``h`` mm with margin ``m``: about
+    42 % of the width, no more than the height. With ``auto``: a bigger one if the modules would be
+    too small and the text keeps ``MIN_TEXT_MM``; ``None`` if it cannot fit (the QR code is left
+    out). Without ``auto`` the usual side is always given (a small code is flagged, not removed)."""
+    side = min(h - 2 * m, width * 0.42)
+    if not auto:
+        return side
+    needed = qr_min_side(asset)
+    if side < needed:
+        side = needed
+    if side > h - 2 * m + 1e-9 or width - 3 * m - side < MIN_TEXT_MM:
+        return None
+    return side
+
+
+def qr_side_above(asset: Asset, width: float, h: float, m: float, auto: bool) -> Optional[float]:
+    """The side of the square for a QR code **above** the text, in a ``width`` x ``h`` mm box: as
+    wide as the box allows, no more than 45 % of its height. With ``auto``: a bigger one if the
+    modules would be too small and the text keeps ``MIN_TEXT_HEIGHT_MM`` under it; ``None`` if it
+    cannot fit."""
+    side = min(width - 2 * m, h * 0.45)
+    if not auto:
+        return side
+    needed = qr_min_side(asset)
+    side = max(side, needed)
+    if side > width - 2 * m + 1e-9 or h - 3 * m - side < MIN_TEXT_HEIGHT_MM:
+        return None
+    return side
+
+
+def qr_plan(
+    asset: Asset, width: float, h: float, m: float, auto: bool
+) -> Optional[Tuple[str, float]]:
+    """Where the QR code goes in a box ``width`` x ``h`` mm: ``("beside", side)`` (a wide box: the
+    code at the left, the text at its right), ``("above", side)`` (a tall box, taller than
+    ``PORTRAIT_RATIO`` times its width: the code on top, the text under it) or ``None`` (with
+    ``auto``, it fits neither way: the QR code is left out). With ``auto`` the other way is tried if
+    the first does not fit."""
+    ways = ["above", "beside"] if h > PORTRAIT_RATIO * width else ["beside", "above"]
+    for way in ways if auto else ways[:1]:
+        side = (qr_side_above if way == "above" else qr_side)(asset, width, h, m, auto)
+        if side is not None:
+            return way, side
+    return None
+
+
+def _place_qr_above(d: Drawing, asset: Asset, x0: float, width: float, m: float, side: float):
+    """Put the QR code, ``side`` mm square, at the top, in the middle of the box; returns the left
+    and the width of the text under it and where that text starts."""
+    matrix = qr_matrix(qr_text(asset.id))
+    module = side / (len(matrix) + 2 * QUIET_MODULES)
+    quiet = module * QUIET_MODULES
+    d.items.append(QR(x0 + (width - side) / 2 + quiet, m + quiet, module, matrix))
+    if module < MIN_MODULE_MM:
+        d.warnings.append(
+            f"the QR code is too small ({module:.2f} mm per module, at least {MIN_MODULE_MM} mm): "
+            "use a bigger label or leave the QR code out"
+        )
+    return x0 + m, width - 2 * m, m + side + m
+
+
+def _place_qr(d: Drawing, asset: Asset, x0: float, width: float, h: float, m: float, side: float):
+    """Put the QR code, ``side`` mm square, at the left of the box; returns the left and the width
+    left for the text."""
     matrix = qr_matrix(qr_text(asset.id))
     count = len(matrix)
-    side = min(h - 2 * m, width * 0.42)
     module = side / (count + 2 * QUIET_MODULES)
     inner = module * count
     qx, qy = x0 + m + module * QUIET_MODULES, (h - inner) / 2
@@ -503,21 +805,25 @@ def render_svg(drawing: Drawing) -> str:
         if isinstance(it, Text):
             weight = ' font-weight="bold"' if it.bold else ""
             anchor = f' text-anchor="{it.anchor}"' if it.anchor != "start" else ""
+            turn = (
+                f' transform="rotate({it.rotation} {it.x:.3f} {it.y:.3f})"' if it.rotation else ""
+            )
             out.append(
                 f'<text x="{it.x:.3f}" y="{it.y:.3f}" font-size="{it.size:.3f}" '
                 'font-family="Helvetica, Arial, sans-serif"'
-                f"{weight}{anchor}>{escape(it.text)}</text>"
+                f"{weight}{anchor}{turn}>{escape(it.text)}</text>"
             )
         elif isinstance(it, Box):
+            dash = ' stroke-dasharray="1 1"' if it.dashed else ""
             out.append(
                 f'<rect x="{it.x:g}" y="{it.y:g}" width="{it.w:g}" height="{it.h:g}" '
-                'fill="none" stroke="black" stroke-width="0.2"/>'
+                f'fill="none" stroke="black" stroke-width="{it.stroke or 0.2:g}"{dash}/>'
             )
         elif isinstance(it, Line):
             dash = ' stroke-dasharray="1 1"' if it.dashed else ""
             out.append(
                 f'<line x1="{it.x1:g}" y1="{it.y1:g}" x2="{it.x2:g}" y2="{it.y2:g}" '
-                f'stroke="black" stroke-width="0.15"{dash}/>'
+                f'stroke="black" stroke-width="{it.stroke or 0.15:g}"{dash}/>'
             )
         elif isinstance(it, QR):
             out.append(f'<path d="{_qr_path(it)}" fill="black" shape-rendering="crispEdges"/>')
