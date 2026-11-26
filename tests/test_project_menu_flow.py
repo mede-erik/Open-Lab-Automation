@@ -523,6 +523,41 @@ def test_the_runs_follow_new_and_deleted_files(window, home, tmp_path):
 
 
 @pytest.mark.gui
+def test_the_arrow_appears_after_a_run_without_opening_the_file(window, home, tmp_path):
+    from frontend.ui.ProjectFilesList import RUNS_ROLE
+
+    session, ref = open_example(window, tmp_path)
+    window.refresh_project_files()
+    assert window.project_files_list.item(1).data(RUNS_ROLE) is None  # no run yet: no arrow
+    write_run(session, ref, "20261125_100000")  # a run ends; nothing is open in the sidebar
+    window._check_runs()  # (the timer does it every two seconds)
+    assert window.project_files_list.item(1).data(RUNS_ROLE) is not None
+
+
+@pytest.mark.gui
+def test_the_sidebar_is_told_when_a_run_window_finishes(window, home, tmp_path):
+    session, ref = open_example(window, tmp_path)
+    tab = window.project_tab
+    told = []
+    tab.project_changed.connect(lambda: told.append(1))
+
+    class Model:
+        finished = False
+
+    class Fake:
+        model = Model()
+
+    fake = Fake()
+    tab.run_windows.append(fake)
+    tab._check_finished_runs()
+    assert told == []  # still running
+    fake.model.finished = True
+    tab._check_finished_runs()
+    tab._check_finished_runs()  # told once, not at every tick
+    assert told == [1]
+
+
+@pytest.mark.gui
 def test_a_file_that_is_not_a_run_cannot_be_opened(window, home, monkeypatch, tmp_path):
     session, ref = open_example(window, tmp_path)
     junk = tmp_path / "junk.jsonl"
