@@ -218,7 +218,11 @@ class CableCharacterization(Measurement):
         wanted = ["S21"] if mode == "transmission" else ["S11"]
         if mode == "transmission" and p.get("also_s11"):
             wanted.append("S11")
-        freq, traces = acquire(ctx, handle, sweep, wanted, int(p.get("averages", 1)))
+        # the loss of a cable between two ports is S21: without a thru calibration it is wrong
+        need = ["S21"] if mode == "transmission" else []
+        freq, traces = acquire(
+            ctx, handle, sweep, wanted, int(p.get("averages", 1)), require_corrected=need
+        )
         self._report(ctx, freq, traces)
 
     def _confirm_setup(self, ctx: MeasurementContext, mode: str) -> None:

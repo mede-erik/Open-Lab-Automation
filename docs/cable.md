@@ -13,6 +13,21 @@ touch the calibration. It asks once, before measuring, whether the VNA is calibr
 
 With `"also_s11": true` in transmission mode the return loss and the VSWR of the cable are reported too.
 
+## Calibration
+
+The VNA is calibrated before the measurement, with the same sweep (same range and points) and at the plane where the cable will be connected.
+
+| Mode | Calibration needed |
+|---|---|
+| `reflection` | **One port** on port 1: open, short, load. The cable is connected straight to the VNA connector, with no other cable in between; this moves the reference plane to the connector. |
+| `transmission` | One port (open, short, load) **and** a **thru**: port 1 connected to port 2 without the cable (a short jumper or adapters with the connectors of the cable under test). The thru gives the 0 dB of S21. |
+
+A one-port calibration corrects S11 only. If the VNA says that S21 is not corrected, the *transmission* measurement does not run and the error explains why: the loss would include the cables, the connectors and the band changes of the VNA and the numbers would be wrong. Make the thru calibration or use the *reflection* mode.
+
+A thru needs two ends that fit the ports: with two male ports, a jumper or a chain of adapters with two female ends. The cable under test cannot be its own thru. Without that accessory use the *reflection* mode, which needs no thru.
+
+Check the calibration before measuring a cable: the thru alone must read about 0 dB loss over the whole band; an open or a short on port 1 must give about 0 dB return loss.
+
 ## The file
 
 ```json cable.cbl

@@ -390,6 +390,7 @@ def acquire(
     parameters: Sequence[str],
     averages: int = 1,
     notes: bool = True,
+    require_corrected: Sequence[str] = (),
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
     ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
@@ -398,7 +399,11 @@ def acquire(
     (``run_sweep``, then ``read_sparameters(sparameters=[...])``); one with the simple calls reads
     them one by one (``read_sparameter``). What the instrument cannot do (see ``sweep_notes``) is
     reported in the log (``notes=False`` for a sweep that is repeated many times), and so is a
-    result that the instrument says is not calibrated."""
+    result that the instrument says is not calibrated.
+
+    ``require_corrected`` names parameters that must be corrected by the calibration: if the
+    instrument says it did not correct one of them, ``MeasurementError`` is raised on the first
+    sweep (a measurement that would give wrong numbers does not run)."""
     library = uses_library_calls(handle)
     if notes:
         for note in sweep_notes(handle, sweep):
@@ -413,6 +418,14 @@ def acquire(
         ctx.checkpoint()
         if library:
             freq, got, calibrated, uncorrected = _library_read(handle, parameters, nominal)
+            missing = [n for n in require_corrected if n in uncorrected]
+            if missing:
+                raise MeasurementError(
+                    f"{', '.join(missing)} is not corrected by the calibration of the VNA: "
+                    "a one-port calibration (open, short, load) corrects S11 only. Make a thru "
+                    "calibration (port 1 connected to port 2 without the cable) with the same "
+                    "sweep, then measure again; or use the one-port (reflection) mode"
+                )
             if sweep_no == 1 and notes:
                 if not calibrated:
                     ctx.log(
