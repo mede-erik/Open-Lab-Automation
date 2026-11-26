@@ -80,12 +80,55 @@ def test_the_state_belongs_to_the_apparatus():
     assert state.status(a) == CALIBRATED and state.status(b) == MISSING
 
 
-def test_a_software_calibration_is_not_handled_here():
-    handle = OwnCalibrationVna()
+def software_vna(serial="SN9"):
+    handle = OwnCalibrationVna("LiteVNA", serial)
     handle.supports = lambda call: True  # it can import a calibration: the LiteVNA way
-    state = PowerState()
-    assert state.check(handle) is None
-    assert "identification_query" not in handle.calls  # not even asked
+    handle.calibration = {"file": "x", "kind": "ONE_PORT"}
+    handle.applied = []
+    handle.set_calibration = handle.applied.append
+    return handle
+
+
+def test_a_software_calibration_is_forgotten_when_the_vna_was_off():
+    handle, state = software_vna(), PowerState()
+    state.mark_calibrated(handle)
+    assert state.check(handle) is None and state.allows_restore(handle)
+    handle.on = False
+    text = state.check(handle)  # no answer: the calibration of the program is dropped
+    assert "switched off" in text and not state.allows_restore(handle)
+    assert "calibration_clear" in handle.calls and handle.applied == [None]
+    handle.on = True
+    assert state.check(handle) and not state.allows_restore(handle)  # answers again: still lost
+
+
+def test_a_calibration_of_an_earlier_run_is_not_put_back():
+    handle, state = software_vna(), PowerState()  # the program just started: nothing seen
+    text = state.check(handle)
+    assert "not calibrated in this session" in text
+    assert not state.allows_restore(handle)
+
+
+def test_the_saved_calibration_is_restored_only_in_the_session_that_made_it(
+    monkeypatch, tmp_path
+):
+    from ola import vna_power_state as module
+
+    fresh = PowerState()
+    monkeypatch.setattr(module, "POWER_STATE", fresh)
+    restored = []
+    monkeypatch.setattr(
+        flow, "auto_restore", lambda handle, path, sweep: restored.append(handle.name)
+    )
+    handle = software_vna()
+    session = types.SimpleNamespace(
+        project=types.SimpleNamespace(path=tmp_path / "p.json"), calibration_warnings=[]
+    )
+    ProjectSession._restore_calibrations(session, [handle], {"sweep": {"points": 11}})
+    assert restored == [] and len(session.calibration_warnings) == 1  # a new start: forgotten
+    fresh.mark_calibrated(handle)  # calibrated now, in this session
+    session.calibration_warnings.clear()
+    ProjectSession._restore_calibrations(session, [handle], {"sweep": {"points": 11}})
+    assert restored == ["LiteVNA"] and session.calibration_warnings == []
 
 
 def test_the_probe_never_raises():

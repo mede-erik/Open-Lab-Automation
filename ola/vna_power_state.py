@@ -17,9 +17,12 @@ sweeps:
 * nothing is known about an apparatus (the program just started): it counts as not calibrated.
 
 A switch-off and switch-on between two probes is not seen (accepted). A measurement without a valid
-calibration is **reported**, never blocked: the operator decides. A software calibration (the
-LiteVNA, ``calibration_import``) is not handled here: it lives in the program and is restored from
-its record.
+calibration is **reported**, never blocked: the operator decides.
+
+A **software calibration** (the LiteVNA, ``calibration_import``) follows the same rule: it is
+forgotten when the program is closed or the VNA is switched off. Its record stays in the project
+(it says when and how it was made), but it is put back only for an apparatus calibrated in this
+run of the program that has not been off since (``allows_restore``).
 """
 
 from __future__ import annotations
@@ -79,13 +82,24 @@ class PowerState:
                 return CALIBRATED
             return LOST if key in self._off else MISSING
 
+    def allows_restore(self, handle: Any) -> bool:
+        """May the saved software calibration of this apparatus be put back? Only if it was made
+        in this run of the program and the instrument was not switched off since: a calibration
+        is forgotten when the program is closed or the VNA is switched off."""
+        return self.status(handle) == CALIBRATED
+
     def check(self, handle: Any) -> Optional[str]:
-        """Probe the VNA and say what is wrong with its calibration, or None when it is fine. None
-        too for an instrument whose calibration is kept by the program (software calibration)."""
-        if not keeps_own_calibration(handle):
-            return None
+        """Probe the VNA and say what is wrong with its calibration, or None when it is fine.
+
+        An instrument that keeps its own calibration loses it when it is switched off. A software
+        calibration (the LiteVNA) lives in the program: it is forgotten when the VNA does not
+        answer (``forget_software_calibration``) and is never taken from a previous run of the
+        program."""
+        software = not keeps_own_calibration(handle)
         self.observe(handle, probe_presence(handle))
         state = self.status(handle)
+        if state == LOST and software:
+            forget_software_calibration(handle)
         if state == CALIBRATED:
             return None
         name = getattr(handle, "name", "the VNA")
@@ -94,11 +108,31 @@ class PowerState:
                 f"{name} was switched off since it was calibrated: the calibration is lost. "
                 "Calibrate it again before measuring; the data of this run are not calibrated."
             )
+        if software:
+            return (
+                f"{name} was not calibrated in this session of the program: a calibration is "
+                "forgotten when the program is closed or the VNA is switched off. Calibrate it "
+                "before measuring; the data of this run are not calibrated."
+            )
         return (
             f"{name} was not calibrated since the program started (an instrument that keeps its "
             "own calibration loses it when it is switched off). Calibrate it before measuring "
             "if it was off; the data of this run are not known to be calibrated."
         )
+
+
+def forget_software_calibration(handle: Any) -> None:
+    """Drop the software calibration applied to a connection (the driver's and the application's
+    snapshot of it). Never raises: an instrument that has none has nothing to drop."""
+    try:
+        if handle.supports("calibration_clear"):
+            handle.call("calibration_clear")
+    except Exception:
+        pass
+    try:
+        handle.set_calibration(None)
+    except Exception:
+        pass
 
 
 POWER_STATE = PowerState()  # the one of the program

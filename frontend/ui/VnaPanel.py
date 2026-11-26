@@ -58,13 +58,14 @@ class _SweepWorker(QThread):
     def run(self):
         try:
             handle = self.connect()
+            lost = vc.power_warning(handle)  # switched off since it was calibrated? (first)
             if self.restore is not None:
                 try:  # the saved calibration, if there is one for this sweep; never stops the sweep
                     self.restore(handle, self.sweep)
                 except Exception as exc:
                     log.warning("the saved calibration was not restored: %s", exc)
             result = vc.run_one_sweep(handle, self.sweep, self.sparameters, self.configure)
-            if vc.power_warning(handle):  # it keeps its calibration itself and was switched off
+            if lost:
                 result[2].append("calibration_lost")
             if "not_calibrated" in result[2] and self.calibration_sweep is not None:
                 try:  # a saved calibration for another sweep: the panel tells which
@@ -251,7 +252,10 @@ class VnaPanel(QGroupBox):
             "not_calibrated": self.t("vna_not_calibrated"),
             "calibration_lost": self.t("vna_calibration_lost"),
         }
-        texts = [names.get(n, n) for n in notes]
+        shown = notes
+        if "calibration_lost" in notes:  # it says the same, with the reason
+            shown = [n for n in notes if n != "not_calibrated"]
+        texts = [names.get(n, n) for n in shown]
         hint = getattr(self.worker, "hint", None) if "not_calibrated" in notes else None
         if hint:
             texts.append(

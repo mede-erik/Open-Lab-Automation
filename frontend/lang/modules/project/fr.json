@@ -64,5 +64,5 @@
   "prj_delete_confirm": "Supprimer {file} ? Le fichier de la mesure et ses fichiers de formes d'onde sont supprimés définitivement.",
   "prj_delete_failed": "Impossible de supprimer {file} : {error}",
   "prj_open_run_failed": "Impossible d'ouvrir {file} : {error}",
-  "prj_calibration_lost": "{name} : la calibration de cet analyseur est absente ou perdue (un analyseur qui garde sa calibration la perd quand il est éteint, et le programme ne l'a pas vue faire).\n\nCalibrez-le (Calibrer le VNA...) pour une mesure corrigée. La mesure démarre quand même ; ses données sont marquées comme non calibrées."
+  "prj_calibration_lost": "{name} : la calibration de cet analyseur est absente ou perdue. Une calibration est oubliée quand le programme est fermé ou l'analyseur éteint, et le programme ne l'a pas vue faire dans cette session.\n\nCalibrez-le (Calibrer le VNA...) pour une mesure corrigée. La mesure démarre quand même ; ses données sont marquées comme non calibrées."
 }

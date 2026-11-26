@@ -313,6 +313,8 @@ class ProjectSession:
                 warning = None
             if warning:
                 self.calibration_warnings.append({"instrument": handle.name, "text": warning})
+            if not POWER_STATE.allows_restore(handle):
+                continue  # a calibration of an earlier run, or lost: not put back
             problem = sweep_problem(handle, sweep)
             if problem:
                 raise MeasurementError(f"{handle.name}: {problem}")
