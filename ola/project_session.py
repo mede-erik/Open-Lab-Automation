@@ -112,6 +112,9 @@ class ProjectSession:
         self.resistor_kits: Optional[Any] = None  # ``ola.resistor_kits.KitRegistry`` (default file)
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
         self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
+        # VNAs that keep their own calibration and lost it (``ola.vna_power_state``), as found by
+        # the last ``bind``: ``{"instrument": name, "text": warning}``
+        self.calibration_warnings: List[Dict[str, str]] = []
 
     # ----- the project ------------------------------------------------------------------------
     @property
@@ -258,6 +261,7 @@ class ProjectSession:
         reached."""
         if self.connect is None:
             raise MeasurementError("the instruments are not connected: no way to reach them yet")
+        self.calibration_warnings = []  # VNAs whose own calibration is missing or lost
         known = set(self.instruments)
         handles: Dict[str, Any] = {}
         cache: Dict[str, Any] = {}
@@ -297,9 +301,18 @@ class ProjectSession:
         to read, after the questions of the measurement."""
         from .compat import sweep_of
         from .vna_calibration_flow import auto_restore, sweep_problem
+        from .vna_power_state import POWER_STATE
 
         sweep = sweep_of(params)
         for handle in handles:
+            # a VNA that keeps its own calibration: is it still valid (not switched off since)?
+            try:
+                warning = POWER_STATE.check(handle)
+            except Exception as exc:  # never stops the run: the operator decides
+                log.warning("the calibration state of %s is not known: %s", handle.name, exc)
+                warning = None
+            if warning:
+                self.calibration_warnings.append({"instrument": handle.name, "text": warning})
             problem = sweep_problem(handle, sweep)
             if problem:
                 raise MeasurementError(f"{handle.name}: {problem}")
@@ -436,6 +449,8 @@ class ProjectSession:
         dut_cards = dut_snapshots_for(measurement_file.params, self.duts)
         if dut_cards:  # the same for the device under test, with its versions
             extra["duts"] = dut_cards
+        if self.calibration_warnings:  # the data of this run are not calibrated: said in the file
+            extra["calibration_lost"] = [dict(w) for w in self.calibration_warnings]
         if accepted_differences:  # the user went on although an instrument has less than before
             extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(
@@ -450,6 +465,8 @@ class ProjectSession:
                 path, header, observed=lambda: observed_of(runner), discard_failed=not keep_failed
             )
         )
+        for warning in self.calibration_warnings:  # reported, not blocked
+            runner._publish_log(warning["text"], "warning")
         return runner, path
 
     def resolve_scope_settings(self, params: Mapping[str, Any]) -> Dict[str, Any]:

@@ -219,6 +219,9 @@ class CalibrationSession:
         except CallNotSupportedError:
             pass  # the instrument turns the correction on itself
         self.applied = True
+        from .vna_power_state import POWER_STATE
+
+        POWER_STATE.mark_calibrated(self.handle)  # valid until the instrument is switched off
 
     def record(self, instrument_name: str, model_id: str) -> CalibrationRecord:
         """The record of the finished calibration (with the data of a software calibration)."""

@@ -88,6 +88,19 @@ def read_identity(handle: Any, address: str = "") -> Identity:
     return identity
 
 
+def probe_presence(handle: Any) -> bool:
+    """Is the instrument there and answering? ``identification_query`` outside any measurement:
+    True if it gave a non-empty answer, False if it did not answer or failed. Never raises. The
+    timeout is the one of the connection (to be tuned per model on real hardware)."""
+    try:
+        if not handle.supports("identification_query"):
+            return True  # nothing to ask: it cannot be said to be off
+        return bool(str(handle.call("identification_query") or "").strip())
+    except Exception as exc:
+        log.info("%s did not answer the presence probe: %s", getattr(handle, "name", "?"), exc)
+        return False
+
+
 def snapshot(handle: Any) -> Dict[str, Any]:
     """What a saved measurement keeps about one instrument handle (name, model, serial,
     calibration). A manual instrument has no serial; a handle that does not know its identity

@@ -63,5 +63,6 @@
   "prj_delete": "Delete...",
   "prj_delete_confirm": "Delete {file}? The run file and its waveform files are deleted for good.",
   "prj_delete_failed": "Could not delete {file}: {error}",
-  "prj_open_run_failed": "Could not open {file}: {error}"
+  "prj_open_run_failed": "Could not open {file}: {error}",
+  "prj_calibration_lost": "{name}: the calibration of this analyzer is missing or lost (an analyzer that keeps its own calibration loses it when it is switched off, and the program has not seen it calibrated).\n\nCalibrate it (Calibrate VNA...) for a corrected measurement. The measurement starts anyway; its data are marked as not calibrated."
 }

@@ -165,6 +165,18 @@ def restore_saved_calibration(
     return auto_restore(handle, project_file, sweep) if project_file else None
 
 
+def power_warning(handle: Any) -> Optional[str]:
+    """For the panel: why the calibration an instrument keeps itself is missing or lost (it was
+    switched off since it was calibrated), or None. Asks the instrument who it is (the presence
+    probe of ``ola.vna_power_state``); never raises."""
+    from .vna_power_state import POWER_STATE
+
+    try:
+        return POWER_STATE.check(handle)
+    except Exception:
+        return None
+
+
 def calibration_for_another_sweep(
     handle: Any, project_file: Any, sweep: Optional[Mapping[str, Any]]
 ) -> Optional[Dict[str, float]]:

@@ -805,6 +805,12 @@ class ProjectWindow(QMainWindow):
         except MeasurementError as exc:
             show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
             return
+        for warning in self.session.calibration_warnings:  # reported, the run is not blocked
+            QMessageBox.warning(
+                self,
+                self._t("prj_title"),
+                self._t("prj_calibration_lost", name=warning["instrument"]),
+            )
         from frontend.ui.RunWindow import RunWindow
 
         window = RunWindow(

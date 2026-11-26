@@ -751,5 +751,6 @@
   "sidebar_run_open": "Open this run",
   "sidebar_run_delete": "Delete this run... (also from the disk)",
   "sidebar_runs_show": "Show the runs",
-  "sidebar_runs_hide": "Hide the runs"
+  "sidebar_runs_hide": "Hide the runs",
+  "vna_calibration_lost": "This analyzer keeps its calibration itself and was switched off since it was calibrated, or was not calibrated since the program started: calibrate it again for corrected results."
 }

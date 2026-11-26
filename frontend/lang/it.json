@@ -751,5 +751,6 @@
   "sidebar_run_open": "Apri questa esecuzione",
   "sidebar_run_delete": "Elimina questa esecuzione... (anche dal disco)",
   "sidebar_runs_show": "Mostra le esecuzioni",
-  "sidebar_runs_hide": "Nascondi le esecuzioni"
+  "sidebar_runs_hide": "Nascondi le esecuzioni",
+  "vna_calibration_lost": "Questo analizzatore tiene la calibrazione al suo interno ed è stato spento dopo la calibrazione, oppure non è stato calibrato da quando il programma è partito: calibralo di nuovo per avere risultati corretti."
 }

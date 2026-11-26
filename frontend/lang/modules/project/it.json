@@ -63,5 +63,6 @@
   "prj_delete": "Elimina...",
   "prj_delete_confirm": "Eliminare {file}? Il file della misura e i file delle forme d'onda vengono eliminati per sempre.",
   "prj_delete_failed": "Impossibile eliminare {file}: {error}",
-  "prj_open_run_failed": "Impossibile aprire {file}: {error}"
+  "prj_open_run_failed": "Impossibile aprire {file}: {error}",
+  "prj_calibration_lost": "{name}: la calibrazione di questo analizzatore manca o è andata persa (un analizzatore che tiene la calibrazione al suo interno la perde quando viene spento, e il programma non l'ha vista fare).\n\nCalibralo (Calibra VNA...) per una misura corretta. La misura parte comunque; i suoi dati sono segnati come non calibrati."
 }

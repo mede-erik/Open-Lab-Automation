@@ -219,3 +219,14 @@ def test_the_remote_control_tab_shows_a_panel_for_a_litevna(app, tmp_path):
     assert tab._vna_connector is not None and tab._vna_connector.names() == ["LITE"]
     tab.close()
     assert tab._vna_connector is None
+
+
+@pytest.mark.gui
+def test_the_panel_says_when_the_calibration_kept_by_the_vna_is_lost(app, monkeypatch):
+    panel, _ = make()
+    monkeypatch.setattr(vc, "power_warning", lambda handle: "lost")
+    panel.sweep_once()
+    assert "switched off" in panel.status.text() or "spento" in panel.status.text()
+    monkeypatch.setattr(vc, "power_warning", lambda handle: None)
+    panel.sweep_once()
+    assert "switched off" not in panel.status.text()
