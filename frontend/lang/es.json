@@ -745,5 +745,11 @@
   "project_upgrade_converted": "{file}: convertido en medición",
   "project_upgrade_kept": "{file}: no convertido",
   "keep_failed_runs": "Conservar las mediciones fallidas",
-  "keep_failed_runs_help": "Desactivado (por defecto): una medición que falla se elimina al terminar, para que no llene el historial de un cable o de un dispositivo. El error queda en el registro y en la ventana."
+  "keep_failed_runs_help": "Desactivado (por defecto): una medición que falla se elimina al terminar, para que no llene el historial de un cable o de un dispositivo. El error queda en el registro y en la ventana.",
+  "sidebar_runs_tip": "{n} ejecución(es): haga clic en la flecha para mostrarlas",
+  "sidebar_run_tip": "{state} - doble clic para abrir",
+  "sidebar_run_open": "Abrir esta ejecución",
+  "sidebar_run_delete": "Eliminar esta ejecución... (también del disco)",
+  "sidebar_runs_show": "Mostrar las ejecuciones",
+  "sidebar_runs_hide": "Ocultar las ejecuciones"
 }

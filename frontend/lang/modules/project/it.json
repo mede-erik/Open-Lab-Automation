@@ -62,5 +62,6 @@
   "prj_waves": "Forme d'onda...",
   "prj_delete": "Elimina...",
   "prj_delete_confirm": "Eliminare {file}? Il file della misura e i file delle forme d'onda vengono eliminati per sempre.",
-  "prj_delete_failed": "Impossibile eliminare {file}: {error}"
+  "prj_delete_failed": "Impossibile eliminare {file}: {error}",
+  "prj_open_run_failed": "Impossibile aprire {file}: {error}"
 }

@@ -745,5 +745,11 @@
   "project_upgrade_converted": "{file}: convertito in misura",
   "project_upgrade_kept": "{file}: non convertito",
   "keep_failed_runs": "Conserva le misure fallite",
-  "keep_failed_runs_help": "Spento (predefinito): una misura che fallisce viene eliminata quando finisce, così non riempie lo storico di un cavo o di un dispositivo. L'errore resta nel log e nella finestra."
+  "keep_failed_runs_help": "Spento (predefinito): una misura che fallisce viene eliminata quando finisce, così non riempie lo storico di un cavo o di un dispositivo. L'errore resta nel log e nella finestra.",
+  "sidebar_runs_tip": "{n} esecuzione/i: clicca la freccia per mostrarle",
+  "sidebar_run_tip": "{state} - doppio clic per aprire",
+  "sidebar_run_open": "Apri questa esecuzione",
+  "sidebar_run_delete": "Elimina questa esecuzione... (anche dal disco)",
+  "sidebar_runs_show": "Mostra le esecuzioni",
+  "sidebar_runs_hide": "Nascondi le esecuzioni"
 }

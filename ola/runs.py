@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
@@ -38,6 +39,26 @@ from .identity import snapshot
 from .measurement import Event
 from .provenance import provenance
 from .runner import FINAL_STATES, Runner
+
+
+def end_state(path: Union[str, Path]) -> str:
+    """How a run ended, from the last lines of its file only (``finished``, ``stopped``, ``failed``,
+    or ``interrupted`` if there is no end line): cheap enough for a list of many runs."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 4096))
+            tail = f.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return "interrupted"
+    for line in reversed(tail):
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(item, dict) and item.get("kind") == "end":
+            return str(item.get("state", "interrupted"))
+    return "interrupted"
 
 
 def delete_run(path: Union[str, Path], check: bool = True) -> List[str]:

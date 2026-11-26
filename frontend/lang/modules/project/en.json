@@ -62,5 +62,6 @@
   "prj_waves": "Waveforms...",
   "prj_delete": "Delete...",
   "prj_delete_confirm": "Delete {file}? The run file and its waveform files are deleted for good.",
-  "prj_delete_failed": "Could not delete {file}: {error}"
+  "prj_delete_failed": "Could not delete {file}: {error}",
+  "prj_open_run_failed": "Could not open {file}: {error}"
 }

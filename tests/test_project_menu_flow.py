@@ -351,3 +351,213 @@ def test_opening_an_old_project_asks_first(window, monkeypatch, tmp_path):
     asked.clear()
     window._open_project_path(str(path))  # opened again: nothing to ask
     assert asked == []
+
+
+# ------------------------------------------------------- the runs under a measurement file
+def write_run(session, ref, stamp, points=3, finish=True):
+    """A real run file of the measurement, as the program writes it."""
+    from ola.runner import Runner
+    from ola.runs import RunWriter
+    from tests.measurement_helpers import Scripted, run_to_end
+
+    def measure(ctx):
+        for n in range(points):
+            ctx.emit_point({"a": n, "b": n * 2.0})
+
+    runner = Runner(Scripted(measure, params={"p": 1}), {}, collect=False, run_id=f"id{stamp[-4:]}")
+    path = (
+        session.run_dir / f"{__import__('pathlib').Path(ref.file).stem}_{stamp}_aaaaaaaaaaaa.jsonl"
+    )
+    writer = RunWriter(path, RunWriter.header_for(runner, started_at=1.0))
+    runner.add_listener(writer)
+    if finish:
+        run_to_end(runner)
+    else:
+        runner.start()
+        runner.join(5)
+        writer.close()
+        lines = path.read_text().splitlines()
+        path.write_text("\n".join(lines[:-1]) + "\n")  # no end line: it was interrupted
+    return path
+
+
+def open_example(window, tmp_path):
+    project = tmp_path / "p"
+    shutil.copytree(EXAMPLE, project)
+    window._open_project_path(str(project / "Test DC-DC Converter.json"))
+    session = window.project_tab.session
+    return session, session.project.measurements[0]
+
+
+def rows(window):
+    from frontend.ui.ProjectFilesList import RUN_ROLE
+
+    return [
+        (window.project_files_list.item(i).text(), window.project_files_list.item(i).data(RUN_ROLE))
+        for i in range(window.project_files_list.count())
+    ]
+
+
+def click_arrow(window, name):
+    from frontend.ui.ProjectFilesList import arrow_rect
+
+    widget = window.project_files_list
+    item = next(widget.item(i) for i in range(widget.count()) if widget.item(i).text() == name)
+    point = arrow_rect(widget.visualItemRect(item)).center()
+    QtTest = pytest.importorskip("PyQt6.QtTest")
+    QtTest.QTest.mouseClick(widget.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point)
+
+
+@pytest.mark.gui
+def test_a_measurement_with_runs_has_an_arrow_that_opens_its_runs(window, home, tmp_path):
+    from frontend.ui.ProjectFilesList import RUNS_ROLE
+
+    window.show()
+    session, ref = open_example(window, tmp_path)
+    item = window.project_files_list.item(1)
+    assert item.text() == ref.file and item.data(RUNS_ROLE) is None  # no run: no arrow
+    first = write_run(session, ref, "20261125_100000")
+    second = write_run(session, ref, "20261125_110000", finish=False)
+    window.refresh_project_files()
+    item = next(
+        window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+        if window.project_files_list.item(i).text() == ref.file
+    )
+    assert item.data(RUNS_ROLE) is False and "2 run" in item.toolTip()
+    assert [r for _n, r in rows(window) if r] == []  # closed: only the files
+    click_arrow(window, ref.file)  # open
+    runs = [(n.strip(), r) for n, r in rows(window) if r]
+    assert [n for n, _r in runs] == [second.name, first.name]  # newest first
+    assert [r for _n, r in runs] == [str(second), str(first)]
+    names = [n for n, _r in rows(window)]
+    assert names.index(ref.file) + 1 == names.index("      " + second.name)  # right under it
+    from frontend.ui.ProjectFilesList import RUN_ROLE
+
+    by_path = {
+        window.project_files_list.item(i).data(RUN_ROLE): window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+    }
+    assert by_path[str(second)].font().italic()  # it did not finish: in italics
+    assert not by_path[str(first)].font().italic()
+    assert "double click" in by_path[str(first)].toolTip()
+    click_arrow(window, ref.file)  # close
+    assert [r for _n, r in rows(window) if r] == []
+
+
+@pytest.mark.gui
+def test_double_click_on_a_run_opens_it_in_the_run_window(window, home, tmp_path):
+    session, ref = open_example(window, tmp_path)
+    path = write_run(session, ref, "20261125_100000", points=4)
+    window.refresh_project_files()
+    window.toggle_runs(window.project_files_list.item(1))
+    run_item = next(
+        window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+        if window.project_files_list.item(i).text().strip() == path.name
+    )
+    before = len(window.project_tab.run_windows)
+    window.edit_project_file(run_item)  # what a double click does
+    assert len(window.project_tab.run_windows) == before + 1
+    shown = window.project_tab.run_windows[-1]
+    assert shown.model.state == "finished" and len(shown.model.points) == 4
+    assert shown.table.rowCount() == 4 and not shown.start_btn.isEnabled()
+    shown._timer.stop()
+    shown.close()
+
+
+@pytest.mark.gui
+def test_a_run_is_deleted_from_the_disk_after_asking(window, home, monkeypatch, tmp_path):
+    from ola.wavefiles import wave_folder
+
+    session, ref = open_example(window, tmp_path)
+    path = write_run(session, ref, "20261125_100000")
+    folder = wave_folder(path)
+    folder.mkdir()
+    (folder / "x.npz").write_bytes(b"x")
+    window.refresh_project_files()
+    window.toggle_runs(window.project_files_list.item(1))
+    item = next(
+        window.project_files_list.item(i)
+        for i in range(window.project_files_list.count())
+        if window.project_files_list.item(i).text().strip() == path.name
+    )
+    box = QtWidgets.QMessageBox
+    asked = []
+
+    def answer(yes):
+        def question(parent, title, text, *a, **k):
+            asked.append(text)
+            return box.StandardButton.Yes if yes else box.StandardButton.No
+
+        monkeypatch.setattr(box, "question", staticmethod(question))
+
+    answer(False)
+    window.delete_file(item)  # declined
+    assert path.is_file() and folder.is_dir() and path.name in asked[0]
+    assert "deleted for good" in asked[0]
+    answer(True)
+    window.delete_file(item)
+    assert not path.exists() and not folder.exists()  # the file and its waveforms are gone
+    assert [r for _n, r in rows(window) if r] == []
+    # no run left: the arrow is gone as well
+    from frontend.ui.ProjectFilesList import RUNS_ROLE
+
+    assert window.project_files_list.item(1).data(RUNS_ROLE) is None
+
+
+@pytest.mark.gui
+def test_the_runs_follow_new_and_deleted_files(window, home, tmp_path):
+    session, ref = open_example(window, tmp_path)
+    window.refresh_project_files()
+    window.toggle_runs(window.project_files_list.item(1))  # nothing to show yet: stays closed
+    window._expanded_runs.add(ref.file)
+    path = write_run(session, ref, "20261125_100000")
+    window._check_runs()  # (the timer does it every two seconds)
+    assert [n.strip() for n, r in rows(window) if r] == [path.name]
+    window._check_runs()  # nothing changed: nothing redrawn
+    other = write_run(session, ref, "20261125_120000")
+    path.unlink()
+    window._check_runs()
+    assert [n.strip() for n, r in rows(window) if r] == [other.name]
+
+
+@pytest.mark.gui
+def test_a_file_that_is_not_a_run_cannot_be_opened(window, home, monkeypatch, tmp_path):
+    session, ref = open_example(window, tmp_path)
+    junk = tmp_path / "junk.jsonl"
+    junk.write_text("not json\n")
+    shown = []
+    from frontend.ui import ProjectWindow as module
+
+    monkeypatch.setattr(
+        module, "show_problem", lambda *a, **k: shown.append(k.get("code")), raising=True
+    )
+    assert window.project_tab.open_run(junk) is False and shown == ["MEAS-007"]
+
+
+@pytest.mark.gui
+def test_the_context_menu_of_a_run_and_of_a_measurement(window, home, monkeypatch, tmp_path):
+    session, ref = open_example(window, tmp_path)
+    path = write_run(session, ref, "20261125_100000")
+    window.refresh_project_files()
+    labels = []
+
+    def fake_exec(self, *a, **k):
+        labels.append([x.text() for x in self.actions()])
+        return None
+
+    monkeypatch.setattr(QtWidgets.QMenu, "exec", fake_exec)
+    widget = window.project_files_list
+    item = widget.item(1)
+    window.show_file_context_menu(widget.visualItemRect(item).center())
+    assert "Show the runs" in labels[-1]
+    window.toggle_runs(item)
+    window.show_file_context_menu(widget.visualItemRect(widget.item(1)).center())
+    assert "Hide the runs" in labels[-1]
+    run_item = widget.item(2)
+    assert run_item.text().strip() == path.name
+    window.show_file_context_menu(widget.visualItemRect(run_item).center())
+    assert (
+        labels[-1][0] == "Open this run" and "Delete this run... (also from the disk)" in labels[-1]
+    )
