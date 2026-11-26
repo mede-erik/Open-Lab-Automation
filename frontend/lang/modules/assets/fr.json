@@ -118,5 +118,9 @@
   "ast_t_days": "jours depuis le {date}",
   "ast_t_failed": "Impossible d'enregistrer : {error}",
   "ast_t_saved": "Enregistré : {path}",
-  "ast_unreadable": "endommagé ou illisible"
+  "ast_unreadable": "endommagé ou illisible",
+  "ast_delete_runs": "Supprimer...",
+  "ast_delete_help": "Supprime de l'historique les mesures sélectionnées : le fichier de la mesure et ses fichiers de formes d'onde sont supprimés définitivement.",
+  "ast_delete_confirm": "Supprimer {n} mesure(s) de l'historique ? Le fichier de la mesure et les fichiers de formes d'onde sont supprimés définitivement :\n{files}",
+  "ast_delete_failed": "Impossible de supprimer {file} : {error}"
 }

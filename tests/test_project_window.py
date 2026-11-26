@@ -415,3 +415,54 @@ def test_a_time_log_opens_its_own_editor_with_the_project_instruments(window, mo
     assert set(opened[0].instruments) == set(window._inst_entries())
     assert isinstance(window._library_calls({"model": "no such model"}), list)
     assert window._library_calls({"model": "no such model"}) == []
+
+
+def test_a_run_can_be_deleted_from_the_list_of_the_runs(app, window, monkeypatch):
+    window.table.selectRow(0)
+    window.run_measurement()
+    run = window.run_windows[0]
+    assert pump(app, lambda: run.model.finished)
+    window._refresh_runs()
+    assert not window.delete_btn.isEnabled()  # nothing selected
+    window.runs_table.selectRow(0)
+    assert window.delete_btn.isEnabled()
+    path = window._selected_run()
+    assert path.is_file()
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+    )
+    window.delete_run()
+    assert path.is_file()  # declined
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+    window.delete_run()
+    assert not path.exists() and window.runs_table.rowCount() == 0
+
+
+def test_a_failed_run_is_not_kept_unless_the_settings_say_so(app, window, monkeypatch):
+    """The measurement of the demo fails when an instrument is missing a call: the run file is
+    deleted when it ends (a failed run only fills the history), unless ``keep_failed_runs``."""
+    from PyQt6.QtCore import QSettings
+
+    seen = []
+    real = window.session.build_runner
+
+    def spy(ref, **kw):
+        seen.append(kw.get("keep_failed"))
+        return real(ref, **kw)
+
+    monkeypatch.setattr(window.session, "build_runner", spy)
+    settings = QSettings("LabAutomation", "App")
+    settings.remove("keep_failed_runs")
+    window.table.selectRow(0)
+    window.run_measurement()
+    assert seen == [False]  # the default: failed runs are not kept
+    pump(app, lambda: window.run_windows[0].model.finished)
+    settings.setValue("keep_failed_runs", True)
+    try:
+        window.run_measurement()
+        assert seen == [False, True]
+        pump(app, lambda: window.run_windows[-1].model.finished)
+    finally:
+        settings.remove("keep_failed_runs")

@@ -118,5 +118,9 @@
   "ast_t_days": "days since {date}",
   "ast_t_failed": "Could not save: {error}",
   "ast_t_saved": "Saved: {path}",
-  "ast_unreadable": "damaged or not readable"
+  "ast_unreadable": "damaged or not readable",
+  "ast_delete_runs": "Delete...",
+  "ast_delete_help": "Delete the selected measurements from the history: the run file and its waveform files are deleted for good.",
+  "ast_delete_confirm": "Delete {n} measurement(s) from the history? The run file and the waveform files are deleted for good:\n{files}",
+  "ast_delete_failed": "Could not delete {file}: {error}"
 }

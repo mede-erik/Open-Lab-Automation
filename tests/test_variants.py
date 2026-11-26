@@ -232,7 +232,7 @@ def test_the_variant_of_a_run_is_in_its_header_and_not_in_the_file(tmp_path):
     MeasurementFile(type="efficiency", role_bindings={"instruments": ["a"]}, params=params).save(
         session.path(ref)
     )
-    runner, path = session.build_runner(ref, variant={"R100": "100 ohm"})
+    runner, path = session.build_runner(ref, variant={"R100": "100 ohm"}, keep_failed=True)
     runner.start()
     runner.join(30)
     header = path.read_text(encoding="utf-8").splitlines()[0]

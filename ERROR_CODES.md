@@ -2240,6 +2240,21 @@ Errors of the registries of the cables and devices and of the devices under test
 [16:03:00] WARNING-AST-003-assets.json (damaged or not readable)
 ```
 
+### AST-004: Measurement Not Deleted
+**Description**: A measurement could not be deleted from the history of a cable or a device  
+**Common Cause**:
+- The file is open in another program, or the folder is read only
+- The file is not a run file (the program refuses to delete anything else)
+
+**Solution**:
+1. Close the program that has the file open, or fix the permissions of the folder
+2. Delete the file by hand (the run file in the `runs` folder and its `_waves` folder)
+
+**Log Example**:
+```
+[16:04:00] ERROR-AST-004-eff_20261125_1000.jsonl: [Errno 13] Permission denied
+```
+
 ---
 
 ## SYS - System Errors (SYS-XXX)

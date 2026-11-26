@@ -118,3 +118,30 @@ def test_language_box_shows_the_names_of_the_languages(qtbot):
     names = [dialog.lang_combo.itemText(i) for i in range(dialog.lang_combo.count())]
     assert "Italiano" in names and "English" in names and "it" not in names
     assert dialog.lang_combo.currentData() == "it"
+
+
+def test_the_settings_keep_the_failed_runs_only_when_asked(qtbot):
+    from PyQt6.QtCore import QSettings
+
+    from frontend.core.Translator import Translator
+    from frontend.ui.SettingsDialog import SettingsDialog
+
+    settings = QSettings("LabAutomation", "App")
+    settings.remove("keep_failed_runs")
+    settings.setValue("show_experimental_instruments", True)  # opening the window must not reset it
+    try:
+        dialog = SettingsDialog(translator=Translator())
+        qtbot.addWidget(dialog)
+        assert not dialog.keep_failed_checkbox.isChecked()  # the default: not kept
+        dialog.keep_failed_checkbox.setChecked(True)
+        dialog.save_settings()
+        assert settings.value("keep_failed_runs", False, type=bool) is True
+        again = SettingsDialog(translator=Translator())
+        qtbot.addWidget(again)
+        assert again.keep_failed_checkbox.isChecked()
+        assert again.keep_failed_checkbox.text()
+        assert again.experimental_checkbox.isChecked()  # kept, and not reset by opening the window
+        assert settings.value("show_experimental_instruments", False, type=bool) is True
+    finally:
+        settings.remove("keep_failed_runs")
+        settings.remove("show_experimental_instruments")

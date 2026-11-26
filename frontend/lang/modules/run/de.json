@@ -195,5 +195,6 @@
   "run_col_velocity_factor": "Verkürzungsfaktor",
   "run_col_min_return_loss_db": "Min. Rückflussdämpfung (dB)",
   "run_col_frequency_hz": "Frequenz",
-  "run_view_smith_unavailable": "Das Smith-Diagramm braucht komplexe Daten (S-Parameter): einige der gezeigten Kurven sind es nicht."
+  "run_view_smith_unavailable": "Das Smith-Diagramm braucht komplexe Daten (S-Parameter): einige der gezeigten Kurven sind es nicht.",
+  "run_file_not_kept": "Die Messung ist fehlgeschlagen und wurde nicht gespeichert (Einstellungen: fehlgeschlagene Messungen behalten)."
 }

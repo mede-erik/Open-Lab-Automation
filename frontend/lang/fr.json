@@ -743,5 +743,13 @@
   "project_upgrade_declined": "Le projet n'a pas été mis à jour, il n'est donc pas ouvert. Rouvrez-le et répondez Oui pour le mettre à jour ; l'original n'est pas touché d'ici là.",
   "spectrum_analyzer": "Analyseur de spectre",
   "project_upgrade_converted": "{file} : converti en mesure",
-  "project_upgrade_kept": "{file} : non converti"
+  "project_upgrade_kept": "{file} : non converti",
+  "keep_failed_runs": "Conserver les mesures échouées",
+  "keep_failed_runs_help": "Désactivé (par défaut) : une mesure qui échoue est supprimée à sa fin, pour ne pas remplir l'historique d'un câble ou d'un appareil. L'erreur reste dans le journal et dans la fenêtre.",
+  "sidebar_runs_tip": "{n} exécution(s) : cliquez sur la flèche pour les afficher",
+  "sidebar_run_tip": "{state} - double-clic pour ouvrir",
+  "sidebar_run_open": "Ouvrir cette exécution",
+  "sidebar_run_delete": "Supprimer cette exécution... (aussi du disque)",
+  "sidebar_runs_show": "Afficher les exécutions",
+  "sidebar_runs_hide": "Masquer les exécutions"
 }

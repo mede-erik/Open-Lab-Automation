@@ -327,6 +327,89 @@ def test_the_history_lists_the_runs_and_opens_the_comparison(dialog):
     history.close()
 
 
+def select_rows(history, *rows):
+    from PyQt6.QtCore import QItemSelectionModel
+
+    history.table.clearSelection()
+    flags = QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows
+    for row in rows:
+        history.table.selectionModel().select(history.table.model().index(row, 0), flags)
+
+
+def test_a_measurement_can_be_deleted_from_the_history(dialog, tmp_path, monkeypatch):
+    select(dialog, "CBL-0001")
+    dialog.show_history()
+    history = dialog.history_tool
+    assert not history.delete_btn.isEnabled()  # nothing selected
+    paths = [r.path for r in history.runs]
+    assert all(p.is_file() for p in paths)
+    asked = []
+
+    def question(parent, title, text, *a, **k):
+        asked.append(text)
+        return QMessageBox.StandardButton.Yes if len(asked) > 1 else QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(question))
+    select_rows(history, 0)
+    assert history.delete_btn.isEnabled()
+    assert history.delete_selected() == 0 and all(p.is_file() for p in paths)  # declined
+    assert paths[0].name in asked[0] and "deleted for good" in asked[0]
+    assert history.delete_selected() == 1  # confirmed
+    assert not paths[0].exists() and paths[1].is_file()
+    assert history.table.rowCount() == 1 and history.deleted == [paths[0]]
+    assert history.table.item(0, 0).text() == "2026-11-03 11:00"
+    # the registry window counts again when the history is closed
+    assert dialog.table.item(0, 5).text() == "2"
+    history.accept()
+    assert dialog.table.item(0, 5).text() == "1"
+    dialog.show_history()
+    history = dialog.history_tool
+    select_rows(history, 0)
+    assert history.delete_selected() == 1 and history.table.rowCount() == 0
+    assert not history.delete_btn.isEnabled() and not history.compare_btn.isEnabled()
+    history.close()
+
+
+def test_the_runs_of_a_device_are_deleted_with_their_waveform_folder(dialog, monkeypatch):
+    from ola.wavefiles import wave_folder
+
+    select(dialog, "CBL-0001")
+    dialog.show_history()
+    history = dialog.history_tool
+    folder = wave_folder(history.runs[0].path)
+    folder.mkdir()
+    (folder / "x.npz").write_bytes(b"x")
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+    select_rows(history, 0, 1)  # both at once
+    assert history.delete_selected() == 2 and history.table.rowCount() == 0
+    assert not folder.exists()
+    history.close()
+
+
+def test_a_run_that_cannot_be_deleted_is_reported_and_kept(dialog, monkeypatch):
+    select(dialog, "CBL-0001")
+    dialog.show_history()
+    history = dialog.history_tool
+    shown = []
+    monkeypatch.setattr(
+        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    )
+    monkeypatch.setattr(
+        assets_module, "show_problem", lambda *a, **k: shown.append(k.get("code")), raising=True
+    )
+
+    def refuse(path, check=True):
+        raise PermissionError("read only")
+
+    monkeypatch.setattr("ola.runs.delete_run", refuse)
+    select_rows(history, 0)
+    assert history.delete_selected() == 0 and shown == ["AST-004"]
+    assert history.table.rowCount() == 2 and history.deleted == []
+    history.close()
+
+
 def test_a_card_with_no_measurements_says_so(app, registry):
     d = AssetHistoryDialog(registry.get("CBL-0002"), [])
     assert not d.compare_btn.isEnabled() and d.table.rowCount() == 0

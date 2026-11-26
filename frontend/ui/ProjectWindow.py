@@ -31,9 +31,9 @@ import logging
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QSettings, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -310,6 +310,9 @@ class ProjectWindow(QMainWindow):
         self.export_btn = QPushButton(self._t("prj_export"))
         self.export_btn.clicked.connect(self.export_run)
         row.addWidget(self.export_btn)
+        self.delete_btn = QPushButton(self._t("prj_delete"))
+        self.delete_btn.clicked.connect(self.delete_run)
+        row.addWidget(self.delete_btn)
         self.waves_btn = QPushButton(self._t("prj_waves"))
         self.waves_btn.clicked.connect(self.show_waves)
         row.addWidget(self.waves_btn)
@@ -521,6 +524,7 @@ class ProjectWindow(QMainWindow):
         self.buttons["prj_remove"].setEnabled(ref is not None)
         self.export_btn.setEnabled(self._selected_run() is not None)
         run = self._selected_run()
+        self.delete_btn.setEnabled(run is not None)
         self.waves_btn.setEnabled(run is not None and wave_folder(run).is_dir())
         self.compare_btn.setEnabled(self.session is not None)  # runs can also be added by hand
 
@@ -793,6 +797,10 @@ class ProjectWindow(QMainWindow):
                 accepted_differences=accepted,
                 bench=True if self.bench_check.isChecked() else None,  # None: OLA_BENCH decides
                 variant=variant,
+                # a measurement that fails is deleted when it ends, unless the settings keep it
+                keep_failed=QSettings("LabAutomation", "App").value(
+                    "keep_failed_runs", False, type=bool
+                ),
             )
         except MeasurementError as exc:
             show_problem(self, self._t("prj_title"), self._t("prj_cannot_run", error=exc), code="MEAS-003", exception=exc, level="critical")
@@ -860,6 +868,74 @@ class ProjectWindow(QMainWindow):
             if path == keep:
                 self.runs_table.selectRow(row)
         self._update_buttons()
+
+    def delete_run(self) -> None:
+        """Delete the selected run (its file and its waveform files), after asking."""
+        path = self._selected_run()
+        if path is not None:
+            self.delete_run_path(path)
+
+    def delete_run_path(self, path: Path) -> bool:
+        """Delete a run **from the disk** (its file and the folder of its waveforms), after asking
+        (the sidebar of the main window uses it too). True if it was deleted."""
+        ask = QMessageBox.question(
+            self, self._t("prj_delete"), self._t("prj_delete_confirm", file=path.name)
+        )
+        if ask != QMessageBox.StandardButton.Yes:
+            return False
+        from ola.runs import delete_run
+
+        try:
+            delete_run(path)
+        except (OSError, ValueError) as exc:
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_delete_failed", file=path.name, error=exc),
+                code="AST-004",
+                exception=exc,
+            )
+            return False
+        self._runs_key = None  # the list of the runs is read again
+        self._refresh_runs()
+        self.project_changed.emit()  # the sidebar lists the runs too
+        return True
+
+    def run_files(self, file_name: str) -> List[Tuple[Path, str]]:
+        """The runs of the measurement in this file, newest first, each with how it ended
+        (``finished``, ``stopped``, ``failed``, ``interrupted``): from the last lines of the files
+        only, so it is cheap. Empty if no measurement uses the file."""
+        ref = self.ref_for_file(file_name)
+        if ref is None or self.session is None:
+            return []
+        from ola.runs import end_state
+
+        return [(p, end_state(p)) for p in self.session.runs(ref)]
+
+    def open_run(self, path: Path) -> bool:
+        """Open a run that was made before in the run window: its table, plots, curves, waveforms
+        and log, as they were (``ola.run_replay``). False, with the reason shown, if the file
+        cannot be read."""
+        from frontend.ui.RunWindow import RunWindow
+        from ola.run_replay import ReplayError, ReplayRunner
+
+        try:
+            runner = ReplayRunner(path)
+        except ReplayError as exc:
+            show_problem(
+                self,
+                self._t("prj_title"),
+                self._t("prj_open_run_failed", file=path.name, error=exc),
+                code="MEAS-007",
+                exception=exc,
+            )
+            return False
+        window = RunWindow(runner, self.translator, run_file=str(path), title=path.stem)
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+        self.run_windows.append(window)
+        window.show()
+        window._tick()  # it opens filled, not empty for the first tenth of a second
+        return True
 
     def show_waves(self) -> None:
         """Open the waveforms of the selected run (the binary files next to the run file)."""

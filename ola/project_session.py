@@ -135,7 +135,8 @@ class ProjectSession:
             try:
                 path = self.project.directory / check_plain_filename(self.project.inst_file)
                 entries = {
-                    str(e.get("instance_name")): e for e in load_inst(path)[0]
+                    str(e.get("instance_name")): e
+                    for e in load_inst(path)[0]
                     if e.get("instance_name")
                 }
             except (ValueError, MeasurementError):
@@ -383,10 +384,12 @@ class ProjectSession:
         accepted_differences: Optional[List[Finding]] = None,
         bench: Optional[bool] = None,
         variant: Optional[Mapping[str, Any]] = None,
+        keep_failed: bool = False,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
-        file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
-        file or module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
+        file (a run that ends as failed is deleted, unless ``keep_failed``: see ``ola.runs``).
+        Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing file or
+        module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
         the opening of the connections on; None follows the ``OLA_BENCH`` environment variable.
         ``variant``: the variant of the DUT for this run (``ola.variants``), taking the place of the
         one in the file, which is not changed; None keeps the one of the file."""
@@ -442,7 +445,11 @@ class ProjectSession:
             project=self.project.name,
             **extra,
         )
-        runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
+        runner.add_listener(
+            RunWriter(
+                path, header, observed=lambda: observed_of(runner), discard_failed=not keep_failed
+            )
+        )
         return runner, path
 
     def resolve_scope_settings(self, params: Mapping[str, Any]) -> Dict[str, Any]:

@@ -118,5 +118,9 @@
   "ast_t_days": "giorni dal {date}",
   "ast_t_failed": "Impossibile salvare: {error}",
   "ast_t_saved": "Salvato: {path}",
-  "ast_unreadable": "danneggiato o non leggibile"
+  "ast_unreadable": "danneggiato o non leggibile",
+  "ast_delete_runs": "Elimina...",
+  "ast_delete_help": "Elimina dallo storico le misure selezionate: il file della misura e i file delle forme d'onda vengono eliminati per sempre.",
+  "ast_delete_confirm": "Eliminare {n} misura/e dallo storico? Il file della misura e i file delle forme d'onda vengono eliminati per sempre:\n{files}",
+  "ast_delete_failed": "Impossibile eliminare {file}: {error}"
 }

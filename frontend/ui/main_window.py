@@ -11,6 +11,7 @@ file operations, and instrument configuration.
 """
 
 import os
+from pathlib import Path
 import json
 import uuid
 import datetime
@@ -25,9 +26,10 @@ from PyQt6.QtWidgets import (
     QSplitter
 )
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt, QSettings
+from PyQt6.QtCore import Qt, QSettings, QTimer
 
 from frontend.ui.RemoteControlTab import RemoteControlTab
+from frontend.ui.ProjectFilesList import RUN_ROLE, RUNS_ROLE, ProjectFilesList
 from frontend.ui.ProjectWindow import ProjectWindow, not_connected
 from frontend.ui.connector_setup import default_library_path, make_connector
 from frontend.ui.SettingsDialog import SettingsDialog
@@ -150,7 +152,15 @@ class MainWindow(QMainWindow):
         self.project_tab.project_changed.connect(self.refresh_project_files)
         self.tabs.addTab(self.project_tab, self.project_tab.tr_.t('prj_tab'))
 
-        self.project_files_list = QListWidget()
+        self.project_files_list = ProjectFilesList()
+        self.project_files_list.arrow_clicked.connect(self.toggle_runs)
+        self._expanded_runs = set()  # the measurement files whose runs are listed under them
+        self._runs_signature = None
+        # runs are made and deleted while the program is open: the open lists follow them
+        self._runs_timer = QTimer(self)
+        self._runs_timer.setInterval(2000)
+        self._runs_timer.timeout.connect(self._check_runs)
+        self._runs_timer.start()
         self.logger.debug("UI tabs and lists created.")
         
         # Layout: tabs on the right, file list on the left
@@ -602,6 +612,7 @@ class MainWindow(QMainWindow):
     def refresh_project_files(self):
         """Refresh the list of project files displayed in the UI."""
         self.project_files_list.clear()
+        self._runs_signature = None
         if not self.current_project_dir or not self.current_project_data:
             return
         files = []
@@ -631,6 +642,7 @@ class MainWindow(QMainWindow):
                 tip = self.translator.t('scope_file_for').format(scope=target)
                 item.setToolTip((item.toolTip() + ' ' if item.toolTip() else '') + tip)
             self.project_files_list.addItem(item)
+            self._add_run_rows(item, f)
         
         # Aggiorna RemoteControlTab caricando gli strumenti dal file .inst
         if hasattr(self, 'remote_tab') and inst_file:
@@ -644,6 +656,54 @@ class MainWindow(QMainWindow):
             else:
                 self.logger.warning(f"Instruments file not found: {inst_path}")
     
+    def _run_path(self, item):
+        """The run file of a row of the list that stands for a run (None for the other rows)."""
+        path = item.data(RUN_ROLE)
+        return Path(path) if path else None
+
+    def _add_run_rows(self, item, file_name):
+        """A measurement file that has runs gets an arrow; when it is open, its runs are listed under
+        it, newest first, each with the name of its file (double click to open it)."""
+        runs = self.project_tab.run_files(file_name)
+        if not runs:
+            return
+        opened = file_name in self._expanded_runs
+        item.setData(RUNS_ROLE, opened)
+        tip = self.translator.t('sidebar_runs_tip').format(n=len(runs))
+        item.setToolTip((item.toolTip() + ' ' if item.toolTip() else '') + tip)
+        if not opened:
+            return
+        for path, state in runs:
+            row = QListWidgetItem('      ' + path.name)
+            row.setData(RUN_ROLE, str(path))
+            label = self.project_tab.tr_.t(f'prj_state_{state}')
+            row.setToolTip(self.translator.t('sidebar_run_tip').format(state=label))
+            font = row.font()
+            font.setItalic(state != 'finished')  # a run that did not finish is in italics
+            row.setFont(font)
+            self.project_files_list.addItem(row)
+
+    def toggle_runs(self, item):
+        """The arrow of a measurement file: show or hide the runs under it."""
+        name = item.text()
+        if name in self._expanded_runs:
+            self._expanded_runs.discard(name)
+        else:
+            self._expanded_runs.add(name)
+        self.refresh_project_files()
+
+    def _check_runs(self):
+        """Redraw the list if the runs of an open measurement changed (a run was made, ended or
+        deleted since); nothing is done while no measurement is open."""
+        if not self._expanded_runs or not self.current_project_dir:
+            return
+        signature = tuple(
+            (f, tuple(self.project_tab.run_files(f))) for f in sorted(self._expanded_runs)
+        )
+        if signature != self._runs_signature:
+            self.refresh_project_files()
+            self._runs_signature = signature
+
     def add_project_file(self):
         """Add a new file to the project: a measurement of any type, or oscilloscope settings."""
         from PyQt6.QtWidgets import QDialog
@@ -769,6 +829,11 @@ class MainWindow(QMainWindow):
         
         from PyQt6.QtWidgets import QMessageBox
         
+        run = self._run_path(item)
+        if run is not None:  # a run: after asking, it is deleted from the disk
+            self.project_tab.delete_run_path(run)
+            return
+
         file_name = item.text()
 
         # A measurement of the project: the Measurements tab asks and removes it
@@ -862,6 +927,10 @@ class MainWindow(QMainWindow):
         """Open the editor of the selected file: a measurement, the oscilloscope settings (.was) or
         the instruments (.inst)."""
         if not self.current_project_dir:
+            return
+        run = self._run_path(item)
+        if run is not None:  # a run of a measurement: it opens in the run window
+            self.project_tab.open_run(run)
             return
         fname = item.text()
         file_path = os.path.join(self.current_project_dir, fname)
@@ -1037,7 +1106,25 @@ class MainWindow(QMainWindow):
         if not item:
             return
         menu = QMenu(self)
+        run = self._run_path(item)
+        if run is not None:  # a run: open it, copy its name or delete it
+            open_action = menu.addAction(self.translator.t('sidebar_run_open'))
+            copy_run = menu.addAction(self.translator.t('copy_file_name'))
+            delete_run = menu.addAction(self.translator.t('sidebar_run_delete'))
+            action = menu.exec(self.project_files_list.mapToGlobal(pos))
+            if action == open_action:
+                self.project_tab.open_run(run)
+            elif action == copy_run:
+                from PyQt6.QtWidgets import QApplication
+                QApplication.clipboard().setText(run.name)
+            elif action == delete_run:
+                self.project_tab.delete_run_path(run)
+            return
         copy_action = menu.addAction(self.translator.t('copy_file_name'))
+        runs_action = None
+        if item.data(RUNS_ROLE) is not None:  # a measurement that has runs
+            runs_action = menu.addAction(self.translator.t(
+                'sidebar_runs_hide' if item.data(RUNS_ROLE) else 'sidebar_runs_show'))
         # paste_action = menu.addAction(self.translator.t('paste_file'))  # Implementa se serve
         scope = self._scope_entry(item.text())
         toggle_action = up_action = down_action = target_action = None
@@ -1056,6 +1143,8 @@ class MainWindow(QMainWindow):
             QApplication.clipboard().setText(item.text())
         elif action == delete_action:
             self.delete_file(item)
+        elif runs_action is not None and action == runs_action:
+            self.toggle_runs(item)
         elif action == target_action:
             self.choose_scope_target(item.text())
         elif action in (toggle_action, up_action, down_action):

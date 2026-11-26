@@ -743,5 +743,13 @@
   "project_upgrade_declined": "The project was not updated, so it is not open. Open it again and answer Yes to update it; the original is not touched until then.",
   "spectrum_analyzer": "Spectrum analyzer",
   "project_upgrade_converted": "{file}: converted to a measurement",
-  "project_upgrade_kept": "{file}: not converted"
+  "project_upgrade_kept": "{file}: not converted",
+  "keep_failed_runs": "Keep the measurements that failed",
+  "keep_failed_runs_help": "Off (default): a measurement that fails is deleted when it ends, so it does not fill the history of a cable or a device. The error stays in the log and in the window.",
+  "sidebar_runs_tip": "{n} run(s): click the arrow to show them",
+  "sidebar_run_tip": "{state} - double click to open",
+  "sidebar_run_open": "Open this run",
+  "sidebar_run_delete": "Delete this run... (also from the disk)",
+  "sidebar_runs_show": "Show the runs",
+  "sidebar_runs_hide": "Hide the runs"
 }
