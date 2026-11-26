@@ -1,0 +1,216 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Electronic load",
+        "it": "Carico elettronico",
+        "fr": "Charge électronique",
+        "es": "Carga electrónica",
+        "de": "Elektronische Last"
+      },
+      "fields": [
+        {
+          "path": "load",
+          "kind": "instrument",
+          "label": {
+            "en": "Load",
+            "it": "Carico",
+            "fr": "Charge",
+            "es": "Carga",
+            "de": "Last"
+          },
+          "help": {
+            "en": "The load that makes the pulse, with its dynamic mode.",
+            "it": "Il carico che genera l'impulso, con la sua modalità dinamica.",
+            "fr": "La charge qui génère l'impulsion, avec son mode dynamique.",
+            "es": "La carga que genera el pulso, con su modo dinámico.",
+            "de": "Die Last, die den Impuls erzeugt, mit ihrem dynamischen Modus."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Pulse",
+        "it": "Impulso",
+        "fr": "Impulsion",
+        "es": "Pulso",
+        "de": "Impuls"
+      },
+      "fields": [
+        {
+          "path": "amplitude_a",
+          "kind": "number",
+          "label": {
+            "en": "Amplitude (high level)",
+            "it": "Ampiezza (livello alto)",
+            "fr": "Amplitude (niveau haut)",
+            "es": "Amplitud (nivel alto)",
+            "de": "Amplitude (hoher Pegel)"
+          },
+          "unit": "A"
+        },
+        {
+          "path": "base_level_a",
+          "kind": "number",
+          "label": {
+            "en": "Base level (low level)",
+            "it": "Livello base (livello basso)",
+            "fr": "Niveau de base (niveau bas)",
+            "es": "Nivel base (nivel bajo)",
+            "de": "Basispegel (niedriger Pegel)"
+          },
+          "unit": "A"
+        },
+        {
+          "path": "width_us",
+          "kind": "number",
+          "label": {
+            "en": "Pulse width",
+            "it": "Larghezza dell'impulso",
+            "fr": "Largeur d'impulsion",
+            "es": "Ancho del pulso",
+            "de": "Pulsbreite"
+          },
+          "unit": "us",
+          "help": {
+            "en": "The time at the high level in each period: it must fit in the period.",
+            "it": "Il tempo a livello alto in ogni periodo: deve stare nel periodo.",
+            "fr": "Le temps au niveau haut dans chaque période : il doit tenir dans la période.",
+            "es": "El tiempo en nivel alto en cada período: debe caber en el período.",
+            "de": "Die Zeit auf hohem Pegel je Periode: sie muss in die Periode passen."
+          }
+        },
+        {
+          "path": "frequency_hz",
+          "kind": "number",
+          "label": {
+            "en": "Frequency",
+            "it": "Frequenza",
+            "fr": "Fréquence",
+            "es": "Frecuencia",
+            "de": "Frequenz"
+          },
+          "unit": "Hz"
+        },
+        {
+          "path": "rise_time_us",
+          "kind": "number",
+          "label": {
+            "en": "Rise time",
+            "it": "Tempo di salita",
+            "fr": "Temps de montée",
+            "es": "Tiempo de subida",
+            "de": "Anstiegszeit"
+          },
+          "unit": "us",
+          "help": {
+            "en": "Used only for the drawing of the pulse: the load makes its own edges.",
+            "it": "Serve solo per il disegno dell'impulso: il carico fa i suoi fronti.",
+            "fr": "Sert seulement au dessin de l'impulsion : la charge fait ses propres fronts.",
+            "es": "Solo sirve para el dibujo del pulso: la carga hace sus propios flancos.",
+            "de": "Nur für die Zeichnung des Impulses: die Last erzeugt ihre eigenen Flanken."
+          }
+        },
+        {
+          "path": "fall_time_us",
+          "kind": "number",
+          "label": {
+            "en": "Fall time",
+            "it": "Tempo di discesa",
+            "fr": "Temps de descente",
+            "es": "Tiempo de bajada",
+            "de": "Abfallzeit"
+          },
+          "unit": "us",
+          "help": {
+            "en": "Used only for the drawing of the pulse: the load makes its own edges.",
+            "it": "Serve solo per il disegno dell'impulso: il carico fa i suoi fronti.",
+            "fr": "Sert seulement au dessin de l'impulsion : la charge fait ses propres fronts.",
+            "es": "Solo sirve para el dibujo del pulso: la carga hace sus propios flancos.",
+            "de": "Nur für die Zeichnung des Impulses: die Last erzeugt ihre eigenen Flanken."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Power",
+        "it": "Potenza",
+        "fr": "Puissance",
+        "es": "Potencia",
+        "de": "Leistung"
+      },
+      "fields": [
+        {
+          "path": "voltage_v",
+          "kind": "number",
+          "label": {
+            "en": "Working voltage",
+            "it": "Tensione di lavoro",
+            "fr": "Tension de travail",
+            "es": "Tensión de trabajo",
+            "de": "Arbeitsspannung"
+          },
+          "unit": "V",
+          "help": {
+            "en": "The voltage across the load, which the circuit under test decides: the power of the pulse is current x voltage. The larger of this and the voltage read from the load at the start is used. Needed when the load has a power limit.",
+            "it": "La tensione ai capi del carico, decisa dal circuito in prova: la potenza dell'impulso è corrente x tensione. Si usa la maggiore tra questa e la tensione letta dal carico all'avvio. Serve quando il carico ha un limite di potenza.",
+            "fr": "La tension aux bornes de la charge, décidée par le circuit sous test : la puissance de l'impulsion est courant x tension. On utilise la plus grande entre celle-ci et la tension lue sur la charge au démarrage. Nécessaire quand la charge a une limite de puissance.",
+            "es": "La tensión en la carga, que decide el circuito bajo prueba: la potencia del pulso es corriente x tensión. Se usa la mayor entre esta y la tensión leída de la carga al inicio. Hace falta cuando la carga tiene un límite de potencia.",
+            "de": "Die Spannung an der Last, die die Schaltung unter Test bestimmt: die Leistung des Impulses ist Strom x Spannung. Es gilt der größere Wert aus diesem und der beim Start von der Last gelesenen Spannung. Nötig, wenn die Last eine Leistungsgrenze hat."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Run",
+        "it": "Esecuzione",
+        "fr": "Exécution",
+        "es": "Ejecución",
+        "de": "Ausführung"
+      },
+      "fields": [
+        {
+          "path": "duration_s",
+          "kind": "number",
+          "label": {
+            "en": "Duration",
+            "it": "Durata",
+            "fr": "Durée",
+            "es": "Duración",
+            "de": "Dauer"
+          },
+          "unit": "s",
+          "help": {
+            "en": "How long the pulse runs. Empty: until you press Stop.",
+            "it": "Quanto dura l'impulso. Vuoto: finché non premi Stop.",
+            "fr": "Combien de temps dure l'impulsion. Vide : jusqu'à ce que vous appuyiez sur Stop.",
+            "es": "Cuánto dura el pulso. Vacío: hasta que pulse Stop.",
+            "de": "Wie lange der Impuls läuft. Leer: bis Sie Stop drücken."
+          }
+        },
+        {
+          "path": "read_interval_s",
+          "kind": "number",
+          "label": {
+            "en": "Reading interval",
+            "it": "Intervallo di lettura",
+            "fr": "Intervalle de lecture",
+            "es": "Intervalo de lectura",
+            "de": "Leseintervall"
+          },
+          "unit": "s",
+          "help": {
+            "en": "The time between two readings of the voltage and the current of the load.",
+            "it": "Il tempo tra due letture di tensione e corrente del carico.",
+            "fr": "Le temps entre deux lectures de la tension et du courant de la charge.",
+            "es": "El tiempo entre dos lecturas de la tensión y la corriente de la carga.",
+            "de": "Die Zeit zwischen zwei Messungen von Spannung und Strom der Last."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -52,7 +52,6 @@ Open Lab Automation is an open-source suite for automated electrical measurement
   - Measurements are run from the *Measurements* tab (the project window): new measurement, edit, **Start measurement** and the runs already made; see the [Engine](#engine-ola-and-native) section for the measurement types. They have been tried only with simulated instruments so far.
 
 - **Tools** (*Tools* menu)
-  - **Pulse Generator**: current pulses on an electronic load with a live preview of the trapezoidal waveform (amplitude, base level, width, frequency, rise/fall time). The current and, when the library gives the load's maximum power, the **peak and average power** (P = I × V, with a *working voltage* field) are checked while editing and again at start, when the voltage is read from the load; the parameter changed last is corrected to the largest safe value. Only the commands defined in the library are used.
   - **Hex/Dec/Bin converter**.
   - **Instrument library manager**: browse the library and add instruments to it.
 
@@ -81,6 +80,7 @@ Open Lab Automation is an open-source suite for automated electrical measurement
     - `.flt` — Filter
     - `.reg` — Line and load regulation
     - `.rfe` — Efficiency with a resistive load
+    - `.pls` — Current pulse on an electronic load
     - `.rtl` — Return loss / VSWR
     - `.rpl` — Ripple and noise
     - `.spm` — S-parameters (VNA)
@@ -225,6 +225,7 @@ transport  ola/transport.py                          TCP raw socket, serial (Rus
 | `ola/serial_config.py`, `ola/tester.py` | Serial (RS-232) settings applied to a VISA resource, and the helpers of the interactive instrument tester (`scripts/instrument_shell.py`): choose a model, connect, run logical calls, self-test a library entry. |
 | `ola/form_model.py`, `frontend/ui/FormEditorDialog.py` | An editor window for a measurement file with **no code of its own**: a module puts a `form.json` (sections and fields: text, number with SI prefixes, choice, tick boxes of several choices, list, JSON, instrument; some shown only for some values of another field) next to its `module.json`. Every problem the module reports (`check()`) is shown at its field; a required instrument that is not chosen is an error. Strings in five languages. Guide: [`docs/measurement-modules.md`](docs/measurement-modules.md#an-editor-with-no-code-formjson). |
 | `ola/modules/sparameters/` | **S-parameters** (`.spm`), a built-in measurement module: one sweep of a network analyzer and its S-parameters as complex curves. It uses only the logical calls `set_frequency_sweep`, `run_sweep` and `read_sparameters` of the library; role `vna` of category `network_analyzer`. Edited in its own window (`form.json`: sweep, the S-parameters as tick boxes, repetitions, calibration and golden sample), with every problem at its field. Not tried on a real VNA. Guide: [`docs/sparameters.md`](docs/sparameters.md). |
+| `ola/pulse_load.py`, `ola/modules/pulse_load/`, `frontend/ui/PulseLoadEditorDialog.py` | **Pulse on an electronic load** (`.pls`), a built-in measurement module that replaces the *Pulse Generator* tool: the load makes the pulse in its dynamic mode (high and low current, width, frequency) while the voltage and the current are read and recorded; role `load`. `ola/pulse_load.py` (no Qt) has the parameters, the checks, the shape of the pulse and the power of it (`ola/pulse_power.py`). Before anything is switched on the peak and average power are checked against the limit of the load, with the larger of the working voltage and the voltage read from the load; a pulse above it is refused. Only logical calls are used (`set_dynamic_level_high` / `_low`, `set_dynamic_timing`, `enable_dynamic_mode`, `load_on`, `disable_dynamic_mode`, `load_off`); the dynamic mode and the load input are switched off at the end, also after an error or a stop. The editor is the form of the module with the preview of the pulse and the checks of the limits of the load (the parameter changed last is corrected). Not tried on a real load. Guide: [`docs/pulse-load.md`](docs/pulse-load.md). |
 | `ola/modules/tdr/`, `ola/tdr.py` | **Time domain (TDR)** (`.tdr`): where along a cable a fault is, from the reflection S11 of a VNA turned into the time domain (inverse transform with a window): every change of impedance is a peak at a **distance** (`c vf t / 2`), with its size, its sign (higher impedance: an open, a damaged spot; lower: a short) and the impedance there. Gives the **resolution** and the **range** of the sweep, the length error and the **velocity factor** that fits a cable of known length, the step response and the impedance profile of a line made of sections, and a pass / fail check on the reflections before the end. `ola/tdr.py` has no Qt. Guide: [`docs/tdr.md`](docs/tdr.md). |
 | `ola/modules/bode/`, `ola/sim_bode.py` | **Bode plot** (`.bod`): the gain and the phase of a circuit against frequency with a function generator and an oscilloscope (filters and amplifiers at low frequencies, the loop gain of a converter). At every frequency the scope shows both channels from the **same capture** and a **sine of the known frequency is fitted** to each (works even under the noise); the vertical scales adjust themselves. Gives the -3 dB bandwidth, the peaking and, for a loop gain, the crossover, the **phase margin** and the **gain margin**, with a pass / fail check. The generator is off while the circuit is set up and is switched off at the end also after an error. Needs a function-generator category that the library does not have yet (the calls are in the guide). Guide: [`docs/bode.md`](docs/bode.md). `sim_bode.py` is the simulated bench used by the tests. |
 | `ola/resistor_kits.py`, `frontend/ui/ResistorKitsDialog.py` | **Kits of resistors** (no Qt in the first): the power resistors of the bench kept once, with name, value, tolerance, power rating and relay, like the cables of the registry, and used in many measurements as `{"kit": "PWR", "ref": "R22"}`. The project writes the values into the header of the run when the measurement starts. The window (*Tools* > *Resistor kits...*) edits them and copies the reference. Guide: [`docs/resistor-kits.md`](docs/resistor-kits.md). |
@@ -315,7 +316,7 @@ Error codes of the engine are `TRN-xxx` (transport) and `CALL-xxx` (calls); see 
   - `AddInstrumentDialog.py` — Three-level instrument selection (type → series → model)
   - `AddressEditorDialog.py` — Guided VISA address composition
   - `DataloggerSlotConfigDialog.py` — Slot-based module configuration for modular dataloggers
-  - `PulseGeneratorDialog.py` — Electronic load pulse generator with waveform preview
+  - `PulseLoadEditorDialog.py` — Editor of the pulse on an electronic load, with the preview of the pulse
   - `HexDecConverterDialog.py` — Hex/Dec/Bin converter
 
 ### Scripts
@@ -438,6 +439,11 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
     - [ ] warning before the run, in the log and in the run file (`calibration_lost`); the run is not blocked
   - [ ] LiteVNA: the calibration is forgotten when the program is closed or the VNA is switched off (to be calibrated again)
 - [ ] Bode plot with a generator and a scope (bandwidth, phase and gain margin)
+- [ ] Pulse on an electronic load (`.pls`, replaces the Pulse Generator tool)
+  - [ ] the pulse made by the dynamic mode of the load, with the voltage and the current read during it
+  - [ ] a pulse above the power limit refused before anything is switched on
+  - [ ] the load switched off after an error and after a stop
+  - [ ] editor: preview and correction of the parameter changed last
 - [ ] Time log of a variable
   - [ ] several instruments, each at its own interval, one table per instrument
   - [ ] datalogger read with one scan of all its channels
@@ -475,7 +481,6 @@ all of them are. Software only: the status of the library is in `Instruments_LIB
 
 ### Tools
 
-- [ ] Pulse Generator on an electronic load (current, peak and average power limits)
 - [ ] Hex/Dec/Bin converter
 - [ ] Instrument library manager (add an instrument to the library)
 - [ ] Hardware benchmark (`benchmarks/bench_hardware.py`) on the lab power supply

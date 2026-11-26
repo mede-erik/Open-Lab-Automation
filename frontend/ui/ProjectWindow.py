@@ -576,6 +576,22 @@ class ProjectWindow(QMainWindow):
         model_id = library.resolve_model_id(key) if key else None
         return readable_calls(library, model_id) if model_id else []
 
+    def _load_limits(self, name: str) -> Dict[str, float]:
+        """What the library gives for the model of the instrument ``name`` of the project: the
+        largest voltage, current and power (``ola.compat.characteristics``); empty if it is not in
+        the library."""
+        from frontend.ui.connector_setup import default_library_path, load_library
+        from ola.compat import characteristics
+
+        entry = self._inst_entries().get(name) or {}
+        try:
+            library = load_library(default_library_path())
+        except Exception:  # the window still opens: nothing is checked then
+            return {}
+        key = entry.get("model_id") or entry.get("model") or ""
+        model_id = library.resolve_model_id(key) if key else None
+        return characteristics(library, model_id) if model_id else {}
+
     def edit_measurement(self) -> None:
         """Open the editor of the selected measurement's type."""
         ref = self._selected()
@@ -602,6 +618,21 @@ class ProjectWindow(QMainWindow):
                     calls=self._library_calls,
                     translator=self.translator,
                     parent=self,
+                )
+            elif ref.type == "pulse_load":
+                from frontend.ui.PulseLoadEditorDialog import PulseLoadEditorDialog
+
+                dialog = PulseLoadEditorDialog(
+                    str(self.session.path(ref)),
+                    self.registry,
+                    ref.type,
+                    self.translator,
+                    self.session.instruments,
+                    role_instruments=self.session.instruments_by_role(self.registry.get(ref.type)),
+                    assets=self.assets,
+                    parent=self,
+                    duts=self.duts,
+                    limits=self._load_limits,
                 )
             elif load_form_spec(self.registry.get(ref.type)) is not None:
                 from frontend.ui.FormEditorDialog import FormEditorDialog

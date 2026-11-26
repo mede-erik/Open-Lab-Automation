@@ -168,7 +168,7 @@ def test_every_ui_module_is_tested():
     """Every file of frontend/ui must be exercised by a test: opened above, imported by a test
     file of its own (tests/test_project_window.py, ...), or used by a module that is."""
     here = os.path.abspath(__file__)
-    covered = set(DIALOGS) | {"__init__", "main_window", "PulseGeneratorDialog"}
+    covered = set(DIALOGS) | {"__init__", "main_window"}
     for path in glob.glob(os.path.join(REPO, "tests", "test_*.py")):
         if os.path.abspath(path) != here:
             with open(path, encoding="utf-8") as f:
@@ -183,43 +183,6 @@ def test_every_ui_module_is_tested():
             break
         covered |= used
     assert set(UI_MODULES) - covered == set()
-
-
-def test_pulse_generator_with_a_library_load(qtbot, deps, project, errors, library):
-    """The pulse tool needs an electronic load of the library that supports the dynamic
-    calls; build a project with one and check the tool accepts it."""
-    from frontend.ui import PulseGeneratorDialog as module
-
-    li, tr = deps
-    candidates = [
-        (s["series_id"], m)
-        for s in library.categories.get("electronic_loads_series", [])
-        for m in s["models"]
-        if all(c in library.commands(m["id"]) for c in module.REQUIRED_CALLS)
-    ]
-    if not candidates:
-        pytest.skip("no library electronic load supports the pulse calls")
-    series_id, model = candidates[0]
-    load = {
-        "instrument_type": "electronic_load",
-        "instance_name": "LOAD",
-        "name": "LOAD",
-        "series": series_id,
-        "model": model["name"],
-        "model_id": model["id"],
-        "num_channels": 1,
-        "visa_address": "TCPIP0::127.0.0.1::inst0::INSTR",
-        "channels": [{"name": "ILOAD", "channel_id": "1", "enabled": True}],
-    }
-    (project / "test_instruments.inst").write_text(
-        json.dumps({"instruments": [load]}), encoding="utf-8"
-    )
-    dialog = module.PulseGeneratorDialog(str(project), li, tr)
-    qtbot.addWidget(dialog)
-    dialog.show()
-    assert errors() == []
-    assert dialog.instrument_combo.count() == 1
-    dialog.close()
 
 
 def test_main_window_opens_a_project(qtbot, project, errors, monkeypatch):
