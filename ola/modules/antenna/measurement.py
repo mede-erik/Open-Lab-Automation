@@ -181,14 +181,15 @@ class AntennaImpedance(Measurement):
         p = self.params
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):
-            connect = "Connect the antenna to port 1 of the VNA."
+            connect, key = "Connect the antenna to port 1 of the VNA.", "run_connect_antenna"
             if (p.get("correction") or {}).get("cable"):
                 connect = (
                     "The antenna is behind the cable that was measured: connect that cable to "
                     "port 1 of the VNA (calibrated at the end of the test lead, WITHOUT the "
                     "cable) and the antenna to its other end."
                 )
-            ask_setup(ctx, connect, p["sweep"], mode="reflection")
+                key = "run_connect_behind_cable_antenna"
+            ask_setup(ctx, connect, p["sweep"], connect_key=key, mode="reflection")
         freq, traces = acquire(ctx, handle, p["sweep"], ["S11"], int(p.get("averages", 1)))
         s11, info = apply_correction(ctx, p, freq, traces["S11"], needs_phase=True)
         self._report(ctx, freq, s11, traces["S11"], info)

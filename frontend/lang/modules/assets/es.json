@@ -214,5 +214,9 @@
   "ldg_stock_custom": "(tamaño propio)",
   "ldg_stock_help": "Tamaños de etiquetas del mercado, con la resolución de las impresoras que las usan. El ancho es el lado a lo ancho de la cinta, el alto el lado a lo largo. Se puede escribir cualquier tamaño.",
   "lbl_turn": "Girar la salida para la impresora",
-  "lbl_turn_help": "Para una tira dibujada a lo largo (una bandera para cable) en una etiqueta que la impresora alimenta en el otro sentido: la vista previa, el PDF, las imágenes y el SVG se giran, así un diseño de 80 x 50 mm sale como 50 x 80 mm."
+  "lbl_turn_help": "Para una tira dibujada a lo largo (una bandera para cable) en una etiqueta que la impresora alimenta en el otro sentido: la vista previa, el PDF, las imágenes y el SVG se giran, así un diseño de 80 x 50 mm sale como 50 x 80 mm.",
+  "ast_delete_runs": "Eliminar...",
+  "ast_delete_help": "Elimina del historial las mediciones seleccionadas: el archivo de la medición y sus archivos de formas de onda se eliminan para siempre.",
+  "ast_delete_confirm": "¿Eliminar {n} medición(es) del historial? El archivo de la medición y los archivos de formas de onda se eliminan para siempre:\n{files}",
+  "ast_delete_failed": "No se pudo eliminar {file}: {error}"
 }

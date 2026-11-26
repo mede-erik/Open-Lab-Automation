@@ -218,19 +218,27 @@ class CableCharacterization(Measurement):
         wanted = ["S21"] if mode == "transmission" else ["S11"]
         if mode == "transmission" and p.get("also_s11"):
             wanted.append("S11")
-        freq, traces = acquire(ctx, handle, sweep, wanted, int(p.get("averages", 1)))
+        # the loss of a cable between two ports is S21: without a thru calibration it is wrong
+        need = ["S21"] if mode == "transmission" else []
+        freq, traces = acquire(
+            ctx, handle, sweep, wanted, int(p.get("averages", 1)), require_corrected=need
+        )
         self._report(ctx, freq, traces)
 
     def _confirm_setup(self, ctx: MeasurementContext, mode: str) -> None:
         if mode == "transmission":
             connect = "Connect the cable under test between port 1 and port 2 of the VNA."
+            key, args = "run_connect_cable", {}
         else:
             far = self.params.get("termination", "open")
             connect = (
                 f"Connect one end of the cable under test to port 1 and put an {far} circuit "
                 f"on the other end."
             )
-        ask_setup(ctx, connect, self.params["sweep"], mode=mode)
+            key, args = "run_connect_cable_reflection", {"far": far}
+        ask_setup(
+            ctx, connect, self.params["sweep"], connect_key=key, connect_args=args, mode=mode
+        )
 
     def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
         p = self.params

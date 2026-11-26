@@ -214,5 +214,9 @@
   "ldg_stock_custom": "(eigene Größe)",
   "ldg_stock_help": "Größen handelsüblicher Etiketten mit der Auflösung der Drucker, die sie verwenden. Die Breite ist die Seite quer zum Band, die Höhe die Seite entlang. Jede Größe kann eingegeben werden.",
   "lbl_turn": "Ausgabe für den Drucker drehen",
-  "lbl_turn_help": "Für einen der Länge nach gezeichneten Streifen (eine Kabelfahne) auf einem Etikett, das der Drucker in die andere Richtung einzieht: Vorschau, PDF, Bilder und SVG werden gedreht, ein Entwurf von 80 x 50 mm kommt also als 50 x 80 mm heraus."
+  "lbl_turn_help": "Für einen der Länge nach gezeichneten Streifen (eine Kabelfahne) auf einem Etikett, das der Drucker in die andere Richtung einzieht: Vorschau, PDF, Bilder und SVG werden gedreht, ein Entwurf von 80 x 50 mm kommt also als 50 x 80 mm heraus.",
+  "ast_delete_runs": "Löschen...",
+  "ast_delete_help": "Löscht die ausgewählten Messungen aus dem Verlauf: die Messdatei und ihre Wellenformdateien werden endgültig gelöscht.",
+  "ast_delete_confirm": "{n} Messung(en) aus dem Verlauf löschen? Die Messdatei und die Wellenformdateien werden endgültig gelöscht:\n{files}",
+  "ast_delete_failed": "{file} konnte nicht gelöscht werden: {error}"
 }

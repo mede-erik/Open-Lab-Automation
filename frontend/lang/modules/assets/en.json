@@ -214,5 +214,9 @@
   "ldg_stock_custom": "(your own size)",
   "ldg_stock_help": "Sizes of labels people buy, with the resolution of the printers that use them. Width is the side across the tape, height the side along it. Any size can be typed.",
   "lbl_turn": "Turn the output for the printer",
-  "lbl_turn_help": "For a strip drawn along its length (a cable flag) on a label that the printer feeds the other way: the preview, the PDF, the images and the SVG are turned, so a design of 80 x 50 mm comes out as 50 x 80 mm."
+  "lbl_turn_help": "For a strip drawn along its length (a cable flag) on a label that the printer feeds the other way: the preview, the PDF, the images and the SVG are turned, so a design of 80 x 50 mm comes out as 50 x 80 mm.",
+  "ast_delete_runs": "Delete...",
+  "ast_delete_help": "Delete the selected measurements from the history: the run file and its waveform files are deleted for good.",
+  "ast_delete_confirm": "Delete {n} measurement(s) from the history? The run file and the waveform files are deleted for good:\n{files}",
+  "ast_delete_failed": "Could not delete {file}: {error}"
 }

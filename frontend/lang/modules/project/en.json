@@ -59,5 +59,10 @@
   "prj_cal_no_library": "the instrument library is not available",
   "prj_cal_no_inst": "the project has no instrument file (.inst)",
   "prj_waves_confirm": "The waveforms of this run will take about {size} of disk ({waveforms} waveforms in {captures} captures, at 1 million points each). Start?",
-  "prj_waves": "Waveforms..."
+  "prj_waves": "Waveforms...",
+  "prj_delete": "Delete...",
+  "prj_delete_confirm": "Delete {file}? The run file and its waveform files are deleted for good.",
+  "prj_delete_failed": "Could not delete {file}: {error}",
+  "prj_open_run_failed": "Could not open {file}: {error}",
+  "prj_calibration_lost": "{name}: the calibration of this analyzer is missing or lost. A calibration is forgotten when the program is closed or the analyzer is switched off, and the program has not seen this one made in this session.\n\nCalibrate it (Calibrate VNA...) for a corrected measurement. The measurement starts anyway; its data are marked as not calibrated."
 }

@@ -112,6 +112,9 @@ class ProjectSession:
         self.resistor_kits: Optional[Any] = None  # ``ola.resistor_kits.KitRegistry`` (default file)
         self.run_dir = Path(run_dir) if run_dir else project.directory / RUNS_FOLDER
         self.extra_run_dirs: List[Path] = []  # more folders where cable measurements are looked for
+        # VNAs that keep their own calibration and lost it (``ola.vna_power_state``), as found by
+        # the last ``bind``: ``{"instrument": name, "text": warning}``
+        self.calibration_warnings: List[Dict[str, str]] = []
 
     # ----- the project ------------------------------------------------------------------------
     @property
@@ -135,7 +138,8 @@ class ProjectSession:
             try:
                 path = self.project.directory / check_plain_filename(self.project.inst_file)
                 entries = {
-                    str(e.get("instance_name")): e for e in load_inst(path)[0]
+                    str(e.get("instance_name")): e
+                    for e in load_inst(path)[0]
                     if e.get("instance_name")
                 }
             except (ValueError, MeasurementError):
@@ -257,6 +261,7 @@ class ProjectSession:
         reached."""
         if self.connect is None:
             raise MeasurementError("the instruments are not connected: no way to reach them yet")
+        self.calibration_warnings = []  # VNAs whose own calibration is missing or lost
         known = set(self.instruments)
         handles: Dict[str, Any] = {}
         cache: Dict[str, Any] = {}
@@ -289,12 +294,30 @@ class ProjectSession:
     def _restore_calibrations(self, handles: List[Any], params: Dict[str, Any]) -> None:
         """Before a run: each VNA gets back the saved software calibration made for **it** (its
         serial number) and for the sweep of the measurement, if there is one. A failure is only
-        logged: the measurement then runs as before (it can require a calibration itself)."""
+        logged: the measurement then runs as before (it can require a calibration itself).
+
+        A software calibration that is already applied to the connection but was made for another
+        sweep stops the run here (``MeasurementError`` with the two sweeps): the driver would refuse
+        to read, after the questions of the measurement."""
         from .compat import sweep_of
-        from .vna_calibration_flow import auto_restore
+        from .vna_calibration_flow import auto_restore, sweep_problem
+        from .vna_power_state import POWER_STATE
 
         sweep = sweep_of(params)
         for handle in handles:
+            # a VNA that keeps its own calibration: is it still valid (not switched off since)?
+            try:
+                warning = POWER_STATE.check(handle)
+            except Exception as exc:  # never stops the run: the operator decides
+                log.warning("the calibration state of %s is not known: %s", handle.name, exc)
+                warning = None
+            if warning:
+                self.calibration_warnings.append({"instrument": handle.name, "text": warning})
+            if not POWER_STATE.allows_restore(handle):
+                continue  # a calibration of an earlier run, or lost: not put back
+            problem = sweep_problem(handle, sweep)
+            if problem:
+                raise MeasurementError(f"{handle.name}: {problem}")
             try:
                 auto_restore(handle, self.project.path, sweep)
             except Exception as exc:
@@ -376,10 +399,12 @@ class ProjectSession:
         accepted_differences: Optional[List[Finding]] = None,
         bench: Optional[bool] = None,
         variant: Optional[Mapping[str, Any]] = None,
+        keep_failed: bool = False,
     ) -> Tuple[Runner, Path]:
         """A runner for the measurement, not started, writing its results to the returned run
-        file. Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing
-        file or module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
+        file (a run that ends as failed is deleted, unless ``keep_failed``: see ``ola.runs``).
+        Raises ``MeasurementError`` with a readable reason if it cannot be prepared (missing file or
+        module, instrument not reachable). ``bench``: benchmark mode (``ola.bench``) from
         the opening of the connections on; None follows the ``OLA_BENCH`` environment variable.
         ``variant``: the variant of the DUT for this run (``ola.variants``), taking the place of the
         one in the file, which is not changed; None keeps the one of the file."""
@@ -426,6 +451,8 @@ class ProjectSession:
         dut_cards = dut_snapshots_for(measurement_file.params, self.duts)
         if dut_cards:  # the same for the device under test, with its versions
             extra["duts"] = dut_cards
+        if self.calibration_warnings:  # the data of this run are not calibrated: said in the file
+            extra["calibration_lost"] = [dict(w) for w in self.calibration_warnings]
         if accepted_differences:  # the user went on although an instrument has less than before
             extra["accepted_differences"] = [f.to_dict() for f in accepted_differences]
         header = RunWriter.header_for(
@@ -435,7 +462,13 @@ class ProjectSession:
             project=self.project.name,
             **extra,
         )
-        runner.add_listener(RunWriter(path, header, observed=lambda: observed_of(runner)))
+        runner.add_listener(
+            RunWriter(
+                path, header, observed=lambda: observed_of(runner), discard_failed=not keep_failed
+            )
+        )
+        for warning in self.calibration_warnings:  # reported, not blocked
+            runner._publish_log(warning["text"], "warning")
         return runner, path
 
     def resolve_scope_settings(self, params: Mapping[str, Any]) -> Dict[str, Any]:

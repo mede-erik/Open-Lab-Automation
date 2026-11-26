@@ -214,5 +214,9 @@
   "ldg_stock_custom": "(dimensione tua)",
   "ldg_stock_help": "Dimensioni di etichette in commercio, con la risoluzione delle stampanti che le usano. La larghezza è il lato attraverso il nastro, l'altezza quello lungo il nastro. Si può scrivere qualsiasi dimensione.",
   "lbl_turn": "Ruota l'uscita per la stampante",
-  "lbl_turn_help": "Per una striscia disegnata lungo la sua lunghezza (una bandierina per cavo) su un'etichetta che la stampante alimenta nell'altro verso: anteprima, PDF, immagini e SVG vengono ruotati, così un disegno da 80 x 50 mm esce come 50 x 80 mm."
+  "lbl_turn_help": "Per una striscia disegnata lungo la sua lunghezza (una bandierina per cavo) su un'etichetta che la stampante alimenta nell'altro verso: anteprima, PDF, immagini e SVG vengono ruotati, così un disegno da 80 x 50 mm esce come 50 x 80 mm.",
+  "ast_delete_runs": "Elimina...",
+  "ast_delete_help": "Elimina dallo storico le misure selezionate: il file della misura e i file delle forme d'onda vengono eliminati per sempre.",
+  "ast_delete_confirm": "Eliminare {n} misura/e dallo storico? Il file della misura e i file delle forme d'onda vengono eliminati per sempre:\n{files}",
+  "ast_delete_failed": "Impossibile eliminare {file}: {error}"
 }

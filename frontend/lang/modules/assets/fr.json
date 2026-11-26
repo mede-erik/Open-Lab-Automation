@@ -214,5 +214,9 @@
   "ldg_stock_custom": "(taille personnalisée)",
   "ldg_stock_help": "Tailles d'étiquettes du commerce, avec la résolution des imprimantes qui les utilisent. La largeur est le côté en travers du ruban, la hauteur le côté le long. Toute taille peut être saisie.",
   "lbl_turn": "Tourner la sortie pour l'imprimante",
-  "lbl_turn_help": "Pour une bande dessinée dans sa longueur (un drapeau pour câble) sur une étiquette que l'imprimante alimente dans l'autre sens : l'aperçu, le PDF, les images et le SVG sont tournés, un dessin de 80 x 50 mm sort donc en 50 x 80 mm."
+  "lbl_turn_help": "Pour une bande dessinée dans sa longueur (un drapeau pour câble) sur une étiquette que l'imprimante alimente dans l'autre sens : l'aperçu, le PDF, les images et le SVG sont tournés, un dessin de 80 x 50 mm sort donc en 50 x 80 mm.",
+  "ast_delete_runs": "Supprimer...",
+  "ast_delete_help": "Supprime de l'historique les mesures sélectionnées : le fichier de la mesure et ses fichiers de formes d'onde sont supprimés définitivement.",
+  "ast_delete_confirm": "Supprimer {n} mesure(s) de l'historique ? Le fichier de la mesure et les fichiers de formes d'onde sont supprimés définitivement :\n{files}",
+  "ast_delete_failed": "Impossible de supprimer {file} : {error}"
 }

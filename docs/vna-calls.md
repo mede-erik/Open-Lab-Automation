@@ -21,7 +21,9 @@ Which one is used does not change what a measurement gives: the same measurement
 
 * **No calibration in the measurements.** The user calibrates the VNA beforehand (at the ends of the test leads, or at the
   port, or with the guided calibration of the library) and the measurement asks, once, whether it is done. If the instrument
-  says its data are **not calibrated** (`calibrated: false`), the log warns.
+  says its data are **not calibrated** (`calibrated: false`), the log warns. When the calibration applied covers only
+  some of the parameters that were read (the LiteVNA: a one-port calibration corrects S11 only, S21 needs a thru
+  calibration), the answer names the others in `uncorrected` and the log warns.
 * **No display, markers or math on the instrument.** The measurement reads the complex data and does the calculations
   itself ([`ola/rf.py`](../ola/rf.py)).
 
@@ -41,8 +43,12 @@ All the parameters come from **one** sweep (faster than one sweep for each). The
 ```json
 {"frequency": [1000000.0, 8000000.0],
  "parameters": {"S11": {"real": [0.012, 0.034], "imaginary": [-0.994, -0.971]}},
- "calibrated": true}
+ "calibrated": true,
+ "uncorrected": []}
 ```
+
+`uncorrected` is optional (an instrument that does not say is taken as fully corrected): the asked parameters that the
+calibration applied to the instrument did not correct.
 
 The measurements work on what comes back: the frequencies actually used are the ones that are plotted, and a parameter that
 was asked and is missing from the answer is an error that names what the instrument gave. The first draft of the category had a
@@ -77,7 +83,7 @@ tests use it: **a measurement that works on `SimVna` must work the same on a rea
 
 ## What a library entry for a VNA needs
 
-* A **parser** or a driver for the answer: `read_sparameters` gives a mapping (`frequency`, `parameters`, `calibrated`) built
+* A **parser** or a driver for the answer: `read_sparameters` gives a mapping (`frequency`, `parameters`, `calibrated` and, optionally, `uncorrected`) built
   from what the instrument sends. The LiteVNA has a driver ([`ola/drivers/litevna.py`](../ola/drivers/litevna.py)) with a software
   calibration; for an SCPI analyzer the parser is `vna_sparameters` in [`ola/parsers.py`](../ola/parsers.py).
 * The access of the instrument in the `.inst` file of the project is of type `network_analyzer`.

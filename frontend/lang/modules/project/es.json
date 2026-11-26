@@ -59,5 +59,10 @@
   "prj_cal_no_library": "la biblioteca de instrumentos no está disponible",
   "prj_cal_no_inst": "el proyecto no tiene un archivo de instrumentos (.inst)",
   "prj_waves_confirm": "Las formas de onda de esta ejecución ocuparán unos {size} de disco ({waveforms} formas de onda en {captures} capturas, de 1 millón de puntos cada una). ¿Iniciar?",
-  "prj_waves": "Formas de onda..."
+  "prj_waves": "Formas de onda...",
+  "prj_delete": "Eliminar...",
+  "prj_delete_confirm": "¿Eliminar {file}? El archivo de la medición y sus archivos de formas de onda se eliminan para siempre.",
+  "prj_delete_failed": "No se pudo eliminar {file}: {error}",
+  "prj_open_run_failed": "No se pudo abrir {file}: {error}",
+  "prj_calibration_lost": "{name}: falta la calibración de este analizador o se ha perdido. La calibración se olvida al cerrar el programa o al apagar el analizador, y el programa no la ha visto hacer en esta sesión.\n\nCalíbrelo (Calibrar VNA...) para una medida corregida. La medida empieza de todos modos; sus datos se marcan como no calibrados."
 }

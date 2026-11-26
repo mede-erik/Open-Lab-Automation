@@ -201,6 +201,7 @@ class LiteVnaDriver:
         self._select_channels(sparameters)
         frequencies, data = self._read_raw()
         calibrated = False
+        uncorrected: List[str] = []
         if self._correction:
             grid = self._need_sweep()
             if grid != self._cal_grid:
@@ -208,12 +209,16 @@ class LiteVnaDriver:
                     "the calibration was made for another frequency sweep: calibrate again or "
                     "switch the correction off"
                 )
+            corrected = set()
             if self._reflection is not None and "S11" in data:
                 data["S11"] = self._reflection.correct(data["S11"])
-                calibrated = True
+                corrected.add("S11")
             if self._thru is not None and "S21" in data:
                 data["S21"] = cal.transmission_response(data["S21"], self._thru)
-                calibrated = True
+                corrected.add("S21")
+            calibrated = bool(corrected)
+            # a one-port calibration corrects S11 only, a thru calibration S21 only
+            uncorrected = [name for name in data if name not in corrected]
         parameters = {
             name: {
                 "real": array("d", (v.real for v in values)),
@@ -225,6 +230,7 @@ class LiteVnaDriver:
             "frequency": array("d", frequencies),
             "parameters": parameters,
             "calibrated": calibrated,
+            "uncorrected": uncorrected,  # asked parameters the applied calibration does not cover
         }
 
     # ----- software calibration ---------------------------------------------------------

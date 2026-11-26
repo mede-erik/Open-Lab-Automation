@@ -349,6 +349,15 @@ def _library_sweep(
 ) -> Tuple[List[float], Dict[str, List[complex]], bool]:
     """Run one sweep with the library's calls and read the asked S-parameters:
     ``(frequencies, {parameter: values}, calibrated)``."""
+    freq, values, calibrated, _ = _library_read(handle, parameters, nominal)
+    return freq, values, calibrated
+
+
+def _library_read(
+    handle: Any, parameters: Sequence[str], nominal: Sequence[float]
+) -> Tuple[List[float], Dict[str, List[complex]], bool, List[str]]:
+    """``_library_sweep`` and, as a fourth value, the asked parameters that the calibration applied
+    to the instrument does not correct (empty if it says nothing: ``uncorrected`` is optional)."""
     handle.call("run_sweep")
     result = handle.call(LIBRARY_READ, sparameters=list(parameters))
     if not isinstance(result, Mapping) or not isinstance(result.get("parameters"), Mapping):
@@ -370,7 +379,8 @@ def _library_sweep(
                 f"at {len(freq)} frequencies"
             )
         values[name] = [complex(a, b) for a, b in zip(real, imag)]
-    return freq, values, bool(result.get("calibrated", True))
+    uncorrected = [str(n) for n in (result.get("uncorrected") or []) if n in values]
+    return freq, values, bool(result.get("calibrated", True)), uncorrected
 
 
 def acquire(
@@ -380,6 +390,7 @@ def acquire(
     parameters: Sequence[str],
     averages: int = 1,
     notes: bool = True,
+    require_corrected: Sequence[str] = (),
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
     ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
@@ -388,7 +399,11 @@ def acquire(
     (``run_sweep``, then ``read_sparameters(sparameters=[...])``); one with the simple calls reads
     them one by one (``read_sparameter``). What the instrument cannot do (see ``sweep_notes``) is
     reported in the log (``notes=False`` for a sweep that is repeated many times), and so is a
-    result that the instrument says is not calibrated."""
+    result that the instrument says is not calibrated.
+
+    ``require_corrected`` names parameters that must be corrected by the calibration: if the
+    instrument says it did not correct one of them, ``MeasurementError`` is raised on the first
+    sweep (a measurement that would give wrong numbers does not run)."""
     library = uses_library_calls(handle)
     if notes:
         for note in sweep_notes(handle, sweep):
@@ -402,13 +417,29 @@ def acquire(
     for sweep_no in range(1, averages + 1):
         ctx.checkpoint()
         if library:
-            freq, got, calibrated = _library_sweep(handle, parameters, nominal)
-            if not calibrated and sweep_no == 1 and notes:
-                ctx.log(
-                    "the VNA says its data are not calibrated: calibrate it (or apply its "
-                    "calibration) before this measurement",
-                    "warning",
+            freq, got, calibrated, uncorrected = _library_read(handle, parameters, nominal)
+            missing = [n for n in require_corrected if n in uncorrected]
+            if missing:
+                raise MeasurementError(
+                    f"{', '.join(missing)} is not corrected by the calibration of the VNA: "
+                    "a one-port calibration (open, short, load) corrects S11 only. Make a thru "
+                    "calibration (port 1 connected to port 2 without the cable) with the same "
+                    "sweep, then measure again; or use the one-port (reflection) mode"
                 )
+            if sweep_no == 1 and notes:
+                if not calibrated:
+                    ctx.log(
+                        "the VNA says its data are not calibrated: calibrate it (or apply its "
+                        "calibration) before this measurement",
+                        "warning",
+                    )
+                elif uncorrected:
+                    ctx.log(
+                        f"{', '.join(uncorrected)} not corrected: the calibration applied to the "
+                        "VNA does not cover it (a one-port calibration corrects S11 only, S21 "
+                        "needs a thru calibration)",
+                        "warning",
+                    )
             reads = list(got.items())
         else:
             reads = []
@@ -428,10 +459,19 @@ def acquire(
     return freq, {name: [v / averages for v in values] for name, values in totals.items()}
 
 
-def ask_setup(ctx: MeasurementContext, connect: str, sweep: Mapping[str, Any], **data: Any) -> None:
+def ask_setup(
+    ctx: MeasurementContext,
+    connect: str,
+    sweep: Mapping[str, Any],
+    connect_key: str = "",
+    connect_args: Optional[Mapping[str, Any]] = None,
+    **data: Any,
+) -> None:
     """Ask once whether the VNA is calibrated for this sweep and how to connect the device
-    (``connect`` is that sentence). Raises ``Stopped`` if the user chooses to abort: nothing has
-    been sent to the instrument yet."""
+    (``connect`` is that sentence, in English: for the log and the text of the question). The
+    window translates the question from ``connect_key`` (a key of ``frontend/lang/modules/run``)
+    and ``connect_args``. Raises ``Stopped`` if the user chooses to abort: nothing has been sent to
+    the instrument yet."""
     text = (
         "Is the VNA calibrated for this device and this frequency range "
         f"({format_si(sweep['start_hz'], 'Hz')} to {format_si(sweep['stop_hz'], 'Hz')})? "
@@ -442,6 +482,8 @@ def ask_setup(ctx: MeasurementContext, connect: str, sweep: Mapping[str, Any], *
         "start_hz": sweep["start_hz"],
         "stop_hz": sweep["stop_hz"],
         "points": sweep["points"],
+        "connect_key": connect_key,
+        "connect_args": dict(connect_args or {}),
         **data,
     }
     if ctx.ask(text, ["continue", "abort"], default="abort", data=info) == "abort":

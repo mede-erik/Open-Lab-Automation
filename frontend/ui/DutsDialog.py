@@ -289,6 +289,7 @@ class DutsDialog(QDialog):
         self.history_tool = AssetHistoryDialog(
             chosen[0], runs, self.translator, self, self.run_dirs(), trend=False
         )
+        self.history_tool.finished.connect(lambda _result: self.refresh())  # runs may be deleted
         self.history_tool.show()
 
 

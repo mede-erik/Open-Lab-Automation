@@ -84,6 +84,10 @@ class SettingsDialog(QDialog):
         # Experimental instruments setting
         self.experimental_checkbox = QCheckBox(t('enable_experimental_instruments', 'Enable experimental instruments in the instrument list'))
         layout.addWidget(self.experimental_checkbox)
+        # A measurement that fails is not kept (it would fill the history of a cable or a device)
+        self.keep_failed_checkbox = QCheckBox(t('keep_failed_runs', 'Keep the measurements that failed'))
+        self.keep_failed_checkbox.setToolTip(t('keep_failed_runs_help', 'A measurement that fails is deleted when it ends.'))
+        layout.addWidget(self.keep_failed_checkbox)
         # Apply button
         btn_layout = QHBoxLayout()
         self.apply_btn = QPushButton(t('apply', 'Apply'))
@@ -92,7 +96,7 @@ class SettingsDialog(QDialog):
         layout.addLayout(btn_layout)
         self.setLayout(layout)
         self.load_settings()
-        self.toggle_advanced_naming(self.adv_naming_checkbox.isChecked())
+        self._set_naming_enabled(self.adv_naming_checkbox.isChecked())
 
     def _select_language(self, code):
         """Select the language ``code`` in the combo box (nothing if it is not there)."""
@@ -105,11 +109,14 @@ class SettingsDialog(QDialog):
         Enable or disable advanced naming toggles.
         :param state: Qt.CheckState.Checked or Qt.CheckState.Unchecked
         """
-        enabled = state == Qt.CheckState.Checked
+        self._set_naming_enabled(state == Qt.CheckState.Checked)
+        self.save_settings()
+
+    def _set_naming_enabled(self, enabled):
+        """Enable or disable the advanced naming toggles (nothing is saved: used while loading)."""
         self.inst_toggle.setEnabled(enabled)
         self.eff_toggle.setEnabled(enabled)
         self.was_toggle.setEnabled(enabled)
-        self.save_settings()
 
     def change_language(self, lang):
         """
@@ -144,6 +151,7 @@ class SettingsDialog(QDialog):
         settings.setValue('advanced_naming_eff', self.eff_toggle.isChecked())
         settings.setValue('advanced_naming_was', self.was_toggle.isChecked())
         settings.setValue('show_experimental_instruments', self.experimental_checkbox.isChecked())
+        settings.setValue('keep_failed_runs', self.keep_failed_checkbox.isChecked())
 
     def load_settings(self):
         """
@@ -160,7 +168,12 @@ class SettingsDialog(QDialog):
         adv_inst = settings.value('advanced_naming_inst', False, type=bool)
         adv_eff = settings.value('advanced_naming_eff', False, type=bool)
         adv_was = settings.value('advanced_naming_was', False, type=bool)
+        # Showing the saved language must not run ``change_language``: that saves the settings
+        # (the boxes below are not loaded yet, so it wrote their defaults over what was saved) and
+        # closes the window.
+        self.lang_combo.blockSignals(True)
         self._select_language(lang)
+        self.lang_combo.blockSignals(False)
         
         # Set theme combo based on loaded theme
         for i in range(self.theme_combo.count()):
@@ -168,15 +181,20 @@ class SettingsDialog(QDialog):
                 self.theme_combo.setCurrentIndex(i)
                 break
         
+        # Loading must not save: the settings are written only when the person changes one (a
+        # save here wrote the defaults of the boxes not loaded yet over what was saved)
+        self.adv_naming_checkbox.blockSignals(True)
         self.adv_naming_checkbox.setChecked(adv_naming)
+        self.adv_naming_checkbox.blockSignals(False)
         self.inst_toggle.setChecked(adv_inst)
         self.eff_toggle.setChecked(adv_eff)
         self.was_toggle.setChecked(adv_was)
-        self.toggle_advanced_naming(Qt.CheckState.Checked if adv_naming else Qt.CheckState.Unchecked)
 
         # Load experimental instruments setting
         show_exp = settings.value('show_experimental_instruments', False, type=bool)
         self.experimental_checkbox.setChecked(show_exp)
+        self.keep_failed_checkbox.setChecked(settings.value('keep_failed_runs', False, type=bool))
+        self._set_naming_enabled(adv_naming)
 
     def apply_settings(self):
         """

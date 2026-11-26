@@ -529,3 +529,174 @@ def test_a_run_without_the_benchmark_has_no_such_tab(app, windows):
     assert pump(app, lambda: w.model.finished)
     app.processEvents()
     assert "Benchmark" not in _tab_names(w) and w._bench_view is None and w.model.bench is None
+
+
+# ---- results table, several y scales, Smith chart only for complex data -----------------------
+def cable_window(windows):
+    from ola.registry import default_registry
+    from ola.sim_vna import SimVna
+    from tests.test_cable import PARAMS
+
+    p = dict(PARAMS, confirm_setup=True, also_s11=True)
+    m = default_registry(user_dir="/nonexistent").create("cable", p)
+    w = window(windows, Runner(m, {"vna": [SimVna(length_m=2.0)]}), auto_start=True)
+    assert pump(app_instance(), lambda: w._dialog is not None)
+    w._dialog.buttons["continue"].click()
+    assert pump(app_instance(), lambda: w.model.finished)
+    w._tick()
+    return w
+
+
+def app_instance():
+    return QApplication.instance()
+
+
+def test_the_headers_of_the_results_are_translated(app, windows):
+    w = cable_window(windows)
+    headers = [w.table.horizontalHeaderItem(c).text() for c in range(w.table.columnCount())]
+    assert "Max loss (dB)" in headers and "Mean delay (ns)" in headers
+    assert "Velocity factor" in headers
+    assert not any("_" in h for h in headers)  # no raw column names
+
+
+def test_column_titles_in_every_language_and_for_unknown_columns():
+    import json
+
+    for lang, expected in (("it", "Perdita max (dB)"), ("de", "Max. Verlust (dB)")):
+        with open(os.path.join(LANG_DIR, f"{lang}.json"), encoding="utf-8") as f:
+            catalog = json.load(f)
+        assert run_module.column_title("max_loss_db", lambda k: catalog.get(k, k)) == expected
+    en = json.load(open(os.path.join(LANG_DIR, "en.json"), encoding="utf-8"))
+    t = lambda k: en.get(k, k)  # noqa: E731
+    assert run_module.column_title("peak_gain_db", t) == "Peak gain (dB)"  # built from words
+    assert run_module.column_title("line_regulation_mv_per_v", t) == "Line regulation (mV/V)"
+    assert run_module.column_title("zzz_hz", t) == "Zzz (Hz)"  # unknown word: kept, capitalised
+
+
+def test_the_window_grows_for_a_wide_table_but_stays_on_the_screen(app, windows, monkeypatch):
+    from PyQt6.QtCore import QSize
+
+    from frontend.ui import layout_utils
+
+    monkeypatch.setattr(layout_utils, "available_size", lambda _w: QSize(2600, 1000))
+    w = cable_window(windows)
+    w.resize(500, 600)
+    w.show()
+    w._table_columns = []  # draw the header again, in a window that is too narrow
+    w._update_table()
+    pump(app, lambda: False, timeout=0.2)
+    assert w.width() > 500  # it grew to show the columns
+    w.tabs.setCurrentIndex(0)
+    pump(app, lambda: False, timeout=0.2)
+    assert w.table.horizontalScrollBar().maximum() == 0  # and nothing is cut
+    monkeypatch.setattr(layout_utils, "available_size", lambda _w: QSize(600, 800))
+    w.resize(500, 600)
+    w._table_columns = []
+    w._update_table()
+    pump(app, lambda: False, timeout=0.2)
+    assert w.width() <= 600  # never wider than the screen: then the table scrolls
+
+
+def test_a_frequency_in_a_column_name_is_written_as_such():
+    assert run_module.column_title("loss_433mhz_db", lambda k: k) == "Loss 433 MHz (dB)"
+
+
+def test_curves_of_different_units_get_their_own_y_scale(app, windows):
+    w = cable_window(windows)
+    for i in range(w.trace_list.count()):
+        name = w.trace_list.item(i).text()
+        on = name in ("loss_db", "loss_db_per_m", "group_delay_ns", "return_loss_db")
+        w.trace_list.item(i).setCheckState(Qt.CheckState.Checked if on else Qt.CheckState.Unchecked)
+    axes = w.trace_plot.y_axes()
+    titles = [a[1] for a in axes]
+    assert len(axes) == 3  # dB (loss, return loss), dB/m, ns
+    assert "Loss (dB)" in titles and "Group delay (ns)" in titles
+    shared = [a for a in axes if len(a[2]) == 2][0]
+    assert shared[1] in ("Loss (dB)", "Return loss (dB)")
+    w.trace_plot.resize(900, 500)
+    w.trace_plot.grab()  # draws without raising
+
+
+def test_one_unit_means_one_scale(app, windows):
+    w = cable_window(windows)
+    for i in range(w.trace_list.count()):
+        w.trace_list.item(i).setCheckState(
+            Qt.CheckState.Checked
+            if w.trace_list.item(i).text() == "loss_db"
+            else Qt.CheckState.Unchecked
+        )
+    assert len(w.trace_plot.y_axes()) == 1
+
+
+def test_complex_curves_in_a_view_share_one_scale(app, windows):
+    w = trace_window(windows)
+    axes = w.trace_plot.y_axes()
+    assert [a[2] for a in axes] == [[0, 1], [2]]  # S21 and S11 together, the real one apart
+    assert axes[0][1] == "Magnitude (dB)"
+
+
+def trace_window(windows):
+    w = window(windows, trace_runner(), auto_start=True)
+    assert pump(app_instance(), lambda: w.model.finished)
+    w._tick()
+    return w
+
+
+def test_the_smith_chart_is_not_selectable_with_incompatible_data(app, windows):
+    w = cable_window(windows)
+    for i in range(w.trace_list.count()):  # a real trace (the loss) with a complex one (S21)
+        w.trace_list.item(i).setCheckState(
+            Qt.CheckState.Checked
+            if w.trace_list.item(i).text() in ("loss_db", "S21")
+            else Qt.CheckState.Unchecked
+        )
+    item = w.view_box.model().item(w.view_box.findData("smith"))
+    assert not item.isEnabled() and item.toolTip()  # greyed out, with the reason
+    # only S-parameters (complex): it can be chosen
+    for i in range(w.trace_list.count()):
+        name = w.trace_list.item(i).text()
+        w.trace_list.item(i).setCheckState(
+            Qt.CheckState.Checked if name in ("S21", "S11") else Qt.CheckState.Unchecked
+        )
+    assert w.view_box.model().item(w.view_box.findData("smith")).isEnabled()
+    w.view_box.setCurrentIndex(w.view_box.findData("smith"))
+    w._draw_traces()
+    assert w.trace_stack.currentWidget() is w.smith
+    # a real trace joins: back to a plain view, Smith greyed out again
+    for i in range(w.trace_list.count()):
+        if w.trace_list.item(i).text() == "loss_db":
+            w.trace_list.item(i).setCheckState(Qt.CheckState.Checked)
+    assert w.trace_stack.currentWidget() is w.trace_plot
+    assert w.view_box.currentData() != "smith"
+    assert not w.view_box.model().item(w.view_box.findData("smith")).isEnabled()
+
+
+def test_the_axis_and_smith_rules_of_the_model():
+    from ola.run_view import axis_key, smith_compatible
+
+    real = {"name": "x", "kind": "real", "meta": {"ylabel": "Loss (dB/m)"}}
+    cplx = {"name": "S21", "kind": "complex", "meta": {}}
+    assert axis_key(real, "value") == "dB/m"
+    assert axis_key({"name": "n", "kind": "real", "meta": {"ylabel": "VSWR"}}, "value") == "VSWR"
+    assert axis_key({"name": "n", "kind": "real", "meta": {}}, "value") == "n"
+    assert axis_key(cplx, "phase_deg") == "view:phase_deg"
+    assert smith_compatible([cplx]) and not smith_compatible([cplx, real])
+    assert not smith_compatible([])
+
+
+def test_a_run_that_failed_and_was_not_kept_has_nothing_to_export(app, windows, tmp_path):
+    from ola.measurement import Event
+
+    runner, _ = make()
+    path = tmp_path / "run.jsonl"  # the file is never written: it was deleted when the run ended
+    w = window(windows, runner, run_file=str(path))
+    assert not w.file_kept()
+    w.model.apply(Event("point", {"values": {"a": 1}, "table": "points", "index": 0}))
+    w.model.state = "failed"
+    w._refresh()
+    assert not w.export_btn.isEnabled()
+    assert "not saved" in w.file_label.text()
+    path.write_text("{}\n")  # a kept run: the file is there
+    assert w.file_kept()
+    w._refresh()
+    assert w.export_btn.isEnabled()

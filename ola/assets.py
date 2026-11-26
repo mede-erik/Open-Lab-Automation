@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
 from .fileio import atomic_write_json
+from .runs import end_state
 from .variants import variant_of, variant_text
 
 FORMAT_VERSION = 1
@@ -368,23 +369,7 @@ def read_header(path: Path) -> Optional[Dict[str, Any]]:
     return header if isinstance(header, dict) and header.get("kind") == "run" else None
 
 
-def _end_state(path: Path) -> str:
-    """How the run ended, from the last lines of the file (``interrupted`` if there is no end)."""
-    try:
-        with open(path, "rb") as f:
-            f.seek(0, os.SEEK_END)
-            f.seek(max(0, f.tell() - 4096))
-            tail = f.read().decode("utf-8", errors="replace").splitlines()
-    except OSError:
-        return "interrupted"
-    for line in reversed(tail):
-        try:
-            item = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(item, dict) and item.get("kind") == "end":
-            return str(item.get("state", "interrupted"))
-    return "interrupted"
+_end_state = end_state  # how a run ended (``ola.runs``)
 
 
 def index_runs(

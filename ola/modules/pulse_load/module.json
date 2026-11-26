@@ -1,0 +1,33 @@
+{
+  "id": "pulse_load",
+  "name": "Electronic load pulse",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".pls",
+  "entry": "measurement.py:PulseLoad",
+  "description": "A current pulse on an electronic load, made by the dynamic mode of the load: the high and the low level, the width and the repetition frequency. The peak and the average power are checked against the limit of the load before anything is switched on. While it runs, the voltage and the current of the load are read at an interval and recorded. The load is switched off at the end, also after an error or a stop.",
+  "roles": [
+    {"name": "load", "category": "electronic_load", "required": true,
+     "description": "The electronic load that makes the pulse (its dynamic mode)"}
+  ],
+  "params_schema": {
+    "amplitude_a": {"type": "number", "min": 0, "unit": "A", "required": true,
+                    "description": "the high level of the pulse"},
+    "base_level_a": {"type": "number", "min": 0, "unit": "A", "required": true,
+                     "description": "the low level of the pulse"},
+    "width_us": {"type": "number", "min": 1, "unit": "us", "required": true,
+                 "description": "the time at the high level in a period (it must fit in the period)"},
+    "frequency_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true,
+                     "description": "the repetition frequency"},
+    "rise_time_us": {"type": "number", "min": 0.1, "unit": "us", "required": false,
+                     "description": "the rising edge: for the drawing of the pulse only"},
+    "fall_time_us": {"type": "number", "min": 0.1, "unit": "us", "required": false,
+                     "description": "the falling edge: for the drawing of the pulse only"},
+    "voltage_v": {"type": "number", "min": 0, "unit": "V", "required": false,
+                  "description": "the voltage across the load, set by the circuit under test: the power is current x voltage. The larger of it and the voltage read from the load at the start is used; without a power limit of the load it is not needed"},
+    "duration_s": {"type": "number", "min": 0, "unit": "s", "required": false,
+                   "description": "how long the pulse runs; without it, until Stop"},
+    "read_interval_s": {"type": "number", "min": 0.05, "unit": "s", "required": false,
+                        "description": "the time between two readings of the voltage and the current (0.5 s by default)"}
+  }
+}
