@@ -96,7 +96,7 @@ def registry():
     return default_registry(user_dir="/nonexistent")
 
 
-def cable_run(registry, uncorrected, calibrated=True):
+def cable_run(registry, uncorrected, calibrated=True, mode="transmission"):
     vna = SimVna(
         library_calls=True,
         library_extras=False,
@@ -106,29 +106,45 @@ def cable_run(registry, uncorrected, calibrated=True):
         calibrated=calibrated,
     )
     vna.uncorrected = uncorrected
-    measurement = registry.create(
-        "cable",
-        {
-            "mode": "transmission",
-            "sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 11, "scale": "linear"},
-            "confirm_setup": False,
-            "also_s11": True,
-        },
-    )
+    params = {
+        "mode": mode,
+        "sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 11, "scale": "linear"},
+        "confirm_setup": False,
+    }
+    if mode == "transmission":
+        params["also_s11"] = True
+    else:
+        params["termination"] = "open"
+    measurement = registry.create("cable", params)
     runner = Runner(measurement, {"vna": [vna]})
     runner.start()
     assert runner.join(20)
-    return [e.data["message"] for e in runner.drain() if e.kind == "log"]
+    events = runner.drain()
+    logs = [e.data["message"] for e in events if e.kind == "log"]
+    return logs, runner.error
 
 
-def test_the_log_says_when_the_calibration_does_not_cover_a_parameter(registry):
-    logs = cable_run(registry, ["S21"])
-    assert any("S21 not corrected" in m and "thru" in m for m in logs)
-    assert not any("not calibrated" in m for m in logs)  # it is calibrated, only partly
+def test_a_cable_between_two_ports_needs_the_thru_calibration(registry):
+    logs, error = cable_run(registry, ["S21"])
+    assert error is not None
+    assert "S21 is not corrected" in str(error) and "thru" in str(error)
+    assert "one-port" in str(error)  # it also says what to do instead
+
+
+def test_the_one_port_mode_does_not_need_the_thru(registry):
+    # reflection mode reads S11 only: a one-port calibration is what it needs
+    logs, error = cable_run(registry, [], mode="reflection")
+    assert error is None
+
+
+def test_s11_not_corrected_does_not_block_the_s21_cable(registry):
+    logs, error = cable_run(registry, ["S11"])
+    assert error is None
+    assert any("S11 not corrected" in m for m in logs)
 
 
 def test_no_note_when_everything_is_corrected_and_the_old_note_when_nothing_is(registry):
-    assert not any("not corrected" in m for m in cable_run(registry, []))
-    logs = cable_run(registry, [], calibrated=False)
+    assert not any("not corrected" in m for m in cable_run(registry, [])[0])
+    logs, _ = cable_run(registry, [], calibrated=False)
     assert any("not calibrated" in m for m in logs)
     assert not any("not corrected" in m for m in logs)
