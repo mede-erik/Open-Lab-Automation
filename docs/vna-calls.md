@@ -17,6 +17,29 @@ The measurements speak **two sets of calls**, and use the first one whenever the
 Which one is used does not change what a measurement gives: the same measurement on `SimVna()` and on
 `SimVna(library_calls=True)` gives the same numbers (a test checks it for the six measurements).
 
+## Common parameters of the VNA measurements
+
+The VNA measurements (S-parameters, return loss, filter, amplifier, attenuator, antenna, cable, time domain) read and check the
+same fields the same way (`ola/vna_common.py`):
+
+| Field | Meaning |
+|---|---|
+| `sweep` | `start_hz`, `stop_hz`, `points`, `scale` (`linear` or `log`), and, for a model that has them, `if_bandwidth_hz` and `power_dbm` |
+| `averages` | sweeps averaged (1 by default) |
+| `z0` | the **reference impedance of the VNA**: the impedance its calibration refers to, 50 ohm by default (75 ohm with a 75 ohm calibration). It is used where an impedance is computed from a reflection and it is written in the Touchstone export of the run. It does not convert the measurement to another impedance |
+| `require_calibration` | `true` stops the measurement at the first sweep when the VNA says its data are not calibrated or that one of the S-parameters read is not corrected by its calibration; `false` (the default) only warns in the log. A VNA with the simple calls says nothing about its calibration: nothing is checked then |
+| `confirm_setup` | ask, before anything is sent, whether the VNA is calibrated and how to connect the device (`true` by default) |
+| `group_delay_aperture` | where a group delay is computed (filter, cable): the slope of the phase over this many points on each side, 1 by default |
+
+**Old names.** A few fields had different names in different measurements; the old ones are still read (the new one wins when a
+file has both) and the editor writes the new one when it saves a file:
+
+| Old name | New name | Measurement |
+|---|---|---|
+| `also_return_loss` | `also_s11` | attenuator |
+| `gain_edge_db` | `edge_db` | amplifier |
+| `start_hz`, `stop_hz`, `points`, `if_bandwidth_hz`, `power_dbm` at the top | the same keys in `sweep` | S-parameters |
+
 ## What the program does *not* do
 
 * **No calibration in the measurements.** The user calibrates the VNA beforehand (at the ends of the test leads, or at the
