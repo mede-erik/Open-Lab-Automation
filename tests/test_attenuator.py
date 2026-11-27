@@ -81,7 +81,8 @@ def test_good_parameters_have_no_problems(registry):
         ({"sweep": {"stop_hz": 5e5}}, "sweep.stop_hz", "above the start"),
         ({"frequencies_of_interest": [9e9]}, "frequencies_of_interest", "outside the sweep"),
         ({"limits": {"max": "low"}}, "limits", "must be a number"),
-        ({"also_return_loss": "yes"}, "also_return_loss", "true or false"),
+        ({"also_s11": "yes"}, "also_s11", "true or false"),
+        ({"also_return_loss": "yes"}, "also_s11", "true or false"),  # the old name
     ],
 )
 def test_wrong_parameters_say_where_and_what(registry, changes, path, words):

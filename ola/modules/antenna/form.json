@@ -422,6 +422,24 @@
             "es": "Pedir calibrar y conectar antes de medir",
             "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
           }
+        },
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Interrompi se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Abbrechen, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "When the VNA says that its data, or one of the S-parameters read, are not corrected by the calibration, the measurement stops instead of only warning.",
+            "it": "Quando il VNA dice che i suoi dati, o uno dei parametri S letti, non sono corretti dalla calibrazione, la misura si ferma invece di dare solo un avviso.",
+            "fr": "Quand le VNA indique que ses données, ou l'un des paramètres S lus, ne sont pas corrigés par la calibration, la mesure s'arrête au lieu de seulement avertir.",
+            "es": "Cuando el VNA indica que sus datos, o uno de los parámetros S leídos, no están corregidos por la calibración, la medida se detiene en lugar de solo avisar.",
+            "de": "Meldet der VNA, dass seine Daten oder einer der gelesenen S-Parameter nicht durch die Kalibrierung korrigiert sind, bricht die Messung ab, statt nur zu warnen."
+          }
         }
       ]
     },

@@ -492,7 +492,7 @@ class Shell:
             return
         kind = kinds[choice - 1]
         port = self.ask_number("test port", 1)
-        port2 = None if kind == "ONE_PORT" else self.ask_number("second test port", 2)
+        port2 = self.ask_number("second test port", 2) if flow.needs_second_port(kind) else None
         self.say("  A calibration is valid for one sweep: use the sweep of your measurement.")
         sweep = {
             "start": self.ask_number(
@@ -501,11 +501,17 @@ class Shell:
             "stop": self.ask_number("stop frequency", "100M", flow.parse_frequency),
             "points": self.ask_number("number of points", 201),
         }
-        kit = self.ask_kit(flow) if self.handle.supports("set_calibration_kit") else None
-        if kit is False:
-            return
+        ecal = False
+        if kind in flow.ecal_kinds(self.library, self.model_id):
+            answer = self.ask("  use an electronic calibration unit (ECal)? [y/N] ")
+            ecal = answer.strip().lower() == "y"
+        kit = None
+        if not ecal and self.handle.supports("set_calibration_kit"):
+            kit = self.ask_kit(flow)
+            if kit is False:
+                return
         try:
-            session = flow.CalibrationSession(self.handle, kind, port, port2, sweep, kit)
+            session = flow.CalibrationSession(self.handle, kind, port, port2, sweep, kit, ecal)
             session.start()
         except CallError as exc:
             self.say(f"  {exc}")

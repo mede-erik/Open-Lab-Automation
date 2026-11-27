@@ -117,18 +117,22 @@ def z_to_gamma(z: Sequence[Complex], z0: float = 50.0) -> List[complex]:
     return [(v - z0) / (v + z0) for v in z]
 
 
-def group_delay_s(freq: Sequence[float], s21: Sequence[Complex]) -> List[float]:
+def group_delay_s(freq: Sequence[float], s21: Sequence[Complex], aperture: int = 1) -> List[float]:
     """Group delay in seconds, ``-d(phase)/d(omega)``, from the unwrapped phase of ``s21``. A
     cable of length L and velocity factor v gives ``L / (v c)`` at every frequency. Needs at least
-    2 points; the ends use the nearest neighbour, the others the two points around."""
+    2 points. The slope at each point is taken over ``aperture`` points on each side (1: the two
+    neighbours; more smooths the noise of the phase and hides narrow details); at the ends the
+    span is cut to the points that exist."""
     _same_length(freq, s21)
     if len(freq) < 2:
         raise RfError("group delay needs at least 2 frequency points")
+    if aperture < 1:
+        raise RfError("the aperture of the group delay must be at least 1 point")
     phase = unwrap_phase([cmath.phase(v) for v in s21])
     out = []
     last = len(freq) - 1
     for i in range(len(freq)):
-        a, b = max(i - 1, 0), min(i + 1, last)
+        a, b = max(i - aperture, 0), min(i + aperture, last)
         d_omega = 2 * math.pi * (freq[b] - freq[a])
         out.append(-(phase[b] - phase[a]) / d_omega if d_omega else 0.0)
     return out

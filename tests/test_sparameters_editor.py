@@ -38,16 +38,19 @@ def test_a_new_file_starts_valid(registry):
 @pytest.mark.parametrize(
     "change,path",
     [
-        ({"start_hz": -1}, "start_hz"),
-        ({"stop_hz": 1e5}, "stop_hz"),  # below the start
-        ({"points": 1}, "points"),
+        ({"sweep": {"start_hz": -1, "stop_hz": 1e9, "points": 201}}, "sweep.start_hz"),
+        ({"sweep": {"start_hz": 1e6, "stop_hz": 1e5, "points": 201}}, "sweep.stop_hz"),
+        ({"sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 1}}, "sweep.points"),
         ({"sparameters": []}, "sparameters"),
         ({"sparameters": ["S11", "S11"]}, "sparameters"),
         ({"sparameters": ["S33"]}, "sparameters"),
         ({"sweeps": 0}, "sweeps"),
         ({"interval_s": -2}, "interval_s"),
-        ({"if_bandwidth_hz": 0}, "if_bandwidth_hz"),
-        ({"power_dbm": "x"}, "power_dbm"),
+        ({"sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 201, "if_bandwidth_hz": 0}},
+         "sweep.if_bandwidth_hz"),
+        ({"sweep": {"start_hz": 1e6, "stop_hz": 1e9, "points": 201, "power_dbm": "x"}},
+         "sweep.power_dbm"),
+        ({"z0": -50}, "z0"),
         ({"require_calibration": "yes"}, "require_calibration"),
     ],
 )
@@ -55,6 +58,11 @@ def test_each_problem_is_at_its_field(registry, change, path):
     params = {**default_params(), **change}
     assert path in paths(check_params(params))
     assert any(s.startswith(path) for s in registry.create("sparameters", params).validate())
+
+
+def test_a_file_of_the_old_form_is_checked_at_the_new_paths():
+    old = {"start_hz": 1e6, "stop_hz": 1e5, "points": 11, "sparameters": ["S11"]}
+    assert "sweep.stop_hz" in paths(check_params(old))
 
 
 def test_an_interval_with_a_single_sweep_is_only_a_warning():
