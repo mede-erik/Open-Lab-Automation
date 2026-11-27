@@ -291,31 +291,40 @@ def check_spec(spec: Any, path: str, out: List[Any], problem: Any) -> None:
 
 
 def check_correction(params: Mapping[str, Any], out: List[Any], problem: Any) -> None:
-    """Check ``params["correction"]`` of a reflection measurement (optional): an object with a
-    ``cable``, appending ``problem(path, message)`` for every wrong thing."""
+    """Check ``params["correction"]`` of a reflection measurement (optional): an object with the
+    fixture in front of the device, ``port1`` (as in the transmission measurements) or ``cable``
+    (the name used before), and optionally ``mode`` and ``model`` (``matched`` or ``full``),
+    appending ``problem(path, message)`` for every wrong thing."""
+    from .fixtures import MODELS
+
     correction = params.get("correction")
     if correction is None:
         return
-    spec = correction.get("cable") if isinstance(correction, dict) else None
-    if not isinstance(spec, dict):
-        out.append(problem("correction", "must be an object with a 'cable'"))
+    keys = [k for k in ("port1", "cable") if isinstance(correction, dict) and k in correction]
+    if len(keys) != 1:
+        out.append(problem("correction", "must be an object with a 'port1' (or 'cable'), not both"))
         return
-    check_spec(spec, "correction.cable", out, problem)
+    for key in set(correction) - {keys[0], "mode", "model"}:
+        text = "a reflection measurement has one port" if key == "port2" else "unknown field"
+        out.append(problem(f"correction.{key}", text))
+    check_spec(correction[keys[0]], f"correction.{keys[0]}", out, problem)
+    if "mode" in correction and correction["mode"] not in MODES:
+        out.append(problem("correction.mode", f"must be one of {', '.join(MODES)}"))
+    if "model" in correction and correction["model"] not in MODELS:
+        out.append(problem("correction.model", f"must be one of {', '.join(MODELS)}"))
 
 
 def corrected_reflection_for(
     params: Mapping[str, Any], freq: Sequence[float], s11: Sequence[complex]
 ) -> Tuple[List[complex], Optional[Dict[str, Any]]]:
     """What a measurement does with its ``correction`` parameter: ``(s11, None)`` unchanged if there
-    is none, else ``(corrected, info)`` with the source and the mode added to ``info``."""
-    spec = ((params.get("correction") or {}).get("cable")) if params.get("correction") else None
-    if not spec:
-        return list(s11), None
-    cable = load_cable(spec)
-    mode = spec.get("mode") or ("complex" if cable.has_phase else "magnitude")
-    corrected, info = correct_reflection(freq, s11, cable, mode)
-    info.update(source=cable.source, mode=mode, code=spec.get("asset_id", ""))
-    return corrected, info
+    is none, else ``(corrected, info)`` with the source and the mode added to ``info``. The work is
+    done by the same de-embedding as the transmission measurements
+    (``ola.fixtures.correct_reflection_trace``): a cable gives the same numbers as before, and an
+    adapter or a pad with its reflections can be taken out with the ``full`` model."""
+    from .fixtures import correct_reflection_trace
+
+    return correct_reflection_trace(params, freq, s11)
 
 
 __all__ = [

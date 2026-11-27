@@ -24,7 +24,7 @@
     "limits": {"type": "object", "required": false,
                "description": "pass / fail limit on the return loss in dB, normally a minimum: {\"min\": 10}"},
     "correction": {"type": "object", "required": false,
-                   "description": "take a cable that was measured out of the result: cable = {asset_id (its code in the registry: the newest finished cable measurement of the project is used) | run (a run file of the cable measurement) | touchstone (.s1p or .s2p)}, termination (open|short, for a .s1p), mode (complex|magnitude)"},
+                   "description": "take what is in front of the device out of the result (a cable, an adapter or a pad that was measured): port1 (or cable, the name used before) = {asset_id (its code in the registry: the newest finished cable or attenuator measurement of the project is used) | run (a run file of a cable or attenuator measurement) | touchstone (.s1p of a cable with its termination, or .s2p), termination (open|short, for a .s1p), reversed}, mode (complex|magnitude), model (matched|full: full also takes out the reflections of a pad or an adapter; needs a .s2p or an attenuator run)"},
     "golden": {"type": "object", "required": false,
                "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,

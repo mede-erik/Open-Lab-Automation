@@ -48,6 +48,8 @@ from ola.golden import check_golden_param, recording
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
+from ola.deembed import check_correction
+from ola.fixtures import check_fixtures, one_port_spec, wanted_parameters
 from ola.vna_common import (
     acquire,
     ask_setup,
@@ -56,6 +58,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    apply_correction,
+    apply_fixtures,
 )
 
 MODES = ("transmission", "reflection")
@@ -106,6 +110,10 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         out.append(Problem("sweep.points", warning, "warning"))
 
     check_asset(params, "cable", out)
+    if mode == "reflection":  # an adapter or a pad between port 1 and the cable
+        check_correction(params, out, Problem)
+    else:  # adapters, pads or cables on port 1 and / or port 2
+        check_fixtures(params, out, Problem)
     check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     check_golden_param(params, out)
     return out
@@ -218,11 +226,19 @@ class CableCharacterization(Measurement):
         wanted = ["S21"] if mode == "transmission" else ["S11"]
         if mode == "transmission" and p.get("also_s11"):
             wanted.append("S11")
+        if mode == "transmission":
+            wanted = wanted_parameters(p, wanted)  # the full model of a fixture reads all four
         # the loss of a cable between two ports is S21: without a thru calibration it is wrong
         need = ["S21"] if mode == "transmission" else []
         freq, traces = acquire(
             ctx, handle, sweep, wanted, int(p.get("averages", 1)), require_corrected=need
         )
+        # what is between the calibrated plane and the cable (adapters, pads) is taken out
+        if mode == "transmission":
+            traces, _ = apply_fixtures(ctx, p, freq, traces)
+        elif one_port_spec(p.get("correction")):
+            s11, _ = apply_correction(ctx, p, freq, traces["S11"])
+            traces = dict(traces, S11=s11)
         self._report(ctx, freq, traces)
 
     def _confirm_setup(self, ctx: MeasurementContext, mode: str) -> None:
@@ -236,9 +252,7 @@ class CableCharacterization(Measurement):
                 f"on the other end."
             )
             key, args = "run_connect_cable_reflection", {"far": far}
-        ask_setup(
-            ctx, connect, self.params["sweep"], connect_key=key, connect_args=args, mode=mode
-        )
+        ask_setup(ctx, connect, self.params["sweep"], connect_key=key, connect_args=args, mode=mode)
 
     def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
         p = self.params

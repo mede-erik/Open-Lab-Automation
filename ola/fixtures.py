@@ -22,6 +22,12 @@ Two models, in two modes:
   ``T device = inv(T1) * T measured * inv(T2)``. Needs all four S-parameters measured and fixtures
   with their reflections (a Touchstone file ``.s2p``, or the run of an attenuator, which has ``S11``
   and ``S22``). It is exact for any fixture, matched or not.
+* **One port** (a reflection measurement: return loss, antenna): the device is behind one fixture
+  on port 1. ``matched``: ``S11 = S11 measured / RT`` with ``RT = S21 * S12`` of the fixture (the
+  round trip; a cable measured in reflection with an open or a short gives it directly, with its
+  phase, even though its ``S21`` alone has a sign that is not known). ``full``: the fixture's own
+  reflections are taken out too, ``S11 = (m - e00) / (RT + e11 (m - e00))`` with ``e00`` its
+  ``S11`` and ``e11`` its ``S22`` (``deembed_one_port``).
 * ``complex``: the phase is used as well (the corrected S-parameters are complete, the group delay
   of the device alone can be found). ``magnitude``: only the size of the fixture's transmission is
   taken out, the measured phase is kept: enough when only the loss of the fixture is known (and then
@@ -70,6 +76,10 @@ class Fixture:
     has_phase: bool = True
     source: str = ""
     warnings: List[str] = field(default_factory=list)
+    # the round trip S21 * S12 when it is known better than from s21 (a cable measured in
+    # reflection: its phase is known, the sign of s21 alone is not); None: s21 * s12
+    round_trip: Optional[List[complex]] = None
+    round_trip_has_phase: bool = True
 
     @property
     def has_reflections(self) -> bool:
@@ -160,7 +170,7 @@ def flipped(fx: Fixture) -> Fixture:
     """The same fixture turned round: port 1 and port 2 exchanged."""
     return Fixture(
         fx.freq, fx.s12 if fx.s12 is not None else fx.s21, fx.s22, fx.s11, fx.s21,
-        fx.has_phase, fx.source, list(fx.warnings),
+        fx.has_phase, fx.source, list(fx.warnings), fx.round_trip, fx.round_trip_has_phase,
     )  # fmt: skip
 
 
@@ -356,6 +366,141 @@ def _full(freq, measured, at, left, right):
     return out
 
 
+# ----- one port -------------------------------------------------------------------------------
+def fixture_from_cable(cable: Any) -> Fixture:
+    """A fixture from ``ola.deembed.CableData`` (what a cable does to a reflection at its far
+    end): its round trip ``T**2`` with the phase it has; ``s21`` is the root of its size (no
+    phase), enough for the loss and for the ``magnitude`` mode of a transmission."""
+    size = [complex(abs(v) ** 0.5) for v in cable.round_trip]
+    fx = Fixture(list(cable.freq), size, has_phase=False, source=cable.source)
+    fx.round_trip = list(cable.round_trip)
+    fx.round_trip_has_phase = bool(cable.has_phase)
+    fx.warnings = list(cable.warnings)
+    return fx
+
+
+def _round_trip_has_phase(fx: Fixture) -> bool:
+    return fx.round_trip_has_phase if fx.round_trip is not None else fx.has_phase
+
+
+def deembed_one_port(
+    freq: Sequence[float],
+    s11: Sequence[complex],
+    fixture: Fixture,
+    mode: str = "complex",
+    model: str = "matched",
+) -> Tuple[List[complex], Dict[str, Any]]:
+    """The reflection of what is behind ``fixture`` (on port 1). Returns ``(corrected, info)``;
+    ``info`` has ``over_unity_points`` (values limited just under 1), ``mean_one_way_loss_db``,
+    ``model``, ``mode`` and the ``warnings`` of the fixture data. ``DeembedError`` if the fixture
+    does not cover the sweep or lacks what the mode or the model needs."""
+    if mode not in MODES:
+        raise DeembedError(f"mode must be one of {', '.join(MODES)}")
+    if model not in MODELS:
+        raise DeembedError(f"model must be one of {', '.join(MODELS)}")
+    if len(freq) != len(s11):
+        raise DeembedError(f"{len(freq)} frequencies but {len(s11)} values")
+    _cover(fixture, freq, "port 1")
+    complex_mode = mode == "complex"
+    if complex_mode and not _round_trip_has_phase(fixture):
+        raise DeembedError(
+            f"{fixture.source} has only the loss of the fixture, not its phase: use the mode "
+            "'magnitude' (enough for the VSWR and the return loss, not for the impedance)"
+        )
+    if model == "full":
+        if not complex_mode:
+            raise DeembedError("the full model needs the phase: use the mode 'complex'")
+        if not fixture.has_reflections:
+            raise DeembedError(
+                f"{fixture.source} has no reflections (S11, S22): the full model needs a two-port "
+                "file or an attenuator measurement; use the matched model for a cable"
+            )
+    if fixture.round_trip is not None:
+        rt = interpolate(fixture.freq, fixture.round_trip, freq, keep_phase=complex_mode)
+    else:
+        at = fixture_at(fixture, freq, complex_mode)
+        rt = [a * b for a, b in zip(at["S21"], at["S12"])]
+    if any(abs(v) == 0 for v in rt):
+        raise DeembedError(f"{fixture.source}: the fixture passes nothing at some frequency")
+    if model == "full":
+        at = fixture_at(fixture, freq, True)
+        raw = [
+            (m - e00) / (t + e11 * (m - e00))
+            for m, t, e00, e11 in zip(s11, rt, at["S11"], at["S22"])
+        ]
+    elif complex_mode:
+        raw = [m / t for m, t in zip(s11, rt)]
+    else:
+        raw = [m / abs(t) for m, t in zip(s11, rt)]
+    clipped = [_clip(v) for v in raw]
+    losses = [-rf.db20(v) / 2 for v in rt]
+    return [v for v, _ in clipped], {
+        "over_unity_points": sum(1 for _, c in clipped if c),
+        "mean_one_way_loss_db": sum(losses) / len(losses),
+        "warnings": list(fixture.warnings),
+        "model": model,
+        "mode": mode,
+    }
+
+
+def load_one_port_fixture(spec: Mapping[str, Any]) -> Fixture:
+    """The fixture in front of the device of a reflection measurement, named by ``spec``: a cable
+    run (in transmission, in reflection with its ``termination``, or by its loss), an attenuator
+    run (with its reflections), a ``.s1p`` file (a cable ended by an open or a short) or a
+    ``.s2p`` file (a two-port, ``reversed`` if written from the device side)."""
+    from .deembed import load_cable_run, load_cable_touchstone
+
+    if spec.get("touchstone"):
+        path = str(spec["touchstone"])
+        if path.lower().endswith(".s1p"):
+            return fixture_from_cable(load_cable_touchstone(path, spec.get("termination", "open")))
+        return load_fixture_touchstone(path, bool(spec.get("reversed")))
+    if spec.get("run"):
+        from .compare import CompareError, load_run
+
+        try:
+            measurement = load_run(Path(spec["run"])).measurement
+        except CompareError as exc:
+            raise DeembedError(str(exc)) from exc
+        if measurement == "attenuator":
+            return load_fixture_run(spec["run"])
+        return fixture_from_cable(load_cable_run(spec["run"]))
+    raise DeembedError("the fixture has no 'run', 'touchstone' or registry code to read it from")
+
+
+def one_port_spec(correction: Any) -> Optional[Mapping[str, Any]]:
+    """The fixture of a reflection measurement in its ``correction``: ``port1`` (the form of the
+    transmission measurements) or ``cable`` (the form written before, still read)."""
+    if not isinstance(correction, dict):
+        return None
+    spec = correction.get("port1") or correction.get("cable")
+    return spec if isinstance(spec, dict) else None
+
+
+def correct_reflection_trace(
+    params: Mapping[str, Any], freq: Sequence[float], s11: Sequence[complex]
+) -> Tuple[List[complex], Optional[Dict[str, Any]]]:
+    """What a reflection measurement does with its ``correction``: ``(s11, None)`` unchanged if
+    there is none, else ``(corrected, info)`` with ``source``, ``code``, ``mode`` and ``model``.
+    The mode is the one of the fixture (``mode`` in it, as written before) or of the correction,
+    else ``complex`` when the fixture has its phase; the model is ``matched`` unless the
+    correction says ``full``."""
+    correction = params.get("correction") or {}
+    spec = one_port_spec(correction)
+    if not spec:
+        return list(s11), None
+    fixture = load_one_port_fixture(spec)
+    mode = (
+        spec.get("mode")
+        or correction.get("mode")
+        or ("complex" if _round_trip_has_phase(fixture) else "magnitude")
+    )
+    model = correction.get("model") or "matched"
+    corrected, info = deembed_one_port(freq, s11, fixture, mode, model)
+    info.update(source=fixture.source, code=spec.get("asset_id", ""))
+    return corrected, info
+
+
 # ----- the parameters -------------------------------------------------------------------------
 PORTS = ("port1", "port2")
 
@@ -378,6 +523,20 @@ def check_fixtures(params: Mapping[str, Any], out: List[Any], problem: Any) -> N
         out.append(problem("correction.mode", f"must be one of {', '.join(MODES)}"))
     if "model" in correction and correction["model"] not in MODELS:
         out.append(problem("correction.model", f"must be one of {', '.join(MODELS)}"))
+
+
+def losses_at(params: Mapping[str, Any], f: float) -> Dict[str, float]:
+    """The loss in dB of each fixture of ``params["correction"]`` at the frequency ``f``:
+    ``{"left": ..., "right": ...}`` (only the sides that have one). For a test at one frequency
+    (the compression of an amplifier), where the fixtures are taken out as a loss."""
+    correction = params.get("correction") or {}
+    out: Dict[str, float] = {}
+    for key, side in (("port1", "left"), ("port2", "right")):
+        if correction.get(key):
+            fx = load_fixture(correction[key])
+            _cover(fx, [f], "port 1" if side == "left" else "port 2")
+            out[side] = -rf.db20(interpolate(fx.freq, fx.s21, [f], keep_phase=False)[0])
+    return out
 
 
 def wanted_parameters(params: Mapping[str, Any], default: Sequence[str]) -> List[str]:
@@ -416,7 +575,9 @@ def correct_traces(
 
 
 __all__ = [
-    "Fixture", "check_fixtures", "correct_traces", "deembed_two_port", "flipped", "fixture_at",
+    "Fixture", "check_fixtures", "correct_reflection_trace", "correct_traces", "deembed_one_port",
+    "deembed_two_port", "fixture_from_cable", "flipped", "fixture_at", "load_one_port_fixture",
+    "losses_at", "one_port_spec",
     "from_t", "inverse", "load_fixture", "load_fixture_run", "load_fixture_touchstone",
     "multiply", "to_t", "wanted_parameters",
 ]  # fmt: skip

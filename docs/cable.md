@@ -59,6 +59,11 @@ Check the calibration before measuring a cable: the thru alone must read about 0
 
 The editor (*Edit* in the project window, built from the module's `form.json`) checks the file while it is filled in: every problem is shown at its field, a number can be typed as `433M` or `2.4 GHz`, and the VNA is chosen from the instruments of the project.
 
+
+**Adapters in front of the cable.** What is between the calibrated plane and the cable under test (an adapter, a short
+cable that was measured) can be taken out with `correction.port1` / `correction.port2` in transmission, `correction.port1`
+in reflection. See [`deembedding.md`](deembedding.md#in-the-amplifier-and-the-cable-measurements).
+
 ## Results
 
 * **Curves** (*Curves* tab): `loss_db` (positive = loss, with the limit drawn dashed in red), and, hidden at first

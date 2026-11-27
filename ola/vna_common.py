@@ -107,14 +107,15 @@ def apply_correction(
     s11: Sequence[complex],
     needs_phase: bool = False,
 ) -> Tuple[List[complex], Optional[Dict[str, Any]]]:
-    """Take the cable named by ``params["correction"]`` out of a measured reflection (see
-    ``ola.deembed``): ``(s11, None)`` untouched if there is no correction, else ``(corrected,
-    info)`` and a line in the log, with a warning for each doubt. ``needs_phase``: the measurement
-    uses the phase (an impedance), so a cable known only by its loss is an error."""
+    """Take the cable, adapter or pad named by ``params["correction"]`` (``port1``, or ``cable`` as
+    written before) out of a measured reflection (``ola.fixtures.deembed_one_port``): ``(s11,
+    None)`` untouched if there is no correction, else ``(corrected, info)`` and a line in the log,
+    with a warning for each doubt. ``needs_phase``: the measurement uses the phase (an impedance),
+    so a fixture known only by its loss is an error."""
     from .deembed import DeembedError, corrected_reflection_for
+    from .fixtures import one_port_spec
 
-    spec = (params.get("correction") or {}).get("cable")
-    if not spec:
+    if not one_port_spec(params.get("correction")):
         return list(s11), None
     try:
         corrected, info = corrected_reflection_for(params, freq, s11)
@@ -128,8 +129,8 @@ def apply_correction(
         )
     name = info["code"] or info["source"]
     ctx.log(
-        f"corrected for the cable {name} ({info['mode']}, {info['mean_one_way_loss_db']:.3g} dB "
-        "one way on average)"
+        f"corrected for the fixture {name} ({info['model']}, {info['mode']}, "
+        f"{info['mean_one_way_loss_db']:.3g} dB one way on average)"
     )
     if info["over_unity_points"]:
         ctx.log(

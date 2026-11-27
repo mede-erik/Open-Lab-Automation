@@ -588,5 +588,7 @@ def test_the_resolution_leaves_the_rest_alone(registry, tmp_path):
     mixed = {"correction": {"cable": {"asset_id": "CBL-0007"}}}
     from ola.measurement import MeasurementError
 
-    with pytest.raises(MeasurementError, match="no finished cable measurement of CBL-0007"):
+    with pytest.raises(
+        MeasurementError, match="no finished cable or attenuator measurement of CBL-0007"
+    ):
         session.resolve_correction(mixed)

@@ -81,6 +81,11 @@ problem at its field, including the protection errors.
 `golden` (optional) checks the result against a **golden sample** of the project, a good amplifier of the same kind, for
 example the gain `S21` in `magnitude_db` within 1 dB ([`golden.md`](golden.md#as-a-step-of-a-measurement)).
 
+
+**Cables and pads in front of the amplifier.** An attenuator or a cable that was measured (a cable or attenuator run, or a
+`.s2p`) can be taken out with `correction.port1` / `correction.port2`, as in the filter; the compression test takes them out
+as losses at its frequency. See [`deembedding.md`](deembedding.md#in-the-amplifier-and-the-cable-measurements).
+
 ## Results
 
 * **Curves** (*Curves* tab): `S21` in dB with the mask drawn dashed in red; hidden at first and selectable: `S11`, `S22`,
