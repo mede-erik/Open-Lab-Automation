@@ -1,0 +1,480 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Component and instrument",
+        "it": "Componente e strumento",
+        "fr": "Composant et instrument",
+        "es": "Componente e instrumento",
+        "de": "Bauteil und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Component name",
+            "it": "Nome del componente",
+            "fr": "Nom du composant",
+            "es": "Nombre del componente",
+            "de": "Bauteilname"
+          },
+          "help": {
+            "en": "Identifies the component: it is saved with every run.",
+            "it": "Identifica il componente: viene salvato con ogni esecuzione.",
+            "fr": "Identifie le composant : il est enregistré avec chaque exécution.",
+            "es": "Identifica el componente: se guarda con cada ejecución.",
+            "de": "Kennzeichnet das Bauteil: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. L3, 100 nH 0603",
+            "it": "es. L3, 100 nH 0603",
+            "fr": "p. ex. L3, 100 nH 0603",
+            "es": "p. ej. L3, 100 nH 0603",
+            "de": "z. B. L3, 100 nH 0603"
+          }
+        },
+        {
+          "path": "method",
+          "kind": "choice",
+          "label": {
+            "en": "How it is connected",
+            "it": "Come è collegato",
+            "fr": "Comment il est connecté",
+            "es": "Cómo se conecta",
+            "de": "Wie es angeschlossen ist"
+          },
+          "help": {
+            "en": "Reflection: from port 1 to ground, best near 50 ohm. Series: between port 1 and port 2, best for high impedances (inductors, ferrites). Shunt: from a thru line to ground, best for low impedances (large capacitors, ESR).",
+            "it": "Riflessione: dalla porta 1 a massa, migliore vicino a 50 ohm. Serie: tra la porta 1 e la porta 2, migliore per impedenze alte (induttori, ferriti). Parallelo: da una linea passante a massa, migliore per impedenze basse (grandi condensatori, ESR).",
+            "fr": "Réflexion : du port 1 à la masse, idéale près de 50 ohms. Série : entre le port 1 et le port 2, idéale pour les impédances élevées (inductances, ferrites). Parallèle : d'une ligne traversante à la masse, idéale pour les faibles impédances (gros condensateurs, ESR).",
+            "es": "Reflexión: del puerto 1 a masa, mejor cerca de 50 ohmios. Serie: entre el puerto 1 y el puerto 2, mejor para impedancias altas (inductores, ferritas). Paralelo: de una línea pasante a masa, mejor para impedancias bajas (condensadores grandes, ESR).",
+            "de": "Reflexion: von Tor 1 gegen Masse, am besten nahe 50 Ohm. Serie: zwischen Tor 1 und Tor 2, am besten für hohe Impedanzen (Spulen, Ferrite). Parallel: von einer Durchgangsleitung gegen Masse, am besten für niedrige Impedanzen (große Kondensatoren, ESR)."
+          },
+          "choices": [
+            {
+              "value": "reflection",
+              "label": {
+                "en": "Reflection (port 1 to ground)",
+                "it": "Riflessione (porta 1 a massa)",
+                "fr": "Réflexion (port 1 à la masse)",
+                "es": "Reflexión (puerto 1 a masa)",
+                "de": "Reflexion (Tor 1 gegen Masse)"
+              }
+            },
+            {
+              "value": "series",
+              "label": {
+                "en": "Series (between the ports)",
+                "it": "Serie (tra le porte)",
+                "fr": "Série (entre les ports)",
+                "es": "Serie (entre los puertos)",
+                "de": "Serie (zwischen den Toren)"
+              }
+            },
+            {
+              "value": "shunt",
+              "label": {
+                "en": "Shunt (thru line to ground)",
+                "it": "Parallelo (linea passante a massa)",
+                "fr": "Parallèle (ligne traversante à la masse)",
+                "es": "Paralelo (línea pasante a masa)",
+                "de": "Parallel (Durchgangsleitung gegen Masse)"
+              }
+            }
+          ]
+        },
+        {
+          "path": "kind",
+          "kind": "choice",
+          "label": {
+            "en": "Component",
+            "it": "Componente",
+            "fr": "Composant",
+            "es": "Componente",
+            "de": "Bauteil"
+          },
+          "choices": [
+            {
+              "value": "auto",
+              "label": {
+                "en": "Find it from the measurement",
+                "it": "Ricavalo dalla misura",
+                "fr": "Le déduire de la mesure",
+                "es": "Deducirlo de la medida",
+                "de": "Aus der Messung ermitteln"
+              }
+            },
+            {
+              "value": "inductor",
+              "label": {
+                "en": "Inductor",
+                "it": "Induttore",
+                "fr": "Inductance",
+                "es": "Inductor",
+                "de": "Spule"
+              }
+            },
+            {
+              "value": "capacitor",
+              "label": {
+                "en": "Capacitor",
+                "it": "Condensatore",
+                "fr": "Condensateur",
+                "es": "Condensador",
+                "de": "Kondensator"
+              }
+            },
+            {
+              "value": "resistor",
+              "label": {
+                "en": "Resistor",
+                "it": "Resistore",
+                "fr": "Résistance",
+                "es": "Resistor",
+                "de": "Widerstand"
+              }
+            }
+          ]
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance",
+            "it": "Impedenza di riferimento",
+            "fr": "Impédance de référence",
+            "es": "Impedancia de referencia",
+            "de": "Bezugsimpedanz"
+          },
+          "help": {
+            "en": "Normally 50 ohm.",
+            "it": "Normalmente 50 ohm.",
+            "fr": "Normalement 50 ohms.",
+            "es": "Normalmente 50 ohmios.",
+            "de": "Normalerweise 50 Ohm."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "Enough points to see the slope and any resonance of the attenuator.",
+            "it": "Abbastanza punti per vedere la pendenza e le eventuali risonanze dell'attenuatore.",
+            "fr": "Assez de points pour voir la pente et les éventuelles résonances de l'atténuateur.",
+            "es": "Suficientes puntos para ver la pendiente y las posibles resonancias del atenuador.",
+            "de": "Genug Punkte, um Steigung und eventuelle Resonanzen des Dämpfungsglieds zu sehen."
+          }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Nominal value and results",
+        "it": "Valore nominale e risultati",
+        "fr": "Valeur nominale et résultats",
+        "es": "Valor nominal y resultados",
+        "de": "Nennwert und Ergebnisse"
+      },
+      "fields": [
+        {
+          "path": "nominal.value",
+          "kind": "number",
+          "label": {
+            "en": "Nominal value (H, F or ohm)",
+            "it": "Valore nominale (H, F o ohm)",
+            "fr": "Valeur nominale (H, F ou ohms)",
+            "es": "Valor nominal (H, F u ohmios)",
+            "de": "Nennwert (H, F oder Ohm)"
+          },
+          "help": {
+            "en": "Optional: checked at the frequency below. Numbers such as 100n or 4.7p.",
+            "it": "Facoltativo: verificato alla frequenza qui sotto. Numeri come 100n o 4.7p.",
+            "fr": "Facultatif : vérifié à la fréquence ci-dessous. Des nombres comme 100n ou 4.7p.",
+            "es": "Opcional: se comprueba en la frecuencia de abajo. Números como 100n o 4.7p.",
+            "de": "Optional: bei der Frequenz darunter geprüft. Zahlen wie 100n oder 4.7p."
+          }
+        },
+        {
+          "path": "nominal.tolerance_pct",
+          "kind": "number",
+          "unit": "%",
+          "label": {
+            "en": "Tolerance",
+            "it": "Tolleranza",
+            "fr": "Tolérance",
+            "es": "Tolerancia",
+            "de": "Toleranz"
+          }
+        },
+        {
+          "path": "nominal.frequency_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Check it at",
+            "it": "Verificalo a",
+            "fr": "Le vérifier à",
+            "es": "Comprobarlo en",
+            "de": "Prüfen bei"
+          },
+          "help": {
+            "en": "A frequency well below the self-resonance (the value changes near it).",
+            "it": "Una frequenza ben sotto l'autorisonanza (vicino a essa il valore cambia).",
+            "fr": "Une fréquence bien en dessous de l'autorésonance (la valeur change près d'elle).",
+            "es": "Una frecuencia muy por debajo de la autorresonancia (cerca de ella el valor cambia).",
+            "de": "Eine Frequenz deutlich unter der Eigenresonanz (in ihrer Nähe ändert sich der Wert)."
+          }
+        },
+        {
+          "path": "frequencies_of_interest",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Report the impedance at",
+            "it": "Riporta l'impedenza a",
+            "fr": "Indiquer l'impédance à",
+            "es": "Informar la impedancia en",
+            "de": "Impedanz angeben bei"
+          },
+          "help": {
+            "en": "Frequencies separated by commas, inside the sweep.",
+            "it": "Frequenze separate da virgole, dentro lo sweep.",
+            "fr": "Fréquences séparées par des virgules, dans le balayage.",
+            "es": "Frecuencias separadas por comas, dentro del barrido.",
+            "de": "Frequenzen durch Kommas getrennt, innerhalb des Sweeps."
+          },
+          "placeholder": {
+            "en": "e.g. 10M, 100M",
+            "it": "es. 10M, 100M",
+            "fr": "p. ex. 10M, 100M",
+            "es": "p. ej. 10M, 100M",
+            "de": "z. B. 10M, 100M"
+          }
+        },
+        {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good unit of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un pezzo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (une bonne pièce du même type, gardée depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (una pieza buena del mismo tipo, guardada desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Teil derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "{\"curves\": [{\"trace\": \"z_abs_ohm\", \"view\": \"value\", \"tolerance\": 5}]} = |Z| within 5 ohm of the golden one at every frequency. Figures of the summary too: \"summary\": {\"figure\": 0.3} or {\"rel\": 0.05}.",
+            "it": "{\"curves\": [{\"trace\": \"z_abs_ohm\", \"view\": \"value\", \"tolerance\": 5}]} = |Z| entro 5 ohm da quello del campione a ogni frequenza. Anche i valori del riepilogo: \"summary\": {\"valore\": 0.3} oppure {\"rel\": 0.05}.",
+            "fr": "{\"curves\": [{\"trace\": \"z_abs_ohm\", \"view\": \"value\", \"tolerance\": 5}]} = |Z| à 5 ohms près de l'échantillon à chaque fréquence. Aussi les valeurs du résumé : \"summary\": {\"valeur\": 0.3} ou {\"rel\": 0.05}.",
+            "es": "{\"curves\": [{\"trace\": \"z_abs_ohm\", \"view\": \"value\", \"tolerance\": 5}]} = |Z| a menos de 5 ohmios de la muestra en cada frecuencia. También los valores del resumen: \"summary\": {\"valor\": 0.3} o {\"rel\": 0.05}.",
+            "de": "{\"curves\": [{\"trace\": \"z_abs_ohm\", \"view\": \"value\", \"tolerance\": 5}]} = |Z| innerhalb von 5 Ohm des Referenzmusters bei jeder Frequenz. Auch Werte der Zusammenfassung: \"summary\": {\"Wert\": 0.3} oder {\"rel\": 0.05}."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        },
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Interrompi se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Abbrechen, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "When the VNA says that its data, or one of the S-parameters read, are not corrected by the calibration, the measurement stops instead of only warning.",
+            "it": "Quando il VNA dice che i suoi dati, o uno dei parametri S letti, non sono corretti dalla calibrazione, la misura si ferma invece di dare solo un avviso.",
+            "fr": "Quand le VNA indique que ses données, ou l'un des paramètres S lus, ne sont pas corrigés par la calibration, la mesure s'arrête au lieu de seulement avertir.",
+            "es": "Cuando el VNA indica que sus datos, o uno de los parámetros S leídos, no están corregidos por la calibración, la medida se detiene en lugar de solo avisar.",
+            "de": "Meldet der VNA, dass seine Daten oder einer der gelesenen S-Parameter nicht durch die Kalibrierung korrigiert sind, bricht die Messung ab, statt nur zu warnen."
+          }
+        }
+      ]
+    }
+  ]
+}

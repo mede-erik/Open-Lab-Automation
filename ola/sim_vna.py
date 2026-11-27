@@ -384,3 +384,76 @@ class SimAmplifier(SimVna):
         if parameter == "S11":
             return cmath.rect(self.s11_mag, -0.3 - 2 * math.pi * f * 0.2e-9)
         return cmath.rect(self.s22_mag, 0.5 - 2 * math.pi * f * 0.15e-9)
+
+
+class SimComponent(SimVna):
+    """A VNA with a two-terminal component on it, connected in one of the three ways of the
+    component measurement (``ola.component``): ``reflection`` (from port 1 to ground), ``series``
+    (between port 1 and port 2) or ``shunt`` (from a thru line to ground).
+
+    The component is ``r_ohm`` in series with ``l_h`` and, if given, ``c_f``; ``cp_f`` (if given)
+    is in parallel with all of it: an inductor with its winding capacitance (``l_h``, ``r_ohm``,
+    ``cp_f``: a parallel resonance), a capacitor with its ESR and lead inductance (``c_f``,
+    ``r_ohm``, ``l_h``: a series resonance), a resistor (``r_ohm``)."""
+
+    def __init__(
+        self,
+        method: str = "reflection",
+        r_ohm: float = 0.0,
+        l_h: float = 0.0,
+        c_f: float = 0.0,
+        cp_f: float = 0.0,
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self.method, self.r_ohm, self.l_h, self.c_f, self.cp_f = method, r_ohm, l_h, c_f, cp_f
+
+    def impedance(self, f: float) -> complex:
+        """The impedance of the component at ``f``."""
+        w = 2 * math.pi * f
+        z = complex(self.r_ohm, w * self.l_h)
+        if self.c_f:
+            z += 1 / (1j * w * self.c_f)
+        if self.cp_f:
+            z = z / (1 + 1j * w * self.cp_f * z)
+        return z
+
+    def s_parameter(self, parameter: str, f: float) -> complex:
+        """S11 and S21 of the connection (reciprocal and symmetric: S22 = S11, S12 = S21)."""
+        z, z0 = self.impedance(f), 50.0
+        if self.method == "reflection":
+            return (z - z0) / (z + z0) if parameter in ("S11", "S22") else 0j
+        if self.method == "series":
+            return z / (z + 2 * z0) if parameter in ("S11", "S22") else 2 * z0 / (2 * z0 + z)
+        # shunt
+        return -z0 / (2 * z + z0) if parameter in ("S11", "S22") else 2 * z / (2 * z + z0)
+
+
+class SimCrystal(SimVna):
+    """A VNA with a quartz crystal in series between its ports (series-thru): the
+    Butterworth-Van Dyke circuit, ``rm_ohm``, ``lm_h`` and ``cm_f`` in series (the motional arm,
+    resonant at ``fs_hz`` when ``cm_f`` is left out) with ``c0_f`` in parallel."""
+
+    def __init__(
+        self,
+        fs_hz: float = 10e6,
+        rm_ohm: float = 20.0,
+        lm_h: float = 10e-3,
+        c0_f: float = 4e-12,
+        cm_f: float = 0.0,
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self.rm_ohm, self.lm_h, self.c0_f = rm_ohm, lm_h, c0_f
+        self.cm_f = cm_f or 1 / ((2 * math.pi * fs_hz) ** 2 * lm_h)
+
+    def impedance(self, f: float) -> complex:
+        """The impedance of the crystal at ``f``."""
+        w = 2 * math.pi * f
+        arm = complex(self.rm_ohm, w * self.lm_h - 1 / (w * self.cm_f))
+        return arm / (1 + 1j * w * self.c0_f * arm)
+
+    def s_parameter(self, parameter: str, f: float) -> complex:
+        """S11 and S21 of the crystal in series between the ports (symmetric, reciprocal)."""
+        z = self.impedance(f)
+        return z / (z + 100.0) if parameter in ("S11", "S22") else 100.0 / (100.0 + z)
