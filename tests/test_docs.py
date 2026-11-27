@@ -722,7 +722,8 @@ def test_sparameters_example_in_the_docs_is_valid_and_runs():
     params["interval_s"] = 0.0
     m = default_registry(user_dir="/nonexistent").create("sparameters", params)
     assert m.validate() == [], m.validate()
-    runner = Runner(m, {"vna": [SimVna(library_calls=True, library_extras=True)]})
+    vna = SimVna(library_calls=True, library_extras=True)
+    runner = Runner(m, {"vna": [vna]}, unattended="continue")  # the set-up question is answered
     runner.start()
     assert runner.join(30) and runner.state.value == "finished", runner.error
     rows = [e.data["values"] for e in runner.drain() if e.kind == "point"]

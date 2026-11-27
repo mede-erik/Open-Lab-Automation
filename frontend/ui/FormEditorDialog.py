@@ -82,6 +82,17 @@ def default_params_of(registry: Any, type_id: str) -> Dict[str, Any]:
     return dict(function()) if callable(function) else {}
 
 
+def upgrade_params_of(registry: Any, type_id: str, params: Dict[str, Any]) -> bool:
+    """Give the parameters of a file written before a rename of a built-in module their new names
+    (its ``upgrade_params(params)``, in place); True if anything changed."""
+    info = registry.get(type_id)
+    if not info.builtin:
+        return False
+    module = sys.modules.get(registry.load_class(type_id).__module__)
+    function = getattr(module, "upgrade_params", None)
+    return bool(function(params)) if callable(function) else False
+
+
 class FormEditorDialog(QDialog):
     """Editor of a ``.cbl``-like file with live validation."""
 
@@ -137,6 +148,7 @@ class FormEditorDialog(QDialog):
         upgrade_params(
             self.model.params, duts
         )  # a file made before the archive: dut_id, not asset_id
+        upgrade_params_of(registry, type_id, self.model.params)  # keys renamed since the file
         if not self.model.params:
             self.model.params = default_params_of(registry, type_id)
         self.setWindowTitle(f"{info.name} - {os.path.basename(file_path)}")

@@ -29,6 +29,7 @@ and its impedance is `Z = 2 z0 (1 - S21) / S21` ([`ola/crystal.py`](../ola/cryst
   "load_capacitance_pf": 18,
   "z0": 50,
   "averages": 1,
+  "require_calibration": false,
   "confirm_setup": true
 }
 ```
@@ -39,7 +40,7 @@ and its impedance is `Z = 2 z0 (1 - S21) / S21` ([`ola/crystal.py`](../ola/cryst
 | `nominal_frequency_hz` | optional: the offset in ppm is reported, of `fL` when a load is given, else of `fs` |
 | `tolerance_ppm` | optional, with the nominal frequency: the verdict on the offset |
 | `load_capacitance_pf` | optional: the load the crystal is specified for |
-| `z0`, `golden`, `averages`, `confirm_setup` | as in the other VNA measurements |
+| `z0`, `golden`, `averages`, `require_calibration`, `confirm_setup` | as in the other VNA measurements ([`vna-calls.md`](vna-calls.md#common-parameters-of-the-vna-measurements)) |
 
 ## Results
 

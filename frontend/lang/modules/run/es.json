@@ -90,6 +90,7 @@
   "run_connect_antenna": "Conecte la antena al puerto 1 del VNA.",
   "run_connect_device": "Conecte el dispositivo bajo prueba al puerto 1 del VNA.",
   "run_connect_crystal": "Conecte el cristal en serie entre el puerto 1 y el puerto 2 del VNA.",
+  "run_connect_sparameters": "Conecte el dispositivo bajo prueba al VNA (se leen {parameters}).",
   "run_connect_behind_cable_antenna": "La antena está detrás del cable que se midió: conecte ese cable al puerto 1 del VNA (calibrado al final del cable de prueba, SIN el cable) y la antena al otro extremo.",
   "run_connect_behind_cable_device": "El dispositivo está detrás del cable que se midió: conecte ese cable al puerto 1 del VNA (calibrado al final del cable de prueba, SIN el cable) y el dispositivo bajo prueba al otro extremo.",
   "run_connect_line": "Conecte la línea bajo prueba al puerto 1 del VNA, con su extremo lejano abierto, en cortocircuito o en el dispositivo.",

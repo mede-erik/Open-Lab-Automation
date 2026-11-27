@@ -11,7 +11,7 @@ Parameters (``.xtl`` file)::
      "nominal_frequency_hz": 10e6,         # optional: the offset in ppm and the check
      "tolerance_ppm": 30,                  # optional (with the nominal frequency)
      "load_capacitance_pf": 18,            # optional: the frequency with that load
-     "z0": 50, "averages": 1, "confirm_setup": true}
+     "z0": 50, "averages": 1, "require_calibration": false, "confirm_setup": true}
 
 The crystal is in series between port 1 and port 2 (series-thru), the VNA calibrated with a one-port
 calibration on port 1 and a thru. The sweep must be **narrow** around the resonance and fine (a
@@ -32,7 +32,16 @@ from ola.efficiency_spec import Problem
 from ola.golden import check_golden_param, recording
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 from ola.run_view import format_si
-from ola.vna_common import acquire, ask_setup, check_asset, check_common, check_sweep, is_number
+from ola.vna_common import (
+    acquire,
+    ask_setup,
+    check_asset,
+    check_common,
+    check_sweep,
+    is_number,
+    upgrade_params as _upgrade,
+    upgraded,
+)
 
 CONNECT = "Connect the crystal in series between port 1 and port 2 of the VNA."
 
@@ -69,8 +78,6 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     load = params.get("load_capacitance_pf")
     if load is not None and (not is_number(load) or load < 0):
         out.append(Problem("load_capacitance_pf", "must be a number of pF, 0 or more"))
-    if "z0" in params and (not is_number(params["z0"]) or params["z0"] <= 0):
-        out.append(Problem("z0", "the reference impedance must be a number above 0 (ohm)"))
     points = sweep.get("points")
     if start is not None and stop is not None and isinstance(points, int) and points > 1:
         for text in crystal.check_sweep_for(start, stop, points):
@@ -95,8 +102,17 @@ def summarise(result: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class CrystalResonator(Measurement):
     """A crystal's equivalent circuit with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -114,7 +130,14 @@ class CrystalResonator(Measurement):
         handle = ctx.instrument("vna")
         if p.get("confirm_setup", True):
             ask_setup(ctx, CONNECT, sweep, connect_key="run_connect_crystal", mode="transmission")
-        freq, traces = acquire(ctx, handle, sweep, ["S21"], int(p.get("averages", 1)))
+        freq, traces = acquire(
+            ctx,
+            handle,
+            sweep,
+            ["S21"],
+            int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )
         self._report(ctx, freq, traces["S21"])
 
     def _report(self, ctx: MeasurementContext, freq: List[float], s21: List[complex]) -> None:

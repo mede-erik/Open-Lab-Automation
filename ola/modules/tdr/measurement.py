@@ -47,7 +47,15 @@ from ola import tdr
 from ola.efficiency_spec import Problem
 from ola.measurement import Measurement, MeasurementContext
 from ola.run_view import format_si
-from ola.vna_common import acquire, ask_setup, check_asset, check_sweep, is_number
+from ola.vna_common import (
+    acquire,
+    ask_setup,
+    check_asset,
+    check_sweep,
+    is_number,
+    upgrade_params as _upgrade,
+    upgraded,
+)
 
 LIMIT_KEYS = ("max_fault_reflection",)
 MIN_POINTS = 16
@@ -98,7 +106,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     averages = params.get("averages", 1)
     if not isinstance(averages, int) or isinstance(averages, bool) or not 1 <= averages <= 1000:
         out.append(Problem("averages", "must be a whole number from 1 to 1000"))
-    for key in ("step_response", "confirm_setup"):
+    for key in ("step_response", "confirm_setup", "require_calibration"):
         if key in params and not isinstance(params[key], bool):
             out.append(Problem(key, "must be true or false"))
     if params.get("step_response") is True and start and stop and is_number(sweep.get("points")):
@@ -126,8 +134,17 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     return out
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class Tdr(Measurement):
     """Time domain from S11; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -151,7 +168,10 @@ class Tdr(Measurement):
                 connect_key="run_connect_line",
                 mode="reflection",
             )
-        freq, traces = acquire(ctx, handle, p["sweep"], ["S11"], int(p.get("averages", 1)))
+        freq, traces = acquire(
+            ctx, handle, p["sweep"], ["S11"], int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )  # fmt: skip
         self._report(ctx, freq, traces["S11"])
 
     def _report(self, ctx: MeasurementContext, freq: List[float], s11: List[complex]) -> None:
