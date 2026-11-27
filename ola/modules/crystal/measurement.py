@@ -7,7 +7,7 @@
 Parameters (``.xtl`` file)::
 
     {"device": {"label": "Y1, 10 MHz HC-49"},                       # optional
-     "sweep": {"start_hz": 9.998e6, "stop_hz": 10.04e6, "points": 2001},
+     "sweep": {"start_hz": 9.99e6, "stop_hz": 10.04e6, "points": 2001},
      "nominal_frequency_hz": 10e6,         # optional: the offset in ppm and the check
      "tolerance_ppm": 30,                  # optional (with the nominal frequency)
      "load_capacitance_pf": 18,            # optional: the frequency with that load
