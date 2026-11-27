@@ -89,6 +89,7 @@
   "run_far_short": "in corto",
   "run_connect_antenna": "Collega l'antenna alla porta 1 del VNA.",
   "run_connect_device": "Collega il dispositivo in prova alla porta 1 del VNA.",
+  "run_connect_crystal": "Collega il quarzo in serie tra la porta 1 e la porta 2 del VNA.",
   "run_connect_component_reflection": "Collega il componente tra il centrale della porta 1 del VNA e la massa.",
   "run_connect_component_series": "Collega il componente in serie tra la porta 1 e la porta 2 del VNA.",
   "run_connect_component_shunt": "Collega il componente tra una linea passante (dalla porta 1 alla porta 2) e la massa.",

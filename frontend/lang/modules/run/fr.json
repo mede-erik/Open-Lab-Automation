@@ -89,6 +89,7 @@
   "run_far_short": "en court-circuit",
   "run_connect_antenna": "Connectez l'antenne au port 1 du VNA.",
   "run_connect_device": "Connectez le dispositif testé au port 1 du VNA.",
+  "run_connect_crystal": "Connectez le quartz en série entre le port 1 et le port 2 du VNA.",
   "run_connect_component_reflection": "Connectez le composant entre le centre du port 1 du VNA et la masse.",
   "run_connect_component_series": "Connectez le composant en série entre le port 1 et le port 2 du VNA.",
   "run_connect_component_shunt": "Connectez le composant entre une ligne traversante (du port 1 au port 2) et la masse.",
