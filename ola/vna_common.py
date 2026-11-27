@@ -22,6 +22,7 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from . import vna_coverage
 from .call_errors import CallError
 from .efficiency_spec import Problem
 from .limits import LimitError, parse_limits
@@ -465,6 +466,9 @@ def acquire(
     library = uses_library_calls(handle)
     if notes:
         for note in sweep_notes(handle, sweep):
+            ctx.log(note, "warning")
+        # what the calibration made with the program corrects, against what is read (advisory)
+        for note in vna_coverage.problems(getattr(handle, "calibration", None) or {}, parameters):
             ctx.log(note, "warning")
     for note in set_sweep(handle, sweep):
         if notes:

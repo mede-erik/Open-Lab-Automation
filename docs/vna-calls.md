@@ -40,6 +40,20 @@ file has both) and the editor writes the new one when it saves a file:
 | `gain_edge_db` | `edge_db` | amplifier |
 | `start_hz`, `stop_hz`, `points`, `if_bandwidth_hz`, `power_dbm` at the top | the same keys in `sweep` | S-parameters |
 
+## Calibration kinds
+
+The guided calibration (`ola/vna_calibration_flow.py`, the *Calibrate VNA...* window and `scripts/instrument_shell.py`)
+speaks the calibration vocabulary of the library, thirteen kinds: one-port (OSL), the reflection normalisations with an
+OPEN or a SHORT, the transmission response (one direction or both), the enhanced response (OSL on the source port and a
+THRU), two ports (SOLT or TOSM), two ports with an unknown thru (UOSM), TOM, TSM, TRM, TRL and TNA. Each kind is a list of
+standards (`KIND_PLAN`): `plan_steps(kind, port, port2)` gives the order in which the operator connects and measures them.
+A model offers only the kinds in its `calibration_kinds`; an instrument with a calibration unit also lists `ecal_kinds`,
+and then `CalibrationSession(..., ecal=True)` does the whole calibration with one `calibration_ecal` call.
+
+What an analyzer can do depends on its hardware: a forward-only VNA (the LiteVNA, S11 and S21) can never do the two-port
+kinds. The kinds, the series that have them and the commands are in `Instruments_LIB/docs/vna-calibration-types.md`.
+They were written from the manuals and have not been tried on an instrument.
+
 ## What the program does *not* do
 
 * **No calibration in the measurements.** The user calibrates the VNA beforehand (at the ends of the test leads, or at the
