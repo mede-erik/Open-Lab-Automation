@@ -55,6 +55,7 @@ from ola.measurement import Measurement, MeasurementContext, MeasurementError
 from ola.run_view import format_si
 from ola.vna_common import (
     acquire,
+    ask_forward_again,
     ask_setup,
     check_asset,
     check_common,
@@ -149,6 +150,14 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         out += _check_compression(comp, start, stop, attenuation, limit)
     check_asset(params, "device", out)
     check_common(params, out, start, stop, booleans=("also_reverse", "confirm_setup"))
+    if params.get("also_reverse") is False and params.get("manual_reversal") is True:
+        out.append(
+            Problem(
+                "manual_reversal",
+                "turning the device round reads S12 and S22, which also_reverse false leaves out: "
+                "leave also_reverse on, or untick this",
+            )
+        )
     check_golden_param(params, out)
     return out
 
@@ -338,6 +347,7 @@ class AmplifierResponse(Measurement):
                 mode="transmission",
             )
         reverse = bool(p.get("also_reverse", True))
+        turning = reverse and bool(p.get("manual_reversal", False))  # a VNA that drives port 1 only
         if not reverse:
             ctx.log(
                 "forward only (also_reverse is false): S21 and S11 are read; the output return "
@@ -351,9 +361,13 @@ class AmplifierResponse(Measurement):
             ["S21", "S11", "S12", "S22"] if reverse else ["S21", "S11"],
             int(p.get("averages", 1)),
             require_calibration=bool(p.get("require_calibration", False)),
+            # turning the device round gives S12 and S22 on a VNA that drives port 1 only
+            manual_reversal=turning,
         )
         self._report(ctx, freq, traces)
         if p.get("compression"):
+            if turning:  # the amplifier was left turned round: the compression is forward
+                ask_forward_again(ctx)
             self._compression(ctx, handle)
 
     def teardown(self, ctx: MeasurementContext) -> None:

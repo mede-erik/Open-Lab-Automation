@@ -80,6 +80,8 @@
   "run_waves_not_aligned": "No se pudo alinear: {reason}",
   "run_waves_align_need": "Se necesitan dos osciloscopios en la medición, con un canal del mismo nombre en ambos.",
   "run_q_calibration_question": "¿Está el VNA calibrado para este dispositivo y este rango de frecuencias?",
+  "run_q_reverse_device": "Dé la vuelta al dispositivo: su entrada en el puerto 2 y su salida en el puerto 1 del VNA, con los mismos cables. Luego continúe para leer {parameters}.",
+  "run_q_forward_device": "Vuelva a poner el dispositivo en el sentido correcto: su entrada en el puerto 1 y su salida en el puerto 2.",
   "run_q_calibration_then": "Después continúe.",
   "run_connect_attenuator": "Conecte el atenuador bajo prueba entre el puerto 1 y el puerto 2 del VNA.",
   "run_connect_filter": "Conecte el filtro bajo prueba entre el puerto 1 y el puerto 2 del VNA.",

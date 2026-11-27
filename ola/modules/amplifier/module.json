@@ -39,6 +39,8 @@
                             "description": "stop if the VNA says the data, or one of the S-parameters read, are not corrected by the calibration (default: warn)"},
     "also_reverse": {"type": "boolean", "required": false,
                      "description": "also read S12 and S22 for the isolation, the output return loss and the stability (true by default; false on a forward-only VNA such as the LiteVNA)"},
+    "manual_reversal": {"type": "boolean", "required": false,
+                        "description": "a VNA that drives port 1 only: S11 and S21 are read, then the operator is asked to turn the device round and S22 and S12 are read (false by default)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate, connect and check the powers"}
   }

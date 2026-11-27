@@ -238,6 +238,7 @@ class FilterResponse(Measurement):
         wanted = wanted_parameters(p, ["S21"] + (["S11"] if p.get("also_s11") else []))
         freq, raw = acquire(
             ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)),
+            manual_reversal=bool(p.get("manual_reversal", False)),
             require_calibration=bool(p.get("require_calibration", False)),
         )  # fmt: skip
         traces, info = apply_fixtures(ctx, p, freq, raw)

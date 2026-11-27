@@ -59,6 +59,9 @@ enough points (a step much smaller than the bandwidth). The editor (*Edit* in th
 
 The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
+**A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
+device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
+
 ## Results
 
 * **Curves** (*Curves* tab): `S21`, shown in dB with the **mask drawn dashed in red**, or as phase or on the Smith
