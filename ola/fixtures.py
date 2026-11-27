@@ -511,6 +511,18 @@ def check_fixtures(params: Mapping[str, Any], out: List[Any], problem: Any) -> N
     correction = params.get("correction")
     if correction is None:
         return
+    if params.get("manual_reversal") is True:
+        # the device is turned round but its fixtures stay on the ports of the VNA: the readings
+        # that become S22 and S12 go through them the other way round, and taking them out as
+        # they are would use the wrong fixture whenever the two sides differ
+        out.append(
+            problem(
+                "correction",
+                "not with manual_reversal: the device is turned round, the fixtures are not, so "
+                "S22 and S12 would be corrected with the wrong fixture. Calibrate with the "
+                "fixtures instead (or untick manual_reversal)",
+            )
+        )
     if not isinstance(correction, dict) or not any(k in correction for k in PORTS):
         out.append(problem("correction", "must be an object with a 'port1' and / or a 'port2'"))
         return

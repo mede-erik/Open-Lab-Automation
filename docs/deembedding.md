@@ -75,6 +75,12 @@ The fixture may be a cable run (in transmission, in reflection or by its loss), 
 its far end `open` or `short`, `termination`) or a `.s2p` (`reversed` for a file written from the device side). An
 `asset_id` finds the newest finished **cable or attenuator** measurement of that code.
 
+## Not with the manual reversal
+
+With `manual_reversal` (a VNA that drives port 1 only, [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal))
+the device is turned round but its fixtures stay on the ports, so `S22` and `S12` would be corrected with the wrong
+fixture. The editor refuses a `correction` together with `manual_reversal`.
+
 ## What you get
 
 * The curves are of the **device alone**: the filter's `S21`, the attenuator's `attenuation_db`, the return losses. The
