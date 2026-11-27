@@ -63,6 +63,11 @@ reads `S11` and `S21` again, which are the `S22` and the `S12` of the device (`o
 is translated by the window (`run_q_reverse_device`); the device is left turned round, and the amplifier asks to put it back
 (`run_q_forward_device`) before its compression test, which is read in the forward direction.
 
+**Not together with fixtures.** The device is turned round, its cables, adapters and pads (`correction`, see
+[`deembedding.md`](deembedding.md)) are not: the readings that become `S22` and `S12` go through them the other way round,
+and taking them out as they are would use the wrong fixture whenever the two sides differ. The editor refuses the
+combination; calibrate with the fixtures in place instead.
+
 Accuracy: with a one-port calibration on port 1 and a thru, the reverse parameters are as good as the forward ones, but the
 match of port 2 (the load match) is corrected in **neither** direction, and the cables must stay as they were. A two-port
 VNA with a full two-port calibration is better; for a forward-only VNA this is the only way to the stability of an amplifier.

@@ -97,8 +97,10 @@ has a phase. The maths is in [`ola/deembed.py`](../ola/deembed.py): the reflecti
   `cable_loss_one_way_db` and `raw_min_vswr`, `raw_max_vswr`, `raw_best_return_loss_db`.
 * **The cable must cover the sweep** (it can be measured wider, not narrower), and be measured with enough points for its
   length (the phase must not turn by more than 140 degrees between two points: the cable data is flagged otherwise).
-* **Assumption**: the cable is **well matched**: its own reflections are not part of the correction. For a good cable this is
-  fine; with a poor connector the correction is an approximation.
+* **Assumption** (`model: matched`, the default): the cable is **well matched**: its own reflections are not part of the
+  correction. For a good cable this is fine; with a poor connector, an adapter or a pad use `model: full` with a `.s2p` or an
+  attenuator run of it, which takes its reflections out too. The correction is the same de-embedding as the transmission
+  measurements: [`deembedding.md`](deembedding.md#one-port).
 * **When it does not fit**: where the corrected reflection would exceed 1 (more than a device can reflect: another cable, a
   calibration at a different place) it is limited just under 1 and the log says how many points, as a warning.
 

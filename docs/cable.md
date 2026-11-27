@@ -62,6 +62,10 @@ The editor (*Edit* in the project window, built from the module's `form.json`) c
 
 The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
+**Adapters in front of the cable.** What is between the calibrated plane and the cable under test (an adapter, a short
+cable that was measured) can be taken out with `correction.port1` / `correction.port2` in transmission, `correction.port1`
+in reflection. See [`deembedding.md`](deembedding.md#in-the-amplifier-and-the-cable-measurements).
+
 ## Results
 
 * **Curves** (*Curves* tab): `loss_db` (positive = loss, with the limit drawn dashed in red), and, hidden at first

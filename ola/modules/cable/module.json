@@ -25,6 +25,8 @@
                "description": "pass / fail limit on the loss in dB: {\"max\": 1.5} or a line or bands (see ola/limits.py)"},
     "also_s11": {"type": "boolean", "required": false,
                  "description": "transmission only: also read S11 to report the return loss of the cable"},
+    "correction": {"type": "object", "required": false,
+                   "description": "take cables, adapters or pads that were measured out of the result: port1 and / or port2 = {asset_id (its code in the registry: the newest finished cable or attenuator measurement of the project is used) | run (a run file) | touchstone (.s2p written as seen from the VNA), reversed}, mode (complex|magnitude), model (matched|full: full also uses the reflections of the fixtures and reads all four S-parameters). In reflection mode only port1 (an adapter or a pad between port 1 and the cable)."},
     "golden": {"type": "object", "required": false,
                "description": "check the result against a golden sample of the project (a good cable of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,

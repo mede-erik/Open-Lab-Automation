@@ -202,3 +202,25 @@ def test_the_calibration_state_comes_through_the_turned_round_reading():
     vna2 = OneWay(SimAmplifier(library_calls=True))
     acquire(Ctx(vna2), vna2, SWEEP, ["S22"], manual_reversal=True, status=only)
     assert only["calibrated"] is True  # S22 alone: it comes from the turned-round reading
+
+
+@pytest.mark.parametrize("module", ["amplifier", "attenuator", "filter"])
+def test_fixtures_cannot_be_taken_out_with_the_device_turned_round(registry, module):
+    """The device is turned round, its fixtures are not: S22 and S12 would be corrected with the
+    wrong fixture, so the combination is refused instead of giving wrong numbers."""
+    base = {"sweep": dict(SWEEP), "confirm_setup": False}
+    if module == "attenuator":
+        base["attenuator"] = {"label": "pad", "nominal_db": 6}
+    if module == "filter":
+        base["filter"] = {"label": "f", "type": "lowpass"}
+    pad = {"touchstone": "pad.s2p"}
+    wrong = dict(base, manual_reversal=True, correction={"port1": pad})
+    problems = registry.create(module, wrong).check()
+    assert any(p.path == "correction" and "manual_reversal" in p.message for p in problems)
+    for fine in (
+        dict(base, manual_reversal=True),  # turning, no fixtures
+        dict(base, correction={"port1": pad}),  # fixtures, not turning
+        dict(base, manual_reversal=False, correction={"port1": pad}),
+    ):
+        problems = registry.create(module, fine).check()
+        assert not any("manual_reversal" in p.message for p in problems), fine

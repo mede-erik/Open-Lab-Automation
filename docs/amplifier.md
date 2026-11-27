@@ -85,6 +85,10 @@ example the gain `S21` in `magnitude_db` within 1 dB ([`golden.md`](golden.md#as
 
 The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
+**Cables and pads in front of the amplifier.** An attenuator or a cable that was measured (a cable or attenuator run, or a
+`.s2p`) can be taken out with `correction.port1` / `correction.port2`, as in the filter; the compression test takes them out
+as losses at its frequency. See [`deembedding.md`](deembedding.md#in-the-amplifier-and-the-cable-measurements).
+
 ## A VNA that measures in one direction
 
 The stability, the output return loss and the isolation need `S12` and `S22`. A VNA with a source on port 1 only (the

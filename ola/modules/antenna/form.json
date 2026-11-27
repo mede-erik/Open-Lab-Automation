@@ -579,6 +579,46 @@
               }
             }
           ]
+        },
+        {
+          "path": "correction.model",
+          "kind": "choice",
+          "label": {
+            "en": "Model",
+            "it": "Modello",
+            "fr": "Modèle",
+            "es": "Modelo",
+            "de": "Modell"
+          },
+          "help": {
+            "en": "Matched: the cable only attenuates and delays (the correction of before). Full: what is in front of the device has its own reflections too (a pad, an adapter) and they are taken out; needs a .s2p file or an attenuator measurement.",
+            "it": "Adattato: il cavo attenua e ritarda soltanto (la correzione di prima). Completo: ciò che sta davanti al dispositivo ha anche le sue riflessioni (un attenuatore, un adattatore) e vengono tolte; richiede un file .s2p o una misura di attenuatore.",
+            "fr": "Adapté : le câble atténue et retarde seulement (la correction d'avant). Complet : ce qui est devant le dispositif a aussi ses propres réflexions (un atténuateur, un adaptateur) et elles sont retirées ; nécessite un fichier .s2p ou une mesure d'atténuateur.",
+            "es": "Adaptado: el cable solo atenúa y retrasa (la corrección de antes). Completo: lo que está delante del dispositivo tiene también sus propias reflexiones (un atenuador, un adaptador) y se quitan; requiere un archivo .s2p o una medición de atenuador.",
+            "de": "Angepasst: das Kabel dämpft und verzögert nur (die bisherige Korrektur). Vollständig: was vor dem Prüfling liegt, hat auch eigene Reflexionen (Dämpfungsglied, Adapter), die herausgerechnet werden; braucht eine .s2p-Datei oder eine Dämpfungsglied-Messung."
+          },
+          "choices": [
+            {
+              "value": "matched",
+              "label": {
+                "en": "Matched (cable)",
+                "it": "Adattato (cavo)",
+                "fr": "Adapté (câble)",
+                "es": "Adaptado (cable)",
+                "de": "Angepasst (Kabel)"
+              }
+            },
+            {
+              "value": "full",
+              "label": {
+                "en": "Full (with reflections)",
+                "it": "Completo (con riflessioni)",
+                "fr": "Complet (avec réflexions)",
+                "es": "Completo (con reflexiones)",
+                "de": "Vollständig (mit Reflexionen)"
+              }
+            }
+          ]
         }
       ]
     }

@@ -610,7 +610,7 @@ class ProjectSession:
             return params
         resolved = params
         for key, kinds in (
-            ("cable", ("cable",)),
+            ("cable", FIXTURE_KINDS),  # the name of port1 in a reflection measurement, before
             ("port1", FIXTURE_KINDS),
             ("port2", FIXTURE_KINDS),
         ):

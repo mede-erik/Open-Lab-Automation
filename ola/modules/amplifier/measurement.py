@@ -53,6 +53,8 @@ from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext, MeasurementError
 from ola.run_view import format_si
+from ola.deembed import DeembedError
+from ola.fixtures import check_fixtures, losses_at
 from ola.vna_common import (
     acquire,
     ask_forward_again,
@@ -64,6 +66,7 @@ from ola.vna_common import (
     frequency_label,
     is_number,
     set_sweep,
+    apply_fixtures,
     upgrade_params as _upgrade,
     upgraded,
 )
@@ -149,6 +152,18 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if comp is not None:
         out += _check_compression(comp, start, stop, attenuation, limit)
     check_asset(params, "device", out)
+    check_fixtures(params, out, Problem)  # cables, pads or adapters on the ports, taken out
+    if (
+        params.get("also_reverse") is False
+        and (params.get("correction") or {}).get("model") == "full"
+    ):
+        out.append(
+            Problem(
+                "correction.model",
+                "the full model needs all four S-parameters: leave also_reverse on, or use the "
+                "matched model",
+            )
+        )
     check_common(params, out, start, stop, booleans=("also_reverse", "confirm_setup"))
     if params.get("also_reverse") is False and params.get("manual_reversal") is True:
         out.append(
@@ -354,7 +369,7 @@ class AmplifierResponse(Measurement):
                 "loss, the isolation and the stability need S12 and S22 and are not measured",
                 "warning",
             )
-        freq, traces = acquire(
+        freq, raw = acquire(
             ctx,
             handle,
             p["sweep"],
@@ -364,7 +379,11 @@ class AmplifierResponse(Measurement):
             # turning the device round gives S12 and S22 on a VNA that drives port 1 only
             manual_reversal=turning,
         )
+        traces, info = apply_fixtures(ctx, p, freq, raw)  # the amplifier alone
         self._report(ctx, freq, traces)
+        if info:  # the measurement as it came, to compare with the amplifier alone
+            base = {"xlabel": "Frequency", "x_unit": "Hz", "hidden": True}
+            ctx.emit_trace("S21_raw", freq, raw["S21"], kind="complex", **base)
         if p.get("compression"):
             if turning:  # the amplifier was left turned round: the compression is forward
                 ask_forward_again(ctx)
@@ -461,6 +480,18 @@ class AmplifierResponse(Measurement):
         f0 = float(comp["frequency_hz"])
         nominal = [f0 * (1 - NARROW_SPAN), f0, f0 * (1 + NARROW_SPAN)]
         powers = power_steps(comp)
+        # the fixtures as losses at f0: the one on port 1 lowers the power at the input, both
+        # lower the gain that is read (the gain of the amplifier alone is reported)
+        try:
+            fixture_db = losses_at(p, f0)
+        except DeembedError as exc:
+            raise MeasurementError(f"fixture correction: {exc}") from exc
+        before, after = fixture_db.get("left", 0.0), fixture_db.get("right", 0.0)
+        if fixture_db:
+            ctx.log(
+                f"compression: the fixtures are taken out as losses at {format_si(f0, 'Hz')} "
+                f"({before:.3g} dB before the amplifier, {after:.3g} dB after it)"
+            )
         pin: List[float] = []
         gain: List[float] = []
         self._power_changed = True
@@ -476,8 +507,8 @@ class AmplifierResponse(Measurement):
             values = got["S21"]
             if len(values) != 3:
                 raise MeasurementError("the compression test needs the 3 points it asked for")
-            pin.append(power - attenuation)
-            gain.append(rf.db20(values[1]))
+            pin.append(power - attenuation - before)
+            gain.append(rf.db20(values[1]) + before + after)
             ctx.progress(n, len(powers), f"power {power:g} dBm ({n} of {len(powers)})")
         drop = float(comp.get("compression_db", 1.0))
         point = compression_point(pin, gain, drop)

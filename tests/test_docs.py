@@ -632,8 +632,8 @@ def test_deembedding_doc_matches_the_code():
         assert f"`mode: {mode}`" in text, mode
     assert set(TERMINATIONS) == {"open", "short"} and "termination" in text
     registry = default_registry(user_dir="/nonexistent")
-    for name in ("filter", "attenuator"):
-        guide = read(ROOT / "docs" / f"{name}.md")
+    for name in ("filter", "attenuator", "amplifier", "cable", "return_loss", "antenna"):
+        guide = read(ROOT / "docs" / f"{name.replace('_', '-')}.md")
         assert "deembedding.md" in guide and "correction" in guide, name
         schema = registry.get(name).params_schema
         assert "correction" in schema and "model" in schema["correction"]["description"]

@@ -282,7 +282,7 @@ def test_the_cable_is_named_in_exactly_one_way():
     assert (
         "unknown field" in problems({"cable": {"run": "a", "speed": 1}})["correction.cable.speed"]
     )
-    assert "with a 'cable'" in problems("cable")["correction"]
+    assert "with a 'port1' (or 'cable')" in problems("cable")["correction"]
     out = []
     deembed.check_correction({}, out, lambda *a: a)
     assert out == []  # no correction: nothing to say
@@ -361,7 +361,7 @@ def test_the_corrected_and_the_raw_curves_are_both_kept(registry, tmp_path):
     assert max(traces["return_loss_raw_db"]["y"]) > max(traces["return_loss_db"]["y"])
     assert max(traces["vswr_raw"]["y"]) < max(traces["vswr"]["y"])
     assert {"vswr_raw", "return_loss_raw_db"} <= set(sweep[0])
-    assert any("corrected for the cable feed.s2p (complex" in m for _, m in logs)
+    assert any("corrected for the fixture feed.s2p (matched, complex" in m for _, m in logs)
     # without a correction there is nothing extra
     _, plain, _, plain_sweep, _ = run_module(
         registry, "return_loss", RL, termination="antenna", **ANTENNA
@@ -514,7 +514,9 @@ def test_without_a_measurement_of_that_cable_the_run_is_refused_before_it_starts
 
     session, ref = make_project(tmp_path, registry, with_cable(RL, asset_id="CBL-0042"))
     cable_run(session.run_dir.parent, "CBL-0001", "20261101_090000")
-    with pytest.raises(MeasurementError, match="no finished cable measurement of CBL-0042"):
+    with pytest.raises(
+        MeasurementError, match="no finished cable or attenuator measurement of CBL-0042"
+    ):
         session.build_runner(ref)
 
 
