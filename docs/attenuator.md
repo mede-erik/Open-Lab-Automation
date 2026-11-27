@@ -54,6 +54,9 @@ is the same and the results are told apart by `setting`.
 The measurement does not limit the source power: an attenuator is not harmed by the power of a VNA. Do not use it at the
 power of an amplifier: the maximum power of the attenuator is on its card (`ATT` details) for you to check.
 
+
+**A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
+device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
 ## Results
 
 * **Curves**: `attenuation_db`, with the tolerance band or the mask drawn dashed in red; hidden at first: `S21`

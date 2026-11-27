@@ -176,7 +176,10 @@ class AttenuatorSweep(Measurement):
             )
         wanted = ["S21"] + (["S11", "S22"] if p.get("also_return_loss", True) else [])
         wanted = wanted_parameters(p, wanted)
-        freq, raw = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
+        freq, raw = acquire(
+            ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)),
+            manual_reversal=bool(p.get("manual_reversal", False)),
+        )  # fmt: skip
         traces, info = apply_fixtures(ctx, p, freq, raw)
         self._report(ctx, freq, traces, raw, info)
 

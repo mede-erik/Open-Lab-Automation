@@ -56,6 +56,9 @@ The sweep decides what can be found: it must include the edges and some of the s
 enough points (a step much smaller than the bandwidth). The editor (*Edit* in the project window, from the module's
 `form.json`) shows every problem at its field and accepts numbers such as `868M` or `2.4 GHz`.
 
+
+**A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
+device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
 ## Results
 
 * **Curves** (*Curves* tab): `S21`, shown in dB with the **mask drawn dashed in red**, or as phase or on the Smith

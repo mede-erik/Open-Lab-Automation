@@ -222,6 +222,24 @@
             "es": "Medir también la pérdida de retorno del filtro (S11)",
             "de": "Auch die Rückflussdämpfung des Filters messen (S11)"
           }
+        },
+        {
+          "path": "manual_reversal",
+          "kind": "bool",
+          "label": {
+            "en": "VNA in one direction only: turn the device round for S12 and S22",
+            "it": "VNA in una sola direzione: girare il dispositivo per S12 e S22",
+            "fr": "VNA dans un seul sens : retourner le dispositif pour S12 et S22",
+            "es": "VNA en un solo sentido: dar la vuelta al dispositivo para S12 y S22",
+            "de": "VNA nur in einer Richtung: Prüfling für S12 und S22 umdrehen"
+          },
+          "help": {
+            "en": "For a VNA that drives port 1 only (the LiteVNA). S11 and S21 are read, then the program asks to turn the device round and reads S22 and S12. The match of port 2 is not corrected in either direction.",
+            "it": "Per un VNA che pilota solo la porta 1 (il LiteVNA). Si leggono S11 e S21, poi il programma chiede di girare il dispositivo e legge S22 e S12. L'adattamento della porta 2 non è corretto in nessuna delle due direzioni.",
+            "fr": "Pour un VNA qui n'excite que le port 1 (le LiteVNA). S11 et S21 sont lus, puis le programme demande de retourner le dispositif et lit S22 et S12. L'adaptation du port 2 n'est corrigée dans aucun des deux sens.",
+            "es": "Para un VNA que solo excita el puerto 1 (el LiteVNA). Se leen S11 y S21, luego el programa pide dar la vuelta al dispositivo y lee S22 y S12. La adaptación del puerto 2 no se corrige en ninguno de los dos sentidos.",
+            "de": "Für einen VNA, der nur Tor 1 speist (LiteVNA). S11 und S21 werden gelesen, dann fordert das Programm zum Umdrehen des Prüflings auf und liest S22 und S12. Die Anpassung von Tor 2 wird in keiner Richtung korrigiert."
+          }
         }
       ]
     },

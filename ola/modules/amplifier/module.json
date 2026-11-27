@@ -33,6 +33,8 @@
                "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
+    "manual_reversal": {"type": "boolean", "required": false,
+                        "description": "a VNA that drives port 1 only: S11 and S21 are read, then the operator is asked to turn the device round and S22 and S12 are read (false by default)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate, connect and check the powers"}
   }

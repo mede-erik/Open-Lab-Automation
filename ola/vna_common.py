@@ -215,7 +215,7 @@ def check_common(
         or not 1 <= averages <= MAX_AVERAGES
     ):
         out.append(Problem("averages", f"must be a whole number from 1 to {MAX_AVERAGES}"))
-    for key in booleans:
+    for key in tuple(booleans) + ("manual_reversal",):
         if key in params and not isinstance(params[key], bool):
             out.append(Problem(key, "must be true or false"))
 
@@ -391,9 +391,14 @@ def acquire(
     averages: int = 1,
     notes: bool = True,
     require_corrected: Sequence[str] = (),
+    manual_reversal: bool = False,
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
     ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
+
+    ``manual_reversal``: the VNA measures in one direction only (the LiteVNA: S11 and S21), so
+    ``S22`` and ``S12`` are read by turning the device round (``acquire_reversed``): the operator
+    is asked once, and the device stays turned round afterwards.
 
     An instrument with the library's calls reads all the parameters of one sweep together
     (``run_sweep``, then ``read_sparameters(sparameters=[...])``); one with the simple calls reads
@@ -404,6 +409,8 @@ def acquire(
     ``require_corrected`` names parameters that must be corrected by the calibration: if the
     instrument says it did not correct one of them, ``MeasurementError`` is raised on the first
     sweep (a measurement that would give wrong numbers does not run)."""
+    if manual_reversal and set(parameters) & set(REVERSED):
+        return acquire_reversed(ctx, handle, sweep, parameters, averages, notes, require_corrected)
     library = uses_library_calls(handle)
     if notes:
         for note in sweep_notes(handle, sweep):
@@ -457,6 +464,74 @@ def acquire(
             )
         ctx.progress(sweep_no, averages, f"sweep {sweep_no} of {averages}")
     return freq, {name: [v / averages for v in values] for name, values in totals.items()}
+
+
+# the parameters of the reverse direction and what they are when the device is turned round
+REVERSED = {"S22": "S11", "S12": "S21"}
+REVERSE_KEY = "run_q_reverse_device"  # the question, translated by the window
+FORWARD_KEY = "run_q_forward_device"
+
+
+def ask_forward_again(ctx: MeasurementContext) -> None:
+    """After ``acquire_reversed``: ask the operator to put the device back the right way round,
+    for a part of the measurement that reads the forward direction again (the compression test of
+    an amplifier). ``Stopped`` if the operator aborts."""
+    text = "Put the device back the right way round: its input on port 1, its output on port 2."
+    info = {"kind": "reverse", "text_key": FORWARD_KEY, "text_args": {}}
+    if ctx.ask(text, ["continue", "abort"], default="abort", data=info) == "abort":
+        raise Stopped()
+
+
+def acquire_reversed(
+    ctx: MeasurementContext,
+    handle: Any,
+    sweep: Mapping[str, Any],
+    parameters: Sequence[str],
+    averages: int = 1,
+    notes: bool = True,
+    require_corrected: Sequence[str] = (),
+) -> Tuple[List[float], Dict[str, List[complex]]]:
+    """The four S-parameters (or those of ``parameters``) with a VNA that drives port 1 only: the
+    forward ones (``S11``, ``S21``) are read as they are; then the operator turns the device
+    round (its input on port 2, its output on port 1) and ``S11`` and ``S21`` are read again:
+    they are the ``S22`` and the ``S12`` of the device. ``Stopped`` if the operator aborts; the
+    device is left turned round.
+
+    The reverse parameters are as good as the forward ones with the same calibration (a one-port
+    calibration on port 1 and a thru), but the match of port 2 (the load match) is corrected in
+    neither direction: a full two-port calibration of a two-port VNA is better."""
+    forward = [n for n in parameters if n not in REVERSED]
+    backward = [n for n in parameters if n in REVERSED]
+    data: Dict[str, List[complex]] = {}
+    freq: List[float] = []
+    if forward:
+        freq, got = acquire(ctx, handle, sweep, forward, averages, notes, require_corrected)
+        data.update(got)
+    text = (
+        "Turn the device round: its input on port 2 and its output on port 1 of the VNA, with "
+        f"the same cables; then continue to read {', '.join(backward)}."
+    )
+    info = {
+        "kind": "reverse",
+        "text_key": REVERSE_KEY,
+        "text_args": {"parameters": ", ".join(backward)},
+    }
+    if ctx.ask(text, ["continue", "abort"], default="abort", data=info) == "abort":
+        raise Stopped()
+    wanted = sorted({REVERSED[n] for n in backward}, key=["S11", "S21"].index)
+    strict = [REVERSED[n] for n in backward if n in require_corrected]  # as read, turned round
+    rev_freq, got = acquire(
+        ctx, handle, sweep, wanted, averages, notes=False, require_corrected=strict
+    )
+    if freq and (
+        len(rev_freq) != len(freq)
+        or any(abs(a - b) > 1e-6 * max(abs(a), 1.0) for a, b in zip(freq, rev_freq))
+    ):
+        raise MeasurementError("the frequencies changed between the two directions")
+    for name in backward:
+        data[name] = got[REVERSED[name]]
+    ctx.log(f"{', '.join(backward)} read with the device turned round (manual reversal)")
+    return rev_freq if not freq else freq, data
 
 
 def ask_setup(

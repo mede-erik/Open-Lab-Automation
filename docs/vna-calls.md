@@ -17,6 +17,19 @@ The measurements speak **two sets of calls**, and use the first one whenever the
 Which one is used does not change what a measurement gives: the same measurement on `SimVna()` and on
 `SimVna(library_calls=True)` gives the same numbers (a test checks it for the six measurements).
 
+## A VNA that measures in one direction: manual reversal
+
+A VNA with a source on port 1 only (the LiteVNA) measures `S11` and `S21`; `S22` and `S12` are the same measurements with
+the device turned round. With `manual_reversal: true` (amplifier, attenuator, filter) the measurement reads `S11` and `S21`,
+then asks the operator to **turn the device round** (its input on port 2, its output on port 1, with the same cables) and
+reads `S11` and `S21` again, which are the `S22` and the `S12` of the device (`ola.vna_common.acquire_reversed`). The question
+is translated by the window (`run_q_reverse_device`); the device is left turned round, and the amplifier asks to put it back
+(`run_q_forward_device`) before its compression test, which is read in the forward direction.
+
+Accuracy: with a one-port calibration on port 1 and a thru, the reverse parameters are as good as the forward ones, but the
+match of port 2 (the load match) is corrected in **neither** direction, and the cables must stay as they were. A two-port
+VNA with a full two-port calibration is better; for a forward-only VNA this is the only way to the stability of an amplifier.
+
 ## What the program does *not* do
 
 * **No calibration in the measurements.** The user calibrates the VNA beforehand (at the ends of the test leads, or at the

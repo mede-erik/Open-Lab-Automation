@@ -50,6 +50,7 @@ from ola.measurement import Measurement, MeasurementContext, MeasurementError
 from ola.run_view import format_si
 from ola.vna_common import (
     acquire,
+    ask_forward_again,
     ask_setup,
     check_asset,
     check_common,
@@ -318,11 +319,15 @@ class AmplifierResponse(Measurement):
                 connect_args={"max": f"{max_dbm:g}"} if max_dbm is not None else {},
                 mode="transmission",
             )
+        reversal = bool(p.get("manual_reversal", False))  # a VNA that drives port 1 only
         freq, traces = acquire(
-            ctx, handle, p["sweep"], ["S21", "S11", "S12", "S22"], int(p.get("averages", 1))
-        )
+            ctx, handle, p["sweep"], ["S21", "S11", "S12", "S22"], int(p.get("averages", 1)),
+            manual_reversal=reversal,
+        )  # fmt: skip
         self._report(ctx, freq, traces)
         if p.get("compression"):
+            if reversal:  # the amplifier was left turned round: the compression is forward
+                ask_forward_again(ctx)
             self._compression(ctx, handle)
 
     def teardown(self, ctx: MeasurementContext) -> None:

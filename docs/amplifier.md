@@ -81,6 +81,9 @@ problem at its field, including the protection errors.
 `golden` (optional) checks the result against a **golden sample** of the project, a good amplifier of the same kind, for
 example the gain `S21` in `magnitude_db` within 1 dB ([`golden.md`](golden.md#as-a-step-of-a-measurement)).
 
+
+**A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
+device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
 ## Results
 
 * **Curves** (*Curves* tab): `S21` in dB with the mask drawn dashed in red; hidden at first and selectable: `S11`, `S22`,
