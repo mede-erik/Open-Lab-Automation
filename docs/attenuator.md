@@ -56,6 +56,9 @@ power of an amplifier: the maximum power of the attenuator is on its card (`ATT`
 
 The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
+**A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
+device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
+
 ## Results
 
 * **Curves**: `attenuation_db`, with the tolerance band or the mask drawn dashed in red; hidden at first: `S21`

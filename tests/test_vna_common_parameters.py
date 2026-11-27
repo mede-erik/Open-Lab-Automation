@@ -29,6 +29,8 @@ VNA_MODULES = (
     "antenna",
     "cable",
     "tdr",
+    "component",
+    "crystal",
 )
 SWEEP = {"start_hz": 1e6, "stop_hz": 1e9, "points": 101}
 

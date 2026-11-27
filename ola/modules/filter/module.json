@@ -37,6 +37,8 @@
                             "description": "stop if the VNA says the data, or one of the S-parameters read, are not corrected by the calibration (default: warn)"},
     "group_delay_aperture": {"type": "integer", "min": 1, "required": false,
                              "description": "points on each side over which the slope of the phase gives the group delay (1 by default; more smooths the noise)"},
+    "manual_reversal": {"type": "boolean", "required": false,
+                        "description": "a VNA that drives port 1 only: S11 and S21 are read, then the operator is asked to turn the device round and S22 and S12 are read (false by default)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate and connect the filter"}
   }

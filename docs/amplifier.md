@@ -92,10 +92,18 @@ as losses at its frequency. See [`deembedding.md`](deembedding.md#in-the-amplifi
 ## A VNA that measures in one direction
 
 The stability, the output return loss and the isolation need `S12` and `S22`. A VNA with a source on port 1 only (the
-LiteVNA measures `S11` and `S21`) cannot give them: set `also_reverse` to `false` (in the editor: untick *Also measure in
-reverse*). Only `S21` and `S11` are then read, and the gain, the band, the flatness and the input return loss are measured as
-usual; the curves, the table and the summary have no stability, output return loss or isolation, and the log says so. With
-`also_reverse` left on, such a VNA cannot run the measurement (the check of the instrument says which parameters it lacks).
+LiteVNA measures `S11` and `S21`) cannot read them directly. Two ways:
+
+* **Leave them out**: set `also_reverse` to `false` (in the editor: untick *Also measure in reverse*). Only `S21` and `S11`
+  are then read, and the gain, the band, the flatness and the input return loss are measured as usual; the curves, the table
+  and the summary have no stability, output return loss or isolation, and the log says so.
+* **Turn the amplifier round**: set `manual_reversal` to `true`. `S11` and `S21` are read, the program asks you to turn the
+  amplifier round once (its input on port 2, its output on port 1) and reads `S22` and `S12`; the stability, output match
+  and isolation are then measured too. The program asks to put it back before a compression test. See
+  [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal). It needs `also_reverse` on: with
+  `also_reverse` off there is nothing to turn round for, and the editor says so.
+
+With neither, such a VNA cannot run the measurement (the check of the instrument says which parameters it lacks).
 
 ## Results
 

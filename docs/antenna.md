@@ -59,6 +59,23 @@ The fields that every VNA measurement has (`z0`, `require_calibration`, `average
 If the antenna does not resonate inside the sweep, the log says so; if the VSWR is above the limit everywhere, it
 says that too.
 
+## Matching the antenna: L networks
+
+With `match_frequencies_hz` (for example `[868000000]`) the measurement computes, at each of those frequencies, the
+**two-component L networks** that make the measured impedance look like `z0` ([`ola/matching.py`](../ola/matching.py)):
+a series and a shunt element, an inductor or a capacitor each, in one of two shapes:
+
+* *shunt next to the load, series towards the source*: possible when the load is outside the circle `R^2 + X^2 >= z0 R`
+  (for example a resistance above `z0`);
+* *series next to the load, shunt towards the source*: possible when `R <= z0`.
+
+The summary gives `match_868MHz_count` (how many networks exist, up to four), `match_868MHz_1` and `match_868MHz_2` (the
+two of lowest Q, as text from the source to the load: *series 2.99 pF, then shunt (to ground) 31.6 nH next to the load*) and
+`match_868MHz_q` (the loaded Q of the first: a lower Q is a wider match); the log lists every network. The values are
+**ideal** components to three digits: a real inductor has losses and its own resonance (measure it, or take it
+from its datasheet), and the pads of the board add
+their own reactance. The return loss measurement offers the same ([`return-loss.md`](return-loss.md)).
+
 ## Through a cable: the VSWR of the antenna alone
 
 An antenna measured at the end of a cable looks **better matched than it is**: the reflection goes down the cable and

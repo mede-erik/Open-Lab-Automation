@@ -38,7 +38,7 @@ import math
 from typing import Any, Dict, List, Optional
 
 from ola.golden import check_golden_param, recording
-from ola import rf
+from ola import matching, rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
@@ -85,6 +85,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if "vswr_max" in params and (not is_number(params["vswr_max"]) or params["vswr_max"] <= 1):
         out.append(Problem("vswr_max", "the VSWR limit must be a number above 1 (2 is common)"))
     check_asset(params, "device", out)
+    matching.check_frequencies(params, out, Problem, start, stop)
     check_correction(params, out, Problem)
     check_common(params, out, start, stop)
     check_golden_param(params, out)
@@ -154,7 +155,12 @@ def compute_impedance(
         summary[f"vswr_{name}"] = rf.value_at(freq, vswr, f)
         summary[f"return_loss_{name}_db"] = rf.value_at(freq, loss, f)
         summary[f"cancel_{name}"] = cancelling_component(x, f)
+    matched, lines = matching.summary_at(
+        freq, resistance, reactance, params.get("match_frequencies_hz") or [], z0
+    )
+    summary.update(matched)
     return {
+        "match_log": lines,
         "resistance": resistance,
         "reactance": reactance,
         "return_loss_db": loss,
@@ -269,6 +275,8 @@ class AntennaImpedance(Measurement):
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"
             summary["margin_db"] = verdict.margin
             ctx.log(f"limit check: {verdict.summary()}", "info" if verdict.passed else "warning")
+        for line in result["match_log"]:  # the L networks that match the antenna
+            ctx.log(line)
         top = result["summary"]
         named = f" '{label}'" if label else ""
         found = (

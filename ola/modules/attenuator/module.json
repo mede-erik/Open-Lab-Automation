@@ -31,6 +31,8 @@
            "description": "reference impedance of the VNA (the impedance of its calibration), 50 by default; also written in the Touchstone export"},
     "require_calibration": {"type": "boolean", "required": false,
                             "description": "stop if the VNA says the data, or one of the S-parameters read, are not corrected by the calibration (default: warn)"},
+    "manual_reversal": {"type": "boolean", "required": false,
+                        "description": "a VNA that drives port 1 only: S11 and S21 are read, then the operator is asked to turn the device round and S22 and S12 are read (false by default)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate and connect the attenuator"}
   }
