@@ -1,0 +1,326 @@
+{
+  "sections": [
+    {
+      "title": {
+        "en": "Crystal and instrument",
+        "it": "Quarzo e strumento",
+        "fr": "Quartz et instrument",
+        "es": "Cristal e instrumento",
+        "de": "Quarz und Messgerät"
+      },
+      "fields": [
+        {
+          "path": "vna",
+          "kind": "instrument",
+          "label": {
+            "en": "VNA",
+            "it": "VNA",
+            "fr": "VNA",
+            "es": "VNA",
+            "de": "VNA"
+          },
+          "help": {
+            "en": "The network analyzer, already calibrated.",
+            "it": "L'analizzatore di reti, già calibrato.",
+            "fr": "L'analyseur de réseau, déjà calibré.",
+            "es": "El analizador de redes, ya calibrado.",
+            "de": "Der Netzwerkanalysator, bereits kalibriert."
+          }
+        },
+        {
+          "path": "device.label",
+          "kind": "text",
+          "label": {
+            "en": "Crystal name",
+            "it": "Nome del quarzo",
+            "fr": "Nom du quartz",
+            "es": "Nombre del cristal",
+            "de": "Quarzname"
+          },
+          "help": {
+            "en": "Identifies the crystal: it is saved with every run.",
+            "it": "Identifica il quarzo: viene salvato con ogni esecuzione.",
+            "fr": "Identifie le quartz : il est enregistré avec chaque exécution.",
+            "es": "Identifica el cristal: se guarda con cada ejecución.",
+            "de": "Kennzeichnet den Quarz: wird mit jedem Lauf gespeichert."
+          },
+          "placeholder": {
+            "en": "e.g. Y1, 10 MHz HC-49",
+            "it": "es. Y1, 10 MHz HC-49",
+            "fr": "p. ex. Y1, 10 MHz HC-49",
+            "es": "p. ej. Y1, 10 MHz HC-49",
+            "de": "z. B. Y1, 10 MHz HC-49"
+          }
+        },
+        {
+          "path": "nominal_frequency_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Nominal frequency",
+            "it": "Frequenza nominale",
+            "fr": "Fréquence nominale",
+            "es": "Frecuencia nominal",
+            "de": "Nennfrequenz"
+          },
+          "help": {
+            "en": "Optional: the offset in ppm is reported.",
+            "it": "Facoltativa: viene riportato lo scostamento in ppm.",
+            "fr": "Facultative : l'écart en ppm est indiqué.",
+            "es": "Opcional: se informa la desviación en ppm.",
+            "de": "Optional: die Abweichung in ppm wird angegeben."
+          }
+        },
+        {
+          "path": "tolerance_ppm",
+          "kind": "number",
+          "unit": "ppm",
+          "label": {
+            "en": "Tolerance",
+            "it": "Tolleranza",
+            "fr": "Tolérance",
+            "es": "Tolerancia",
+            "de": "Toleranz"
+          },
+          "help": {
+            "en": "Optional: pass / fail on the offset.",
+            "it": "Facoltativa: promosso / non promosso sullo scostamento.",
+            "fr": "Facultative : réussi / échoué sur l'écart.",
+            "es": "Opcional: aprobado / suspendido sobre la desviación.",
+            "de": "Optional: bestanden / nicht bestanden für die Abweichung."
+          }
+        },
+        {
+          "path": "load_capacitance_pf",
+          "kind": "number",
+          "unit": "pF",
+          "label": {
+            "en": "Load capacitance",
+            "it": "Capacità di carico",
+            "fr": "Capacité de charge",
+            "es": "Capacidad de carga",
+            "de": "Lastkapazität"
+          },
+          "help": {
+            "en": "Optional: the load the crystal is specified for (from its datasheet). Its frequency with that load and the pulling are reported.",
+            "it": "Facoltativa: il carico per cui è specificato il quarzo (dal suo datasheet). Vengono riportati la frequenza con quel carico e il pulling.",
+            "fr": "Facultative : la charge pour laquelle le quartz est spécifié (sa fiche technique). Sa fréquence avec cette charge et le tirage sont indiqués.",
+            "es": "Opcional: la carga para la que está especificado el cristal (de su hoja de datos). Se informa su frecuencia con esa carga y el arrastre.",
+            "de": "Optional: die Last, für die der Quarz spezifiziert ist (aus dem Datenblatt). Seine Frequenz mit dieser Last und das Ziehen werden angegeben."
+          }
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance",
+            "it": "Impedenza di riferimento",
+            "fr": "Impédance de référence",
+            "es": "Impedancia de referencia",
+            "de": "Bezugsimpedanz"
+          },
+          "help": {
+            "en": "Normally 50 ohm.",
+            "it": "Normalmente 50 ohm.",
+            "fr": "Normalement 50 ohms.",
+            "es": "Normalmente 50 ohmios.",
+            "de": "Normalerweise 50 Ohm."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Sweep",
+        "it": "Sweep",
+        "fr": "Balayage",
+        "es": "Barrido",
+        "de": "Sweep"
+      },
+      "fields": [
+        {
+          "path": "sweep.start_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Start frequency",
+            "it": "Frequenza iniziale",
+            "fr": "Fréquence de départ",
+            "es": "Frecuencia inicial",
+            "de": "Startfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 1M",
+            "it": "es. 1M",
+            "fr": "p. ex. 1M",
+            "es": "p. ej. 1M",
+            "de": "z. B. 1M"
+          }
+        },
+        {
+          "path": "sweep.stop_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "Stop frequency",
+            "it": "Frequenza finale",
+            "fr": "Fréquence d'arrêt",
+            "es": "Frecuencia final",
+            "de": "Stoppfrequenz"
+          },
+          "placeholder": {
+            "en": "e.g. 3G",
+            "it": "es. 3G",
+            "fr": "p. ex. 3G",
+            "es": "p. ej. 3G",
+            "de": "z. B. 3G"
+          }
+        },
+        {
+          "path": "sweep.points",
+          "kind": "int",
+          "label": {
+            "en": "Points",
+            "it": "Punti",
+            "fr": "Points",
+            "es": "Puntos",
+            "de": "Punkte"
+          },
+          "help": {
+            "en": "A crystal is a few hundred hertz wide: the sweep must be narrow and fine (2001 points over some tens of kilohertz).",
+            "it": "Un quarzo è largo poche centinaia di hertz: lo sweep deve essere stretto e fitto (2001 punti su qualche decina di kilohertz).",
+            "fr": "Un quartz ne fait que quelques centaines de hertz de large : le balayage doit être étroit et fin (2001 points sur quelques dizaines de kilohertz).",
+            "es": "Un cristal tiene pocos cientos de hercios de ancho: el barrido debe ser estrecho y fino (2001 puntos en unas decenas de kilohercios).",
+            "de": "Ein Quarz ist nur einige hundert Hertz breit: der Sweep muss schmal und fein sein (2001 Punkte über einige zehn Kilohertz)."
+          }
+        },
+        {
+          "path": "sweep.if_bandwidth_hz",
+          "kind": "number",
+          "unit": "Hz",
+          "label": {
+            "en": "IF bandwidth",
+            "it": "Banda IF",
+            "fr": "Bande FI",
+            "es": "Ancho de banda FI",
+            "de": "ZF-Bandbreite"
+          },
+          "help": {
+            "en": "Optional. Narrower = less noise, slower.",
+            "it": "Facoltativa. Più stretta = meno rumore, più lenta.",
+            "fr": "Facultative. Plus étroite = moins de bruit, plus lent.",
+            "es": "Opcional. Más estrecho = menos ruido, más lento.",
+            "de": "Optional. Schmaler = weniger Rauschen, langsamer."
+          }
+        },
+        {
+          "path": "sweep.power_dbm",
+          "kind": "number",
+          "unit": "dBm",
+          "label": {
+            "en": "Power",
+            "it": "Potenza",
+            "fr": "Puissance",
+            "es": "Potencia",
+            "de": "Leistung"
+          },
+          "help": {
+            "en": "Optional.",
+            "it": "Facoltativa.",
+            "fr": "Facultative.",
+            "es": "Opcional.",
+            "de": "Optional."
+          }
+        }
+      ]
+    },
+    {
+      "title": {
+        "en": "Checks",
+        "it": "Verifiche",
+        "fr": "Contrôles",
+        "es": "Comprobaciones",
+        "de": "Prüfungen"
+      },
+      "fields": [
+        {
+          "path": "golden.name",
+          "kind": "text",
+          "label": {
+            "en": "Golden sample",
+            "it": "Campione di riferimento",
+            "fr": "Échantillon de référence",
+            "es": "Muestra de referencia",
+            "de": "Referenzmuster"
+          },
+          "help": {
+            "en": "Optional: the name of a golden sample of the project (a good unit of the same kind, kept from the comparison window). The result is checked against it.",
+            "it": "Facoltativo: il nome di un campione del progetto (un pezzo buono dello stesso tipo, salvato dalla finestra di confronto). Il risultato viene verificato rispetto a esso.",
+            "fr": "Facultatif : le nom d'un échantillon de référence du projet (une bonne pièce du même type, gardée depuis la fenêtre de comparaison). Le résultat est vérifié par rapport à lui.",
+            "es": "Opcional: el nombre de una muestra del proyecto (una pieza buena del mismo tipo, guardada desde la ventana de comparación). El resultado se comprueba frente a ella.",
+            "de": "Optional: der Name eines Referenzmusters des Projekts (ein gutes Teil derselben Art, aus dem Vergleichsfenster gespeichert). Das Ergebnis wird damit verglichen."
+          }
+        },
+        {
+          "path": "golden.tolerances",
+          "kind": "json",
+          "label": {
+            "en": "Tolerances against the golden sample",
+            "it": "Tolleranze rispetto al campione",
+            "fr": "Tolérances par rapport à l'échantillon",
+            "es": "Tolerancias frente a la muestra",
+            "de": "Toleranzen gegenüber dem Referenzmuster"
+          },
+          "help": {
+            "en": "\"summary\": {\"fs_hz\": 50, \"rm_ohm\": {\"rel\": 0.2}} = fs within 50 Hz and Rm within 20 % of the golden crystal.",
+            "it": "\"summary\": {\"fs_hz\": 50, \"rm_ohm\": {\"rel\": 0.2}} = fs entro 50 Hz e Rm entro il 20 % del quarzo campione.",
+            "fr": "\"summary\": {\"fs_hz\": 50, \"rm_ohm\": {\"rel\": 0.2}} = fs à 50 Hz près et Rm à 20 % près du quartz de référence.",
+            "es": "\"summary\": {\"fs_hz\": 50, \"rm_ohm\": {\"rel\": 0.2}} = fs a menos de 50 Hz y Rm a menos del 20 % del cristal de referencia.",
+            "de": "\"summary\": {\"fs_hz\": 50, \"rm_ohm\": {\"rel\": 0.2}} = fs innerhalb von 50 Hz und Rm innerhalb von 20 % des Referenzquarzes."
+          }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        },
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Interrompi se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Abbrechen, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "When the VNA says that its data, or one of the S-parameters read, are not corrected by the calibration, the measurement stops instead of only warning.",
+            "it": "Quando il VNA dice che i suoi dati, o uno dei parametri S letti, non sono corretti dalla calibrazione, la misura si ferma invece di dare solo un avviso.",
+            "fr": "Quand le VNA indique que ses données, ou l'un des paramètres S lus, ne sont pas corrigés par la calibration, la mesure s'arrête au lieu de seulement avertir.",
+            "es": "Cuando el VNA indica que sus datos, o uno de los parámetros S leídos, no están corregidos por la calibración, la medida se detiene en lugar de solo avisar.",
+            "de": "Meldet der VNA, dass seine Daten oder einer der gelesenen S-Parameter nicht durch die Kalibrierung korrigiert sind, bricht die Messung ab, statt nur zu warnen."
+          }
+        }
+      ]
+    }
+  ]
+}

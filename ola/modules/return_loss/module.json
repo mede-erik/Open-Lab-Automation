@@ -21,6 +21,8 @@
                  "description": "the bands where the VSWR is at most this are reported (2 by default)"},
     "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
                                 "description": "return loss and VSWR are reported at these frequencies"},
+    "match_frequencies_hz": {"type": "list", "unit": "Hz", "required": false,
+                             "description": "the two-component L networks that match the measured impedance to z0 are reported at these frequencies (ola.matching)"},
     "limits": {"type": "object", "required": false,
                "description": "pass / fail limit on the return loss in dB, normally a minimum: {\"min\": 10}"},
     "correction": {"type": "object", "required": false,
