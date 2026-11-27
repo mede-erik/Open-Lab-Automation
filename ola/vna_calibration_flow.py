@@ -31,12 +31,69 @@ from typing import Any, Dict, List, Optional
 from .call_errors import CallError, CallNotSupportedError, InvalidArgumentError
 from .fileio import atomic_write_json
 
-KINDS = ("ONE_PORT", "TRANSMISSION_RESPONSE", "TWO_PORT")
+KINDS = (
+    "ONE_PORT",
+    "TRANSMISSION_RESPONSE",
+    "TWO_PORT",
+    "REFLECTION_OPEN",
+    "REFLECTION_SHORT",
+    "TRANSMISSION_RESPONSE_BOTH",
+    "ENHANCED_RESPONSE",
+    "TWO_PORT_UNKNOWN_THRU",
+    "TOM",
+    "TSM",
+    "TRM",
+    "TRL",
+    "TNA",
+)
 KIND_TEXT = {
     "ONE_PORT": "one port (reflection): OPEN, SHORT and LOAD on a port",
     "TRANSMISSION_RESPONSE": "transmission response: a THRU between two ports",
     "TWO_PORT": "two ports (full): OPEN, SHORT and LOAD on both ports and a THRU",
+    "REFLECTION_OPEN": "reflection response: an OPEN on a port (tracking only)",
+    "REFLECTION_SHORT": "reflection response: a SHORT on a port (tracking only)",
+    "TRANSMISSION_RESPONSE_BOTH": "transmission response, both ways: a THRU between two ports",
+    "ENHANCED_RESPONSE": "enhanced response: OPEN, SHORT and LOAD on the source port and a THRU",
+    "TWO_PORT_UNKNOWN_THRU": "two ports (full) with an unknown thru: OPEN, SHORT and LOAD on both "
+    "ports and a THRU of unknown length",
+    "TOM": "two ports, TOM: OPEN and LOAD on both ports and a THRU",
+    "TSM": "two ports, TSM: SHORT and LOAD on both ports and a THRU",
+    "TRM": "two ports, TRM: REFLECT and LOAD on both ports and a THRU",
+    "TRL": "two ports, TRL: REFLECT on both ports, a THRU and a LINE",
+    "TNA": "two ports, TNA: a THRU, an ATTENUATION and a symmetric NETWORK",
 }
+# The standards of each kind, in the order they are measured: (standard, where) with where "1" =
+# the first port, "2" = the second port, "12" = between the two (a two-port standard). The
+# library's ``calibration_begin`` / ``calibration_measure`` turn them into the commands.
+_OSL1 = (("OPEN", "1"), ("SHORT", "1"), ("LOAD", "1"))
+_OSL2 = (("OPEN", "2"), ("SHORT", "2"), ("LOAD", "2"))
+KIND_PLAN = {
+    "ONE_PORT": _OSL1,
+    "REFLECTION_OPEN": (("OPEN", "1"),),
+    "REFLECTION_SHORT": (("SHORT", "1"),),
+    "TRANSMISSION_RESPONSE": (("THRU", "12"),),
+    "TRANSMISSION_RESPONSE_BOTH": (("THRU", "12"),),
+    "ENHANCED_RESPONSE": _OSL1 + (("THRU", "12"),),
+    "TWO_PORT": _OSL1 + _OSL2 + (("THRU", "12"),),
+    "TWO_PORT_UNKNOWN_THRU": _OSL1 + _OSL2 + (("UNKNOWN_THRU", "12"),),
+    "TOM": (("OPEN", "1"), ("LOAD", "1"), ("OPEN", "2"), ("LOAD", "2"), ("THRU", "12")),
+    "TSM": (("SHORT", "1"), ("LOAD", "1"), ("SHORT", "2"), ("LOAD", "2"), ("THRU", "12")),
+    "TRM": (("REFLECT", "1"), ("LOAD", "1"), ("REFLECT", "2"), ("LOAD", "2"), ("THRU", "12")),
+    "TRL": (("REFLECT", "1"), ("REFLECT", "2"), ("TRL_THRU", "12"), ("LINE", "12")),
+    "TNA": (("THRU", "12"), ("ATTENUATION", "12"), ("NETWORK", "12")),
+}
+# kinds with a single port: a second port is not asked for
+ONE_PORT_KINDS = ("ONE_PORT", "REFLECTION_OPEN", "REFLECTION_SHORT")
+# standards between two ports (they carry both port numbers)
+TWO_PORT_STANDARDS = (
+    "THRU",
+    "UNKNOWN_THRU",
+    "TRL_THRU",
+    "LINE",
+    "ISOLATION",
+    "ATTENUATION",
+    "NETWORK",
+)
 RECORD_FORMAT = 1
 
 # questions of the terminal tool for the values of a calibration kit: (field, text); the units are
@@ -82,6 +139,21 @@ def supported_kinds(library, model_id: str) -> List[str]:
     return [k for k in KINDS if k in (kinds or KINDS)]
 
 
+def ecal_kinds(library, model_id: str) -> List[str]:
+    """The kinds a model calibrates with an electronic calibration unit (``calibration_ecal``);
+    none if it has no such call or lists none."""
+    ref = library.find_model(model_id)
+    caps = ref.model.get("capabilities", {}) if ref else {}
+    if "calibration_ecal" not in (library.commands(model_id) or {}):
+        return []
+    return [k for k in KINDS if k in (caps.get("ecal_kinds") or [])]
+
+
+def needs_second_port(kind: str) -> bool:
+    """True if the calibration kind uses two ports."""
+    return kind not in ONE_PORT_KINDS
+
+
 def parse_sweep(start: str, stop: str, points: Any) -> Dict[str, float]:
     """The sweep of a calibration from what the user typed ('1M', '2.4G', ...).
 
@@ -117,9 +189,23 @@ class CalibrationStep:
     @property
     def text(self) -> str:
         """What the operator has to do."""
-        if self.standard == "THRU":
-            return f"Connect a THRU (cable) between port {self.port} and port {self.port2}"
-        article = {"OPEN": "the OPEN", "SHORT": "the SHORT", "LOAD": "the 50 ohm LOAD"}
+        if self.standard in TWO_PORT_STANDARDS:
+            what = {
+                "THRU": "a THRU (cable)",
+                "UNKNOWN_THRU": "an UNKNOWN THRU (a through of unknown length)",
+                "TRL_THRU": "the THRU of the TRL kit",
+                "LINE": "the LINE of the TRL kit",
+                "ISOLATION": "a 50 ohm LOAD on each port (isolation)",
+                "ATTENUATION": "the ATTENUATION standard",
+                "NETWORK": "the symmetric NETWORK standard",
+            }[self.standard]
+            return f"Connect {what} between port {self.port} and port {self.port2}"
+        article = {
+            "OPEN": "the OPEN",
+            "SHORT": "the SHORT",
+            "LOAD": "the 50 ohm LOAD",
+            "REFLECT": "the REFLECT (an OPEN or a SHORT, the same on both ports)",
+        }
         return f"Connect {article[self.standard]} to port {self.port}"
 
 
@@ -127,16 +213,17 @@ def plan_steps(kind: str, port: int, port2: Optional[int] = None) -> List[Calibr
     """The standards of a calibration kind, in the order they are measured."""
     if kind not in KINDS:
         raise InvalidArgumentError(f"unknown calibration kind {kind!r}", call="calibration_begin")
-    if kind != "ONE_PORT" and (port2 is None or port2 == port):
+    if needs_second_port(kind) and (port2 is None or port2 == port):
         raise InvalidArgumentError(
             f"calibration {kind} needs two different ports", call="calibration_begin"
         )
-    if kind == "ONE_PORT":
-        return [CalibrationStep(s, port) for s in ("OPEN", "SHORT", "LOAD")]
-    if kind == "TRANSMISSION_RESPONSE":
-        return [CalibrationStep("THRU", port, port2)]
-    steps = [CalibrationStep(s, p) for p in (port, port2) for s in ("OPEN", "SHORT", "LOAD")]
-    return steps + [CalibrationStep("THRU", port, port2)]
+    steps = []
+    for standard, where in KIND_PLAN[kind]:
+        if where == "12":
+            steps.append(CalibrationStep(standard, port, port2))
+        else:
+            steps.append(CalibrationStep(standard, port if where == "1" else port2))
+    return steps
 
 
 @dataclass
@@ -172,15 +259,45 @@ class CalibrationSession:
         port2: Optional[int] = None,
         sweep: Optional[Dict[str, float]] = None,
         kit: Optional[Dict[str, float]] = None,
+        ecal: bool = False,
     ):
         self.handle, self.kind, self.port, self.port2, self.sweep = handle, kind, port, port2, sweep
         self.kit = kit or None  # values of a real calibration kit; ideal standards if empty
-        self.steps = plan_steps(kind, port, port2)
+        self.ecal = ecal  # an electronic calibration unit does it all: no standards to measure
+        self.steps = [] if ecal else plan_steps(kind, port, port2)
+        if ecal:
+            plan_steps(kind, port, port2)  # the ports are checked in the same way
         self.measured: List[CalibrationStep] = []
         self.applied = False
 
+    def _check_kind(self) -> None:
+        """Refuse a kind the model has no commands for, before anything is sent: the library
+        would plan nothing for it and the calibration would look successful."""
+        library, model_id = getattr(self.handle, "library", None), getattr(
+            self.handle, "model_id", ""
+        )
+        if library is None or not model_id:
+            return  # a handle that does not say what it is (a simulation): the calls decide
+        if self.ecal:
+            if not self.handle.supports("calibration_ecal"):
+                raise CallNotSupportedError(
+                    "this model has no calibration with an electronic calibration unit",
+                    call="calibration_ecal",
+                )
+            allowed = ecal_kinds(library, model_id)
+        else:
+            allowed = supported_kinds(library, model_id)
+        if self.kind not in allowed:
+            how = "with an electronic calibration unit " if self.ecal else ""
+            raise InvalidArgumentError(
+                f"this model does not calibrate {how}with {self.kind} "
+                f"(it does: {', '.join(allowed)})",
+                call="calibration_ecal" if self.ecal else "calibration_begin",
+            )
+
     def start(self) -> None:
         """Set the sweep (a calibration is valid for one sweep) and choose the calibration."""
+        self._check_kind()
         if self.sweep:
             self.handle.call(
                 "set_frequency_sweep",
@@ -188,12 +305,16 @@ class CalibrationSession:
                 stop_frequency=self.sweep["stop"],
                 points=int(self.sweep["points"]),
             )
-        if self.kit is not None:  # CALL-001 if the instrument takes its kit from its own settings
+        if (
+            self.kit is not None and not self.ecal
+        ):  # CALL-001 if the instrument takes its kit itself
             self.handle.call("set_calibration_kit", kit=self.kit)
         args = {"kind": self.kind, "port": self.port}
         if self.port2 is not None:
             args["port2"] = self.port2
-        self.handle.call("calibration_begin", **args)
+        # an electronic calibration unit: one call that measures and applies (CALL-001 if the model
+        # has no such call, CALL-003 for a kind it does not do with a unit)
+        self.handle.call("calibration_ecal" if self.ecal else "calibration_begin", **args)
 
     def measure(self, step: CalibrationStep) -> None:
         """Measure the standard that is connected."""
@@ -213,7 +334,8 @@ class CalibrationSession:
         """Compute the calibration and switch the correction on."""
         if not self.complete:
             raise InvalidArgumentError("some standards have not been measured yet")
-        self.handle.call("calibration_apply")
+        if not self.ecal:  # the calibration unit has computed and applied it already
+            self.handle.call("calibration_apply")
         try:
             self.handle.call("set_correction_state", state=True)
         except CallNotSupportedError:
@@ -241,9 +363,14 @@ class CalibrationSession:
             port2=self.port2,
             sweep=self.sweep,
             kit=self.kit,
-            standards=[
-                f"{s.standard}@{s.port}" + (f"-{s.port2}" if s.port2 else "") for s in self.steps
-            ],
+            standards=(
+                ["ECAL"]
+                if self.ecal
+                else [
+                    f"{s.standard}@{s.port}" + (f"-{s.port2}" if s.port2 else "")
+                    for s in self.steps
+                ]
+            ),
             data=data,
         )
 

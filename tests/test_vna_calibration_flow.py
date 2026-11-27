@@ -72,8 +72,180 @@ def test_kinds_of_the_models():
         "ONE_PORT",
         "TRANSMISSION_RESPONSE",
     ]
-    assert flow.supported_kinds(library, "VNA_Siglent_SNA5002A") == list(flow.KINDS)
-    assert flow.supported_kinds(library, "VNA_RS_ZVL6") == list(flow.KINDS)
+    assert flow.supported_kinds(library, "VNA_Siglent_SNA5002A") == [
+        "ONE_PORT",
+        "TRANSMISSION_RESPONSE",
+        "TWO_PORT",
+        "REFLECTION_OPEN",
+        "REFLECTION_SHORT",
+        "ENHANCED_RESPONSE",
+        "TRL",
+    ]
+    znb = flow.supported_kinds(library, "VNA_RS_ZNB8")
+    assert set(znb) == set(flow.KINDS)  # the ZNB does all of them
+    assert "TNA" in znb and "TNA" not in flow.supported_kinds(library, "VNA_RS_ZNL6")
+    assert flow.supported_kinds(library, "VNA_RS_ZVL6") == [
+        "ONE_PORT",
+        "TRANSMISSION_RESPONSE",
+        "TWO_PORT",
+        "TRANSMISSION_RESPONSE_BOTH",
+        "ENHANCED_RESPONSE",
+    ]
+    assert flow.ecal_kinds(library, "VNA_Zenko_LiteVNA67") == []
+    assert flow.ecal_kinds(library, "VNA_RS_ZVL6") == []
+    assert "TWO_PORT" in flow.ecal_kinds(library, "VNA_Siglent_SNA5002A")
+    assert "TRL" not in flow.ecal_kinds(library, "VNA_Siglent_SNA5002A")
+
+
+def test_steps_of_the_other_kinds():
+    def plan(kind):
+        return [(s.standard, s.port, s.port2) for s in flow.plan_steps(kind, 1, 2)]
+
+    assert plan("REFLECTION_OPEN") == [("OPEN", 1, None)]
+    assert plan("REFLECTION_SHORT") == [("SHORT", 1, None)]
+    assert plan("TRANSMISSION_RESPONSE_BOTH") == [("THRU", 1, 2)]
+    assert plan("ENHANCED_RESPONSE") == [
+        ("OPEN", 1, None),
+        ("SHORT", 1, None),
+        ("LOAD", 1, None),
+        ("THRU", 1, 2),
+    ]
+    assert plan("TWO_PORT_UNKNOWN_THRU")[-1] == ("UNKNOWN_THRU", 1, 2)
+    assert plan("TOM") == [
+        ("OPEN", 1, None),
+        ("LOAD", 1, None),
+        ("OPEN", 2, None),
+        ("LOAD", 2, None),
+        ("THRU", 1, 2),
+    ]
+    assert [s[0] for s in plan("TSM")] == ["SHORT", "LOAD", "SHORT", "LOAD", "THRU"]
+    assert [s[0] for s in plan("TRM")] == ["REFLECT", "LOAD", "REFLECT", "LOAD", "THRU"]
+    assert plan("TRL") == [
+        ("REFLECT", 1, None),
+        ("REFLECT", 2, None),
+        ("TRL_THRU", 1, 2),
+        ("LINE", 1, 2),
+    ]
+    assert plan("TNA") == [("THRU", 1, 2), ("ATTENUATION", 1, 2), ("NETWORK", 1, 2)]
+    for kind in flow.KINDS:  # every step can be read by the operator
+        assert all(s.text.startswith("Connect") for s in flow.plan_steps(kind, 1, 2))
+    # one-port kinds take no second port, every other kind needs two different ports
+    assert not flow.needs_second_port("REFLECTION_SHORT") and flow.needs_second_port("TRL")
+    for kind in flow.KINDS:
+        if flow.needs_second_port(kind):
+            with pytest.raises(InvalidArgumentError):
+                flow.plan_steps(kind, 2, 2)
+    assert set(flow.KIND_PLAN) == set(flow.KINDS) == set(flow.KIND_TEXT)
+
+
+@needs_library
+def test_every_kind_of_every_vna_can_be_planned():
+    """Every kind a model lists is turned into commands by the library, for the begin call, for
+    every standard of the kind and (when listed) for the electronic calibration unit."""
+    from ola.tester import describe_plan
+
+    library = Library.load(LIB)
+    checked = 0
+    models = [
+        m["id"]
+        for s in json.load(open(LIB))["instrument_library"]["network_analyzers_series"]
+        for m in s["models"]
+        if m["capabilities"].get("calibration") == "instrument"
+    ]
+    assert models
+    for model_id in models:
+        for kind in flow.supported_kinds(library, model_id):
+            args = {"kind": kind, "port": 1}
+            if flow.needs_second_port(kind):
+                args["port2"] = 2
+            assert describe_plan(library, model_id, "calibration_begin", args), (model_id, kind)
+            for step in flow.plan_steps(kind, 1, 2):
+                margs = {"standard": step.standard, "port": step.port}
+                if step.port2:
+                    margs["port2"] = step.port2
+                assert describe_plan(library, model_id, "calibration_measure", margs), (
+                    model_id,
+                    kind,
+                    step.standard,
+                )
+                checked += 1
+        for kind in flow.ecal_kinds(library, model_id):
+            args = {"kind": kind, "port": 1}
+            if flow.needs_second_port(kind):
+                args["port2"] = 2
+            assert describe_plan(library, model_id, "calibration_ecal", args), (model_id, kind)
+    assert checked > 100
+
+
+@needs_library
+def test_trl_and_ecal_commands_of_the_instruments():
+    from ola.tester import describe_plan
+
+    library = Library.load(LIB)
+    sig, znb = "VNA_Siglent_SNA5002A", "VNA_RS_ZNB8"
+    assert describe_plan(
+        library, sig, "calibration_begin", {"kind": "TRL", "port": 1, "port2": 2}
+    ) == [":SENSe1:CORRection:COLLect:METHod:TRL2 1,2"]
+    commands = [
+        describe_plan(library, sig, "calibration_measure", dict(standard=st, port=1, port2=2))[0]
+        for st in ("TRL_THRU", "LINE")
+    ]
+    assert commands == [
+        ":SENSe1:CORRection:COLLect:ACQuire:TRLThru 2,1",
+        ":SENSe1:CORRection:COLLect:ACQuire:TRLLine 2,1",
+    ]
+    assert describe_plan(
+        library, sig, "calibration_begin", {"kind": "ENHANCED_RESPONSE", "port": 1, "port2": 2}
+    ) == [":SENSe1:CORRection:COLLect:METHod:ERESponse 2,1"]
+    assert describe_plan(
+        library, znb, "calibration_begin", {"kind": "TWO_PORT_UNKNOWN_THRU", "port": 1, "port2": 2}
+    ) == ["SENSe1:CORRection:COLLect:METHod:DEFine 'OLA', UOSM, 1,2"]
+    assert (
+        describe_plan(
+            library, znb, "calibration_measure", {"standard": "UNKNOWN_THRU", "port": 1, "port2": 2}
+        )[0]
+        == "SENSe1:CORRection:COLLect:ACQuire:SELected UTHRough,1,2"
+    )
+    assert describe_plan(library, znb, "calibration_ecal", {"kind": "ONE_PORT", "port": 2})[0] == (
+        "SENSe1:CORRection:COLLect:AUTO:TYPE FOPort, '', 2"
+    )
+
+
+@needs_library
+def test_trl_session_on_an_scpi_vna():
+    library = Library.load(LIB)
+    sim = SimTransport(lambda cmd: "1" if cmd == "*OPC?" else None)
+    handle = make_handle(library, "VNA_Siglent_SNA5002A", sim, "vna")
+    session = flow.CalibrationSession(handle, "TRL", 1, 2, SWEEP)
+    session.start()
+    assert [s.standard for s in session.steps] == ["REFLECT", "REFLECT", "TRL_THRU", "LINE"]
+    for step in session.steps:
+        session.measure(step)
+    session.finish()
+    assert ":SENSe1:CORRection:COLLect:METHod:TRL2 1,2" in sim.log
+    assert ":SENSe1:CORRection:COLLect:ACQuire:TRLReflect 2" in sim.log
+    assert ":SENSe1:CORRection:COLLect:SAVE" in sim.log
+
+
+@needs_library
+def test_ecal_session_measures_nothing_and_applies_nothing():
+    library = Library.load(LIB)
+    sim = SimTransport(lambda cmd: "1" if cmd == "*OPC?" else None)
+    handle = make_handle(library, "VNA_Siglent_SNA5002A", sim, "vna")
+    session = flow.CalibrationSession(handle, "TWO_PORT", 1, 2, SWEEP, ecal=True)
+    assert session.steps == [] and session.complete
+    session.start()
+    session.finish()
+    assert ":SENSe1:CORRection:COLLect:ECal:SOLT2 1,2" in sim.log
+    assert not any("COLLect:SAVE" in c or "ACQuire" in c for c in sim.log)
+    assert ":SENSe1:CORRection:STATe ON" in sim.log
+    assert session.record("sna", "VNA_Siglent_SNA5002A").standards == ["ECAL"]
+    # a kind the unit cannot do is refused by the library, before anything is sent
+    other = flow.CalibrationSession(handle, "TRL", 1, 2, SWEEP, ecal=True)
+    from ola.call_errors import CallError
+
+    with pytest.raises(CallError):
+        other.start()
 
 
 def gamma(f):
