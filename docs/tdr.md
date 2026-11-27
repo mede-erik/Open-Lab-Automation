@@ -64,6 +64,8 @@ the default threshold).
 | `limits` | `max_fault_reflection`: the largest reflection allowed **before the end of the line** |
 | `golden` | optional: check the result against a **golden sample** of the project: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
+
 ## How to measure
 
 1. Calibrate the VNA (open / short / load, **one port**) at the plane of the connector the line goes on, over the sweep you will use.

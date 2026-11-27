@@ -61,6 +61,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 TYPES = ("lowpass", "highpass", "bandpass", "bandstop")
@@ -192,12 +194,25 @@ def compute_response(
         return_loss = rf.return_loss_db(s11)
         scope = [return_loss[i] for i in in_band] if band else return_loss
         summary["min_return_loss_db"] = min(scope)
-    delay = rf.group_delay_s(freq, s21) if len(freq) >= 2 else []
+    delay = (
+        rf.group_delay_s(freq, s21, int(params.get("group_delay_aperture", 1)))
+        if len(freq) >= 2
+        else []
+    )
     return {"gain_db": gain, "delay_s": delay, "summary": summary, "missing": missing}
+
+
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
 
 
 class FilterResponse(Measurement):
     """Frequency response of a filter with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -221,7 +236,10 @@ class FilterResponse(Measurement):
                 mode="transmission",
             )
         wanted = wanted_parameters(p, ["S21"] + (["S11"] if p.get("also_s11") else []))
-        freq, raw = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
+        freq, raw = acquire(
+            ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )  # fmt: skip
         traces, info = apply_fixtures(ctx, p, freq, raw)
         self._report(ctx, freq, traces, raw, info)
 

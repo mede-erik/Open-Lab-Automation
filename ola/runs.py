@@ -287,16 +287,22 @@ def export_touchstone(
     run_path: Union[str, Path],
     path: Union[str, Path],
     names: Optional[Mapping[str, str]] = None,
-    z0: float = 50.0,
+    z0: Optional[float] = None,
     fmt: str = "RI",
     unit: str = "HZ",
 ) -> int:
     """Write the S-parameter traces of a run as a Touchstone file and return the number of
     frequency points. ``names`` maps a parameter to the name of its trace, for example
     ``{"S21": "S21"}`` (the default: every trace called S11, S21, S12 or S22). All the traces
-    must have the same frequencies. The file extension should be ``.s1p`` or ``.s2p``."""
+    must have the same frequencies. The file extension should be ``.s1p`` or ``.s2p``. The
+    reference impedance written in the file is ``z0``, or the ``z0`` of the measurement (the
+    reference impedance of the VNA), or 50 ohm."""
     from . import rf
 
+    if z0 is None:
+        params = (read_run(run_path).get("header") or {}).get("params") or {}
+        given = params.get("z0") if isinstance(params, dict) else None
+        z0 = float(given) if isinstance(given, (int, float)) and given > 0 else 50.0
     traces = last_traces(run_path)
     mapping = dict(names) if names else {k: k for k in ("S11", "S21", "S12", "S22") if k in traces}
     if not mapping:

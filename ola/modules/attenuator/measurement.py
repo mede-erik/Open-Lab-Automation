@@ -11,11 +11,11 @@ Parameters (``.att`` file)::
      "sweep": {"start_hz": 1e6, "stop_hz": 6e9, "points": 401, "scale": "linear"},
      "frequencies_of_interest": [433e6, 2.4e9],      # optional
      "limits": {"bands": [{"from": 0, "to": 6e9, "min": 9, "max": 11}]},   # optional, in dB
-     "also_return_loss": true, "averages": 1, "confirm_setup": true,
+     "also_s11": true, "averages": 1, "confirm_setup": true,
      "correction": {"port1": {"asset_id": "CBL-0042"}}}     # optional: see below
 
 The attenuator goes between port 1 and port 2 of the VNA, calibrated beforehand by the user (with
-the test leads, thru). The measurement reads S21 and, unless ``also_return_loss`` is false, S11 and
+the test leads, thru). The measurement reads S21 and, unless ``also_s11`` is false, S11 and
 S22, see ``docs/vna-calls.md``. The **attenuation** is ``-20 log10 |S21|`` in dB, a *positive*
 number (a 10 dB attenuator reads 10), unlike the gain of a filter.
 
@@ -55,6 +55,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 
@@ -64,7 +66,7 @@ def default_params() -> Dict[str, Any]:
         "attenuator": {"label": "", "nominal_db": 10, "tolerance_db": 0.5},
         "sweep": {"start_hz": 1e6, "stop_hz": 3e9, "points": 401, "scale": "linear"},
         "frequencies_of_interest": [],
-        "also_return_loss": True,
+        "also_s11": True,
         "averages": 1,
         "confirm_setup": True,
     }
@@ -91,7 +93,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
             out.append(Problem("attenuator.nominal_db", "the tolerance needs the nominal value"))
     check_asset(params, "attenuator", out)
     check_fixtures(params, out, Problem)
-    check_common(params, out, start, stop, booleans=("also_return_loss", "confirm_setup"))
+    check_common(params, out, start, stop, booleans=("also_s11", "confirm_setup"))
     check_golden_param(params, out)
     return out
 
@@ -150,8 +152,17 @@ def compute_attenuation(
     return {"attenuation_db": att, "summary": summary}
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class AttenuatorSweep(Measurement):
     """Attenuation of an attenuator against frequency; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -174,9 +185,12 @@ class AttenuatorSweep(Measurement):
                 connect_key="run_connect_attenuator",
                 mode="transmission",
             )
-        wanted = ["S21"] + (["S11", "S22"] if p.get("also_return_loss", True) else [])
+        wanted = ["S21"] + (["S11", "S22"] if p.get("also_s11", True) else [])
         wanted = wanted_parameters(p, wanted)
-        freq, raw = acquire(ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)))
+        freq, raw = acquire(
+            ctx, handle, p["sweep"], wanted, int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )  # fmt: skip
         traces, info = apply_fixtures(ctx, p, freq, raw)
         self._report(ctx, freq, traces, raw, info)
 

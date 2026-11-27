@@ -56,6 +56,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 MODES = ("transmission", "reflection")
@@ -156,12 +158,13 @@ def compute_results(
     (transmission) or ``S11`` (reflection), and optionally ``S11`` in transmission."""
     mode = params.get("mode", "transmission")
     length = (params.get("cable") or {}).get("length_m")
+    aperture = int(params.get("group_delay_aperture", 1))  # points on each side of the slope
     if mode == "transmission":
         loss = rf.insertion_loss_db(traces["S21"])
-        delay = rf.group_delay_s(freq, traces["S21"])
+        delay = rf.group_delay_s(freq, traces["S21"], aperture)
     else:  # the signal goes to the far end and back
         loss = [v / 2 for v in rf.return_loss_db(traces["S11"])]
-        delay = [d / 2 for d in rf.group_delay_s(freq, traces["S11"])]
+        delay = [d / 2 for d in rf.group_delay_s(freq, traces["S11"], aperture)]
     result: Dict[str, Any] = {"loss_db": loss, "delay_s": delay}
     if length:
         result["loss_db_per_m"] = [v / length for v in loss]
@@ -194,8 +197,17 @@ def compute_results(
     return result
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class CableCharacterization(Measurement):
     """Loss of an RF cable with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -221,7 +233,13 @@ class CableCharacterization(Measurement):
         # the loss of a cable between two ports is S21: without a thru calibration it is wrong
         need = ["S21"] if mode == "transmission" else []
         freq, traces = acquire(
-            ctx, handle, sweep, wanted, int(p.get("averages", 1)), require_corrected=need
+            ctx,
+            handle,
+            sweep,
+            wanted,
+            int(p.get("averages", 1)),
+            require_corrected=need,
+            require_calibration=bool(p.get("require_calibration", False)),
         )
         self._report(ctx, freq, traces)
 
@@ -236,9 +254,7 @@ class CableCharacterization(Measurement):
                 f"on the other end."
             )
             key, args = "run_connect_cable_reflection", {"far": far}
-        ask_setup(
-            ctx, connect, self.params["sweep"], connect_key=key, connect_args=args, mode=mode
-        )
+        ask_setup(ctx, connect, self.params["sweep"], connect_key=key, connect_args=args, mode=mode)
 
     def _report(self, ctx: MeasurementContext, freq: List[float], traces: Dict[str, List[complex]]):
         p = self.params
