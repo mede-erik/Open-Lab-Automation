@@ -1,0 +1,37 @@
+{
+  "id": "component",
+  "name": "Component impedance (L, C, R)",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".cmp",
+  "entry": "measurement.py:ComponentImpedance",
+  "description": "The impedance of an inductor, a capacitor, a resistor or a ferrite with a vector network analyzer (VNA), connected to ground on port 1 (reflection), in series between the ports (series-thru, for high impedances) or from a thru line to ground (shunt-thru, for low impedances): |Z|, R, X, the inductance or capacitance, ESR, Q, the self-resonance, and a check against the nominal value. The transmission methods need only S11 and S21: they work with a forward-only VNA such as the LiteVNA.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer, calibrated at the plane where the component connects (one port for reflection; one port and a thru for series and shunt)"}
+  ],
+  "params_schema": {
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm"},
+    "device": {"type": "object", "required": false,
+               "description": "label identifies the component; asset_id is its code in the registry"},
+    "method": {"type": "string", "required": false,
+               "description": "reflection (to ground on port 1), series (between the ports) or shunt (from a thru line to ground); series by default"},
+    "kind": {"type": "string", "required": false,
+             "description": "auto (guessed from the reactance), inductor, capacitor or resistor"},
+    "nominal": {"type": "object", "required": false,
+                "description": "value (H, F or ohm), tolerance_pct (10 by default) and frequency_hz where it is checked"},
+    "frequencies_of_interest": {"type": "list", "unit": "Hz", "required": false,
+                                "description": "the impedance, the value and Q are reported at these frequencies"},
+    "z0": {"type": "number", "unit": "ohm", "required": false,
+           "description": "reference impedance of the VNA (50 by default)"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name or run, and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "require_calibration": {"type": "boolean", "required": false,
+                            "description": "stop if the VNA says the data, or the S-parameter read, are not corrected by the calibration (default: warn)"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the component"}
+  }
+}
