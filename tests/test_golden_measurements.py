@@ -152,7 +152,7 @@ def test_sparameters_pairs_the_sweeps_and_checks_the_last_curves(registry, tmp_p
     from ola.sim_vna import SimVna
 
     params = {"start_hz": 1e6, "stop_hz": 3e9, "points": 101, "sparameters": ["S21"],
-              "sweeps": 2}  # fmt: skip
+              "sweeps": 2, "confirm_setup": False}  # fmt: skip
 
     def vna(loss):
         return lambda: {"vna": [SimVna(library_calls=True, loss_db_per_m_at_1ghz=loss)]}

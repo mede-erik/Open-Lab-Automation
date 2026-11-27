@@ -89,6 +89,7 @@
   "run_far_short": "en court-circuit",
   "run_connect_antenna": "Connectez l'antenne au port 1 du VNA.",
   "run_connect_device": "Connectez le dispositif testé au port 1 du VNA.",
+  "run_connect_sparameters": "Connectez le dispositif sous test au VNA (il lit {parameters}).",
   "run_connect_behind_cable_antenna": "L'antenne se trouve derrière le câble mesuré : connectez ce câble au port 1 du VNA (étalonné au bout du cordon de test, SANS le câble) et l'antenne à son autre extrémité.",
   "run_connect_behind_cable_device": "Le dispositif se trouve derrière le câble mesuré : connectez ce câble au port 1 du VNA (étalonné au bout du cordon de test, SANS le câble) et le dispositif testé à son autre extrémité.",
   "run_connect_line": "Connectez la ligne testée au port 1 du VNA, son extrémité éloignée ouverte, en court-circuit ou sur le dispositif.",

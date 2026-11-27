@@ -92,7 +92,8 @@ def test_good_parameters_have_no_problems(registry):
         ({"max_input_dbm": "high"}, "max_input_dbm", "number"),
         ({"passband": {"from_hz": 900e6, "to_hz": 800e6}}, "passband", "from_hz below"),
         ({"passband": {"from_hz": 100e6, "to_hz": 800e6}}, "passband", "inside the sweep"),
-        ({"gain_edge_db": 0}, "gain_edge_db", "above 0"),
+        ({"edge_db": 0}, "edge_db", "above 0"),
+        ({"gain_edge_db": 0}, "edge_db", "above 0"),  # the old name is read too
         ({"compression": "yes"}, "compression", "must be an object"),
         ({"compression": comp(frequency_hz=5e9)}, "compression.frequency_hz", "inside"),
         ({"compression": comp(start_dbm="low")}, "compression.start_dbm", "dBm"),

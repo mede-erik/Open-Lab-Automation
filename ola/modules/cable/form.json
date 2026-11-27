@@ -175,6 +175,25 @@
             "es": "Medir también la pérdida de retorno del cable (S11)",
             "de": "Auch die Rückflussdämpfung des Kabels messen (S11)"
           }
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance of the VNA",
+            "it": "Impedenza di riferimento del VNA",
+            "fr": "Impédance de référence du VNA",
+            "es": "Impedancia de referencia del VNA",
+            "de": "Bezugsimpedanz des VNA"
+          },
+          "help": {
+            "en": "The impedance the VNA is calibrated to, 50 ohm by default (75 ohm with a 75 ohm calibration). Also written in the Touchstone export.",
+            "it": "L'impedenza a cui è calibrato il VNA, 50 ohm se non indicata (75 ohm con una calibrazione a 75 ohm). Viene scritta anche nell'export Touchstone.",
+            "fr": "L'impédance à laquelle le VNA est calibré, 50 ohms par défaut (75 ohms avec une calibration à 75 ohms). Elle est aussi écrite dans l'export Touchstone.",
+            "es": "La impedancia a la que está calibrado el VNA, 50 ohmios por defecto (75 ohmios con una calibración a 75 ohmios). También se escribe en la exportación Touchstone.",
+            "de": "Die Impedanz, auf die der VNA kalibriert ist, standardmäßig 50 Ohm (75 Ohm bei einer 75-Ohm-Kalibrierung). Wird auch in den Touchstone-Export geschrieben."
+          }
         }
       ]
     },
@@ -352,6 +371,24 @@
           }
         },
         {
+          "path": "group_delay_aperture",
+          "kind": "int",
+          "label": {
+            "en": "Group delay: points on each side",
+            "it": "Ritardo di gruppo: punti per lato",
+            "fr": "Temps de propagation de groupe : points de chaque côté",
+            "es": "Retardo de grupo: puntos a cada lado",
+            "de": "Gruppenlaufzeit: Punkte je Seite"
+          },
+          "help": {
+            "en": "The slope of the phase is taken over this many points on each side (1 by default). More points smooth the noise of the phase and hide narrow details.",
+            "it": "La pendenza della fase è presa su questo numero di punti per lato (1 se non indicato). Più punti riducono il rumore della fase e nascondono i dettagli stretti.",
+            "fr": "La pente de la phase est prise sur ce nombre de points de chaque côté (1 par défaut). Plus de points lissent le bruit de phase et masquent les détails étroits.",
+            "es": "La pendiente de la fase se toma sobre este número de puntos a cada lado (1 por defecto). Más puntos suavizan el ruido de fase y ocultan los detalles estrechos.",
+            "de": "Die Steigung der Phase wird über so viele Punkte je Seite bestimmt (standardmäßig 1). Mehr Punkte glätten das Phasenrauschen und verbergen schmale Details."
+          }
+        },
+        {
           "path": "limits",
           "kind": "json",
           "label": {
@@ -425,6 +462,24 @@
             "fr": "Demander de calibrer et connecter avant de mesurer",
             "es": "Pedir calibrar y conectar antes de medir",
             "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        },
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Interrompi se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Abbrechen, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "When the VNA says that its data, or one of the S-parameters read, are not corrected by the calibration, the measurement stops instead of only warning.",
+            "it": "Quando il VNA dice che i suoi dati, o uno dei parametri S letti, non sono corretti dalla calibrazione, la misura si ferma invece di dare solo un avviso.",
+            "fr": "Quand le VNA indique que ses données, ou l'un des paramètres S lus, ne sont pas corrigés par la calibration, la mesure s'arrête au lieu de seulement avertir.",
+            "es": "Cuando el VNA indica que sus datos, o uno de los parámetros S leídos, no están corregidos por la calibración, la medida se detiene en lugar de solo avisar.",
+            "de": "Meldet der VNA, dass seine Daten oder einer der gelesenen S-Parameter nicht durch die Kalibrierung korrigiert sind, bricht die Messung ab, statt nur zu warnen."
           }
         }
       ]

@@ -297,7 +297,8 @@ class CalibrationDialog(QDialog):
         self.port2.setValue(min(2, ports))
 
     def _kind_changed(self) -> None:
-        self.port2.setEnabled(self.kind.currentData() not in (None, "ONE_PORT"))
+        kind = self.kind.currentData()
+        self.port2.setEnabled(kind is not None and flow.needs_second_port(kind))
 
     def _kit_values(self) -> Optional[Dict[str, float]]:
         """The kit typed in the window, or None for ideal standards."""
@@ -367,7 +368,7 @@ class CalibrationDialog(QDialog):
         """Check the settings, connect to the instrument and choose the calibration."""
         kind = self.kind.currentData()
         port = self.port.value()
-        port2 = None if kind == "ONE_PORT" else self.port2.value()
+        port2 = self.port2.value() if flow.needs_second_port(kind) else None
         try:
             sweep = flow.parse_sweep(self.start.text(), self.stop.text(), self.points.value())
             flow.plan_steps(kind, port, port2)  # the ports are checked before connecting

@@ -26,6 +26,25 @@
             "es": "El analizador de redes, calibrado para este barrido en los conectores del dispositivo.",
             "de": "Der Netzwerkanalysator, für diesen Sweep an den Anschlüssen des Messobjekts kalibriert."
           }
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance of the VNA",
+            "it": "Impedenza di riferimento del VNA",
+            "fr": "Impédance de référence du VNA",
+            "es": "Impedancia de referencia del VNA",
+            "de": "Bezugsimpedanz des VNA"
+          },
+          "help": {
+            "en": "The impedance the VNA is calibrated to, 50 ohm by default (75 ohm with a 75 ohm calibration). Also written in the Touchstone export.",
+            "it": "L'impedenza a cui è calibrato il VNA, 50 ohm se non indicata (75 ohm con una calibrazione a 75 ohm). Viene scritta anche nell'export Touchstone.",
+            "fr": "L'impédance à laquelle le VNA est calibré, 50 ohms par défaut (75 ohms avec une calibration à 75 ohms). Elle est aussi écrite dans l'export Touchstone.",
+            "es": "La impedancia a la que está calibrado el VNA, 50 ohmios por defecto (75 ohmios con una calibración a 75 ohmios). También se escribe en la exportación Touchstone.",
+            "de": "Die Impedanz, auf die der VNA kalibriert ist, standardmäßig 50 Ohm (75 Ohm bei einer 75-Ohm-Kalibrierung). Wird auch in den Touchstone-Export geschrieben."
+          }
         }
       ]
     },
@@ -39,7 +58,7 @@
       },
       "fields": [
         {
-          "path": "start_hz",
+          "path": "sweep.start_hz",
           "kind": "number",
           "unit": "Hz",
           "label": {
@@ -58,7 +77,7 @@
           }
         },
         {
-          "path": "stop_hz",
+          "path": "sweep.stop_hz",
           "kind": "number",
           "unit": "Hz",
           "label": {
@@ -77,7 +96,7 @@
           }
         },
         {
-          "path": "points",
+          "path": "sweep.points",
           "kind": "int",
           "label": {
             "en": "Points",
@@ -93,6 +112,39 @@
             "es": "Espaciado lineal, al menos 2.",
             "de": "Linearer Abstand, mindestens 2."
           }
+        },
+        {
+          "path": "sweep.scale",
+          "kind": "choice",
+          "label": {
+            "en": "Spacing",
+            "it": "Spaziatura",
+            "fr": "Espacement",
+            "es": "Espaciado",
+            "de": "Abstand"
+          },
+          "choices": [
+            {
+              "value": "linear",
+              "label": {
+                "en": "Linear",
+                "it": "Lineare",
+                "fr": "Linéaire",
+                "es": "Lineal",
+                "de": "Linear"
+              }
+            },
+            {
+              "value": "log",
+              "label": {
+                "en": "Logarithmic",
+                "it": "Logaritmica",
+                "fr": "Logarithmique",
+                "es": "Logarítmica",
+                "de": "Logarithmisch"
+              }
+            }
+          ]
         },
         {
           "path": "sparameters",
@@ -131,7 +183,7 @@
           ]
         },
         {
-          "path": "if_bandwidth_hz",
+          "path": "sweep.if_bandwidth_hz",
           "kind": "number",
           "unit": "Hz",
           "label": {
@@ -150,7 +202,7 @@
           }
         },
         {
-          "path": "power_dbm",
+          "path": "sweep.power_dbm",
           "kind": "number",
           "unit": "dBm",
           "label": {
@@ -215,6 +267,17 @@
             "es": "Tiempo entre los inicios de dos barridos; 0 = uno tras otro.",
             "de": "Zeit zwischen den Starts zweier Sweeps; 0 = direkt nacheinander."
           }
+        },
+        {
+          "path": "averages",
+          "kind": "int",
+          "label": {
+            "en": "Sweeps to average",
+            "it": "Sweep da mediare",
+            "fr": "Balayages à moyenner",
+            "es": "Barridos a promediar",
+            "de": "Zu mittelnde Sweeps"
+          }
         }
       ]
     },
@@ -243,6 +306,17 @@
             "fr": "Sinon les données sont enregistrées et le journal indique une fois qu'elles ne sont pas calibrées.",
             "es": "Si no, los datos se registran y el registro indica una vez que no están calibrados.",
             "de": "Sonst werden die Daten aufgezeichnet und das Protokoll meldet einmal, dass sie nicht kalibriert sind."
+          }
+        },
+        {
+          "path": "confirm_setup",
+          "kind": "bool",
+          "label": {
+            "en": "Ask to calibrate and connect before measuring",
+            "it": "Chiedi di calibrare e collegare prima di misurare",
+            "fr": "Demander de calibrer et connecter avant de mesurer",
+            "es": "Pedir calibrar y conectar antes de medir",
+            "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
           }
         },
         {

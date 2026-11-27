@@ -19,8 +19,10 @@ The two logical calls asked of every VNA are described in ``docs/vna-calls.md``.
 
 from __future__ import annotations
 
+import copy
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from . import vna_coverage
 from .call_errors import CallError
 from .efficiency_spec import Problem
 from .limits import LimitError, parse_limits
@@ -195,7 +197,8 @@ def check_common(
     booleans: Sequence[str] = ("confirm_setup",),
 ) -> None:
     """Check the fields every VNA measurement has: ``frequencies_of_interest`` (inside the
-    sweep), ``limits``, ``averages`` and the true / false ``booleans``."""
+    sweep), ``limits``, ``averages``, ``z0`` (the reference impedance of the VNA),
+    ``group_delay_aperture``, ``require_calibration`` and the true / false ``booleans``."""
     wanted = params.get("frequencies_of_interest", [])
     if not isinstance(wanted, list) or not all(is_number(f) and f > 0 for f in wanted):
         out.append(Problem("frequencies_of_interest", "must be a list of frequencies above 0 (Hz)"))
@@ -216,9 +219,57 @@ def check_common(
         or not 1 <= averages <= MAX_AVERAGES
     ):
         out.append(Problem("averages", f"must be a whole number from 1 to {MAX_AVERAGES}"))
-    for key in booleans:
+    for key in tuple(booleans) + ("require_calibration",):
         if key in params and not isinstance(params[key], bool):
             out.append(Problem(key, "must be true or false"))
+    if "z0" in params and (not is_number(params["z0"]) or params["z0"] <= 0):
+        out.append(Problem("z0", "the reference impedance must be a number above 0 (ohm)"))
+    aperture = params.get("group_delay_aperture", 1)
+    if not isinstance(aperture, int) or isinstance(aperture, bool) or not 1 <= aperture <= 50:
+        out.append(Problem("group_delay_aperture", "must be a whole number of points from 1 to 50"))
+
+
+# ----- old names of the parameters -------------------------------------------------------------
+# keys that the VNA measurements renamed so that the same thing has the same name everywhere:
+# ``{old: new}``. A file written before keeps working: the old key is read when the new one is
+# missing (``upgrade_params``), and the editor writes the new one.
+RENAMED = {
+    "also_return_loss": "also_s11",  # attenuator
+    "gain_edge_db": "edge_db",  # amplifier
+}
+# the sweep of the S-parameters measurement was at the top of the file, not in ``sweep``
+FLAT_SWEEP_KEYS = ("start_hz", "stop_hz", "points", "if_bandwidth_hz", "power_dbm", "scale")
+
+
+def upgrade_params(
+    params: Dict[str, Any], renamed: Mapping[str, str] = RENAMED, flat_sweep: bool = False
+) -> bool:
+    """Give the parameters of a file written before the common names their new names, in place:
+    each old key of ``renamed`` becomes the new one (unless the new one is there: it wins), and with
+    ``flat_sweep`` the sweep keys at the top move into ``sweep``. Returns True if anything
+    changed."""
+    changed = False
+    for old, new in renamed.items():
+        if old in params:
+            value = params.pop(old)
+            params.setdefault(new, value)
+            changed = True
+    if flat_sweep and not isinstance(params.get("sweep"), dict):
+        moved = {k: params.pop(k) for k in FLAT_SWEEP_KEYS if k in params}
+        if moved:
+            params["sweep"] = moved
+            changed = True
+    return changed
+
+
+def upgraded(
+    params: Mapping[str, Any], renamed: Mapping[str, str] = RENAMED, flat_sweep: bool = False
+) -> Dict[str, Any]:
+    """A copy of ``params`` with the new names (see ``upgrade_params``); ``params`` is not
+    changed."""
+    out = copy.deepcopy(dict(params))
+    upgrade_params(out, renamed, flat_sweep)
+    return out
 
 
 # ----- the sweep and the data -----------------------------------------------------------------
@@ -392,6 +443,8 @@ def acquire(
     averages: int = 1,
     notes: bool = True,
     require_corrected: Sequence[str] = (),
+    require_calibration: bool = False,
+    status: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[float], Dict[str, List[complex]]]:
     """Set the sweep, read the S-parameters ``parameters`` ``averages`` times, and return
     ``(frequencies, {parameter: mean values})``. Reports progress and honours Stop.
@@ -404,10 +457,19 @@ def acquire(
 
     ``require_corrected`` names parameters that must be corrected by the calibration: if the
     instrument says it did not correct one of them, ``MeasurementError`` is raised on the first
-    sweep (a measurement that would give wrong numbers does not run)."""
+    sweep (a measurement that would give wrong numbers does not run). ``require_calibration``
+    (the parameter of the same name of every VNA measurement) does the same for all the
+    ``parameters``, and also stops when the instrument says its data are not calibrated. An
+    instrument with the simple calls does not say: nothing is checked then.
+
+    ``status``, if given, is filled with what the instrument said about the calibration of the
+    first sweep: ``calibrated`` (True / False, None if it does not say) and ``uncorrected``."""
     library = uses_library_calls(handle)
     if notes:
         for note in sweep_notes(handle, sweep):
+            ctx.log(note, "warning")
+        # what the calibration made with the program corrects, against what is read (advisory)
+        for note in vna_coverage.problems(getattr(handle, "calibration", None) or {}, parameters):
             ctx.log(note, "warning")
     for note in set_sweep(handle, sweep):
         if notes:
@@ -419,7 +481,15 @@ def acquire(
         ctx.checkpoint()
         if library:
             freq, got, calibrated, uncorrected = _library_read(handle, parameters, nominal)
-            missing = [n for n in require_corrected if n in uncorrected]
+            if status is not None and sweep_no == 1:
+                status["calibrated"], status["uncorrected"] = calibrated, list(uncorrected)
+            if require_calibration and not calibrated:
+                raise MeasurementError(
+                    "the VNA says its data are not calibrated, and this measurement requires a "
+                    "calibration: calibrate it (or apply its calibration) for this sweep first"
+                )
+            strict = list(parameters) if require_calibration else list(require_corrected)
+            missing = [n for n in strict if n in uncorrected]
             if missing:
                 raise MeasurementError(
                     f"{', '.join(missing)} is not corrected by the calibration of the VNA: "
@@ -443,6 +513,8 @@ def acquire(
                     )
             reads = list(got.items())
         else:
+            if status is not None and sweep_no == 1:
+                status["calibrated"], status["uncorrected"] = None, []
             reads = []
             for name in parameters:
                 ctx.checkpoint()

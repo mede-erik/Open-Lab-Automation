@@ -300,7 +300,7 @@ class ProjectSession:
         sweep stops the run here (``MeasurementError`` with the two sweeps): the driver would refuse
         to read, after the questions of the measurement."""
         from .compat import sweep_of
-        from .vna_calibration_flow import auto_restore, sweep_problem
+        from .vna_calibration_flow import auto_restore, note_kept_calibration, sweep_problem
         from .vna_power_state import POWER_STATE
 
         sweep = sweep_of(params)
@@ -320,6 +320,7 @@ class ProjectSession:
                 raise MeasurementError(f"{handle.name}: {problem}")
             try:
                 auto_restore(handle, self.project.path, sweep)
+                note_kept_calibration(handle, self.project.path)  # which kind the VNA holds
             except Exception as exc:
                 log.warning("the calibration of %s was not restored: %s", handle.name, exc)
 

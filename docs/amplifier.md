@@ -27,7 +27,7 @@ From the four S-parameters, read in one sweep (the amplifier is not reciprocal, 
 | Quantity | From | Notes |
 |---|---|---|
 | **gain** | `S21` in dB | peak gain and where, gain at chosen frequencies, **flatness** (max - min) in the band |
-| **band** | the gain curve | the **edges** where the gain is `gain_edge_db` (3) below its peak, and the bandwidth; if an edge is outside the sweep the log says so |
+| **band** | the gain curve | the **edges** where the gain is `edge_db` (3) below its peak, and the bandwidth; if an edge is outside the sweep the log says so |
 | **input / output return loss** | `S11` / `S22` | the worst value in the band |
 | **reverse isolation** | `-S12` in dB | the smallest (worst) value in the band |
 | **stability** | all four | the Rollett factor **K**, `|delta|` and the factor **mu** (see below), at every frequency |
@@ -56,6 +56,7 @@ power is at the amplifier input (the source power minus `input_attenuation_db`).
 says *"compression not reached: raise stop_dbm"*. Start low enough to be in the linear range: if the gain already
 falls at the lowest powers the log says so.
 
+
 ## The file
 
 ```json amplifier.amp
@@ -65,7 +66,8 @@ falls at the lowest powers the log says so.
   "input_attenuation_db": 0,
   "max_input_dbm": 0,
   "passband": {"from_hz": 820000000, "to_hz": 920000000},
-  "gain_edge_db": 3,
+  "edge_db": 3,
+  "also_reverse": true,
   "frequencies_of_interest": [868000000],
   "compression": {"frequency_hz": 868000000, "start_dbm": -40, "stop_dbm": -5, "step_db": 1},
   "limits": {"bands": [{"from": 820000000, "to": 920000000, "min": 15}]},
@@ -81,10 +83,19 @@ problem at its field, including the protection errors.
 `golden` (optional) checks the result against a **golden sample** of the project, a good amplifier of the same kind, for
 example the gain `S21` in `magnitude_db` within 1 dB ([`golden.md`](golden.md#as-a-step-of-a-measurement)).
 
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
 **Cables and pads in front of the amplifier.** An attenuator or a cable that was measured (a cable or attenuator run, or a
 `.s2p`) can be taken out with `correction.port1` / `correction.port2`, as in the filter; the compression test takes them out
 as losses at its frequency. See [`deembedding.md`](deembedding.md#in-the-amplifier-and-the-cable-measurements).
+
+## A VNA that measures in one direction
+
+The stability, the output return loss and the isolation need `S12` and `S22`. A VNA with a source on port 1 only (the
+LiteVNA measures `S11` and `S21`) cannot give them: set `also_reverse` to `false` (in the editor: untick *Also measure in
+reverse*). Only `S21` and `S11` are then read, and the gain, the band, the flatness and the input return loss are measured as
+usual; the curves, the table and the summary have no stability, output return loss or isolation, and the log says so. With
+`also_reverse` left on, such a VNA cannot run the measurement (the check of the instrument says which parameters it lacks).
 
 ## Results
 

@@ -13,17 +13,20 @@
   "params_schema": {
     "golden": {"type": "object", "required": false,
                "description": "check the result against a golden sample of the project (a good unit of the same kind): name (in the golden/ folder of the project) or run (a run file), and tolerances = {rows: {match: [columns that pair the rows], columns: {column: tolerance}}, curves, min_overlap}"},
-    "start_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
-    "stop_hz": {"type": "number", "min": 0, "unit": "Hz", "required": true},
-    "points": {"type": "integer", "min": 2, "required": true},
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points, scale (linear|log), if_bandwidth_hz, power_dbm (a file written before, with these keys at the top, is read too)"},
     "sparameters": {"type": "list", "required": false, "item": "S11 | S21 | S12 | S22",
                     "description": "default [\"S11\"]"},
     "sweeps": {"type": "integer", "min": 1, "required": false, "description": "default 1"},
     "interval_s": {"type": "number", "min": 0, "unit": "s", "required": false,
                    "description": "time between the starts of two sweeps (default 0)"},
-    "if_bandwidth_hz": {"type": "number", "min": 0, "unit": "Hz", "required": false},
-    "power_dbm": {"type": "number", "unit": "dBm", "required": false},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "sweeps averaged into each recorded one (default 1)"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask once, before measuring, whether the VNA is calibrated and the device connected (default true)"},
     "require_calibration": {"type": "boolean", "required": false,
-                            "description": "stop if the data are not calibrated (default: warn)"}
+                            "description": "stop if the VNA says the data, or one of the S-parameters read, are not corrected by the calibration (default: warn)"},
+    "z0": {"type": "number", "unit": "ohm", "required": false,
+           "description": "reference impedance of the VNA (the impedance of its calibration), 50 by default; also written in the Touchstone export"}
   }
 }

@@ -217,3 +217,16 @@ def test_a_cable_is_measured_without_the_adapter_in_front_of_it(registry, tmp_pa
     )
     assert corrected["loss_500MHz_db"] == pytest.approx(alone["loss_500MHz_db"], abs=0.02)
     assert any("corrected for the fixtures" in m for m in logs)
+
+
+def test_the_full_model_needs_the_reverse_parameters_of_the_amplifier(registry):
+    params = {
+        "sweep": {"start_hz": 700e6, "stop_hz": 1050e6, "points": 101},
+        "correction": {"port1": {"touchstone": "pad.s2p"}, "model": "full"},
+        "also_reverse": False,
+    }
+    problems = registry.create("amplifier", params).check()
+    assert any(p.path == "correction.model" and "four S-parameters" in p.message for p in problems)
+    params["also_reverse"] = True
+    problems = registry.create("amplifier", params).check()
+    assert not any(p.path == "correction.model" for p in problems)

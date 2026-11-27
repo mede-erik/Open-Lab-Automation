@@ -44,6 +44,8 @@ and `device.version` (the antenna as a [DUT](duts.md)),
 `z0`, `vswr_max`, `frequencies_of_interest`, `limits` (on the **return loss** in dB, normally a minimum), `averages`,
 `confirm_setup`. The editor (*Edit* in the project window) is built from the module's `form.json`.
 
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
+
 ## Results
 
 * **Curves** (*Curves* tab): `S11` on the Smith chart or in any other view; hidden at first and selectable:
