@@ -11,11 +11,12 @@ Parameters (``.amp`` file)::
                "power_dbm": -30},                       # the VNA source power: keep it LOW
      "input_attenuation_db": 0, "max_input_dbm": 0,      # optional protection (below)
      "passband": {"from_hz": 820e6, "to_hz": 920e6},     # optional, the whole sweep by default
-     "gain_edge_db": 3,                                  # optional
+     "edge_db": 3,                                       # optional
      "frequencies_of_interest": [868e6],                 # optional
      "compression": {"frequency_hz": 868e6, "start_dbm": -40, "stop_dbm": -10, "step_db": 1,
                      "compression_db": 1},               # optional: the compression point
      "limits": {"min": 18},                              # optional: a mask on the gain in dB
+     "also_reverse": true,                               # optional: false on a forward-only VNA
      "averages": 1, "confirm_setup": true}
 
 The amplifier goes between port 1 and port 2 of the VNA, calibrated beforehand by the user *with
@@ -25,6 +26,10 @@ reverse isolation is ``-S12`` in dB, and the **stability** comes from the four t
 (``ola.rf.two_port_stability``): the Rollett factor K, |delta| and the geometric factor mu. A value
 of mu above 1 at every frequency (equivalently K above 1 and |delta| below 1) means that the
 amplifier cannot oscillate with any passive source and load, *inside the sweep*.
+
+**A forward-only VNA** (the LiteVNA measures S11 and S21 only): with ``also_reverse`` false only
+S21 and S11 are read, so the gain, the band and the input return loss are measured, and the output
+return loss, the isolation and the stability are not (they need S12 and S22). The log says so.
 
 **Protection.** A VNA source can overdrive an amplifier and an amplifier can overdrive a VNA
 port. ``sweep.power_dbm`` is the source power; with ``input_attenuation_db`` (an attenuator in front
@@ -58,6 +63,8 @@ from ola.vna_common import (
     frequency_label,
     is_number,
     set_sweep,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 DEFAULT_EDGE_DB = 3.0
@@ -73,7 +80,7 @@ def default_params() -> Dict[str, Any]:
             "start_hz": 1e6, "stop_hz": 3e9, "points": 401, "scale": "linear", "power_dbm": -30,
         },  # fmt: skip
         "input_attenuation_db": 0,
-        "gain_edge_db": DEFAULT_EDGE_DB,
+        "edge_db": DEFAULT_EDGE_DB,
         "frequencies_of_interest": [],
         "averages": 1,
         "confirm_setup": True,
@@ -134,16 +141,14 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
             out.append(Problem("passband", "needs from_hz below to_hz (Hz)"))
         elif start is not None and stop is not None and (low < start or high > stop):
             out.append(Problem("passband", "must be inside the sweep"))
-    if "gain_edge_db" in params and (
-        not is_number(params["gain_edge_db"]) or params["gain_edge_db"] <= 0
-    ):
-        out.append(Problem("gain_edge_db", "must be a number of dB above 0 (3 is usual)"))
+    if "edge_db" in params and (not is_number(params["edge_db"]) or params["edge_db"] <= 0):
+        out.append(Problem("edge_db", "must be a number of dB above 0 (3 is usual)"))
 
     comp = params.get("compression")
     if comp is not None:
         out += _check_compression(comp, start, stop, attenuation, limit)
     check_asset(params, "device", out)
-    check_common(params, out, start, stop)
+    check_common(params, out, start, stop, booleans=("also_reverse", "confirm_setup"))
     check_golden_param(params, out)
     return out
 
@@ -206,36 +211,41 @@ def compute_amplifier(
     freq: List[float], s: Dict[str, List[complex]], params: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Gain, match, isolation and stability from the four S-parameters. No I/O. ``missing`` lists
-    what could not be found (a band edge outside the sweep)."""
+    what could not be found (a band edge outside the sweep). Without ``S12`` and ``S22`` (a
+    forward-only measurement) the output return loss, the isolation and the stability are left
+    out: their curves are None and they are not in the summary."""
     band = params.get("passband")
-    edge_db = float(params.get("gain_edge_db", DEFAULT_EDGE_DB))
+    edge_db = float(params.get("edge_db", DEFAULT_EDGE_DB))
     gain = rf.magnitude_db(s["S21"])
     inside = [i for i, f in enumerate(freq) if not band or band["from_hz"] <= f <= band["to_hz"]]
     peak = max(range(len(freq)), key=lambda i: gain[i])
-    input_rl, output_rl = rf.return_loss_db(s["S11"]), rf.return_loss_db(s["S22"])
-    isolation = [-v for v in rf.magnitude_db(s["S12"])]
-    stability = rf.two_port_stability(s["S11"], s["S21"], s["S12"], s["S22"])
+    input_rl = rf.return_loss_db(s["S11"])
     summary: Dict[str, Any] = {
         "points": len(freq),
         "peak_gain_db": gain[peak],
         "peak_at_hz": freq[peak],
         "gain_flatness_db": max(gain[i] for i in inside) - min(gain[i] for i in inside),
         "worst_input_return_loss_db": min(input_rl[i] for i in inside),
-        "worst_output_return_loss_db": min(output_rl[i] for i in inside),
-        "min_isolation_db": min(isolation[i] for i in inside),
-        "min_k": min(stability["k"]),
-        "min_mu": min(stability["mu"]),
-        "min_mu_prime": min(stability["mu_prime"]),
     }
-    stable = all(m > 1 for m in stability["mu"]) and all(m > 1 for m in stability["mu_prime"])
-    summary["unconditionally_stable"] = "yes" if stable else "no"
-    unstable = rf.bands_where(
-        freq, [min(a, b) for a, b in zip(stability["mu"], stability["mu_prime"])], 1.0
-    )
-    if unstable and not stable:
-        summary["unstable_bands"] = "; ".join(
-            f"{format_si(a, 'Hz')} to {format_si(b, 'Hz')}" for a, b in unstable
+    output_rl = isolation = stability = None
+    if "S12" in s and "S22" in s:
+        output_rl = rf.return_loss_db(s["S22"])
+        isolation = [-v for v in rf.magnitude_db(s["S12"])]
+        stability = rf.two_port_stability(s["S11"], s["S21"], s["S12"], s["S22"])
+        summary["worst_output_return_loss_db"] = min(output_rl[i] for i in inside)
+        summary["min_isolation_db"] = min(isolation[i] for i in inside)
+        summary["min_k"] = min(stability["k"])
+        summary["min_mu"] = min(stability["mu"])
+        summary["min_mu_prime"] = min(stability["mu_prime"])
+        stable = all(m > 1 for m in stability["mu"]) and all(m > 1 for m in stability["mu_prime"])
+        summary["unconditionally_stable"] = "yes" if stable else "no"
+        unstable = rf.bands_where(
+            freq, [min(a, b) for a, b in zip(stability["mu"], stability["mu_prime"])], 1.0
         )
+        if unstable and not stable:
+            summary["unstable_bands"] = "; ".join(
+                f"{format_si(a, 'Hz')} to {format_si(b, 'Hz')}" for a, b in unstable
+            )
     edges = rf.level_crossings(freq, gain, gain[peak] - edge_db)
     low = [f for f, d in edges if d == "rising" and f <= freq[peak]]
     high = [f for f, d in edges if d == "falling" and f >= freq[peak]]
@@ -281,8 +291,17 @@ def compression_point(
     }
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class AmplifierResponse(Measurement):
     """An RF amplifier with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -318,8 +337,20 @@ class AmplifierResponse(Measurement):
                 connect_args={"max": f"{max_dbm:g}"} if max_dbm is not None else {},
                 mode="transmission",
             )
+        reverse = bool(p.get("also_reverse", True))
+        if not reverse:
+            ctx.log(
+                "forward only (also_reverse is false): S21 and S11 are read; the output return "
+                "loss, the isolation and the stability need S12 and S22 and are not measured",
+                "warning",
+            )
         freq, traces = acquire(
-            ctx, handle, p["sweep"], ["S21", "S11", "S12", "S22"], int(p.get("averages", 1))
+            ctx,
+            handle,
+            p["sweep"],
+            ["S21", "S11", "S12", "S22"] if reverse else ["S21", "S11"],
+            int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
         )
         self._report(ctx, freq, traces)
         if p.get("compression"):
@@ -354,35 +385,36 @@ class AmplifierResponse(Measurement):
             meta["limits"] = {"view": "magnitude_db", **limits.lines(freq)}
         ctx.emit_trace("S21", freq, s["S21"], kind="complex", **meta)
         for name in ("S11", "S22", "S12"):
-            ctx.emit_trace(name, freq, s[name], kind="complex", hidden=True, **base)
+            if name in s:
+                ctx.emit_trace(name, freq, s[name], kind="complex", hidden=True, **base)
         stability = result["stability"]
-        ctx.emit_trace(
-            "stability_mu",
-            freq,
-            stability["mu"],
-            hidden=True,
-            **dict(base, ylabel="mu (stable above 1)"),
-        )
-        ctx.emit_trace(
-            "stability_k",
-            freq,
-            stability["k"],
-            hidden=True,
-            **dict(base, ylabel="K (stable above 1)"),
-        )
-        for i, f in enumerate(freq):  # the whole sweep as a table, for the CSV export
-            ctx.emit_point(
-                {
-                    "frequency_hz": f,
-                    "gain_db": result["gain_db"][i],
-                    "input_return_loss_db": result["input_return_loss_db"][i],
-                    "output_return_loss_db": result["output_return_loss_db"][i],
-                    "isolation_db": result["isolation_db"][i],
-                    "k": stability["k"][i],
-                    "mu": stability["mu"][i],
-                },
-                table="sweep",
+        if stability is not None:
+            ctx.emit_trace(
+                "stability_mu",
+                freq,
+                stability["mu"],
+                hidden=True,
+                **dict(base, ylabel="mu (stable above 1)"),
             )
+            ctx.emit_trace(
+                "stability_k",
+                freq,
+                stability["k"],
+                hidden=True,
+                **dict(base, ylabel="K (stable above 1)"),
+            )
+        for i, f in enumerate(freq):  # the whole sweep as a table, for the CSV export
+            row = {
+                "frequency_hz": f,
+                "gain_db": result["gain_db"][i],
+                "input_return_loss_db": result["input_return_loss_db"][i],
+            }
+            if stability is not None:
+                row["output_return_loss_db"] = result["output_return_loss_db"][i]
+                row["isolation_db"] = result["isolation_db"][i]
+                row["k"] = stability["k"][i]
+                row["mu"] = stability["mu"][i]
+            ctx.emit_point(row, table="sweep")
         self._summary = {"device": label, **result["summary"]}
         if not limits.empty:
             verdict = limits.check(freq, result["gain_db"])
@@ -392,7 +424,7 @@ class AmplifierResponse(Measurement):
         for what in result["missing"]:
             ctx.log(f"could not find {what} of the band: widen the sweep", "warning")
         top = result["summary"]
-        if top["unconditionally_stable"] == "no":
+        if top.get("unconditionally_stable") == "no":
             where = top.get("unstable_bands", "")
             ctx.log(
                 f"the amplifier is not unconditionally stable ({where}): it could oscillate",
@@ -402,7 +434,7 @@ class AmplifierResponse(Measurement):
         ctx.log(
             f"amplifier{named}: peak gain {top['peak_gain_db']:.3g} dB at "
             f"{format_si(top['peak_at_hz'], 'Hz')}, flatness {top['gain_flatness_db']:.3g} dB, "
-            f"stable: {top['unconditionally_stable']}"
+            f"stable: {top.get('unconditionally_stable', 'not measured')}"
         )
         if not p.get("compression"):
             ctx.emit_point(self._summary)

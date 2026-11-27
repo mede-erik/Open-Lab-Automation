@@ -29,6 +29,8 @@
                "description": "check the result against a golden sample of the project (a good unit of the same kind): name or run, and tolerances = {curves: [{trace, view, tolerance}], summary: {figure: tolerance}, min_overlap}"},
     "averages": {"type": "integer", "min": 1, "required": false,
                  "description": "number of sweeps averaged"},
+    "require_calibration": {"type": "boolean", "required": false,
+                            "description": "stop if the VNA says the data, or the S-parameter read, are not corrected by the calibration (default: warn)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate and connect the component"}
   }

@@ -32,6 +32,7 @@ close to zero, a shunt one close to one) the log names the method that suits the
   "frequencies_of_interest": [10000000, 100000000],
   "z0": 50,
   "averages": 1,
+  "require_calibration": false,
   "confirm_setup": true
 }
 ```
@@ -45,7 +46,7 @@ close to zero, a shunt one close to one) the log names the method that suits the
 | `nominal` | optional: `value` (H, F or ohm; the editor takes `100n`, `4.7p`), `tolerance_pct` (10 by default) and `frequency_hz` where it is checked. It needs a `kind` other than `auto` |
 | `frequencies_of_interest` | `|Z|`, `R`, `X`, the value and `Q` are reported there |
 | `z0` | the reference impedance of the VNA (50 ohm by default) |
-| `golden`, `averages`, `confirm_setup` | as in the other VNA measurements |
+| `golden`, `averages`, `require_calibration`, `confirm_setup` | as in the other VNA measurements ([`vna-calls.md`](vna-calls.md#common-parameters-of-the-vna-measurements)) |
 
 ## Results
 

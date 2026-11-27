@@ -49,12 +49,15 @@ cut-off: widen the sweep"* and that figure is left out; it is not made up.
 | `frequencies_of_interest` | the gain is reported at these frequencies (inside the sweep) |
 | `limits` | a **mask on the gain in dB** ([`ola/limits.py`](../ola/limits.py)). The gain is negative: `min: -4` means *at least -4 dB* (the filter must pass), `max: -20` means *at most -20 dB* (the filter must reject). Constants, lines and bands can be mixed |
 | `also_s11` | also read S11 (return loss in the passband) |
+| `group_delay_aperture` | the group delay is the slope of the phase over this many points on each side (1 by default); more points smooth the noise of a low-cost VNA and hide narrow details |
 | `averages`, `confirm_setup` | sweeps averaged; `false` skips the question |
 | `golden` | optional: check the result against a **golden sample** of the project (a good unit of the same kind): `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
 The sweep decides what can be found: it must include the edges and some of the stop band. For a narrow filter use
 enough points (a step much smaller than the bandwidth). The editor (*Edit* in the project window, from the module's
 `form.json`) shows every problem at its field and accepts numbers such as `868M` or `2.4 GHz`.
+
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
 ## Results
 

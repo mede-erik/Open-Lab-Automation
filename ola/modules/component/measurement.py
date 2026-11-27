@@ -13,7 +13,7 @@ Parameters (``.cmp`` file)::
      "kind": "auto",                      # auto | inductor | capacitor | resistor
      "nominal": {"value": 100e-9, "tolerance_pct": 5, "frequency_hz": 10e6},   # optional
      "frequencies_of_interest": [10e6, 100e6],                                # optional
-     "z0": 50, "averages": 1, "confirm_setup": true}
+     "z0": 50, "averages": 1, "require_calibration": false, "confirm_setup": true}
 
 **How it is connected** (``method``), each good for a range of impedance (``ola.component``):
 
@@ -51,6 +51,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 # what is reported for each kind: (the curve, its label, its scale, the unit of the summary)
@@ -105,8 +107,6 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
                 out.append(
                     Problem("kind", "say inductor, capacitor or resistor to check a nominal value")
                 )
-    if "z0" in params and (not is_number(params["z0"]) or params["z0"] <= 0):
-        out.append(Problem("z0", "the reference impedance must be a number above 0 (ohm)"))
     check_asset(params, "device", out)
     check_common(params, out, start, stop)
     check_golden_param(params, out)
@@ -173,8 +173,17 @@ def compute(freq: List[float], z: List[complex], params: Dict[str, Any]) -> Dict
     return {"kind": kind, "equivalent": eq, "resonances": resonances, "summary": summary}
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class ComponentImpedance(Measurement):
     """A component's impedance with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -200,7 +209,14 @@ class ComponentImpedance(Measurement):
                 mode="reflection" if method == "reflection" else "transmission",
             )
         name = "S11" if method == "reflection" else "S21"
-        freq, traces = acquire(ctx, handle, sweep, [name], int(p.get("averages", 1)))
+        freq, traces = acquire(
+            ctx,
+            handle,
+            sweep,
+            [name],
+            int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )
         self._report(ctx, freq, traces[name], name)
 
     def _report(self, ctx: MeasurementContext, freq: List[float], s: List[complex], name: str):

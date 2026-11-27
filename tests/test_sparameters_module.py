@@ -24,7 +24,24 @@ CANDIDATES = [
 ]
 LIB = next((p for p in CANDIDATES if os.path.isfile(p)), None)
 
-PARAMS = {"start_hz": 1e6, "stop_hz": 4e6, "points": 4, "sparameters": ["S11", "S21"]}
+# a file written before the common sweep block: the keys at the top are still read
+PARAMS = {
+    "start_hz": 1e6,
+    "stop_hz": 4e6,
+    "points": 4,
+    "sparameters": ["S11", "S21"],
+    "confirm_setup": False,
+}
+
+
+class VnaFake(FakeHandle):
+    """A fake analyzer that says it has the calls of the library (as a real handle does)."""
+
+    CALLS = ("set_frequency_sweep", "run_sweep", "read_sparameters", "set_if_bandwidth",
+             "set_source_power")  # fmt: skip
+
+    def supports(self, name):
+        return name in self.CALLS
 
 
 @pytest.fixture
@@ -59,7 +76,7 @@ def test_module_is_found_and_asks_for_a_network_analyzer(registry):
 
 
 def test_one_sweep_records_complex_traces_and_a_summary(registry):
-    handle = FakeHandle("vna", {"read_sparameters": lambda sparameters: read_result()})
+    handle = VnaFake("vna", {"read_sparameters": lambda sparameters: read_result()})
     runner, events = run(registry, handle)
     assert runner.state is RunState.FINISHED
     calls = [name for name, _ in handle.calls]
@@ -77,7 +94,7 @@ def test_one_sweep_records_complex_traces_and_a_summary(registry):
 
 
 def test_repeated_sweeps_and_optional_settings(registry):
-    handle = FakeHandle("vna", {"read_sparameters": lambda sparameters: read_result()})
+    handle = VnaFake("vna", {"read_sparameters": lambda sparameters: read_result()})
     runner, events = run(
         registry, handle, sweeps=3, interval_s=0.01, if_bandwidth_hz=1000, power_dbm=-10
     )
@@ -88,12 +105,13 @@ def test_repeated_sweeps_and_optional_settings(registry):
 
 
 def test_uncalibrated_data_warn_or_stop(registry):
-    handle = FakeHandle("vna", {"read_sparameters": lambda sparameters: read_result(False)})
+    handle = VnaFake("vna", {"read_sparameters": lambda sparameters: read_result(False)})
     runner, events = run(registry, handle, sweeps=2)
     warnings = [
         e.data["message"] for e in events if e.kind == "log" and e.data["level"] == "warning"
     ]
-    assert runner.state is RunState.FINISHED and warnings == ["the data are not calibrated"]
+    assert runner.state is RunState.FINISHED and len(warnings) == 1  # once, not at every sweep
+    assert "not calibrated" in warnings[0]
     runner, _ = run(registry, handle, require_calibration=True)
     assert runner.state is RunState.FAILED
     assert "not calibrated" in str(runner.error)
@@ -132,3 +150,38 @@ def test_with_the_simulated_litevna_through_the_library(registry):
     trace = next(e.data for e in events if e.kind == "trace")
     assert len(trace["x"]) == 11 and trace["meta"]["calibrated"] is False
     assert all(math.hypot(*v) == pytest.approx(0.4, abs=1e-4) for v in trace["y"])
+
+
+def test_the_sweep_block_of_the_other_vna_measurements(registry):
+    """The new form of the file: ``sweep`` as in the other VNA measurements, with averages."""
+    from ola.modules.sparameters.measurement import upgrade_params
+
+    handle = VnaFake("vna", {"read_sparameters": lambda sparameters: read_result()})
+    params = {
+        "sweep": {"start_hz": 1e6, "stop_hz": 4e6, "points": 4, "if_bandwidth_hz": 1000},
+        "sparameters": ["S11"],
+        "averages": 2,
+        "confirm_setup": False,
+    }
+    measurement = registry.create("sparameters", params)
+    assert measurement.validate() == []
+    runner = run_to_end(Runner(measurement, {"vna": [handle]}))
+    events = list(runner.drain())
+    assert runner.state is RunState.FINISHED, runner.error
+    assert [n for n, _ in handle.calls].count("read_sparameters") == 2  # averaged into one
+    assert ("set_if_bandwidth", {"value": 1000}) in handle.calls
+    assert len([e for e in events if e.kind == "point"]) == 1
+    old = dict(PARAMS, if_bandwidth_hz=1000)
+    assert upgrade_params(old) and old["sweep"] == {
+        "start_hz": 1e6, "stop_hz": 4e6, "points": 4, "if_bandwidth_hz": 1000,
+    }  # fmt: skip
+    assert "start_hz" not in old and not upgrade_params(old)  # nothing left to change
+
+
+def test_the_setup_question_is_asked_once(registry):
+    handle = VnaFake("vna", {"read_sparameters": lambda sparameters: read_result()})
+    measurement = registry.create("sparameters", dict(PARAMS, confirm_setup=True, sweeps=2))
+    runner = run_to_end(Runner(measurement, {"vna": [handle]}, unattended="continue"))
+    questions = [e for e in runner.drain() if e.kind == "question"]
+    assert runner.state is RunState.FINISHED, runner.error
+    assert len(questions) == 1 and questions[0].data["data"]["kind"] == "calibration"

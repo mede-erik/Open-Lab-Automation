@@ -308,7 +308,10 @@ def test_a_run_restores_the_calibration_of_its_vna_and_the_header_says_so(tmp_pa
     )
     ref = session.create("sparameters", "S")
     raw = json.loads(session.path(ref).read_text(encoding="utf-8"))
-    raw["params"] = {"start_hz": 1e6, "stop_hz": 2e6, "points": 21, "sparameters": ["S11"]}
+    raw["params"] = {
+        "start_hz": 1e6, "stop_hz": 2e6, "points": 21, "sparameters": ["S11"],
+        "confirm_setup": False,
+    }  # fmt: skip
     raw["role_bindings"] = {"vna": ["VNA"]}
     session.path(ref).write_text(json.dumps(raw), encoding="utf-8")
     sim.connect(lambda f: 0.3)
