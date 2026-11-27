@@ -1,0 +1,33 @@
+{
+  "id": "crystal",
+  "name": "Quartz crystal",
+  "version": "1.0.0",
+  "api_version": 1,
+  "extension": ".xtl",
+  "entry": "measurement.py:CrystalResonator",
+  "description": "The equivalent circuit of a quartz crystal or a ceramic resonator with a vector network analyzer (VNA), the crystal in series between the ports: the series and parallel resonances fs and fp, the motional Rm, Lm and Cm, the electrode capacitance C0, the quality factor, the frequency with a load capacitance and its pulling, and a check of the frequency in ppm. Needs only S21: it works with a forward-only VNA such as the LiteVNA.",
+  "roles": [
+    {"name": "vna", "category": "network_analyzer", "required": true,
+     "description": "The network analyzer, calibrated at the plane of the crystal (one port and a thru)"}
+  ],
+  "params_schema": {
+    "sweep": {"type": "object", "required": true,
+              "description": "start_hz, stop_hz, points (narrow and linear, around the resonance), if_bandwidth_hz, power_dbm"},
+    "device": {"type": "object", "required": false,
+               "description": "label identifies the crystal; asset_id is its code in the registry"},
+    "nominal_frequency_hz": {"type": "number", "unit": "Hz", "required": false,
+                             "description": "the frequency the crystal is made for: the offset in ppm is reported"},
+    "tolerance_ppm": {"type": "number", "unit": "ppm", "required": false,
+                      "description": "pass / fail on the offset (of the frequency with the load if one is given, else of fs)"},
+    "load_capacitance_pf": {"type": "number", "unit": "pF", "required": false,
+                            "description": "the load capacitance the crystal is specified for: its frequency and pulling with it"},
+    "z0": {"type": "number", "unit": "ohm", "required": false,
+           "description": "reference impedance of the VNA (50 by default)"},
+    "golden": {"type": "object", "required": false,
+               "description": "check the result against a golden sample of the project (a good unit of the same kind): name or run, and tolerances = {curves, summary: {figure: tolerance}, min_overlap}"},
+    "averages": {"type": "integer", "min": 1, "required": false,
+                 "description": "number of sweeps averaged"},
+    "confirm_setup": {"type": "boolean", "required": false,
+                      "description": "ask, before measuring, to calibrate and connect the crystal"}
+  }
+}

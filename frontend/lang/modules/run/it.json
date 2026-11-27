@@ -89,6 +89,7 @@
   "run_far_short": "in corto",
   "run_connect_antenna": "Collega l'antenna alla porta 1 del VNA.",
   "run_connect_device": "Collega il dispositivo in prova alla porta 1 del VNA.",
+  "run_connect_crystal": "Collega il quarzo in serie tra la porta 1 e la porta 2 del VNA.",
   "run_connect_behind_cable_antenna": "L'antenna è dietro il cavo già misurato: collega quel cavo alla porta 1 del VNA (calibrato alla fine del cavetto di prova, SENZA il cavo) e l'antenna all'altro capo.",
   "run_connect_behind_cable_device": "Il dispositivo è dietro il cavo già misurato: collega quel cavo alla porta 1 del VNA (calibrato alla fine del cavetto di prova, SENZA il cavo) e il dispositivo in prova all'altro capo.",
   "run_connect_line": "Collega la linea in prova alla porta 1 del VNA, con l'estremo lontano aperto, in corto o sul dispositivo.",
