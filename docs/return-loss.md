@@ -47,6 +47,10 @@ S11, from which:
 The editor (*Edit* in the project window) comes from the module's `form.json`: every problem is shown at its field and
 numbers can be typed as `868M` or `2.4 GHz`.
 
+
+**Matching network.** `match_frequencies_hz` reports, at each of those frequencies, the two-component L networks that
+match the measured impedance to `z0`, as in the antenna measurement:
+[`antenna.md`](antenna.md#matching-the-antenna-l-networks).
 ## Results
 
 * **Curves** (*Curves* tab): `return_loss_db` (with the limit drawn dashed in red) and, hidden at first and selectable

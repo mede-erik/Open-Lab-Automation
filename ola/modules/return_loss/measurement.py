@@ -36,10 +36,11 @@ Touchstone file (``touchstone``, with ``termination`` for a ``.s1p``); ``mode`` 
 return loss is drawn together with the corrected one.
 """
 
+import math
 from typing import Any, Dict, List, Optional
 
 from ola.golden import check_golden_param, recording
-from ola import rf
+from ola import matching, rf
 from ola.efficiency_spec import Problem
 from ola.limits import parse_limits
 from ola.measurement import Measurement, MeasurementContext
@@ -90,6 +91,7 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
     if "vswr_max" in params and (not is_number(params["vswr_max"]) or params["vswr_max"] <= 1):
         out.append(Problem("vswr_max", "the VSWR limit must be a number above 1 (2 is common)"))
     check_asset(params, "device", out)
+    matching.check_frequencies(params, out, Problem, start, stop)
     check_correction(params, out, Problem)
     check_common(params, out, start, stop)
     check_golden_param(params, out)
@@ -128,7 +130,16 @@ def compute_match(freq: List[float], s11: List[complex], params: Dict[str, Any])
         name = frequency_label(f)
         summary[f"return_loss_{name}_db"] = rf.value_at(freq, loss, f)
         summary[f"vswr_{name}"] = rf.value_at(freq, vswr, f)
-    return {"return_loss_db": loss, "vswr": vswr, "z": z, "bands": bands, "summary": summary}
+    finite = [v if math.isfinite(v.real) else complex(1e9, 0) for v in z]  # an open: huge R
+    matched, lines = matching.summary_at(
+        freq, [v.real for v in finite], [v.imag for v in finite],
+        params.get("match_frequencies_hz") or [], z0,
+    )  # fmt: skip
+    summary.update(matched)
+    return {
+        "return_loss_db": loss, "vswr": vswr, "z": z, "bands": bands, "summary": summary,
+        "match_log": lines,
+    }  # fmt: skip
 
 
 class ReturnLoss(Measurement):
@@ -217,6 +228,8 @@ class ReturnLoss(Measurement):
             summary["verdict"] = "PASS" if verdict.passed else "FAIL"
             summary["margin_db"] = verdict.margin
             ctx.log(f"limit check: {verdict.summary()}", "info" if verdict.passed else "warning")
+        for line in result["match_log"]:  # the L networks that match the device
+            ctx.log(line)
         top = result["summary"]
         named = f" '{label}'" if label else ""
         ctx.log(

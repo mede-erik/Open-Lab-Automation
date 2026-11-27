@@ -322,6 +322,32 @@
           }
         },
         {
+          "path": "match_frequencies_hz",
+          "kind": "numlist",
+          "unit": "Hz",
+          "label": {
+            "en": "Matching network at",
+            "it": "Rete di adattamento a",
+            "fr": "Réseau d'adaptation à",
+            "es": "Red de adaptación en",
+            "de": "Anpassnetzwerk bei"
+          },
+          "help": {
+            "en": "Optional: at each of these frequencies the two-component L networks (an inductor and a capacitor) that match the measured impedance to the reference impedance are reported, with their values.",
+            "it": "Facoltativo: a ciascuna di queste frequenze vengono riportate le reti a L di due componenti (un induttore e un condensatore) che adattano l'impedenza misurata all'impedenza di riferimento, con i loro valori.",
+            "fr": "Facultatif : à chacune de ces fréquences, les réseaux en L à deux composants (une inductance et un condensateur) qui adaptent l'impédance mesurée à l'impédance de référence sont indiqués, avec leurs valeurs.",
+            "es": "Opcional: en cada una de estas frecuencias se informan las redes en L de dos componentes (un inductor y un condensador) que adaptan la impedancia medida a la impedancia de referencia, con sus valores.",
+            "de": "Optional: bei jeder dieser Frequenzen werden die L-Netzwerke aus zwei Bauteilen (eine Spule und ein Kondensator) angegeben, die die gemessene Impedanz an die Bezugsimpedanz anpassen, mit ihren Werten."
+          },
+          "placeholder": {
+            "en": "e.g. 868M",
+            "it": "es. 868M",
+            "fr": "p. ex. 868M",
+            "es": "p. ej. 868M",
+            "de": "z. B. 868M"
+          }
+        },
+        {
           "path": "limits",
           "kind": "json",
           "label": {
