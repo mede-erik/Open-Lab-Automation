@@ -514,6 +514,8 @@ def calibration_info(record: CalibrationRecord, path, project_path=None) -> Dict
     return {
         "file": file,
         "kind": record.kind,
+        "port": record.port,
+        "port2": record.port2,
         "date": record.date,
         "sweep": record.sweep,
         "serial_number": record.serial_number,
@@ -591,6 +593,26 @@ def find_record(project_path, serial_number: Optional[str], instrument: str = ""
         if record.serial_number == serial_number:  # the file says so too
             return record, path
     return None
+
+
+def note_kept_calibration(handle, project_path) -> Optional[Dict[str, Any]]:
+    """For a VNA that keeps its own calibration: remember what the program made on it (the newest
+    record of this apparatus in the project: kind, ports, date) so that a measurement can say which
+    S-parameters it corrects (``ola.vna_coverage``). Nothing is restored. Returns the info kept on
+    the connection, or None (a software calibration, none applied, no serial number, no record).
+    The caller checks that the calibration was made in this session and not lost
+    (``ola.vna_power_state``)."""
+    if getattr(handle, "calibration", None) or handle.supports("calibration_import"):
+        return None
+    identity = getattr(handle, "identity", None)
+    found = find_record(project_path, getattr(identity, "serial_number", None))
+    if found is None:
+        return None
+    record, path = found
+    info = calibration_info(record, path, project_path)
+    info["restored"] = False  # nothing was put back: the instrument has it
+    handle.set_calibration(info)
+    return info
 
 
 def auto_restore(
