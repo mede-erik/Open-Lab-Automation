@@ -54,6 +54,8 @@ from ola.vna_common import (
     check_sweep,
     frequency_label,
     is_number,
+    upgrade_params as _upgrade,
+    upgraded,
 )
 
 VSWR_CAP = 100.0
@@ -85,8 +87,6 @@ def check_params(params: Dict[str, Any]) -> List[Problem]:
         out.append(Problem("device", "must be an object with a 'label'"))
     elif "label" in device and not isinstance(device["label"], str):
         out.append(Problem("device.label", "the label must be text"))
-    if "z0" in params and (not is_number(params["z0"]) or params["z0"] <= 0):
-        out.append(Problem("z0", "the reference impedance must be a number above 0 (ohm)"))
     if "vswr_max" in params and (not is_number(params["vswr_max"]) or params["vswr_max"] <= 1):
         out.append(Problem("vswr_max", "the VSWR limit must be a number above 1 (2 is common)"))
     check_asset(params, "device", out)
@@ -131,8 +131,17 @@ def compute_match(freq: List[float], s11: List[complex], params: Dict[str, Any])
     return {"return_loss_db": loss, "vswr": vswr, "z": z, "bands": bands, "summary": summary}
 
 
+def upgrade_params(params: Dict[str, Any]) -> bool:
+    """Give a file written before the common names of the VNA measurements its new names, in
+    place (the editor calls it when it opens a file); True if anything changed."""
+    return _upgrade(params)
+
+
 class ReturnLoss(Measurement):
     """Return loss and VSWR with a VNA; see the module docstring."""
+
+    def __init__(self, params: Dict[str, Any]):
+        super().__init__(upgraded(params))  # the old names of the parameters are read too
 
     def check(self) -> List[Problem]:
         """The problems of the parameters with the path of each field (for the editor)."""
@@ -155,7 +164,10 @@ class ReturnLoss(Measurement):
                 connect = CABLE_CONNECT.format(device="device under test")
                 key = "run_connect_behind_cable_device"
             ask_setup(ctx, connect, sweep, connect_key=key, mode="reflection")
-        freq, traces = acquire(ctx, handle, sweep, ["S11"], int(p.get("averages", 1)))
+        freq, traces = acquire(
+            ctx, handle, sweep, ["S11"], int(p.get("averages", 1)),
+            require_calibration=bool(p.get("require_calibration", False)),
+        )  # fmt: skip
         s11, info = apply_correction(ctx, p, freq, traces["S11"])
         self._report(ctx, freq, s11, traces["S11"], info)
 

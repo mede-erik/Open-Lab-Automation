@@ -28,7 +28,7 @@ An attenuator that keeps its value is also a handy check of the VNA itself: meas
   "attenuator": {"label": "10 dB SMA #3", "nominal_db": 10, "tolerance_db": 0.5, "setting": ""},
   "sweep": {"start_hz": 1000000, "stop_hz": 3000000000, "points": 301, "scale": "linear"},
   "frequencies_of_interest": [433000000, 2400000000],
-  "also_return_loss": true,
+  "also_s11": true,
   "averages": 1,
   "confirm_setup": true
 }
@@ -44,7 +44,7 @@ An attenuator that keeps its value is also a handy check of the VNA itself: meas
 | `sweep` | `start_hz`, `stop_hz`, `points`, `scale` (`linear` or `log`); optional `if_bandwidth_hz`, `power_dbm` |
 | `frequencies_of_interest` | the attenuation is reported at these frequencies (inside the sweep) |
 | `limits` | a **mask on the attenuation in dB** ([`ola/limits.py`](../ola/limits.py)); replaces the check on `nominal_db` and `tolerance_db`: `{"bands": [{"from": 0, "to": 6e9, "min": 9, "max": 11}]}` |
-| `also_return_loss` | also read S11 and S22 (true by default) |
+| `also_s11` | also read S11 and S22 (true by default; the old name `also_return_loss` is still read) |
 | `averages`, `confirm_setup` | sweeps averaged; `false` skips the question |
 | `golden` | optional: check the result against a **golden sample** of the project (a good unit of the same kind): `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 
@@ -54,9 +54,11 @@ is the same and the results are told apart by `setting`.
 The measurement does not limit the source power: an attenuator is not harmed by the power of a VNA. Do not use it at the
 power of an amplifier: the maximum power of the attenuator is on its card (`ATT` details) for you to check.
 
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
 **A VNA that drives port 1 only** (the LiteVNA): `manual_reversal: true` reads `S22` and `S12` by asking you to turn the
 device round once; see [`vna-calls.md`](vna-calls.md#a-vna-that-measures-in-one-direction-manual-reversal).
+
 ## Results
 
 * **Curves**: `attenuation_db`, with the tolerance band or the mask drawn dashed in red; hidden at first: `S21`

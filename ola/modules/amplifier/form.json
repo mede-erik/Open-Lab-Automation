@@ -111,6 +111,43 @@
           }
         },
         {
+          "path": "also_reverse",
+          "kind": "bool",
+          "label": {
+            "en": "Also measure in reverse (S12, S22): isolation, output match, stability",
+            "it": "Misura anche al contrario (S12, S22): isolamento, adattamento d'uscita, stabilità",
+            "fr": "Mesurer aussi en sens inverse (S12, S22) : isolation, adaptation de sortie, stabilité",
+            "es": "Medir también en sentido inverso (S12, S22): aislamiento, adaptación de salida, estabilidad",
+            "de": "Auch rückwärts messen (S12, S22): Isolation, Ausgangsanpassung, Stabilität"
+          },
+          "help": {
+            "en": "Untick it for a VNA that measures in one direction only (the LiteVNA): gain, band and input match are still measured.",
+            "it": "Togli la spunta con un VNA che misura in una sola direzione (il LiteVNA): guadagno, banda e adattamento d'ingresso vengono misurati comunque.",
+            "fr": "Décochez-la pour un VNA qui mesure dans un seul sens (le LiteVNA) : le gain, la bande et l'adaptation d'entrée sont quand même mesurés.",
+            "es": "Desmárquela para un VNA que mide en un solo sentido (el LiteVNA): la ganancia, la banda y la adaptación de entrada se miden igualmente.",
+            "de": "Für einen VNA, der nur in eine Richtung misst (LiteVNA), abwählen: Verstärkung, Band und Eingangsanpassung werden weiterhin gemessen."
+          }
+        },
+        {
+          "path": "z0",
+          "kind": "number",
+          "unit": "ohm",
+          "label": {
+            "en": "Reference impedance of the VNA",
+            "it": "Impedenza di riferimento del VNA",
+            "fr": "Impédance de référence du VNA",
+            "es": "Impedancia de referencia del VNA",
+            "de": "Bezugsimpedanz des VNA"
+          },
+          "help": {
+            "en": "The impedance the VNA is calibrated to, 50 ohm by default (75 ohm with a 75 ohm calibration). Also written in the Touchstone export.",
+            "it": "L'impedenza a cui è calibrato il VNA, 50 ohm se non indicata (75 ohm con una calibrazione a 75 ohm). Viene scritta anche nell'export Touchstone.",
+            "fr": "L'impédance à laquelle le VNA est calibré, 50 ohms par défaut (75 ohms avec une calibration à 75 ohms). Elle est aussi écrite dans l'export Touchstone.",
+            "es": "La impedancia a la que está calibrado el VNA, 50 ohmios por defecto (75 ohmios con una calibración a 75 ohmios). También se escribe en la exportación Touchstone.",
+            "de": "Die Impedanz, auf die der VNA kalibriert ist, standardmäßig 50 Ohm (75 Ohm bei einer 75-Ohm-Kalibrierung). Wird auch in den Touchstone-Export geschrieben."
+          }
+        },
+        {
           "path": "manual_reversal",
           "kind": "bool",
           "label": {
@@ -309,7 +346,7 @@
           }
         },
         {
-          "path": "gain_edge_db",
+          "path": "edge_db",
           "kind": "number",
           "unit": "dB",
           "label": {
@@ -537,6 +574,24 @@
             "fr": "Demander de calibrer et connecter avant de mesurer",
             "es": "Pedir calibrar y conectar antes de medir",
             "de": "Vor der Messung zum Kalibrieren und Anschließen auffordern"
+          }
+        },
+        {
+          "path": "require_calibration",
+          "kind": "bool",
+          "label": {
+            "en": "Stop if the data are not calibrated",
+            "it": "Interrompi se i dati non sono calibrati",
+            "fr": "Arrêter si les données ne sont pas calibrées",
+            "es": "Detener si los datos no están calibrados",
+            "de": "Abbrechen, wenn die Daten nicht kalibriert sind"
+          },
+          "help": {
+            "en": "When the VNA says that its data, or one of the S-parameters read, are not corrected by the calibration, the measurement stops instead of only warning.",
+            "it": "Quando il VNA dice che i suoi dati, o uno dei parametri S letti, non sono corretti dalla calibrazione, la misura si ferma invece di dare solo un avviso.",
+            "fr": "Quand le VNA indique que ses données, ou l'un des paramètres S lus, ne sont pas corrigés par la calibration, la mesure s'arrête au lieu de seulement avertir.",
+            "es": "Cuando el VNA indica que sus datos, o uno de los parámetros S leídos, no están corregidos por la calibración, la medida se detiene en lugar de solo avisar.",
+            "de": "Meldet der VNA, dass seine Daten oder einer der gelesenen S-Parameter nicht durch die Kalibrierung korrigiert sind, bricht die Messung ab, statt nur zu warnen."
           }
         }
       ]

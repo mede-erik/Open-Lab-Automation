@@ -90,9 +90,9 @@ def test_only_the_reverse_ones_and_an_abort():
     vna = OneWay(SimAmplifier())
     _, data = acquire(Ctx(vna), vna, SWEEP, ["S22"], manual_reversal=True)
     assert set(data) == {"S22"} and vna.read == [("S11", True)]
+    vna = OneWay(SimAmplifier())
     with pytest.raises(Stopped):
-        acquire(Ctx(OneWay(SimAmplifier()), "abort"), OneWay(SimAmplifier()), SWEEP, ALL, 1, True,
-                (), True)  # fmt: skip
+        acquire(Ctx(vna, "abort"), vna, SWEEP, ALL, manual_reversal=True)
 
 
 def run_turning(registry, type_id, params, vna, timeout=30):
@@ -166,3 +166,39 @@ def test_the_attenuator_reads_its_output_match_by_turning_round(registry):
 def test_the_parameter_is_checked(registry):
     params = {"sweep": dict(SWEEP), "confirm_setup": False, "manual_reversal": "yes"}
     assert any(p.path == "manual_reversal" for p in registry.create("amplifier", params).check())
+
+
+def test_turning_the_device_round_needs_the_reverse_parameters(registry):
+    """``also_reverse`` false leaves S12 and S22 out: asking to turn the device round for them
+    contradicts it, and the editor says so."""
+    params = {"sweep": dict(SWEEP), "also_reverse": False, "manual_reversal": True}
+    problems = registry.create("amplifier", params).check()
+    assert any(p.path == "manual_reversal" and "also_reverse" in p.message for p in problems)
+    ok = registry.create("amplifier", dict(params, also_reverse=True)).check()
+    assert not any(p.path == "manual_reversal" for p in ok)
+
+
+def test_the_forward_only_amplifier_is_refused_before_it_starts(registry):
+    """With also_reverse false nothing could be turned round for: the file is refused, so that no
+    operator is asked for nothing."""
+    params = {
+        "sweep": dict(SWEEP),
+        "confirm_setup": False,
+        "also_reverse": False,
+        "manual_reversal": True,
+    }
+    assert any("also_reverse" in line for line in registry.create("amplifier", params).validate())
+
+
+def test_the_calibration_state_comes_through_the_turned_round_reading():
+    """The state of the calibration of the first reading is reported, and a required calibration
+    stops the measurement in the turned-round reading too (both come from acquire)."""
+    status = {}
+    vna = OneWay(SimAmplifier(library_calls=True))
+    ctx = Ctx(vna)
+    acquire(ctx, vna, SWEEP, ["S21", "S22"], manual_reversal=True, status=status)
+    assert status["calibrated"] is True and status["uncorrected"] == []
+    only = {}
+    vna2 = OneWay(SimAmplifier(library_calls=True))
+    acquire(Ctx(vna2), vna2, SWEEP, ["S22"], manual_reversal=True, status=only)
+    assert only["calibrated"] is True  # S22 alone: it comes from the turned-round reading

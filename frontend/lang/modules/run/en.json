@@ -91,6 +91,7 @@
   "run_far_short": "short",
   "run_connect_antenna": "Connect the antenna to port 1 of the VNA.",
   "run_connect_device": "Connect the device under test to port 1 of the VNA.",
+  "run_connect_sparameters": "Connect the device under test to the VNA (it reads {parameters}).",
   "run_connect_behind_cable_antenna": "The antenna is behind the cable that was measured: connect that cable to port 1 of the VNA (calibrated at the end of the test lead, WITHOUT the cable) and the antenna to its other end.",
   "run_connect_behind_cable_device": "The device is behind the cable that was measured: connect that cable to port 1 of the VNA (calibrated at the end of the test lead, WITHOUT the cable) and the device under test to its other end.",
   "run_connect_line": "Connect the line under test to port 1 of the VNA, with its far end open, shorted or on the device.",

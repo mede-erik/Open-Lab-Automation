@@ -37,6 +37,8 @@
                  "description": "number of sweeps averaged"},
     "limits": {"type": "object", "required": false,
                "description": "max_fault_reflection: the largest reflection allowed before the end of the line"},
+    "require_calibration": {"type": "boolean", "required": false,
+                            "description": "stop if the VNA says the data, or one of the S-parameters read, are not corrected by the calibration (default: warn)"},
     "confirm_setup": {"type": "boolean", "required": false,
                       "description": "ask, before measuring, to calibrate and connect the line"}
   }

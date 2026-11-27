@@ -91,6 +91,7 @@
   "run_far_short": "Kurzschluss-",
   "run_connect_antenna": "Verbinden Sie die Antenne mit Port 1 des VNA.",
   "run_connect_device": "Verbinden Sie das Prüfobjekt mit Port 1 des VNA.",
+  "run_connect_sparameters": "Schließen Sie den Prüfling an den VNA an (gelesen werden {parameters}).",
   "run_connect_behind_cable_antenna": "Die Antenne liegt hinter dem gemessenen Kabel: Verbinden Sie dieses Kabel mit Port 1 des VNA (am Ende des Messkabels kalibriert, OHNE das Kabel) und die Antenne an dessen anderes Ende.",
   "run_connect_behind_cable_device": "Das Prüfobjekt liegt hinter dem gemessenen Kabel: Verbinden Sie dieses Kabel mit Port 1 des VNA (am Ende des Messkabels kalibriert, OHNE das Kabel) und das Prüfobjekt an dessen anderes Ende.",
   "run_connect_line": "Verbinden Sie die Prüfleitung mit Port 1 des VNA, ihr fernes Ende offen, kurzgeschlossen oder am Gerät.",

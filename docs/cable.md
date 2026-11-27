@@ -53,11 +53,14 @@ Check the calibration before measuring a cable: the thru alone must read about 0
 | `cable.length_m` | gives the loss in dB/m and the velocity factor |
 | `frequencies_of_interest` | the loss is reported at these frequencies (read from the curve; they must be inside the sweep) |
 | `limits` | pass / fail limit on the loss in dB: a constant, a line, or one limit per band ([`ola/limits.py`](../ola/limits.py)) |
+| `group_delay_aperture` | the delay (and the velocity factor) is the slope of the phase over this many points on each side (1 by default); more points smooth the noise |
 | `averages` | number of sweeps averaged (reduces noise) |
 | `golden` | optional: check the result against a **golden sample** of the project, a good cable of the same kind: `name` and `tolerances` ([`golden.md`](golden.md#as-a-step-of-a-measurement)) |
 | `confirm_setup` | `false` skips the question (for scripts) |
 
 The editor (*Edit* in the project window, built from the module's `form.json`) checks the file while it is filled in: every problem is shown at its field, a number can be typed as `433M` or `2.4 GHz`, and the VNA is chosen from the instruments of the project.
+
+The fields that every VNA measurement has (`z0`, `require_calibration`, `averages`, `confirm_setup`, and the old names that are still read) are described once in [`vna-calls.md`](vna-calls.md), section *Common parameters of the VNA measurements*.
 
 ## Results
 
